@@ -265,9 +265,9 @@ MD
   "details":{"target_stage":"${stage}","artifacts":{}}
 }
 JSON
-  echo "ok" >"$logs_dir/wrapper.preflight.log"
-  echo "ok" >"$logs_dir/wrapper.run.log"
-  echo "ok" >"$logs_dir/wrapper.postflight.log"
+  echo "ok" >"$logs_dir/stage.preflight.log"
+  echo "ok" >"$logs_dir/stage.run.log"
+  echo "ok" >"$logs_dir/stage.postflight.log"
   cat >"$loops_dir/output.contract.json" <<JSON
 {"status":"ok","actions_log":"aidd/reports/actions/${ticket}/${scope_key}/${stage}.actions.json"}
 JSON

@@ -14,7 +14,6 @@ SCHEMA_FILES: Dict[str, str] = {
     "aidd.readmap.v1": "aidd.readmap.v1.json",
     "aidd.writemap.v1": "aidd.writemap.v1.json",
     "aidd.stage_result.v1": "aidd.stage_result.v1.json",
-    "aidd.stage_result.preflight.v1": "aidd.stage_result.preflight.v1.json",
 }
 
 

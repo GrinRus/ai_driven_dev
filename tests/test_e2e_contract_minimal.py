@@ -30,7 +30,7 @@ class E2EContractMinimalTests(unittest.TestCase):
             payload = json.loads((root / "docs" / ".active.json").read_text(encoding="utf-8"))
             self.assertEqual(payload.get("slug_hint"), "tst-001-demo")
 
-    def test_loop_step_generates_stage_wrapper_contract_artifacts(self) -> None:
+    def test_loop_step_generates_stage_chain_contract_artifacts(self) -> None:
         with tempfile.TemporaryDirectory(prefix="e2e-contract-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             ticket = "TST-001"
@@ -56,7 +56,7 @@ class E2EContractMinimalTests(unittest.TestCase):
             )
             runner = FIXTURES / "runner.sh"
             runner_log = root / "runner.log"
-            env = cli_env({"AIDD_LOOP_RUNNER_LOG": str(runner_log), "AIDD_SKIP_STAGE_WRAPPERS": "0"})
+            env = cli_env({"AIDD_LOOP_RUNNER_LOG": str(runner_log)})
             result = subprocess.run(
                 cli_cmd("loop-step", "--ticket", ticket, "--runner", f"bash {runner}", "--format", "json"),
                 text=True,
@@ -74,8 +74,8 @@ class E2EContractMinimalTests(unittest.TestCase):
             self.assertTrue((root / "reports" / "context" / ticket / f"{scope_key}.readmap.json").exists())
             self.assertTrue((root / "reports" / "context" / ticket / f"{scope_key}.writemap.json").exists())
             self.assertTrue((root / "reports" / "loops" / ticket / scope_key / "stage.preflight.result.json").exists())
-            wrapper_logs = list((root / "reports" / "logs" / "implement" / ticket / scope_key).glob("wrapper.*.log"))
-            self.assertTrue(wrapper_logs)
+            stage_chain_logs = list((root / "reports" / "logs" / "implement" / ticket / scope_key).glob("stage.*.log"))
+            self.assertTrue(stage_chain_logs)
 
 
 if __name__ == "__main__":

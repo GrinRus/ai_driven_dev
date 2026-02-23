@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import re
 from typing import Mapping
 
 
@@ -10,6 +11,11 @@ CLASSIFICATION_PRIORITY = (
     "PROMPT_EXEC_ISSUE",
     "CONTRACT_MISMATCH",
     "FLOW_BUG",
+)
+
+INVALID_FALLBACK_RUNTIME_PATH_RE = re.compile(
+    r"python3\s+/skills/[^ \n]*/runtime/[^ \n]*\.py\b",
+    re.IGNORECASE,
 )
 
 
@@ -118,6 +124,16 @@ def classify_incident(
             subtype="launcher_tokenization_or_command_not_found",
             source="summary",
             label="PROMPT_EXEC_ISSUE(launcher_tokenization_or_command_not_found)",
+        )
+
+    if INVALID_FALLBACK_RUNTIME_PATH_RE.search(merged_text) and (
+        "can't open file" in merged_text or "no such file" in merged_text
+    ):
+        return Classification(
+            classification="PROMPT_EXEC_ISSUE",
+            subtype="fallback_path_assembly_bug",
+            source="run_log",
+            label="PROMPT_EXEC_ISSUE(fallback_path_assembly_bug)",
         )
 
     if top_level in {"blocked", "done", "ship", "success", "error", "continue"}:

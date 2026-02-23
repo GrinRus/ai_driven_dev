@@ -42,12 +42,12 @@ def _sync_active_stage_to_qa(target: Path, ticket: str) -> tuple[bool, str]:
     return True, active_before
 
 
-def _qa_wrapper_context_available(target: Path, ticket: str) -> tuple[bool, str]:
+def _qa_stage_chain_context_available(target: Path, ticket: str) -> tuple[bool, str]:
     _, scope_key = _resolve_qa_scope_context(target, ticket)
     logs_dir = target / "reports" / "logs" / "qa" / ticket / scope_key
     if not logs_dir.exists():
         return False, scope_key
-    return any(logs_dir.glob("wrapper.*.log")), scope_key
+    return any(logs_dir.glob("stage.*.log")), scope_key
 
 
 def _active_mode(target: Path) -> str:
@@ -658,14 +658,13 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     loop_mode = _active_mode(target) == "loop"
-    wrappers_skipped = os.getenv("AIDD_SKIP_STAGE_WRAPPERS", "").strip() == "1"
-    if loop_mode and not wrappers_skipped:
-        wrapper_context_ok, wrapper_scope = _qa_wrapper_context_available(target, ticket)
-        if not wrapper_context_ok:
+    if loop_mode:
+        stage_chain_context_ok, stage_chain_scope = _qa_stage_chain_context_available(target, ticket)
+        if not stage_chain_context_ok:
             print(
-                "[aidd] WARN: QA wrapper context missing "
-                f"(reason_code=qa_wrapper_context_missing scope_key={wrapper_scope or 'n/a'}); "
-                "preflight guard may block if wrapper artifacts are absent.",
+                "[aidd] WARN: QA stage-chain context missing "
+                f"(reason_code=qa_stage_chain_context_missing scope_key={stage_chain_scope or 'n/a'}); "
+                "preflight guard may block if stage-chain artifacts are absent.",
                 file=sys.stderr,
             )
 

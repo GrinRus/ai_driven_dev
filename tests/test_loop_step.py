@@ -20,9 +20,17 @@ def _fixture_json(name: str) -> dict:
 
 
 class LoopStepTests(unittest.TestCase):
+    def _seed_stage_chain_baseline(self, root: Path, ticket: str) -> None:
+        write_active_state(root, ticket=ticket)
+        if not (root / "docs" / "tasklist" / f"{ticket}.md").exists():
+            write_tasklist_ready(root, ticket)
+        if not (root / "docs" / "prd" / f"{ticket}.prd.md").exists():
+            write_file(root, f"docs/prd/{ticket}.prd.md", "Status: READY\n")
+
     def run_loop_step(self, root: Path, ticket: str, log_path: Path, extra_env: dict | None = None, *args: str):
+        self._seed_stage_chain_baseline(root, ticket)
         runner = FIXTURES / "runner.sh"
-        env = cli_env({"AIDD_LOOP_RUNNER_LOG": str(log_path), "AIDD_SKIP_STAGE_WRAPPERS": "1"})
+        env = cli_env({"AIDD_LOOP_RUNNER_LOG": str(log_path)})
         if extra_env:
             env.update(extra_env)
         return subprocess.run(
@@ -109,6 +117,7 @@ class LoopStepTests(unittest.TestCase):
             root = ensure_project_root(Path(tmpdir))
             ticket = "DEMO-TRIPWIRE-MISSING"
             write_active_state(root, ticket=ticket, work_item="iteration_id=I1")
+            self._seed_stage_chain_baseline(root, ticket)
             runner_script = root.parent / "runner_tripwire_missing.sh"
             runner_script.write_text(
                 "\n".join(
@@ -126,7 +135,7 @@ class LoopStepTests(unittest.TestCase):
             )
             runner_script.chmod(0o755)
             log_path = root / "runner.log"
-            env = cli_env({"AIDD_LOOP_RUNNER_LOG": str(log_path), "AIDD_SKIP_STAGE_WRAPPERS": "1"})
+            env = cli_env({"AIDD_LOOP_RUNNER_LOG": str(log_path)})
             result = subprocess.run(
                 cli_cmd(
                     "loop-step",
@@ -155,6 +164,7 @@ class LoopStepTests(unittest.TestCase):
             root = ensure_project_root(Path(tmpdir))
             ticket = "DEMO-TRIPWIRE-PREFLIGHT"
             write_active_state(root, ticket=ticket, work_item="iteration_id=I1")
+            self._seed_stage_chain_baseline(root, ticket)
             runner_script = root.parent / "runner_tripwire_manual.sh"
             runner_script.write_text(
                 "\n".join(
@@ -171,7 +181,7 @@ class LoopStepTests(unittest.TestCase):
             )
             runner_script.chmod(0o755)
             log_path = root / "runner.log"
-            env = cli_env({"AIDD_LOOP_RUNNER_LOG": str(log_path), "AIDD_SKIP_STAGE_WRAPPERS": "1"})
+            env = cli_env({"AIDD_LOOP_RUNNER_LOG": str(log_path)})
             result = subprocess.run(
                 cli_cmd(
                     "loop-step",
@@ -194,16 +204,27 @@ class LoopStepTests(unittest.TestCase):
             self.assertEqual(payload.get("drift_tripwire_hit"), True)
             self.assertIn("manual preflight path is forbidden", str(payload.get("reason") or ""))
 
-    def test_loop_step_blocks_when_wrappers_skipped_in_strict_mode(self) -> None:
+    def test_loop_step_ignore_legacy_skip_flag_in_strict_mode(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             write_active_state(root, ticket="DEMO-SKIP", work_item="iteration_id=I1")
+            write_file(root, "reports/loops/DEMO-SKIP/iteration_id_I1/stage.implement.result.json", json.dumps(
+                {
+                    "schema": "aidd.stage_result.v1",
+                    "ticket": "DEMO-SKIP",
+                    "stage": "implement",
+                    "scope_key": "iteration_id_I1",
+                    "work_item_key": "iteration_id=I1",
+                    "result": "continue",
+                    "updated_at": "2024-01-02T00:00:00Z",
+                }
+            ))
             log_path = root / "runner.log"
             result = self.run_loop_step(
                 root,
                 "DEMO-SKIP",
                 log_path,
-                {"AIDD_HOOKS_MODE": "strict", "AIDD_SKIP_STAGE_WRAPPERS": "1"},
+                {"AIDD_HOOKS_MODE": "strict"},
                 "--format",
                 "json",
             )
@@ -211,10 +232,9 @@ class LoopStepTests(unittest.TestCase):
             payload = json.loads(result.stdout)
             self.assertEqual(payload.get("status"), "blocked")
             self.assertEqual(payload.get("stage"), "implement")
-            self.assertEqual(payload.get("reason_code"), "wrappers_skipped_unsafe")
-            self.assertIn("AIDD_SKIP_STAGE_WRAPPERS=1", str(payload.get("reason") or ""))
-            if log_path.exists():
-                self.assertEqual(log_path.read_text(encoding="utf-8").strip(), "")
+            self.assertEqual(payload.get("reason_code"), "output_contract_warn")
+            self.assertNotIn("stage_chain_disabled", str(payload.get("reason_code") or ""))
+            self.assertTrue(log_path.exists())
 
     def test_loop_step_blocks_on_output_contract_warn_in_strict_mode(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-wrap-strict-") as tmpdir:
@@ -244,7 +264,7 @@ class LoopStepTests(unittest.TestCase):
                 root,
                 ticket,
                 log_path,
-                {"AIDD_SKIP_STAGE_WRAPPERS": "0", "AIDD_HOOKS_MODE": "strict"},
+                {"AIDD_HOOKS_MODE": "strict"},
                 "--format",
                 "json",
             )
@@ -255,7 +275,7 @@ class LoopStepTests(unittest.TestCase):
             self.assertEqual(payload.get("output_contract_status"), "warn")
             self.assertTrue(payload.get("output_contract_path"))
 
-    def test_loop_step_runner_with_wrappers_produces_required_artifacts(self) -> None:
+    def test_loop_step_runner_with_stage_chain_produces_required_artifacts(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-wrap-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             ticket = "DEMO-WRAP"
@@ -284,7 +304,7 @@ class LoopStepTests(unittest.TestCase):
                 root,
                 ticket,
                 log_path,
-                {"AIDD_SKIP_STAGE_WRAPPERS": "0"},
+                None,
                 "--format",
                 "json",
             )
@@ -303,8 +323,8 @@ class LoopStepTests(unittest.TestCase):
             self.assertTrue((root / "reports" / "context" / ticket / f"{scope_key}.writemap.json").exists())
             self.assertTrue((root / "reports" / "context" / ticket / f"{scope_key}.writemap.md").exists())
             self.assertTrue((root / "reports" / "loops" / ticket / scope_key / "stage.preflight.result.json").exists())
-            wrapper_logs = list((root / "reports" / "logs" / "implement" / ticket / scope_key).glob("wrapper.*.log"))
-            self.assertGreaterEqual(len(wrapper_logs), 3)
+            stage_chain_logs = list((root / "reports" / "logs" / "implement" / ticket / scope_key).glob("stage.*.log"))
+            self.assertGreaterEqual(len(stage_chain_logs), 3)
 
     def test_loop_step_preflight_calls_set_active_stage_with_positional_stage_only(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-wrap-set-stage-") as tmpdir:
@@ -335,16 +355,16 @@ class LoopStepTests(unittest.TestCase):
                 root,
                 ticket,
                 log_path,
-                {"AIDD_SKIP_STAGE_WRAPPERS": "0"},
+                None,
                 "--format",
                 "json",
             )
             self.assertEqual(result.returncode, 10, msg=result.stderr)
-            wrapper_logs = sorted(
-                (root / "reports" / "logs" / "implement" / ticket / scope_key).glob("wrapper.preflight.*.log")
+            stage_chain_logs = sorted(
+                (root / "reports" / "logs" / "implement" / ticket / scope_key).glob("stage.preflight.*.log")
             )
-            self.assertTrue(wrapper_logs, "expected preflight wrapper logs")
-            preflight_text = wrapper_logs[-1].read_text(encoding="utf-8")
+            self.assertTrue(stage_chain_logs, "expected preflight stage-chain logs")
+            preflight_text = stage_chain_logs[-1].read_text(encoding="utf-8")
             set_stage_lines = [
                 line
                 for line in preflight_text.splitlines()
@@ -410,7 +430,6 @@ class LoopStepTests(unittest.TestCase):
             env = cli_env(
                 {
                     "AIDD_LOOP_RUNNER_LOG": str(log_path),
-                    "AIDD_SKIP_STAGE_WRAPPERS": "0",
                     "AIDD_LOOP_SCOPE_CAPTURE": str(scope_capture),
                     "AIDD_LOOP_SKIP_FORMAT_CAPTURE": str(skip_format_capture),
                 }
@@ -473,7 +492,6 @@ class LoopStepTests(unittest.TestCase):
                 ticket,
                 log_path,
                 {
-                    "AIDD_SKIP_STAGE_WRAPPERS": "0",
                     "AIDD_DIFF_BOUNDARY_MAX_OUT_OF_SCOPE": "3",
                 },
                 "--format",
@@ -523,7 +541,7 @@ class LoopStepTests(unittest.TestCase):
                 json.dumps(review_result),
             )
             log_path = root / "runner.log"
-            result = self.run_loop_step(root, "DEMO-2", log_path, {"AIDD_SKIP_STAGE_WRAPPERS": "0"})
+            result = self.run_loop_step(root, "DEMO-2", log_path, None)
             self.assertEqual(result.returncode, 10, msg=result.stderr)
             self.assertIn("-p /feature-dev-aidd:review DEMO-2", log_path.read_text(encoding="utf-8"))
 
@@ -549,7 +567,7 @@ class LoopStepTests(unittest.TestCase):
                 json.dumps(stage_result),
             )
             log_path = root / "runner.log"
-            result = self.run_loop_step(root, "DEMO-LEGACY", log_path, {"AIDD_SKIP_STAGE_WRAPPERS": "0"}, "--format", "json")
+            result = self.run_loop_step(root, "DEMO-LEGACY", log_path, None, "--format", "json")
             self.assertEqual(result.returncode, 20, msg=result.stderr)
             payload = json.loads(result.stdout)
             self.assertEqual(payload.get("status"), "blocked")
@@ -595,7 +613,7 @@ class LoopStepTests(unittest.TestCase):
                 json.dumps(review_result),
             )
             log_path = root / "runner.log"
-            result = self.run_loop_step(root, "DEMO-SCHEMA-VERSION", log_path, {"AIDD_SKIP_STAGE_WRAPPERS": "0"})
+            result = self.run_loop_step(root, "DEMO-SCHEMA-VERSION", log_path, None)
             self.assertEqual(result.returncode, 10, msg=result.stderr)
             self.assertIn("-p /feature-dev-aidd:review DEMO-SCHEMA-VERSION", log_path.read_text(encoding="utf-8"))
 
@@ -1126,39 +1144,44 @@ class LoopStepTests(unittest.TestCase):
     def test_loop_step_qa_repair_auto_config(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
-            write_active_state(root, stage="qa", work_item="iteration_id=I2")
+            write_active_state(root, stage="qa", work_item="iteration_id=I1")
             write_active_state(root, ticket="DEMO-QA4")
             write_json(root, "config/gates.json", {"loop": {"auto_repair_from_qa": True}})
             stage_result = {
                 "schema": "aidd.stage_result.v1",
                 "ticket": "DEMO-QA4",
                 "stage": "qa",
-                "scope_key": "iteration_id_I2",
-                "work_item_key": "iteration_id=I2",
+                "scope_key": "iteration_id_I1",
+                "work_item_key": "iteration_id=I1",
                 "result": "blocked",
                 "updated_at": "2024-01-02T00:00:00Z",
             }
             write_file(
                 root,
-                "reports/loops/DEMO-QA4/iteration_id_I2/stage.qa.result.json",
+                "reports/loops/DEMO-QA4/iteration_id_I1/stage.qa.result.json",
                 json.dumps(stage_result),
             )
-            tasklist = """<!-- handoff:qa start -->
-- [ ] Fix A (id: qa:A1) (Priority: high) (Blocking: true) (scope: iteration_id=I2)
-<!-- handoff:qa end -->
-"""
-            write_file(root, "docs/tasklist/DEMO-QA4.md", tasklist)
+            write_tasklist_ready(root, "DEMO-QA4")
+            tasklist_path = root / "docs" / "tasklist" / "DEMO-QA4.md"
+            tasklist = tasklist_path.read_text(encoding="utf-8")
+            tasklist_path.write_text(
+                tasklist
+                + "\n<!-- handoff:qa start -->\n"
+                + "- [ ] Fix A (id: qa:A1) (Priority: high) (Blocking: true) (scope: iteration_id=I1)\n"
+                + "<!-- handoff:qa end -->\n",
+                encoding="utf-8",
+            )
             implement_result = {
                 "schema": "aidd.stage_result.v1",
                 "ticket": "DEMO-QA4",
                 "stage": "implement",
-                "scope_key": "iteration_id_I2",
+                "scope_key": "iteration_id_I1",
                 "result": "continue",
                 "updated_at": "2024-01-02T00:00:00Z",
             }
             write_file(
                 root,
-                "reports/loops/DEMO-QA4/iteration_id_I2/stage.implement.result.json",
+                "reports/loops/DEMO-QA4/iteration_id_I1/stage.implement.result.json",
                 json.dumps(implement_result),
             )
             log_path = root / "runner.log"
@@ -1192,7 +1215,7 @@ class LoopStepTests(unittest.TestCase):
                 root,
                 ticket,
                 log_path,
-                {"AIDD_SKIP_STAGE_WRAPPERS": "0"},
+                None,
                 "--format",
                 "json",
             )
@@ -1204,7 +1227,7 @@ class LoopStepTests(unittest.TestCase):
             self.assertTrue((root / "reports" / "context" / ticket / f"{scope_key}.readmap.json").exists())
             self.assertTrue((root / "reports" / "context" / ticket / f"{scope_key}.writemap.json").exists())
             self.assertTrue((root / "reports" / "loops" / ticket / scope_key / "stage.preflight.result.json").exists())
-            self.assertTrue(payload.get("wrapper_logs"))
+            self.assertTrue(payload.get("stage_chain_logs"))
 
     def test_loop_step_blocks_invalid_loop_work_item_key(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
@@ -1267,7 +1290,7 @@ class LoopStepTests(unittest.TestCase):
             self.assertEqual(payload.get("reason_code"), "invalid_work_item_key")
             self.assertIn("cannot recover from active stage", str(payload.get("reason") or ""))
 
-    def test_stage_wrapper_contract_requires_stage_result_and_wrapper_chain(self) -> None:
+    def test_stage_chain_contract_requires_stage_result_and_stage_chain_logs(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-contract-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             ticket = "DEMO-CONTRACT"
@@ -1285,9 +1308,9 @@ class LoopStepTests(unittest.TestCase):
             write_file(root, f"reports/context/{ticket}/{scope_key}.writemap.json", "{}")
             write_file(root, f"reports/context/{ticket}/{scope_key}.writemap.md", "# writemap\n")
             write_file(root, f"reports/loops/{ticket}/{scope_key}/stage.preflight.result.json", "{}")
-            write_file(root, f"reports/logs/{stage}/{ticket}/{scope_key}/wrapper.preflight.20240101T000000Z.log", "ok\n")
+            write_file(root, f"reports/logs/{stage}/{ticket}/{scope_key}/stage.preflight.20240101T000000Z.log", "ok\n")
 
-            ok, message, code = loop_step_module._validate_stage_wrapper_contract(
+            ok, message, code = loop_step_module._validate_stage_chain_contract(
                 target=root,
                 ticket=ticket,
                 scope_key=scope_key,
@@ -1295,17 +1318,17 @@ class LoopStepTests(unittest.TestCase):
                 actions_log_rel=f"aidd/reports/actions/{ticket}/{scope_key}/{stage}.actions.json",
             )
             self.assertFalse(ok)
-            self.assertEqual(code, "wrapper_output_missing")
+            self.assertEqual(code, "stage_chain_output_missing")
             self.assertIn("stage.implement.result.json", message)
-            self.assertIn("wrapper.run", message)
-            self.assertIn("wrapper.postflight", message)
+            self.assertIn("stage.run", message)
+            self.assertIn("stage.postflight", message)
             self.assertTrue(base_actions.exists())
             self.assertTrue(base_context.exists())
             self.assertTrue(base_loops.exists())
             self.assertTrue(base_logs.exists())
 
-    def test_loop_step_missing_stage_result_after_wrappers_uses_wrapper_output_reason(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="loop-step-wrapper-output-") as tmpdir:
+    def test_loop_step_missing_stage_result_after_stage_chain_uses_stage_chain_output_reason(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-stage-chain-output-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             ticket = "DEMO-WRAPPER-OUTPUT"
             write_active_state(root, ticket=ticket, work_item="iteration_id=I1")
@@ -1317,15 +1340,15 @@ class LoopStepTests(unittest.TestCase):
                 with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
                     with patch("aidd_runtime.loop_step.validate_command_available", return_value=(True, "", "")):
                         with patch("aidd_runtime.loop_step.resolve_runner", return_value=(["fake-runner"], "fake-runner", "")):
-                            with patch("aidd_runtime.loop_step.should_run_wrappers", return_value=True):
+                            with patch("aidd_runtime.loop_step.should_run_stage_chain", return_value=True):
                                 with patch(
-                                    "aidd_runtime.loop_step.run_stage_wrapper",
+                                    "aidd_runtime.loop_step.run_stage_chain",
                                     return_value=(
                                         True,
                                         {
                                             "log_path": (
                                                 "aidd/reports/logs/implement/"
-                                                f"{ticket}/iteration_id_I1/wrapper.preflight.log"
+                                                f"{ticket}/iteration_id_I1/stage.preflight.log"
                                             )
                                         },
                                         "",
@@ -1351,13 +1374,13 @@ class LoopStepTests(unittest.TestCase):
             self.assertEqual(code, 20)
             payload = json.loads(captured.getvalue())
             self.assertEqual(payload.get("status"), "blocked")
-            self.assertEqual(payload.get("reason_code"), "wrapper_output_missing")
-            self.assertIn("wrapper run completed without canonical stage-result emission", str(payload.get("reason") or ""))
+            self.assertEqual(payload.get("reason_code"), "stage_chain_output_missing")
+            self.assertIn("stage-chain run completed without canonical stage-result emission", str(payload.get("reason") or ""))
             self.assertEqual(payload.get("active_stage_after"), "implement")
             self.assertEqual(payload.get("active_stage_sync_applied"), True)
 
     def test_loop_step_tst001_fixture_stale_stage_missing_stage_result(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="loop-step-wrapper-output-") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix="loop-step-stage-chain-output-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             ticket = "TST001-WRAPPER-OUTPUT"
             write_active_state(root, ticket=ticket, stage="idea", work_item="iteration_id=I1")
@@ -1370,15 +1393,15 @@ class LoopStepTests(unittest.TestCase):
                 with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
                     with patch("aidd_runtime.loop_step.validate_command_available", return_value=(True, "", "")):
                         with patch("aidd_runtime.loop_step.resolve_runner", return_value=(["fake-runner"], "fake-runner", "")):
-                            with patch("aidd_runtime.loop_step.should_run_wrappers", return_value=True):
+                            with patch("aidd_runtime.loop_step.should_run_stage_chain", return_value=True):
                                 with patch(
-                                    "aidd_runtime.loop_step.run_stage_wrapper",
+                                    "aidd_runtime.loop_step.run_stage_chain",
                                     return_value=(
                                         True,
                                         {
                                             "log_path": (
                                                 "aidd/reports/logs/implement/"
-                                                f"{ticket}/iteration_id_I1/wrapper.preflight.log"
+                                                f"{ticket}/iteration_id_I1/stage.preflight.log"
                                             )
                                         },
                                         "",
@@ -1404,7 +1427,7 @@ class LoopStepTests(unittest.TestCase):
             self.assertEqual(code, 20)
             payload = json.loads(captured.getvalue())
             self.assertEqual(payload.get("status"), "blocked")
-            self.assertEqual(payload.get("reason_code"), "wrapper_output_missing")
+            self.assertEqual(payload.get("reason_code"), "stage_chain_output_missing")
             self.assertEqual(payload.get("repair_reason_code"), "non_loop_stage_recovered")
             self.assertEqual(payload.get("active_stage_before"), "implement")
             self.assertEqual(payload.get("active_stage_after"), "implement")
@@ -1490,7 +1513,7 @@ class LoopStepTests(unittest.TestCase):
                 root,
                 "DEMO-ACTIONS-MISMATCH",
                 log_path,
-                {"AIDD_SKIP_STAGE_WRAPPERS": "0"},
+                None,
                 "--format",
                 "json",
             )
@@ -1667,9 +1690,9 @@ class LoopStepTests(unittest.TestCase):
             self.assertEqual(payload.get("stage_requested_result"), "done")
             self.assertIn("requested_result=done", str(payload.get("stage_result_diagnostics") or ""))
 
-    def test_extract_wrapper_reason_code_qa_stage_result_emit_failed(self) -> None:
-        code = loop_step_module._extract_wrapper_reason_code(
-            "run wrapper failed: reason_code=qa_stage_result_emit_failed stage-result write failed",
+    def test_extract_stage_chain_reason_code_qa_stage_result_emit_failed(self) -> None:
+        code = loop_step_module._extract_stage_chain_reason_code(
+            "run stage-chain failed: reason_code=qa_stage_result_emit_failed stage-result write failed",
             "stage_result_missing",
         )
         self.assertEqual(code, "qa_stage_result_emit_failed")
@@ -1687,7 +1710,6 @@ class LoopStepTests(unittest.TestCase):
                     os.environ,
                     {
                         "CLAUDE_PLUGIN_ROOT": str(REPO_ROOT),
-                        "AIDD_SKIP_STAGE_WRAPPERS": "1",
                     },
                     clear=False,
                 ):
@@ -1773,7 +1795,7 @@ class LoopStepTests(unittest.TestCase):
                 with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
                     with patch("aidd_runtime.loop_step.validate_command_available", return_value=(True, "", "")):
                         with patch("aidd_runtime.loop_step.resolve_runner", return_value=(["fake-runner"], "fake-runner", "")):
-                            with patch("aidd_runtime.loop_step.should_run_wrappers", return_value=False):
+                            with patch("aidd_runtime.loop_step.should_run_stage_chain", return_value=False):
                                 with patch("aidd_runtime.loop_step.run_command", side_effect=_fake_run_command):
                                     with patch("aidd_runtime.loop_step.load_stage_result", side_effect=load_results):
                                         with redirect_stdout(captured):
@@ -1830,7 +1852,7 @@ class LoopStepTests(unittest.TestCase):
                 with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
                     with patch("aidd_runtime.loop_step.validate_command_available", return_value=(True, "", "")):
                         with patch("aidd_runtime.loop_step.resolve_runner", return_value=(["fake-runner"], "fake-runner", "")):
-                            with patch("aidd_runtime.loop_step.should_run_wrappers", return_value=False):
+                            with patch("aidd_runtime.loop_step.should_run_stage_chain", return_value=False):
                                 with patch("aidd_runtime.loop_step.run_command", side_effect=_fake_run_command):
                                     with patch("aidd_runtime.loop_step.load_stage_result", side_effect=load_results):
                                         with redirect_stdout(captured):

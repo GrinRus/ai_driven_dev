@@ -133,8 +133,8 @@ LOOP_POLICY_MARKERS = {
     "canonical_stage_result_path": "[AIDD_LOOP_POLICY:CANONICAL_STAGE_RESULT_PATH]",
     "non_canonical_stage_result_forbidden": "[AIDD_LOOP_POLICY:NON_CANONICAL_STAGE_RESULT_FORBIDDEN]",
 }
-LOOP_WRAPPER_CHAIN_RE = re.compile(
-    r"(?:wrapper chain|wrapper-?only|slash stage command|canonical stage chain).{0,260}"
+LOOP_STAGE_CHAIN_RE = re.compile(
+    r"(?:slash stage command|canonical stage chain|stage-?chain).{0,260}"
     r"(?:actions_apply\.py|postflight|stage_result\.py)",
     re.IGNORECASE | re.DOTALL,
 )
@@ -669,12 +669,12 @@ def validate_agent_tool_policy(info: PromptFile) -> List[str]:
     for entry in tools:
         if "${CLAUDE_PLUGIN_ROOT}/skills/" in entry and "/scripts/" in entry:
             errors.append(
-                f"{info.path}: agents must not call stage/shared wrappers directly ({entry})"
+                f"{info.path}: agents must not call stage/shared script internals directly ({entry})"
             )
         for fallback_path, canonical_path in FORBIDDEN_AGENT_STAGE_TOOL_MAP.items():
             if fallback_path in entry:
                 errors.append(
-                    f"{info.path}: agent tools must use `{canonical_path}` instead of fallback wrapper `{fallback_path}`"
+                    f"{info.path}: agent tools must use `{canonical_path}` instead of fallback entrypoint `{fallback_path}`"
                 )
     has_rlm_tooling = any(
         "rlm_" in entry or "reports_pack.py" in entry or "rlm_slice.py" in entry
@@ -1069,9 +1069,9 @@ def lint_skills(root: Path) -> Tuple[List[str], List[str]]:
                     errors.append(
                         f"{info.path}: missing explicit policy that manual `stage.*.result.json` write is forbidden"
                     )
-                if not LOOP_WRAPPER_CHAIN_RE.search(info.body):
+                if not LOOP_STAGE_CHAIN_RE.search(info.body):
                     errors.append(
-                        f"{info.path}: missing wrapper-only canonical chain guidance for loop stages"
+                        f"{info.path}: missing canonical stage-chain guidance for loop stages"
                     )
                 if LOOP_CANONICAL_STAGE_RESULT_PATH.lower() not in body_lower:
                     errors.append(

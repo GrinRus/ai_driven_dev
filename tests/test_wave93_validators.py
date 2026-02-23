@@ -21,7 +21,6 @@ class Wave93SchemaAndValidatorTests(unittest.TestCase):
         "aidd.readmap.v1",
         "aidd.writemap.v1",
         "aidd.stage_result.v1",
-        "aidd.stage_result.preflight.v1",
     }
 
     def test_schema_registry_contains_wave93_schemas(self) -> None:
@@ -90,25 +89,6 @@ class Wave93SchemaAndValidatorTests(unittest.TestCase):
             },
         }
         self.assertEqual(preflight_result_validate.validate_preflight_result_data(payload), [])
-
-        legacy_payload = {
-            "schema": "aidd.stage_result.preflight.v1",
-            "ticket": "DEMO",
-            "stage": "implement",
-            "scope_key": "iteration_id_I1",
-            "work_item_key": "iteration_id=I1",
-            "status": "ok",
-            "generated_at": "2024-01-01T00:00:00Z",
-            "artifacts": {
-                "actions_template": "aidd/reports/actions/DEMO/iteration_id_I1/implement.actions.template.json",
-                "readmap_json": "aidd/reports/context/DEMO/iteration_id_I1.readmap.json",
-                "readmap_md": "aidd/reports/context/DEMO/iteration_id_I1.readmap.md",
-                "writemap_json": "aidd/reports/context/DEMO/iteration_id_I1.writemap.json",
-                "writemap_md": "aidd/reports/context/DEMO/iteration_id_I1.writemap.md",
-                "loop_pack": "aidd/reports/loops/DEMO/iteration_id_I1.loop.pack.md",
-            },
-        }
-        self.assertEqual(preflight_result_validate.validate_preflight_result_data(legacy_payload), [])
 
         broken = dict(payload)
         broken["schema"] = "aidd.stage_result.vX"
@@ -220,10 +200,7 @@ class Wave93SchemaAndValidatorTests(unittest.TestCase):
             set(actions_validate.SUPPORTED_SCHEMA_VERSIONS),
             set(aidd_schemas.supported_schema_versions("aidd.actions.v")),
         )
-        expected_preflight_versions = (
-            set(aidd_schemas.supported_schema_versions("aidd.stage_result.preflight.v"))
-            | set(aidd_schemas.supported_schema_versions("aidd.stage_result.v"))
-        )
+        expected_preflight_versions = set(aidd_schemas.supported_schema_versions("aidd.stage_result.v"))
         self.assertEqual(
             set(preflight_result_validate.SUPPORTED_SCHEMA_VERSIONS),
             expected_preflight_versions,

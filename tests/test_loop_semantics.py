@@ -21,12 +21,17 @@ RUNNER_FIXTURES = Path(__file__).resolve().parent / "fixtures" / "loop_step"
 
 
 class LoopSemanticsTests(unittest.TestCase):
+    def _seed_stage_chain_baseline(self, root: Path, ticket: str) -> None:
+        if not (root / "docs" / "prd" / f"{ticket}.prd.md").exists():
+            write_file(root, f"docs/prd/{ticket}.prd.md", "Status: READY\n")
+
     def test_revise_reuses_scope_and_keeps_tasklist(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-semantics-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             ticket = "DEMO-1"
             tasklist = (FIXTURES / "tasklist.md").read_text(encoding="utf-8")
             write_file(root, f"docs/tasklist/{ticket}.md", tasklist)
+            self._seed_stage_chain_baseline(root, ticket)
             write_active_state(root, ticket=ticket, stage="review", work_item="iteration_id=I1")
 
             stage_review = {
@@ -90,7 +95,7 @@ class LoopSemanticsTests(unittest.TestCase):
             before_tasklist = (root / f"docs/tasklist/{ticket}.md").read_text(encoding="utf-8")
             runner = RUNNER_FIXTURES / "runner.sh"
             log_path = root / "runner.log"
-            env = cli_env({"AIDD_LOOP_RUNNER_LOG": str(log_path), "AIDD_SKIP_STAGE_WRAPPERS": "1"})
+            env = cli_env({"AIDD_LOOP_RUNNER_LOG": str(log_path)})
             result = subprocess.run(
                 cli_cmd(
                     "loop-step",

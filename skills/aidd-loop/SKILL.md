@@ -29,7 +29,7 @@ Follow `feature-dev-aidd:aidd-core` for output contract and DocOps.
 - `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/loop_run.py`
 - `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/preflight_result_validate.py`
 - `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/output_contract.py`
-- Preflight preparation is wrapper-internal and not an operator command.
+- Preflight preparation is stage-chain-internal and not an operator command.
 
 ## Command contracts
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/loop_pack.py`
@@ -40,12 +40,12 @@ Follow `feature-dev-aidd:aidd-core` for output contract and DocOps.
 - Next action: repair missing prerequisites and rerun pack generation.
 
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/loop_run.py`
-- When to run: wrapper-orchestrated loop execution for bounded stage retries.
+- When to run: stage-chain-orchestrated loop execution for bounded stage retries.
 - Inputs: loop mode/profile, ticket/scope context, and stage-specific payloads.
 - Outputs: loop execution status with deterministic retry/blocked metadata.
 - Failure mode: non-zero exit on invalid loop payload, policy violation, or unrecoverable blocked condition.
 - Next action: apply fix plan or handoff policy action, then rerun with unchanged scope.
 
 ## Additional resources
-- Loop wrapper reference: [reference.md](reference.md) (when: wrapper path/fallback behavior needs clarification; why: confirm canonical chain and bounded recovery policy).
+- Loop stage-chain reference: [reference.md](reference.md) (when: stage-chain path/fallback behavior needs clarification; why: confirm canonical chain and bounded recovery policy).
 - Loop pack template source: [templates/loop-pack.template.md](templates/loop-pack.template.md) (when: loop pack format is unclear; why: confirm canonical sections seeded by init/runtime).

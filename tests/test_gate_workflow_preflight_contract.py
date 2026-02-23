@@ -32,9 +32,9 @@ class GateWorkflowPreflightContractTests(unittest.TestCase):
         write_file(root, f"reports/actions/{ticket}/{scope_key}/readmap.json", "{}\n")
         write_file(root, f"reports/actions/{ticket}/{scope_key}/writemap.json", "{}\n")
         write_file(root, f"reports/actions/{ticket}/{scope_key}/stage.preflight.result.json", "{}\n")
-        write_file(root, f"reports/logs/{stage}/{ticket}/{scope_key}/wrapper.preflight.fallback.log", "ok\n")
-        write_file(root, f"reports/logs/{stage}/{ticket}/{scope_key}/wrapper.run.fallback.log", "ok\n")
-        write_file(root, f"reports/logs/{stage}/{ticket}/{scope_key}/wrapper.postflight.fallback.log", "ok\n")
+        write_file(root, f"reports/logs/{stage}/{ticket}/{scope_key}/stage.preflight.fallback.log", "ok\n")
+        write_file(root, f"reports/logs/{stage}/{ticket}/{scope_key}/stage.run.fallback.log", "ok\n")
+        write_file(root, f"reports/logs/{stage}/{ticket}/{scope_key}/stage.postflight.fallback.log", "ok\n")
         return root, ticket, scope_key
 
     def _prepare_base(
@@ -90,9 +90,9 @@ class GateWorkflowPreflightContractTests(unittest.TestCase):
             )
             + "\n",
         )
-        write_file(root, f"reports/logs/{stage}/{ticket}/{scope_key}/wrapper.preflight.test.log", "ok\n")
-        write_file(root, f"reports/logs/{stage}/{ticket}/{scope_key}/wrapper.run.test.log", "ok\n")
-        write_file(root, f"reports/logs/{stage}/{ticket}/{scope_key}/wrapper.postflight.test.log", "ok\n")
+        write_file(root, f"reports/logs/{stage}/{ticket}/{scope_key}/stage.preflight.test.log", "ok\n")
+        write_file(root, f"reports/logs/{stage}/{ticket}/{scope_key}/stage.run.test.log", "ok\n")
+        write_file(root, f"reports/logs/{stage}/{ticket}/{scope_key}/stage.postflight.test.log", "ok\n")
         write_file(
             root,
             f"reports/loops/{ticket}/{scope_key}/output.contract.json",
@@ -115,17 +115,17 @@ class GateWorkflowPreflightContractTests(unittest.TestCase):
             self.assertIn("preflight_missing", message)
             self.assertIn("reports/context", message)
 
-    def test_fallback_preflight_artifacts_allowed_with_explicit_env(self) -> None:
+    def test_fallback_preflight_artifacts_stay_blocked_with_extra_env_noise(self) -> None:
         with tempfile.TemporaryDirectory(prefix="gate-preflight-") as tmpdir:
             root, ticket, _ = self._prepare_fallback_root(tmpdir)
             env = {
                 "CLAUDE_PLUGIN_ROOT": str(REPO_ROOT),
-                "AIDD_ALLOW_FALLBACK_PREFLIGHT": "1",
+                "AIDD_TEST_PRECHECK_NOISE": "1",
             }
             with mock.patch.dict(os.environ, env, clear=False):
                 ok, message = gate_workflow._loop_preflight_guard(root, ticket, "review", "fast")
-            self.assertTrue(ok)
-            self.assertIn("preflight_fallback_path", message)
+            self.assertFalse(ok)
+            self.assertIn("preflight_missing", message)
 
     def test_loop_preflight_guard_accepts_complete_contract(self) -> None:
         with tempfile.TemporaryDirectory(prefix="gate-preflight-") as tmpdir:
@@ -149,7 +149,7 @@ class GateWorkflowPreflightContractTests(unittest.TestCase):
             self.assertTrue(ok, msg=message)
             self.assertEqual(message, "")
 
-    def test_loop_preflight_guard_blocks_when_wrapper_logs_missing(self) -> None:
+    def test_loop_preflight_guard_blocks_when_stage_chain_logs_missing(self) -> None:
         with tempfile.TemporaryDirectory(prefix="gate-preflight-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             ticket = "DEMO-PREFLIGHT"
@@ -160,7 +160,7 @@ class GateWorkflowPreflightContractTests(unittest.TestCase):
             self._write_required_artifacts(root, ticket=ticket, stage=stage, scope_key=scope_key)
 
             logs_dir = root / "reports" / "logs" / stage / ticket / scope_key
-            for item in logs_dir.glob("wrapper.*.log"):
+            for item in logs_dir.glob("stage.*.log"):
                 item.unlink()
 
             env_backup = os.environ.get("CLAUDE_PLUGIN_ROOT")
@@ -305,7 +305,7 @@ class GateWorkflowPreflightContractTests(unittest.TestCase):
             self.assertFalse(ok)
             self.assertIn("reason_code=preflight_missing", message)
 
-    def test_loop_preflight_guard_blocks_on_skip_wrappers_in_strict(self) -> None:
+    def test_loop_preflight_guard_ignores_legacy_skip_flag_in_strict(self) -> None:
         with tempfile.TemporaryDirectory(prefix="gate-preflight-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             ticket = "DEMO-PREFLIGHT"
@@ -316,9 +316,7 @@ class GateWorkflowPreflightContractTests(unittest.TestCase):
             self._write_required_artifacts(root, ticket=ticket, stage=stage, scope_key=scope_key)
 
             env_backup = os.environ.get("CLAUDE_PLUGIN_ROOT")
-            skip_backup = os.environ.get("AIDD_SKIP_STAGE_WRAPPERS")
             os.environ["CLAUDE_PLUGIN_ROOT"] = str(REPO_ROOT)
-            os.environ["AIDD_SKIP_STAGE_WRAPPERS"] = "1"
             try:
                 ok, message = gate_workflow._loop_preflight_guard(root, ticket, stage, "strict")
             finally:
@@ -326,14 +324,10 @@ class GateWorkflowPreflightContractTests(unittest.TestCase):
                     os.environ.pop("CLAUDE_PLUGIN_ROOT", None)
                 else:
                     os.environ["CLAUDE_PLUGIN_ROOT"] = env_backup
-                if skip_backup is None:
-                    os.environ.pop("AIDD_SKIP_STAGE_WRAPPERS", None)
-                else:
-                    os.environ["AIDD_SKIP_STAGE_WRAPPERS"] = skip_backup
-            self.assertFalse(ok)
-            self.assertIn("reason_code=wrappers_skipped_unsafe", message)
+            self.assertTrue(ok)
+            self.assertNotIn("stage_chain_disabled", message)
 
-    def test_loop_preflight_guard_warns_on_skip_wrappers_in_fast_implement(self) -> None:
+    def test_loop_preflight_guard_ignores_legacy_skip_flag_in_fast_implement(self) -> None:
         with tempfile.TemporaryDirectory(prefix="gate-preflight-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             ticket = "DEMO-PREFLIGHT"
@@ -344,9 +338,7 @@ class GateWorkflowPreflightContractTests(unittest.TestCase):
             self._write_required_artifacts(root, ticket=ticket, stage=stage, scope_key=scope_key)
 
             env_backup = os.environ.get("CLAUDE_PLUGIN_ROOT")
-            skip_backup = os.environ.get("AIDD_SKIP_STAGE_WRAPPERS")
             os.environ["CLAUDE_PLUGIN_ROOT"] = str(REPO_ROOT)
-            os.environ["AIDD_SKIP_STAGE_WRAPPERS"] = "1"
             try:
                 ok, message = gate_workflow._loop_preflight_guard(root, ticket, stage, "fast")
             finally:
@@ -354,12 +346,8 @@ class GateWorkflowPreflightContractTests(unittest.TestCase):
                     os.environ.pop("CLAUDE_PLUGIN_ROOT", None)
                 else:
                     os.environ["CLAUDE_PLUGIN_ROOT"] = env_backup
-                if skip_backup is None:
-                    os.environ.pop("AIDD_SKIP_STAGE_WRAPPERS", None)
-                else:
-                    os.environ["AIDD_SKIP_STAGE_WRAPPERS"] = skip_backup
             self.assertTrue(ok)
-            self.assertIn("reason_code=wrappers_skipped_warn", message)
+            self.assertNotIn("stage_chain_disabled", message)
 
 
 if __name__ == "__main__":

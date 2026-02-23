@@ -27,14 +27,15 @@ def _run_pretool(root: Path, payload: dict, *, hooks_mode: str) -> subprocess.Co
 
 
 def _map_base(root: Path, ticket: str, scope_key: str) -> Path:
-    return root / "reports" / "actions" / ticket / scope_key
+    _ = scope_key
+    return root / "reports" / "context" / ticket
 
 
 def _write_maps(root: Path, ticket: str, stage: str, scope_key: str, work_item_key: str) -> None:
     base = _map_base(root, ticket, scope_key)
     write_json(
         root,
-        f"reports/actions/{ticket}/{scope_key}/readmap.json",
+        f"reports/context/{ticket}/{scope_key}.readmap.json",
         {
             "schema": "aidd.readmap.v1",
             "ticket": ticket,
@@ -49,7 +50,7 @@ def _write_maps(root: Path, ticket: str, stage: str, scope_key: str, work_item_k
     )
     write_json(
         root,
-        f"reports/actions/{ticket}/{scope_key}/writemap.json",
+        f"reports/context/{ticket}/{scope_key}.writemap.json",
         {
             "schema": "aidd.writemap.v1",
             "ticket": ticket,
@@ -225,7 +226,7 @@ class HookReadWritePolicyTests(unittest.TestCase):
             _write_maps(root, ticket, "implement", scope_key, work_item_key)
             write_file(root, "src/docops-only/guarded.py", "print('x')\n")
 
-            writemap_path = root / "reports" / "actions" / ticket / scope_key / "writemap.json"
+            writemap_path = root / "reports" / "context" / ticket / f"{scope_key}.writemap.json"
             payload = json.loads(writemap_path.read_text(encoding="utf-8"))
             docops_only = payload.get("docops_only_paths") or []
             docops_only.append("src/docops-only/**")
@@ -254,7 +255,7 @@ class HookReadWritePolicyTests(unittest.TestCase):
             _write_maps(root, ticket, "implement", scope_key, work_item_key)
             write_file(root, "src/docops-only/guarded.py", "print('x')\n")
 
-            writemap_path = root / "reports" / "actions" / ticket / scope_key / "writemap.json"
+            writemap_path = root / "reports" / "context" / ticket / f"{scope_key}.writemap.json"
             payload = json.loads(writemap_path.read_text(encoding="utf-8"))
             docops_only = payload.get("docops_only_paths") or []
             docops_only.append("src/docops-only/**")

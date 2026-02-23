@@ -17,7 +17,8 @@ class ContextExpandTests(unittest.TestCase):
         *,
         stage: str = "implement",
     ) -> None:
-        base = f"reports/actions/{ticket}/{scope_key}"
+        context_base = f"reports/context/{ticket}"
+        loops_base = f"reports/loops/{ticket}/{scope_key}"
         result = subprocess.run(
             cli_cmd(
                 "preflight-prepare",
@@ -30,17 +31,17 @@ class ContextExpandTests(unittest.TestCase):
                 "--stage",
                 stage,
                 "--actions-template",
-                f"{base}/{stage}.actions.template.json",
+                f"reports/actions/{ticket}/{scope_key}/{stage}.actions.template.json",
                 "--readmap-json",
-                f"{base}/readmap.json",
+                f"{context_base}/{scope_key}.readmap.json",
                 "--readmap-md",
-                f"{base}/readmap.md",
+                f"{context_base}/{scope_key}.readmap.md",
                 "--writemap-json",
-                f"{base}/writemap.json",
+                f"{context_base}/{scope_key}.writemap.json",
                 "--writemap-md",
-                f"{base}/writemap.md",
+                f"{context_base}/{scope_key}.writemap.md",
                 "--result",
-                f"{base}/stage.preflight.result.json",
+                f"{loops_base}/stage.preflight.result.json",
             ),
             cwd=root,
             env=cli_env(),
@@ -86,14 +87,14 @@ class ContextExpandTests(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 0, msg=result.stderr)
 
-            base = root / "reports" / "actions" / ticket / scope_key
-            readmap = json.loads((base / "readmap.json").read_text(encoding="utf-8"))
-            writemap = json.loads((base / "writemap.json").read_text(encoding="utf-8"))
+            context_base = root / "reports" / "context" / ticket
+            readmap = json.loads((context_base / f"{scope_key}.readmap.json").read_text(encoding="utf-8"))
+            writemap = json.loads((context_base / f"{scope_key}.writemap.json").read_text(encoding="utf-8"))
 
             self.assertIn("src/new_feature.py", readmap.get("allowed_paths", []))
             self.assertIn("src/new_feature.py", writemap.get("allowed_paths", []))
 
-            audit_path = base / "context-expand.audit.jsonl"
+            audit_path = root / "reports" / "actions" / ticket / scope_key / "context-expand.audit.jsonl"
             self.assertTrue(audit_path.exists(), "context-expand audit trail is required")
             entries = [json.loads(line) for line in audit_path.read_text(encoding="utf-8").splitlines() if line.strip()]
             self.assertTrue(entries, "audit trail must contain at least one entry")
@@ -103,7 +104,7 @@ class ContextExpandTests(unittest.TestCase):
             self.assertEqual(latest.get("reason_code"), "missing_context")
             self.assertTrue(latest.get("expand_write"))
 
-            writemap_md = (base / "writemap.md").read_text(encoding="utf-8")
+            writemap_md = (context_base / f"{scope_key}.writemap.md").read_text(encoding="utf-8")
             self.assertIn("## Loop Allowed Paths", writemap_md)
             self.assertIn(f"docs/tasklist/{ticket}.md", writemap_md)
 
@@ -156,10 +157,10 @@ class ContextExpandTests(unittest.TestCase):
             write_active_state(root, ticket=ticket, stage="review", work_item=work_item_key)
             write_tasklist_ready(root, ticket)
 
-            base = f"reports/actions/{ticket}/{scope_key}"
+            context_base = f"reports/context/{ticket}"
             write_json(
                 root,
-                f"{base}/readmap.json",
+                f"{context_base}/{scope_key}.readmap.json",
                 {
                     "schema": "aidd.readmap.v1",
                     "ticket": ticket,
@@ -174,7 +175,7 @@ class ContextExpandTests(unittest.TestCase):
             )
             write_json(
                 root,
-                f"{base}/writemap.json",
+                f"{context_base}/{scope_key}.writemap.json",
                 {
                     "schema": "aidd.writemap.v1",
                     "ticket": ticket,

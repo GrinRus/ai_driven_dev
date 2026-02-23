@@ -28,11 +28,11 @@ user-invocable: false
 - Next action: fix selectors/source path and rerun the same slice command.
 
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-docio/runtime/actions_apply.py`
-- When to run: wrapper postflight after validated `*.actions.json` is available.
+- When to run: stage-chain postflight after validated `*.actions.json` is available.
 - Inputs: `--actions <path>` with optional apply-log paths and stage context.
 - Outputs: applied updates, progress synchronization, and downstream stage artifacts.
 - Failure mode: non-zero exit on schema violations, write failures, or boundary guard blocks.
-- Next action: inspect apply log, fix action payload/root cause, then rerun wrapper postflight.
+- Next action: inspect apply log, fix action payload/root cause, then rerun stage-chain postflight.
 
 ## Ownership guard
 - DocIO-facing runtime modules must be implemented under `skills/aidd-docio/runtime/*`.
