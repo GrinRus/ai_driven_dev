@@ -17,6 +17,13 @@ INVALID_FALLBACK_RUNTIME_PATH_RE = re.compile(
     r"python3\s+/skills/[^ \n]*/runtime/[^ \n]*\.py\b",
     re.IGNORECASE,
 )
+READINESS_REASON_CODES = (
+    "readiness_gate_failed",
+    "prd_not_ready",
+    "open_questions_present",
+    "answers_format_invalid",
+    "research_not_ready",
+)
 
 
 @dataclass(frozen=True)
@@ -108,6 +115,22 @@ def classify_incident(
             subtype="watchdog_terminated",
             source="termination_attribution",
             label="NOT_VERIFIED(killed)+PROMPT_EXEC_ISSUE(watchdog_terminated)",
+        )
+
+    readiness_source = ""
+    for reason_code in READINESS_REASON_CODES:
+        if reason_code in summary_text:
+            readiness_source = "summary"
+            break
+        if reason_code in merged_text:
+            readiness_source = "diagnostics"
+            break
+    if readiness_source:
+        return Classification(
+            classification="PROMPT_EXEC_ISSUE",
+            subtype="readiness_gate_failed",
+            source=readiness_source,
+            label="NOT_VERIFIED(readiness_gate_failed)+PROMPT_EXEC_ISSUE(readiness_gate_failed)",
         )
 
     if "invalid-schema" in merged_text and "stage_result_missing_or_invalid" in merged_text:

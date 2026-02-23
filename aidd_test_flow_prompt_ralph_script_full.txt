@@ -93,6 +93,10 @@
 - R17.1: `kill` допускается только если не растут `main log` и все резолвленные stream-файлы (из primary extraction или fallback discovery) более 20 минут.
 - R17.2: Если завершение с `exit_code=143` произошло при `killed=0` (или без явного watchdog kill marker), классифицируй как `ENV_MISCONFIG(parent_terminated|external_terminate)`, а не как `silent stall`/`prompt-exec issue`.
 - R17.3: Если завершение с `exit_code=143` произошло при `killed=1` и подтверждённом `watchdog_marker=1`, классифицируй как `NOT VERIFIED (killed)` + `prompt-exec issue (watchdog_terminated)`; не как `ENV_MISCONFIG(parent_terminated|external_terminate)`.
+- R18: Перед запуском `plan-new`, `review-spec`, `tasks-new` и любого шага `6/7/8` обязателен readiness gate из `AUDIT_DIR/05_precondition_block.txt`.
+- R18.1: Readiness gate = `PASS` только при одновременном выполнении условий: `prd_status=READY`, `open_questions_count=0`, `answers_format=compact_q_codes`, `research_status=reviewed|ok`.
+- R18.2: При `FAIL` readiness gate обязателен `reason_code` из набора `prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready`; шаг 5 классифицируется как `NOT VERIFIED (readiness_gate_failed)` + `prompt-flow gap`.
+- R18.3: При readiness gate `FAIL` шаги `6/7/8` помечаются как `NOT VERIFIED (upstream_readiness_gate_failed)` без запуска stage-команд.
 
 ## 5) Политика запуска, ожидания и зависаний
 
@@ -114,6 +118,7 @@
 - В `AUDIT_DIR/<step>_stream_paths_run<N>.txt` обязательно сохранять source-attribution для каждого пути (`init/header/metadata|fallback_scan`) и нормализованный абсолютный путь.
 - Если primary extraction stream-путей не дал результата, выполнить fallback discovery и явно зафиксировать это в `AUDIT_DIR/<step>_stream_paths_run<N>.txt`.
 - Если primary extraction содержит невалидные абсолютные пути вне `PROJECT_DIR`, сохранить их с source-attribution как `stream_path_invalid`, но не использовать для liveness/stall.
+- В `AUDIT_DIR/<step>_stream_paths_run<N>.txt` каждая запись должна быть в формате `source=<...> path=<abs_path_inside_project>|stream_path_invalid=<abs_path_outside_project>`; при отсутствии валидных путей после fallback фиксировать `fallback_scan=1` и `stream_path_not_emitted_by_cli=1`.
 - Если stage завершился валидным top-level result, но stream-пути не извлеклись и fallback discovery не нашёл свежих `*.stream.jsonl|*.stream.log`, фиксировать `INFO(stream_path_not_emitted_by_cli)` без инцидента.
 
 ### 5.1 Проверка плагина в каждом stream-json run
@@ -214,6 +219,8 @@
    - не считать trigger-ом `Q*`/`AIDD:ANSWERS`/`Question` внутри вложенных артефактов (PRD/tasklist/reports/log excerpts), если stage-return сам не запрашивает ответ;
    - извлеки вопросы в `AUDIT_DIR/<step>_questions.txt`;
    - сформируй `AIDD:ANSWERS` в `AUDIT_DIR/<step>_answers.txt` на основе уже собранных артефактов;
+   - дополнительно сохрани `AUDIT_DIR/<step>_questions_raw.txt` и `AUDIT_DIR/<step>_questions_normalized.txt` (нормализация `Q<N>` и choice-кодов перед retry);
+   - если source содержит legacy `Answer N:`/`Answer to QN:` или `TBD`, нормализуй в `Q<N>=<choice|short_code>`; при невозможности нормализации фиксируй `reason_code=answers_format_invalid` и не выполняй retry;
    - выполни **ровно один** retry;
    - формат ответов для retry должен быть **компактным**: choice-коды/короткие фразы в одной строке, без длинного многострочного prose;
    - рекомендуемый шаблон: `AIDD:ANSWERS Q1=C; Q2=B; Q3=C; Q4=A; Q5=C`.
@@ -221,6 +228,7 @@
    - `idea-new`: `ticket + IDEA_NOTE + AIDD:ANSWERS`;
    - остальные stage: `ticket + AIDD:ANSWERS`;
    - не вставляй в CLI многострочные ответы с большим количеством Unicode/пунктуации; если нужно сохранить детали, держи их в `<step>_answers.txt`, а в команду передавай сжатый вариант.
+   - в CLI передавай только нормализованный one-line payload вида `AIDD:ANSWERS Q1=...; Q2=...`; legacy префиксы `Answer N:` в retry запрещены.
    - для runtime retry используй canonical CLI-аргументы runtime (например, `--plan-path` для `plan-review-gate`) без legacy alias-аргументов.
 4. Если после retry всё ещё BLOCKED:
    - зафиксируй `WARN`/`FAIL` с причиной,
@@ -481,11 +489,30 @@ RLM artifacts check (после fallback, если был):
   - `${TICKET}-context.json`
   - `${TICKET}-targets.json`
 
+#### 5.2.1 Step 5 Readiness Gate (hard-stop)
+
+Зачем: не допускать каскадных блокировок downstream stages при неготовых входных артефактах.
+
+Сделать:
+- после `5.1` и `5.2` записать `05_precondition_block.txt` с полями:
+  - `prd_status=<READY|draft|...>`
+  - `open_questions_count=<int>`
+  - `answers_format=<compact_q_codes|legacy_answer_alias|invalid>`
+  - `research_status=<reviewed|ok|pending|warn|invalid>`
+  - `readiness_gate=<PASS|FAIL>`
+  - `reason_code=<prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready|->`
+- запуск `5.3/5.4/5.5` допускается только при `readiness_gate=PASS`.
+- если `readiness_gate=FAIL`:
+  - шаг 5 классифицировать как `NOT VERIFIED (readiness_gate_failed)` + `prompt-flow gap`;
+  - в `05_precondition_block.txt` обязательно заполнить конкретный `reason_code`;
+  - не запускать `5.3/5.4/5.5`, а шаги `6/7/8` сразу пометить `NOT VERIFIED (upstream_readiness_gate_failed)` и перейти к шагу 99.
+
 #### 5.3 plan-new
 
 Зачем: получить реализуемый план.
 
 Сделать:
+- запускать только при `readiness_gate=PASS` (см. 5.2.1);
 - first run ticket-only;
 - при вопросах: retry;
 - если hang/kill: выполнить runtime probe
@@ -499,6 +526,7 @@ RLM artifacts check (после fallback, если был):
 Зачем: проверить план+PRD gate.
 
 Сделать:
+- запускать только при `readiness_gate=PASS` (см. 5.2.1);
 - first run ticket-only;
 - при вопросах: retry;
 - если итог review-spec = `WARN/BLOCKED` и в отчёте есть unresolved `Q*` или ссылка на отсутствующий spec:
@@ -512,6 +540,7 @@ RLM artifacts check (после fallback, если был):
 Зачем: получить tasklist execution source.
 
 Сделать:
+- запускать только при `readiness_gate=PASS` (см. 5.2.1);
 - перед первым запуском проверить PRD header (`Status:`): если не `READY` или есть unresolved `Q*`, сначала:
   - выполнить `/feature-dev-aidd:spec-interview $TICKET` (ticket-only, при вопросах один retry),
   - выполнить `/feature-dev-aidd:review-spec $TICKET` (ticket-only, при вопросах один retry),

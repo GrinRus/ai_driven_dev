@@ -124,10 +124,27 @@ class E2EPromptContractTests(unittest.TestCase):
         text = _read(AUDIT_PROMPT_FULL)
         self.assertIn("stream_path_invalid", text)
         self.assertIn("stream_path_resolution_incomplete", text)
+        self.assertIn("fallback_scan=1", text)
+        self.assertIn("stream_path_not_emitted_by_cli=1", text)
         self.assertIn("exit_code=143", text)
         self.assertIn("watchdog_marker=1", text)
         self.assertIn("watchdog_terminated", text)
         self.assertIn("result_count` в summary отсутствует", text)
+
+    def test_full_prompt_contains_step5_readiness_gate_contract(self) -> None:
+        text = _read(AUDIT_PROMPT_FULL)
+        self.assertIn("#### 5.2.1 Step 5 Readiness Gate (hard-stop)", text)
+        self.assertIn("05_precondition_block.txt", text)
+        self.assertIn("prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready", text)
+        self.assertIn("NOT VERIFIED (readiness_gate_failed)", text)
+        self.assertIn("NOT VERIFIED (upstream_readiness_gate_failed)", text)
+
+    def test_full_prompt_requires_answer_normalization_and_compact_retry_payload(self) -> None:
+        text = _read(AUDIT_PROMPT_FULL)
+        self.assertIn("legacy `Answer N:`/`Answer to QN:`", text)
+        self.assertIn("AUDIT_DIR/<step>_questions_normalized.txt", text)
+        self.assertIn("AIDD:ANSWERS Q1=C; Q2=B; Q3=C; Q4=A; Q5=C", text)
+        self.assertIn("legacy префиксы `Answer N:` в retry запрещены", text)
 
     def test_full_prompt_marker_semantics_excludes_template_backup_noise(self) -> None:
         text = _read(AUDIT_PROMPT_FULL)
