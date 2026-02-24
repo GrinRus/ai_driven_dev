@@ -54,6 +54,7 @@ AGENT_NAMES = [
 STAGE_SUBAGENT = {
     "idea-new": "analyst",
     "researcher": "researcher",
+    "spec-interview": "spec-interview-writer",
     "tasks-new": "tasklist-refiner",
     "implement": "implementer",
     "review": "reviewer",

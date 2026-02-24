@@ -74,13 +74,12 @@ run_cli() {
       entrypoint="$PLUGIN_ROOT/skills/aidd-rlm/runtime/${rlm_runtime}"
       mode="python"
       ;;
-    review-pack|review-report|reviewer-tests|context-pack)
+    review-pack|review-report|reviewer-tests)
       local review_runtime=""
       case "$cmd" in
         review-pack) review_runtime="review_pack.py" ;;
         review-report) review_runtime="review_report.py" ;;
         reviewer-tests) review_runtime="reviewer_tests.py" ;;
-        context-pack) review_runtime="context_pack.py" ;;
       esac
       entrypoint="$PLUGIN_ROOT/skills/review/runtime/${review_runtime}"
       mode="python"

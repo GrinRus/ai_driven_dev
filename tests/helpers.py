@@ -569,12 +569,11 @@ def cli_cmd(*args: str) -> list[str]:
         }
         script = REPO_ROOT / "skills" / "aidd-rlm" / "runtime" / rlm_runtime_map[cmd]
         python_mode = True
-    elif cmd in {"review-pack", "review-report", "reviewer-tests", "context-pack"}:
+    elif cmd in {"review-pack", "review-report", "reviewer-tests"}:
         review_runtime_map = {
             "review-pack": "review_pack.py",
             "review-report": "review_report.py",
             "reviewer-tests": "reviewer_tests.py",
-            "context-pack": "context_pack.py",
         }
         script = REPO_ROOT / "skills" / "review" / "runtime" / review_runtime_map[cmd]
         python_mode = True

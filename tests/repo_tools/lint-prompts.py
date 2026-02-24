@@ -89,6 +89,7 @@ NO_FORK_STAGE_SUBAGENT_COUNTS: Dict[str, int] = {
     "idea-new": 1,
     "plan-new": 2,
     "review-spec": 2,
+    "spec-interview": 1,
     "tasks-new": 1,
     "implement": 1,
     "review": 1,
