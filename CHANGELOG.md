@@ -10,6 +10,7 @@
 - Removed deprecated runtime CLI `skills/aidd-core/runtime/researcher_context.py`.
 - Removed legacy retry alias `--answers` from `skills/spec-interview/runtime/spec_interview.py`.
 - Removed legacy no-op flag `--refresh` from `skills/review/runtime/context_pack.py`.
+- Removed legacy runtime entrypoint `skills/review/runtime/context_pack.py` and dropped `context-pack` compatibility wiring from repo test harness.
 - Removed deprecated `reports_pack` compatibility APIs `build_research_context_pack` and `write_research_context_pack`.
 - Runtime facades for `loop_step`, `loop_run`, `loop_pack`, `tasklist_check`, `tasks_derive`, `reports_pack`, and `qa` now load split implementations from `runtime/*_parts/core.py`.
 
@@ -38,6 +39,8 @@
 ### Improvements
 - Wave 102 completed: all 19 `skills/*/SKILL.md` converged to shared contract structure (`name` baseline, compact `Command contracts`, deterministic `Additional resources` with `when/why`), stage loop policy wording now uses stable semantic markers, and prompt-lint/policy tests were hardened for semantic contract checks.
 - Wave backlog discipline: each wave now has a single active status source-of-truth; historical sections must be marked as archive (non-SoT), and smoke checks guard against conflicting active statuses.
+- `spec-interview` stage chain now explicitly invokes subagent `feature-dev-aidd:spec-interview-writer`, with lint and prompt-test enforcement.
+- Repository topology audit now renders findings from actual graph/triage data and excludes active Draft docs from `unused.candidates` when they have open references in `backlog.md`.
 - Skill-first prompts: canonical runtime policy moved to `skills/aidd-core`/`skills/aidd-loop`, stage entrypoints defined by skills, fallback command docs moved to `docs/fallback/commands`, and CI now guards skills/entrypoints parity.
 - Added Phase-2 redirect-wrapper removal blueprint with rollback criteria (`docs/fallback/commands/redirect-wrapper-removal-plan.md`) including review redirect-wrapper transition windows.
 - Docs and prompts now use namespaced slash commands (`/feature-dev-aidd:*`) for marketplace installs.

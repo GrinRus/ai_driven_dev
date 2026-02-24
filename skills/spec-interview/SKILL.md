@@ -28,9 +28,10 @@ Follow `feature-dev-aidd:aidd-core`.
 ## Steps
 1. Set active stage `spec-interview` and active feature.
 2. Run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/spec-interview/runtime/spec_interview.py --ticket <ticket>`.
-3. Use `AskUserQuestionTool` to gather missing spec details; update `aidd/docs/spec/<ticket>.spec.yaml`.
-4. If answers arrive, sync them into the spec and `AIDD:OPEN_QUESTIONS`/`AIDD:DECISIONS` as needed.
-5. Return the output contract and next step `/feature-dev-aidd:tasks-new <ticket>`.
+3. Run subagent `feature-dev-aidd:spec-interview-writer`.
+4. Use `AskUserQuestionTool` to gather missing spec details; update `aidd/docs/spec/<ticket>.spec.yaml`.
+5. If answers arrive, sync them into the spec and `AIDD:OPEN_QUESTIONS`/`AIDD:DECISIONS` as needed.
+6. Return the output contract and next step `/feature-dev-aidd:tasks-new <ticket>`.
 
 ## Command contracts
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/spec-interview/runtime/spec_interview.py`

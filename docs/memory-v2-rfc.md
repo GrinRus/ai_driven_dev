@@ -1,6 +1,6 @@
 # RFC: Memory v2 for AIDD (pack-first semantic memory)
 
-Status: Draft  
+Status: Draft (Active; Wave 101 source)  
 Owner: feature-dev-aidd  
 Updated: 2026-02-13
 
