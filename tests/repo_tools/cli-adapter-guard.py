@@ -147,12 +147,50 @@ def _action_help_suppressed(call: ast.Call) -> bool:
     return False
 
 
+def _parser_name_from_argparse_call(node: ast.Call) -> str | None:
+    func = node.func
+    if isinstance(func, ast.Name) and func.id == "ArgumentParser":
+        return "ArgumentParser"
+    if not isinstance(func, ast.Attribute):
+        return None
+    if func.attr != "ArgumentParser":
+        return None
+    if not isinstance(func.value, ast.Name):
+        return None
+    return func.value.id if func.value.id == "argparse" else None
+
+
+def _collect_top_level_parser_vars(tree: ast.AST) -> tuple[set[str], set[str]]:
+    top_level_parsers: set[str] = set()
+    subparsers: set[str] = set()
+
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Assign):
+            continue
+        if len(node.targets) != 1 or not isinstance(node.targets[0], ast.Name):
+            continue
+        target = node.targets[0].id
+        value = node.value
+
+        if isinstance(value, ast.Call) and _parser_name_from_argparse_call(value):
+            top_level_parsers.add(target)
+            continue
+
+        if isinstance(value, ast.Call) and isinstance(value.func, ast.Attribute):
+            owner = value.func.value
+            if isinstance(owner, ast.Name) and owner.id in top_level_parsers and value.func.attr == "add_subparsers":
+                subparsers.add(target)
+
+    return top_level_parsers, subparsers
+
+
 def _collect_declared_options(source_text: str) -> set[str]:
     try:
         tree = ast.parse(source_text)
     except SyntaxError:
         return set()
 
+    top_level_parsers, _subparsers = _collect_top_level_parser_vars(tree)
     options: set[str] = set()
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
@@ -165,6 +203,10 @@ def _collect_declared_options(source_text: str) -> set[str]:
             func_name = func.id
         if func_name != "add_argument":
             continue
+        if isinstance(func, ast.Attribute):
+            owner = func.value
+            if isinstance(owner, ast.Name) and top_level_parsers and owner.id not in top_level_parsers:
+                continue
         if _action_help_suppressed(node):
             continue
         for arg in node.args:
@@ -189,6 +231,13 @@ def _collect_help_options(output: str) -> set[str]:
             if option.startswith("-"):
                 options.add(option)
     return options
+
+
+def _is_boolean_optional_auto_flag(option: str, declared_options: set[str]) -> bool:
+    if not option.startswith("--no-"):
+        return False
+    positive = "--" + option[5:]
+    return positive in declared_options
 
 
 def _check_help_contract(path: Path, output: str, source_text: str) -> list[str]:
@@ -222,7 +271,11 @@ def _check_help_contract(path: Path, output: str, source_text: str) -> list[str]
                     sample += ", ..."
                 errors.append(f"{rel}: --help missing declared argparse options ({sample})")
 
-            unknown_in_code = sorted(opt for opt in help_options - declared_options if opt not in ignored)
+            unknown_in_code = sorted(
+                opt
+                for opt in help_options - declared_options
+                if opt not in ignored and not _is_boolean_optional_auto_flag(opt, declared_options)
+            )
             if unknown_in_code:
                 sample = ", ".join(unknown_in_code[:6])
                 if len(unknown_in_code) > 6:

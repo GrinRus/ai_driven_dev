@@ -223,3 +223,86 @@ if __name__ == "__main__":
 
         result = _run_guard(root, "--fail-on-warn")
         assert result.returncode == 0, result.stderr
+
+
+def test_cli_adapter_guard_accepts_top_level_help_with_subparsers() -> None:
+    with tempfile.TemporaryDirectory(prefix="cli-adapter-guard-") as tmpdir:
+        root = Path(tmpdir)
+        _write(
+            root / "skills" / "demo" / "runtime" / "subcommands.py",
+            """#!/usr/bin/env python3
+import argparse
+
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser(
+        description="Demo CLI with subcommands.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=\"\"\"Examples:
+  python3 ${CLAUDE_PLUGIN_ROOT}/skills/demo/runtime/subcommands.py --help
+  python3 ${CLAUDE_PLUGIN_ROOT}/skills/demo/runtime/subcommands.py --ticket DEMO-1
+
+Outputs:
+  stdout: command status.
+
+Exit codes:
+  0 - success.
+  1 - runtime failure.
+  2 - CLI usage error.\"\"\",
+    )
+    parser.add_argument("--ticket", help="Ticket identifier.")
+    subparsers = parser.add_subparsers(dest="command")
+    run_cmd = subparsers.add_parser("run", help="Run subcommand.")
+    run_cmd.add_argument("--force", action="store_true", help="Force mode.")
+    return parser.parse_args(argv)
+
+def main() -> int:
+    parse_args()
+    return 0
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+""",
+        )
+
+        result = _run_guard(root)
+        assert result.returncode == 0, result.stderr
+
+
+def test_cli_adapter_guard_ignores_boolean_optional_auto_flags() -> None:
+    with tempfile.TemporaryDirectory(prefix="cli-adapter-guard-") as tmpdir:
+        root = Path(tmpdir)
+        _write(
+            root / "skills" / "demo" / "runtime" / "boolean_optional.py",
+            """#!/usr/bin/env python3
+import argparse
+
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser(
+        description="Demo CLI with BooleanOptionalAction.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=\"\"\"Examples:
+  python3 ${CLAUDE_PLUGIN_ROOT}/skills/demo/runtime/boolean_optional.py --help
+  python3 ${CLAUDE_PLUGIN_ROOT}/skills/demo/runtime/boolean_optional.py --cache
+
+Outputs:
+  stdout: command status.
+
+Exit codes:
+  0 - success.
+  1 - runtime failure.
+  2 - CLI usage error.\"\"\",
+    )
+    parser.add_argument("--cache", action=argparse.BooleanOptionalAction, default=True, help="Enable cache.")
+    return parser.parse_args(argv)
+
+def main() -> int:
+    parse_args()
+    return 0
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+""",
+        )
+
+        result = _run_guard(root)
+        assert result.returncode == 0, result.stderr
