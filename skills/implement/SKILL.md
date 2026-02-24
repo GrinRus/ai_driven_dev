@@ -3,8 +3,8 @@ name: implement
 description: Executes implement-stage loop workflow for the next scoped work item through stage-chain orchestration. Use when implement stage enters loop mode.
 argument-hint: $1 [note...] [test=fast|targeted|full|none] [tests=<filters>] [tasks=<task1,task2>]
 lang: ru
-prompt_version: 1.1.46
-source_version: 1.1.46
+prompt_version: 1.1.47
+source_version: 1.1.47
 allowed-tools:
   - Read
   - Edit
@@ -56,7 +56,7 @@ Follow `feature-dev-aidd:aidd-core` and `feature-dev-aidd:aidd-loop`.
 6. Read order after stage-chain preflight artifacts: `readmap.md` -> loop pack -> review pack (if exists) -> rolling context pack; do not perform broad repo scan before these artifacts.
 7. Run subagent `feature-dev-aidd:implementer`.
 8. Orchestration: use the existing rolling context pack (do not regenerate it), Fill actions.json (v1) at `aidd/reports/actions/<ticket>/<scope_key>/implement.actions.json`, and validate schema via `python3 ${CLAUDE_PLUGIN_ROOT}/skills/implement/runtime/implement_run.py`.
-9. Canonical stage-chain is strict: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/preflight_prepare.py -> implement_run -> actions_apply.py/postflight -> python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py`; it must produce `aidd/reports/loops/<ticket>/<scope_key>/stage.implement.result.json`. `[AIDD_LOOP_POLICY:CANONICAL_STAGE_RESULT_PATH]`
+9. Canonical stage-chain: preflight -> stage runtime -> actions_apply.py/postflight -> `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py`; it must produce `aidd/reports/loops/<ticket>/<scope_key>/stage.implement.result.json`. `[AIDD_LOOP_POLICY:CANONICAL_STAGE_RESULT_PATH]`
 10. Non-canonical stage-result path under `skills/aidd-loop/runtime/` is forbidden (treat as prompt-flow drift). `[AIDD_LOOP_POLICY:NON_CANONICAL_STAGE_RESULT_FORBIDDEN]`
 11. Output: return stage contract + updated artifacts with explicit handoff/next action.
 

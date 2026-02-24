@@ -120,6 +120,7 @@ RECOVERABLE_RESEARCH_GATE_REASON_CODES = {
     "rlm_status_pending",
 }
 DEFAULT_RESEARCH_GATE_PROBE_TIMEOUT_SECONDS = 180
+LOOP_RESULT_SCHEMA = "aidd.loop_result.v1"
 
 
 def clear_active_mode(root: Path) -> None:
@@ -926,6 +927,46 @@ def emit(fmt: str | None, payload: Dict[str, object]) -> None:
     if payload.get("log_path"):
         summary += f" log={payload.get('log_path')}"
     print(summary)
+    # Keep a machine-readable top-level result event in text mode so audit parsers
+    # can reliably detect terminal loop outcomes in main logs.
+    event = {
+        "type": "result",
+        "schema": LOOP_RESULT_SCHEMA,
+        "status": payload.get("status"),
+        "exit_code": payload.get("exit_code"),
+        "reason_code": payload.get("reason_code", ""),
+        "payload": payload,
+    }
+    print(json.dumps(event, ensure_ascii=False))
+
+
+def _ralph_recoverable_semantics(
+    *,
+    blocked_policy: str,
+    reason_code: str,
+    recoverable_blocked: bool,
+) -> Dict[str, object]:
+    if blocked_policy != "ralph":
+        return {
+            "ralph_recoverable_reason_scope": "n/a",
+            "ralph_recoverable_expected": False,
+            "ralph_recoverable_exercised": False,
+            "ralph_recoverable_not_exercised": False,
+            "ralph_recoverable_not_exercised_reason": "",
+        }
+    normalized_reason = str(reason_code or "").strip()
+    expected = normalized_reason == "blocking_findings"
+    return {
+        "ralph_recoverable_reason_scope": "blocking_findings_only",
+        "ralph_recoverable_expected": expected,
+        "ralph_recoverable_exercised": bool(expected and recoverable_blocked),
+        "ralph_recoverable_not_exercised": not expected,
+        "ralph_recoverable_not_exercised_reason": (
+            f"reason_code_not_blocking_findings:{normalized_reason or 'blocked_without_reason'}"
+            if not expected
+            else ""
+        ),
+    }
 
 
 def main(argv: List[str] | None = None) -> int:
@@ -1819,6 +1860,11 @@ def main(argv: List[str] | None = None) -> int:
                     ),
                 )
             clear_active_mode(target)
+            ralph_semantics = _ralph_recoverable_semantics(
+                blocked_policy=blocked_policy,
+                reason_code=str(log_reason_code or ""),
+                recoverable_blocked=recoverable_blocked,
+            )
             payload = {
                 "status": "blocked",
                 "iterations": iteration,
@@ -1867,6 +1913,7 @@ def main(argv: List[str] | None = None) -> int:
                 "stream_liveness": stream_liveness,
                 "last_step": step_payload,
                 "updated_at": utc_timestamp(),
+                **ralph_semantics,
             }
             append_log(cli_log_path, f"{utc_timestamp()} event=blocked iterations={iteration}")
             emit(args.format, payload)
@@ -1898,6 +1945,16 @@ def main(argv: List[str] | None = None) -> int:
         ),
         "updated_at": utc_timestamp(),
     }
+    if blocked_policy == "ralph":
+        last_reason = str((last_payload or {}).get("reason_code") or "")
+        last_recoverable = bool((last_payload or {}).get("recoverable_blocked"))
+        payload.update(
+            _ralph_recoverable_semantics(
+                blocked_policy=blocked_policy,
+                reason_code=last_reason,
+                recoverable_blocked=last_recoverable,
+            )
+        )
     clear_active_mode(target)
     append_log(cli_log_path, f"{utc_timestamp()} event=max-iterations iterations={max_iterations}")
     emit(args.format, payload)
