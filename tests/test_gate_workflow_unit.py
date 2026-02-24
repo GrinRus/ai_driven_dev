@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from aidd_runtime import gate_workflow
+from hooks import gate_workflow
 
 
 def _write_tasklist(tmp_path: Path, text: str) -> Path:
