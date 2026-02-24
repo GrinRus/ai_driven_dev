@@ -1063,6 +1063,28 @@ class HooklibResolutionTests(unittest.TestCase):
             self.assertEqual(resolved, aidd_root.resolve())
             self.assertFalse(used_workspace)
 
+    def test_resolve_project_root_prefers_aidd_workspace_over_project_docs(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+            root = Path(tmpdir)
+            (root / "docs").mkdir(parents=True, exist_ok=True)
+            (root / "config").mkdir(parents=True, exist_ok=True)
+            aidd_root = root / "aidd"
+            (aidd_root / "docs").mkdir(parents=True, exist_ok=True)
+            (aidd_root / "config").mkdir(parents=True, exist_ok=True)
+            ctx = hooklib.HookContext(
+                hook_event_name="",
+                session_id="",
+                transcript_path=None,
+                cwd=str(root),
+                permission_mode=None,
+                raw={},
+            )
+
+            resolved, used_workspace = hooklib.resolve_project_root(ctx)
+
+            self.assertEqual(resolved, aidd_root.resolve())
+            self.assertTrue(used_workspace)
+
 
 class StopUpdateTests(unittest.TestCase):
     def test_stop_update_writes_latest_working_set(self) -> None:

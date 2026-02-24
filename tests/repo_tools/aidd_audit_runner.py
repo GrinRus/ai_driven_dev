@@ -191,6 +191,12 @@ def _detect_readiness_gate_reason(
     return ""
 
 
+def _allow_readiness_override(classification: contract.Classification) -> bool:
+    if classification.subtype == "readiness_gate_failed":
+        return False
+    return classification.classification in {"FLOW_BUG", "TELEMETRY_ONLY"}
+
+
 def analyze_run(
     *,
     summary_path: Path,
@@ -236,7 +242,7 @@ def analyze_run(
         diagnostics_text=aux_text,
     )
     readiness_gate_failed = bool(readiness_reason)
-    if readiness_gate_failed and classified.subtype != "readiness_gate_failed":
+    if readiness_gate_failed and _allow_readiness_override(classified):
         classified = contract.Classification(
             classification="PROMPT_EXEC_ISSUE",
             subtype="readiness_gate_failed",
