@@ -4,6 +4,7 @@ import argparse
 import datetime as dt
 import json
 import os
+import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -40,6 +41,8 @@ RESEARCH_TEMPLATE_MARKERS = (
     "{{rlm_nodes_path}}",
     "{{rlm_links_path}}",
 )
+STATUS_LINE_RE = re.compile(r"^\*{0,2}\s*status\s*\*{0,2}\s*:\s*(.+)$", re.IGNORECASE)
+LIST_ITEM_RE = re.compile(r"^(?:[-+*])\s+")
 
 
 @dataclass
@@ -160,10 +163,44 @@ def load_settings(root: Path) -> ResearchSettings:
 
 
 def _extract_status(doc_text: str) -> Optional[str]:
-    for line in doc_text.splitlines():
-        stripped = line.strip()
-        if stripped.lower().startswith("status:"):
-            return stripped.split(":", 1)[1].strip().lower()
+    in_fence = False
+    fence_marker = ""
+
+    for raw_line in doc_text.splitlines():
+        stripped = raw_line.strip()
+        if stripped.startswith("```") or stripped.startswith("~~~"):
+            marker = stripped[:3]
+            if not in_fence:
+                in_fence = True
+                fence_marker = marker
+            elif marker == fence_marker:
+                in_fence = False
+                fence_marker = ""
+            continue
+        if in_fence:
+            continue
+        if raw_line.startswith("    ") or raw_line.startswith("\t"):
+            continue
+        if not stripped:
+            continue
+
+        candidate = stripped.lstrip("> ").strip()
+        if LIST_ITEM_RE.match(candidate):
+            continue
+
+        match = STATUS_LINE_RE.match(candidate)
+        if not match:
+            continue
+
+        raw_status = match.group(1).strip().strip("`")
+        if raw_status.startswith("**") and raw_status.endswith("**") and len(raw_status) > 4:
+            raw_status = raw_status[2:-2].strip()
+        if raw_status.startswith("__") and raw_status.endswith("__") and len(raw_status) > 4:
+            raw_status = raw_status[2:-2].strip()
+        token = raw_status.split(None, 1)[0] if raw_status else ""
+        normalized = token.strip().lower().strip("`'\"*.,;:()[]{}")
+        if normalized:
+            return normalized
     return None
 
 

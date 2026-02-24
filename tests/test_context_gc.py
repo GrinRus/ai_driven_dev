@@ -1026,6 +1026,43 @@ class HooklibResolutionTests(unittest.TestCase):
                 resolved = hooklib.resolve_aidd_root(nested)
             self.assertEqual(resolved, (root / "aidd").resolve())
 
+    def test_resolve_project_root_walks_parents_for_workspace_subdir(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+            root = Path(tmpdir)
+            (root / "aidd" / "docs").mkdir(parents=True, exist_ok=True)
+            (root / "aidd" / "config").mkdir(parents=True, exist_ok=True)
+            backend_src = root / "backend" / "src"
+            backend_src.mkdir(parents=True, exist_ok=True)
+            ctx = hooklib.HookContext(
+                hook_event_name="",
+                session_id="",
+                transcript_path=None,
+                cwd=str(backend_src),
+                permission_mode=None,
+                raw={},
+            )
+            resolved, used_workspace = hooklib.resolve_project_root(ctx)
+            self.assertEqual(resolved, (root / "aidd").resolve())
+            self.assertTrue(used_workspace)
+
+    def test_resolve_project_root_keeps_aidd_root_when_called_from_aidd(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+            root = Path(tmpdir)
+            aidd_root = root / "aidd"
+            (aidd_root / "docs").mkdir(parents=True, exist_ok=True)
+            (aidd_root / "config").mkdir(parents=True, exist_ok=True)
+            ctx = hooklib.HookContext(
+                hook_event_name="",
+                session_id="",
+                transcript_path=None,
+                cwd=str(aidd_root),
+                permission_mode=None,
+                raw={},
+            )
+            resolved, used_workspace = hooklib.resolve_project_root(ctx)
+            self.assertEqual(resolved, aidd_root.resolve())
+            self.assertFalse(used_workspace)
+
 
 class StopUpdateTests(unittest.TestCase):
     def test_stop_update_writes_latest_working_set(self) -> None:

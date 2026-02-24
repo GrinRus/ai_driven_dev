@@ -333,6 +333,107 @@ class ResearchCheckTests(unittest.TestCase):
         self.assertIn("reason_code=research_template_stale", str(excinfo.exception))
         self.assertIn("skills/researcher/runtime/research.py", str(excinfo.exception))
 
+    def test_research_check_accepts_bold_status_and_ignores_fenced_code_status(self) -> None:
+        workspace, project_root = self._setup_workspace()
+        ticket = "demo-bold-status"
+        write_active_feature(project_root, ticket)
+        write_active_stage(project_root, "review")
+        write_file(
+            project_root,
+            f"docs/research/{ticket}.md",
+            "\n".join(
+                [
+                    "# Research",
+                    "",
+                    "**Status**: reviewed",
+                    "",
+                    "```python",
+                    "status: 'idle',",
+                    "```",
+                    "",
+                ]
+            ),
+        )
+        self._write_rlm_baseline(project_root, ticket, status="ready", entries=[])
+        write_file(
+            project_root,
+            f"reports/research/{ticket}-rlm.nodes.jsonl",
+            '{"node_kind":"file","file_id":"file-app","id":"file-app","path":"src/main/kotlin/App.kt","rev_sha":"rev-app"}\n',
+        )
+        write_file(
+            project_root,
+            f"reports/research/{ticket}-rlm.links.jsonl",
+            '{"link_kind":"import","source":"file-app","target":"file-app","id":"link-1"}\n',
+        )
+        write_json(
+            project_root,
+            f"reports/research/{ticket}-rlm.links.stats.json",
+            {"links_total": 1},
+        )
+        write_json(
+            project_root,
+            f"reports/research/{ticket}-rlm.pack.json",
+            {"schema": "aidd.report.pack.v1", "type": "rlm", "status": "ready"},
+        )
+
+        args = self._make_args(ticket)
+        old_cwd = Path.cwd()
+        os.chdir(workspace)
+        try:
+            research_check.main(args)
+        finally:
+            os.chdir(old_cwd)
+
+    def test_research_check_ignores_indented_code_status_line(self) -> None:
+        workspace, project_root = self._setup_workspace()
+        ticket = "demo-indented-status"
+        write_active_feature(project_root, ticket)
+        write_active_stage(project_root, "review")
+        write_file(
+            project_root,
+            f"docs/research/{ticket}.md",
+            "\n".join(
+                [
+                    "# Research",
+                    "",
+                    "    status: 'idle',",
+                    "",
+                ]
+            ),
+        )
+        self._write_rlm_baseline(project_root, ticket, status="ready", entries=[])
+        write_file(
+            project_root,
+            f"reports/research/{ticket}-rlm.nodes.jsonl",
+            '{"node_kind":"file","file_id":"file-app","id":"file-app","path":"src/main/kotlin/App.kt","rev_sha":"rev-app"}\n',
+        )
+        write_file(
+            project_root,
+            f"reports/research/{ticket}-rlm.links.jsonl",
+            '{"link_kind":"import","source":"file-app","target":"file-app","id":"link-1"}\n',
+        )
+        write_json(
+            project_root,
+            f"reports/research/{ticket}-rlm.links.stats.json",
+            {"links_total": 1},
+        )
+        write_json(
+            project_root,
+            f"reports/research/{ticket}-rlm.pack.json",
+            {"schema": "aidd.report.pack.v1", "type": "rlm", "status": "ready"},
+        )
+
+        args = self._make_args(ticket)
+        old_cwd = Path.cwd()
+        os.chdir(workspace)
+        try:
+            with self.assertRaises(RuntimeError) as excinfo:
+                research_check.main(args)
+        finally:
+            os.chdir(old_cwd)
+
+        self.assertIn("reason_code=research_status_missing", str(excinfo.exception))
+
     def test_research_check_passes_ready_with_nodes_links_pack(self) -> None:
         workspace, project_root = self._setup_workspace()
         ticket = "demo-ready"

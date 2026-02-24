@@ -35,6 +35,7 @@
 - `CLAUDE_STREAM_FLAGS=--verbose --output-format stream-json --include-partial-messages`
 - `CLAUDE_PLUGIN_FLAGS=--plugin-dir "$PLUGIN_DIR"`
 - `PLUGIN_HEALTHCHECK_CMD=/feature-dev-aidd:status $TICKET`
+- `SEVERITY_PROFILE=conservative` (default: `conservative`)
 
 ## 3) Режимы
 
@@ -71,8 +72,8 @@
   Стагнация только main log при растущем stream не является `silent stall`.
 - R12.1: Извлечение stream-путей обязано поддерживать абсолютные и относительные пути из `init/header/metadata`; относительные пути нормализуются относительно `PROJECT_DIR` и сохраняются в нормализованном виде.
 - R12.2: Если stream-пути не извлеклись из main log/metadata, обязателен fallback discovery в `aidd/reports/loops/<ticket>/` (по `*.stream.jsonl` и `*.stream.log`) с выбором самых свежих файлов; этот fallback фиксируется в `AUDIT_DIR/<step>_stream_paths_run<N>.txt`.
-- R12.3: После нормализации stream-путей оставлять в liveness-множестве только пути внутри `PROJECT_DIR`; абсолютные пути вне workspace (например, `/reports/...`) фиксировать как `stream_path_invalid` и исключать из расчёта stall.
-- R12.4: Если primary extraction дал только `stream_path_invalid` или пустой валидный набор, обязателен fallback discovery; отсутствие fallback при таком случае — `prompt-exec issue (stream_path_resolution_incomplete)`.
+- R12.3: После нормализации stream-путей оставлять в liveness-множестве только пути внутри `PROJECT_DIR`, которые физически существуют на момент проверки; абсолютные пути вне workspace (например, `/reports/...`) фиксировать как `stream_path_invalid`, отсутствующие пути внутри workspace фиксировать как `stream_path_missing`, оба типа исключать из расчёта stall.
+- R12.4: Если primary extraction дал только `stream_path_invalid`/`stream_path_missing` или пустой валидный набор, обязателен fallback discovery; отсутствие fallback при таком случае — `prompt-exec issue (stream_path_resolution_incomplete)`.
 - R13: Stage-result contract canonical-only: принимается только `schema=aidd.stage_result.v1` (alias через `schema_version` допустим только для canonical значения). Legacy `aidd.stage_result.<stage>.v1` считать историческим payload.
 - R13.0: Для preflight write-path также canonical-only: `schema=aidd.stage_result.v1`, `stage=preflight`, `details.target_stage=<implement|review|qa>`; legacy preflight schema payload трактуется как historical `invalid-schema` (не runtime-path).
 - R13.1: Если `reason_code=stage_result_missing_or_invalid` и diagnostics указывает fallback `invalid-schema` (включая legacy schema payload), классифицировать как `contract_mismatch(stage_result_shape)` и фиксировать отдельно от `prompt-exec issue`.
@@ -94,6 +95,7 @@
 - R17.1: `kill` допускается только если не растут `main log` и все резолвленные stream-файлы (из primary extraction или fallback discovery) более 20 минут.
 - R17.2: Если завершение с `exit_code=143` произошло при `killed=0` (или без явного watchdog kill marker), классифицируй как `ENV_MISCONFIG(parent_terminated|external_terminate)`, а не как `silent stall`/`prompt-exec issue`.
 - R17.3: Если завершение с `exit_code=143` произошло при `killed=1` и подтверждённом `watchdog_marker=1`, классифицируй как `NOT VERIFIED (killed)` + `prompt-exec issue (watchdog_terminated)`; не как `ENV_MISCONFIG(parent_terminated|external_terminate)`.
+- R17.4: Severity profile `conservative`: `ENV_BLOCKER`, `ENV_MISCONFIG`, `contract_mismatch` остаются terminal; `stream path` parser-noise (`stream_path_invalid|stream_path_missing`) и telemetry-mismatch не являются terminal сами по себе; `result_count=0` трактуется как инцидент только после явной проверки top-level payload.
 - R18: Перед запуском `plan-new`, `review-spec`, `tasks-new` и любого шага `6/7/8` обязателен readiness gate из `AUDIT_DIR/05_precondition_block.txt`.
 - R18.1: Readiness gate = `PASS` только при одновременном выполнении условий: `prd_status=READY`, `open_questions_count=0`, `answers_format=compact_q_codes|legacy_answer_alias`, `research_status=reviewed|ok`.
 - R18.1a: `compact_q_codes` обязателен для retry payload в CLI (`AIDD:ANSWERS Q1=...; Q2=...`), но не как обязательный persisted-формат секции `AIDD:ANSWERS` в PRD/plan/tasklist.
@@ -120,7 +122,8 @@
 - В `AUDIT_DIR/<step>_stream_paths_run<N>.txt` обязательно сохранять source-attribution для каждого пути (`init/header/metadata|fallback_scan`) и нормализованный абсолютный путь.
 - Если primary extraction stream-путей не дал результата, выполнить fallback discovery и явно зафиксировать это в `AUDIT_DIR/<step>_stream_paths_run<N>.txt`.
 - Если primary extraction содержит невалидные абсолютные пути вне `PROJECT_DIR`, сохранить их с source-attribution как `stream_path_invalid`, но не использовать для liveness/stall.
-- В `AUDIT_DIR/<step>_stream_paths_run<N>.txt` каждая запись должна быть в формате `source=<...> path=<abs_path_inside_project>|stream_path_invalid=<abs_path_outside_project>`; при отсутствии валидных путей после fallback фиксировать `fallback_scan=1` и `stream_path_not_emitted_by_cli=1`.
+- Если primary extraction содержит путь внутри `PROJECT_DIR`, но путь отсутствует на диске, сохранить его как `stream_path_missing` и исключить из liveness/stall.
+- В `AUDIT_DIR/<step>_stream_paths_run<N>.txt` каждая запись должна быть в формате `source=<...> path=<abs_path_inside_project>|stream_path_invalid=<abs_path_outside_project>|stream_path_missing=<abs_path_inside_project_missing>`; при отсутствии валидных путей после fallback фиксировать `fallback_scan=1` и `stream_path_not_emitted_by_cli=1`.
 - Если stage завершился валидным top-level result, но stream-пути не извлеклись и fallback discovery не нашёл свежих `*.stream.jsonl|*.stream.log`, фиксировать `INFO(stream_path_not_emitted_by_cli)` без инцидента.
 
 ### 5.1 Проверка плагина в каждом stream-json run
@@ -574,6 +577,7 @@ RLM artifacts check (после fallback, если был):
 - если kill/hang — отмечать `NOT VERIFIED`.
 - если `*_summary.txt` содержит `result_count=0` при валидном `init`, классифицировать как `NOT VERIFIED (no_top_level_result)` + `prompt-exec issue`.
 - если в логах шага есть `python3 skills/.../runtime/*.py` + `can't open file`, классифицировать как `NOT VERIFIED (prompt_flow_drift_non_canonical_runtime_path)`.
+- Anti-cascade gate: если шаг 6 завершился terminal `NOT VERIFIED` из-за `watchdog_terminated` или `no_top_level_result`, шаги 7 и 8 пометить `NOT VERIFIED (upstream_seed_stage_failed)` и перейти к шагу 99.
 
 Loop seed integrity checks:
 - `06_active_after_review.json`
@@ -640,6 +644,9 @@ Loop runtime integrity checks:
 - `07_stage_result_contract_check.txt` (contract mismatch vs prompt-exec разведены)
 - `07_blocking_findings_policy_check.txt` (blocking_findings semantics: REVISE + ralph recoverable)
 
+Anti-cascade gate (до шага 8):
+- если шаг 7 завершился terminal blocked с `reason_code=stage_result_missing_or_invalid` или `watchdog_terminated`, шаг 8 пометить `NOT VERIFIED (upstream_loop_stage_failed)` и перейти к шагу 99.
+
 ### Шаг 8. QA
 
 Зачем: итоговая валидация тестовой готовности.
@@ -649,7 +656,8 @@ Loop runtime integrity checks:
 - precheck `AIDD:TEST_EXECUTION`:
   - сохранить `08_test_execution_precheck.txt`;
   - искать shell-chain токены (`&&`, `||`, `;`) только в command-полях секции `AIDD:TEST_EXECUTION`; в prose/notes не считать инцидентом;
-  - если найдено в command-поле как единая task entry, пометить `WARN(tasklist_hygiene)` и продолжить QA с фиксацией риска;
+  - если найдено в command-поле как единая task entry, по умолчанию пометить `INFO(tasklist_hygiene)` и продолжить QA с фиксацией риска;
+  - повышать до `WARN(tasklist_hygiene)` только если тот же shell-chain реально исполнялся в текущем QA run и дал fail-сигнал;
 - если в логе виден direct вызов `python3 .../skills/qa/runtime/preflight.py` или `python3 .../skills/aidd-loop/runtime/preflight_prepare.py` вне canonical stage-chain:
   - классифицировать как `prompt-flow drift (manual_stage_chain_preflight_forbidden)`;
   - не продолжать manual recovery path для текущего шага.
