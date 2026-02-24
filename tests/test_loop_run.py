@@ -707,6 +707,128 @@ class LoopRunTests(unittest.TestCase):
             self.assertEqual(payload.get("recoverable_blocked"), False)
             self.assertEqual(payload.get("retry_attempt"), 0)
             self.assertEqual(payload.get("reason_code"), "user_approval_required")
+            self.assertEqual(payload.get("ralph_recoverable_reason_scope"), "blocking_findings_only")
+            self.assertEqual(payload.get("ralph_recoverable_expected"), False)
+            self.assertEqual(payload.get("ralph_recoverable_exercised"), False)
+            self.assertEqual(payload.get("ralph_recoverable_not_exercised"), True)
+            self.assertEqual(
+                payload.get("ralph_recoverable_not_exercised_reason"),
+                "reason_code_not_blocking_findings:user_approval_required",
+            )
+
+    def test_loop_run_ralph_marks_non_blocking_findings_as_not_exercised(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-RALPH-NOT-EXERCISED"
+            write_active_state(root, ticket=ticket, stage="review", work_item="iteration_id=I1")
+
+            fake_result = subprocess.CompletedProcess(
+                args=["loop-step"],
+                returncode=20,
+                stdout=json.dumps(
+                    {
+                        "status": "blocked",
+                        "stage": "review",
+                        "scope_key": "iteration_id_I1",
+                        "work_item_key": "iteration_id=I1",
+                        "reason_code": "review_context_pack_missing",
+                        "reason": "review context pack missing",
+                    }
+                ),
+                stderr="",
+            )
+            captured = io.StringIO()
+            cwd = os.getcwd()
+            try:
+                os.chdir(root.parent)
+                with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
+                    with patch("aidd_runtime.loop_run.run_loop_step", return_value=fake_result):
+                        with redirect_stdout(captured):
+                            code = loop_run_module.main(
+                                [
+                                    "--ticket",
+                                    ticket,
+                                    "--work-item-key",
+                                    "iteration_id=I1",
+                                    "--max-iterations",
+                                    "1",
+                                    "--blocked-policy",
+                                    "ralph",
+                                    "--recoverable-block-retries",
+                                    "2",
+                                    "--format",
+                                    "json",
+                                ]
+                            )
+            finally:
+                os.chdir(cwd)
+
+            self.assertEqual(code, 20)
+            payload = json.loads(captured.getvalue())
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertEqual(payload.get("reason_code"), "review_context_pack_missing")
+            self.assertEqual(payload.get("recoverable_blocked"), False)
+            self.assertEqual(payload.get("ralph_recoverable_reason_scope"), "blocking_findings_only")
+            self.assertEqual(payload.get("ralph_recoverable_expected"), False)
+            self.assertEqual(payload.get("ralph_recoverable_exercised"), False)
+            self.assertEqual(payload.get("ralph_recoverable_not_exercised"), True)
+            self.assertEqual(
+                payload.get("ralph_recoverable_not_exercised_reason"),
+                "reason_code_not_blocking_findings:review_context_pack_missing",
+            )
+
+    def test_loop_run_text_mode_emits_machine_readable_result_event(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-TEXT-RESULT-EVENT"
+            write_active_state(root, ticket=ticket, stage="review", work_item="iteration_id=I1")
+
+            fake_result = subprocess.CompletedProcess(
+                args=["loop-step"],
+                returncode=20,
+                stdout=json.dumps(
+                    {
+                        "status": "blocked",
+                        "stage": "review",
+                        "scope_key": "iteration_id_I1",
+                        "work_item_key": "iteration_id=I1",
+                        "reason_code": "blocking_findings",
+                        "reason": "blocking findings present",
+                    }
+                ),
+                stderr="",
+            )
+            captured = io.StringIO()
+            cwd = os.getcwd()
+            try:
+                os.chdir(root.parent)
+                with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
+                    with patch("aidd_runtime.loop_run.run_loop_step", return_value=fake_result):
+                        with redirect_stdout(captured):
+                            code = loop_run_module.main(
+                                [
+                                    "--ticket",
+                                    ticket,
+                                    "--work-item-key",
+                                    "iteration_id=I1",
+                                    "--max-iterations",
+                                    "1",
+                                    "--blocked-policy",
+                                    "strict",
+                                ]
+                            )
+            finally:
+                os.chdir(cwd)
+
+            self.assertEqual(code, 20)
+            output_lines = [line for line in captured.getvalue().splitlines() if line.strip()]
+            self.assertTrue(output_lines)
+            self.assertIn("[loop-run] status=blocked", output_lines[0])
+            self.assertGreaterEqual(len(output_lines), 2)
+            result_event = json.loads(output_lines[-1])
+            self.assertEqual(result_event.get("type"), "result")
+            self.assertEqual(result_event.get("schema"), "aidd.loop_result.v1")
+            self.assertEqual(result_event.get("status"), "blocked")
 
     def test_loop_run_ralph_does_not_retry_prompt_flow_blocker(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:

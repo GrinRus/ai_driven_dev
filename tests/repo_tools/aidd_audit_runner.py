@@ -33,6 +33,13 @@ INVALID_FALLBACK_RUNTIME_PATH_RE = re.compile(
     r"python3\s+/skills/[^ \n]*/runtime/[^ \n]*\.py\b",
     re.IGNORECASE,
 )
+READINESS_REASON_CODES = (
+    "readiness_gate_failed",
+    "prd_not_ready",
+    "open_questions_present",
+    "answers_format_invalid",
+    "research_not_ready",
+)
 
 
 def parse_kv_file(path: Path) -> Dict[str, str]:
@@ -155,16 +162,53 @@ def _extract_invalid_fallback_paths(log_text: str, aux_text: str) -> List[str]:
     return seen
 
 
+def _detect_readiness_gate_reason(
+    *,
+    summary: Mapping[str, str],
+    precondition: Mapping[str, str],
+    diagnostics_text: str,
+) -> str:
+    direct_candidates = [
+        str(summary.get("reason_code") or "").strip().lower(),
+        str(summary.get("precondition_reason") or "").strip().lower(),
+        str(precondition.get("reason_code") or "").strip().lower(),
+        str(precondition.get("gate_reason") or "").strip().lower(),
+    ]
+    for candidate in direct_candidates:
+        if candidate in READINESS_REASON_CODES:
+            return candidate
+
+    merged = "\n".join(
+        [
+            "\n".join(f"{key}={value}" for key, value in summary.items()),
+            "\n".join(f"{key}={value}" for key, value in precondition.items()),
+            diagnostics_text,
+        ]
+    ).lower()
+    for reason_code in READINESS_REASON_CODES:
+        if reason_code in merged:
+            return reason_code
+    return ""
+
+
+def _allow_readiness_override(classification: contract.Classification) -> bool:
+    if classification.subtype == "readiness_gate_failed":
+        return False
+    return classification.classification in {"FLOW_BUG", "TELEMETRY_ONLY"}
+
+
 def analyze_run(
     *,
     summary_path: Path,
     run_log_path: Path | None = None,
     termination_path: Path | None = None,
+    precondition_path: Path | None = None,
     preflight: Mapping[str, object] | None = None,
     aux_log_paths: List[Path] | None = None,
 ) -> Dict[str, object]:
     summary = parse_kv_file(summary_path)
     termination = parse_kv_file(termination_path) if termination_path else {}
+    precondition = parse_kv_file(precondition_path) if precondition_path else {}
     run_log = run_log_path
     if run_log is None:
         candidate = Path(str(summary_path).replace(".summary.txt", ".log"))
@@ -172,6 +216,8 @@ def analyze_run(
             run_log = candidate
     log_text = read_log_text(run_log)
     aux_text_parts: List[str] = []
+    if precondition_path:
+        aux_text_parts.append(read_log_text(precondition_path))
     for path in aux_log_paths or []:
         aux_text_parts.append(read_log_text(path))
     aux_text = "\n".join(part for part in aux_text_parts if part)
@@ -190,6 +236,19 @@ def analyze_run(
         preflight=preflight,
         diagnostics_text=aux_text,
     )
+    readiness_reason = _detect_readiness_gate_reason(
+        summary=summary,
+        precondition=precondition,
+        diagnostics_text=aux_text,
+    )
+    readiness_gate_failed = bool(readiness_reason)
+    if readiness_gate_failed and _allow_readiness_override(classified):
+        classified = contract.Classification(
+            classification="PROMPT_EXEC_ISSUE",
+            subtype="readiness_gate_failed",
+            source="precondition" if precondition else "diagnostics",
+            label="NOT_VERIFIED(readiness_gate_failed)+PROMPT_EXEC_ISSUE(readiness_gate_failed)",
+        )
     invalid_fallback_paths = _extract_invalid_fallback_paths(log_text, aux_text)
     tasks_new_partial_success = (
         result_count_interpretation == "no_top_level_result_confirmed"
@@ -225,8 +284,12 @@ def analyze_run(
             "partial_success_no_top_level_result": int(tasks_new_partial_success),
             "invalid_fallback_path_count": len(invalid_fallback_paths),
             "invalid_fallback_paths": invalid_fallback_paths,
+            "readiness_gate_failed": int(readiness_gate_failed),
+            "readiness_reason": readiness_reason,
         }
     )
+    if precondition:
+        payload["precondition"] = dict(precondition)
     return payload
 
 
@@ -243,6 +306,7 @@ def _build_parser() -> argparse.ArgumentParser:
     classify_parser.add_argument("--summary", required=True)
     classify_parser.add_argument("--log")
     classify_parser.add_argument("--termination")
+    classify_parser.add_argument("--precondition")
     classify_parser.add_argument("--aux-log", action="append", default=[])
     classify_parser.add_argument("--project-dir")
     classify_parser.add_argument("--plugin-dir")
@@ -274,6 +338,7 @@ def main(argv: List[str] | None = None) -> int:
         summary_path=Path(args.summary),
         run_log_path=Path(args.log) if args.log else None,
         termination_path=Path(args.termination) if args.termination else None,
+        precondition_path=Path(args.precondition) if args.precondition else None,
         preflight=preflight_payload,
         aux_log_paths=[Path(item) for item in args.aux_log],
     )

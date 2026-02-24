@@ -158,6 +158,71 @@ class AiddAuditRunnerTests(unittest.TestCase):
         self.assertEqual(payload.get("classification_subtype"), "fallback_path_assembly_bug")
         self.assertEqual(payload.get("invalid_fallback_path_count"), 1)
 
+    def test_precondition_readiness_gate_failure_is_classified_as_prompt_exec_issue(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "05_plan_new_run1.summary.txt"
+            precondition_path = Path(tmp) / "05_precondition_block.txt"
+            summary_path.write_text(
+                "\n".join(
+                    [
+                        "step=05_plan_new",
+                        "result_count=0",
+                        "exit_code=0",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            precondition_path.write_text(
+                "\n".join(
+                    [
+                        "readiness_gate=FAIL",
+                        "reason_code=prd_not_ready",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(
+                summary_path=summary_path,
+                precondition_path=precondition_path,
+            )
+        self.assertEqual(payload.get("classification"), "PROMPT_EXEC_ISSUE")
+        self.assertEqual(payload.get("classification_subtype"), "readiness_gate_failed")
+        self.assertEqual(payload.get("readiness_gate_failed"), 1)
+        self.assertEqual(payload.get("readiness_reason"), "prd_not_ready")
+
+    def test_readiness_signal_does_not_override_env_blocker(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "05_plan_new_run1.summary.txt"
+            precondition_path = Path(tmp) / "05_precondition_block.txt"
+            summary_path.write_text(
+                "\n".join(
+                    [
+                        "step=05_plan_new",
+                        "result_count=0",
+                        "exit_code=1",
+                        "unknown_skill_hit=1",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            precondition_path.write_text(
+                "\n".join(
+                    [
+                        "readiness_gate=FAIL",
+                        "reason_code=prd_not_ready",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(
+                summary_path=summary_path,
+                precondition_path=precondition_path,
+            )
+        self.assertEqual(payload.get("classification"), "ENV_BLOCKER")
+        self.assertEqual(payload.get("classification_subtype"), "plugin_not_loaded")
+        self.assertEqual(payload.get("readiness_gate_failed"), 1)
+        self.assertEqual(payload.get("readiness_reason"), "prd_not_ready")
+
 
 if __name__ == "__main__":
     unittest.main()

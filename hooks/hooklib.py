@@ -190,12 +190,17 @@ def resolve_project_root(ctx: HookContext | None = None, *, cwd: str | None = No
         base = resolve_project_dir(ctx)
     else:
         base = Path.cwd().resolve()
-    if base.name != "aidd":
-        if (base / "aidd" / "docs").is_dir() or (base / "aidd" / "hooks").is_dir():
-            return (base / "aidd").resolve(), True
-    if not (base / "docs").is_dir() and (base / "aidd" / "docs").is_dir():
-        return (base / "aidd").resolve(), True
-    return base, False
+
+    for parent in _iter_parent_dirs(base):
+        if parent.name == "aidd" and (parent / "docs").is_dir():
+            return parent.resolve(), parent != base
+        candidate = parent / "aidd"
+        if (candidate / "docs").is_dir():
+            return candidate.resolve(), True
+
+    if (base / "docs").is_dir() and ((base / "config").is_dir() or (base / "hooks").is_dir()):
+        return base.resolve(), False
+    return base.resolve(), False
 
 
 def _iter_parent_dirs(path: Path) -> Iterable[Path]:

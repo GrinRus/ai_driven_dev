@@ -123,11 +123,37 @@ class E2EPromptContractTests(unittest.TestCase):
     def test_full_prompt_captures_watchdog_and_stream_path_attribution_rules(self) -> None:
         text = _read(AUDIT_PROMPT_FULL)
         self.assertIn("stream_path_invalid", text)
+        self.assertIn("stream_path_missing", text)
         self.assertIn("stream_path_resolution_incomplete", text)
+        self.assertIn("fallback_scan=1", text)
+        self.assertIn("stream_path_not_emitted_by_cli=1", text)
         self.assertIn("exit_code=143", text)
         self.assertIn("watchdog_marker=1", text)
         self.assertIn("watchdog_terminated", text)
         self.assertIn("result_count` в summary отсутствует", text)
+
+    def test_prompts_define_conservative_severity_profile(self) -> None:
+        for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
+            text = _read(prompt)
+            self.assertIn("SEVERITY_PROFILE=conservative", text)
+            self.assertIn("Severity profile `conservative`", text)
+
+    def test_full_prompt_contains_step5_readiness_gate_contract(self) -> None:
+        text = _read(AUDIT_PROMPT_FULL)
+        self.assertIn("#### 5.2.1 Step 5 Readiness Gate (hard-stop)", text)
+        self.assertIn("05_precondition_block.txt", text)
+        self.assertIn("answers_format=compact_q_codes|legacy_answer_alias", text)
+        self.assertIn("`compact_q_codes` обязателен для retry payload", text)
+        self.assertIn("prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready", text)
+        self.assertIn("NOT VERIFIED (readiness_gate_failed)", text)
+        self.assertIn("NOT VERIFIED (upstream_readiness_gate_failed)", text)
+
+    def test_full_prompt_requires_answer_normalization_and_compact_retry_payload(self) -> None:
+        text = _read(AUDIT_PROMPT_FULL)
+        self.assertIn("legacy `Answer N:`/`Answer to QN:`", text)
+        self.assertIn("AUDIT_DIR/<step>_questions_normalized.txt", text)
+        self.assertIn("AIDD:ANSWERS Q1=C; Q2=B; Q3=C; Q4=A; Q5=C", text)
+        self.assertIn("legacy префиксы `Answer N:` в retry запрещены", text)
 
     def test_full_prompt_marker_semantics_excludes_template_backup_noise(self) -> None:
         text = _read(AUDIT_PROMPT_FULL)
@@ -221,6 +247,8 @@ class E2EPromptContractTests(unittest.TestCase):
         self.assertIn("Fail-fast gate (до шага 7)", text)
         self.assertIn("preloop_artifacts_missing", text)
         self.assertIn("шаги 7 и 8 пометить `NOT VERIFIED`", text)
+        self.assertIn("NOT VERIFIED (upstream_seed_stage_failed)", text)
+        self.assertIn("NOT VERIFIED (upstream_loop_stage_failed)", text)
 
     def test_prompts_enforce_runtime_drift_fail_fast_and_manual_stage_chain_preflight_forbidden(self) -> None:
         full_text = _read(AUDIT_PROMPT_FULL)

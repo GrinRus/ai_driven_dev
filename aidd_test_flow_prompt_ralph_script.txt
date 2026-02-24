@@ -22,6 +22,7 @@
 - `CLAUDE_STREAM_FLAGS=--verbose --output-format stream-json --include-partial-messages`
 - `CLAUDE_PLUGIN_FLAGS=--plugin-dir "$PLUGIN_DIR"`
 - `PLUGIN_HEALTHCHECK_CMD=/feature-dev-aidd:status $TICKET`
+- `SEVERITY_PROFILE=conservative` (default: `conservative`)
 
 ## 2) Обязательные правила
 
@@ -49,6 +50,8 @@
 - R10.1: Для `runtime_path_missing_or_drift` (включая direct вызовы non-canonical `preflight*.py`) применять fail-fast: immediate `blocked`, без guessed retries и без manual recovery path.
 - R10.2: Если в stage-логе есть direct `python3 .../skills/aidd-loop/runtime/preflight_prepare.py` вне canonical stage-chain — классифицировать как `prompt-flow drift (manual_stage_chain_preflight_forbidden)` и завершать шаг `NOT VERIFIED`.
 - R11: Stage-level классификацию делать только по текущему stage-return, `init` и top-level result; `WARN/Q*/Question` внутри вложенных артефактов не считать trigger-ом инцидента.
+- R11.1: Для `loop-run` в `text`-режиме top-level result может приходить как JSON event `{"type":"result","schema":"aidd.loop_result.v1",...}`; учитывать его как валидный terminal result.
+- R11.2: Severity profile `conservative`: `ENV_BLOCKER`, `ENV_MISCONFIG`, `contract_mismatch` остаются terminal; parser-noise по stream-path и telemetry-mismatch не являются terminal сами по себе; `result_count=0` трактуется как инцидент только после явной проверки top-level payload.
 
 ## 3) Политика запуска и классификация
 
@@ -82,6 +85,8 @@
   - если stream растёт, это `active_stream` (не stall);
   - если не растут и `main log`, и stream — это `silent stall`.
 - Для `stream-json` каждого stage-run обязательно проверять рост и `main log`, и stream-файлов.
+- Stream path учитывать в liveness только если путь внутри `PROJECT_DIR` и физически существует; отсутствующий путь внутри `PROJECT_DIR` фиксировать как `stream_path_missing` и исключать из liveness.
+- Если primary extraction дал только `stream_path_invalid`/`stream_path_missing` или пустой валидный набор, обязателен fallback discovery в `aidd/reports/loops/<ticket>/`; при валидном top-level result и отсутствии stream после fallback фиксировать только `INFO(stream_path_not_emitted_by_cli)`.
 - Для `silent stall` один debug-retry с `ANTHROPIC_LOG=debug` перед финальной классификацией.
 - Порядок классификации:
   - `ENV_BLOCKER`
@@ -223,7 +228,8 @@ RLM-only check:
 - First run: `/feature-dev-aidd:qa $TICKET`.
 - Precheck `AIDD:TEST_EXECUTION`:
   - сохранить `08_test_execution_precheck.txt`;
-  - если одна task-entry содержит `&&`, `||`, `;`, пометить `WARN(tasklist_hygiene)` и продолжить QA с фиксацией риска.
+  - если одна task-entry содержит `&&`, `||`, `;`, по умолчанию пометить `INFO(tasklist_hygiene)` и продолжить QA с фиксацией риска;
+  - повышать до `WARN(tasklist_hygiene)` только если тот же shell-chain реально исполнялся в текущем QA run и дал fail-сигнал.
 - Если в логе виден direct вызов `python3 .../skills/qa/runtime/preflight.py` или `python3 .../skills/aidd-loop/runtime/preflight_prepare.py` вне stage-chain:
   - классифицировать как `prompt-flow drift (manual_stage_chain_preflight_forbidden)`;
   - не продолжать manual recovery path.
