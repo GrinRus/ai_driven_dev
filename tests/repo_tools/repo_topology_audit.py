@@ -988,6 +988,13 @@ def build_revision_payload(repo_root: Path, *, generated_at: Optional[str] = Non
     return _build_revision_payload(repo_root.resolve(), generated_at=generated_at)
 
 
+def _format_output_path(path: Path, root: Path) -> str:
+    try:
+        return path.relative_to(root).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
 def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate repository topology graph + unused triage + cleanup plan.")
     parser.add_argument("--repo-root", default=".", help="Repository root path.")
@@ -1037,9 +1044,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     )
     output_md.write_text(_render_markdown(payload), encoding="utf-8")
 
-    print(f"[repo-topology-audit] JSON: {output_json.relative_to(root)}")
-    print(f"[repo-topology-audit] MD: {output_md.relative_to(root)}")
-    print(f"[repo-topology-audit] CLEANUP: {output_cleanup.relative_to(root)}")
+    print(f"[repo-topology-audit] JSON: {_format_output_path(output_json, root)}")
+    print(f"[repo-topology-audit] MD: {_format_output_path(output_md, root)}")
+    print(f"[repo-topology-audit] CLEANUP: {_format_output_path(output_cleanup, root)}")
     return 0
 
 

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import io
 import importlib.util
 import json
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 
 
@@ -279,6 +281,39 @@ skills:
             self.assertNotIn("Обязательные находки:", report)
             self.assertIn("docs/legacy-draft.md", report)
             self.assertNotIn("docs/memory-v2-rfc.md", report)
+
+    def test_main_allows_output_paths_outside_repo_root(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="repo-topology-main-repo-") as repo_tmp:
+            with tempfile.TemporaryDirectory(prefix="repo-topology-main-out-") as out_tmp:
+                root = Path(repo_tmp)
+                out_root = Path(out_tmp)
+                self._build_fixture_repo(root)
+
+                output_json = out_root / "repo-revision.graph.json"
+                output_md = out_root / "repo-revision.md"
+                output_cleanup = out_root / "repo-cleanup-plan.json"
+                args = [
+                    "--repo-root",
+                    str(root),
+                    "--output-json",
+                    str(output_json),
+                    "--output-md",
+                    str(output_md),
+                    "--output-cleanup",
+                    str(output_cleanup),
+                ]
+
+                stdout = io.StringIO()
+                with redirect_stdout(stdout):
+                    code = self.audit.main(args)
+                self.assertEqual(code, 0)
+                self.assertTrue(output_json.exists())
+                self.assertTrue(output_md.exists())
+                self.assertTrue(output_cleanup.exists())
+                log = stdout.getvalue()
+                self.assertIn(output_json.as_posix(), log)
+                self.assertIn(output_md.as_posix(), log)
+                self.assertIn(output_cleanup.as_posix(), log)
 
 
 if __name__ == "__main__":
