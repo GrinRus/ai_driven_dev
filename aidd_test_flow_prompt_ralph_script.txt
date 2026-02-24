@@ -49,6 +49,7 @@
 - R10.1: Для `runtime_path_missing_or_drift` (включая direct вызовы non-canonical `preflight*.py`) применять fail-fast: immediate `blocked`, без guessed retries и без manual recovery path.
 - R10.2: Если в stage-логе есть direct `python3 .../skills/aidd-loop/runtime/preflight_prepare.py` вне canonical stage-chain — классифицировать как `prompt-flow drift (manual_stage_chain_preflight_forbidden)` и завершать шаг `NOT VERIFIED`.
 - R11: Stage-level классификацию делать только по текущему stage-return, `init` и top-level result; `WARN/Q*/Question` внутри вложенных артефактов не считать trigger-ом инцидента.
+- R11.1: Для `loop-run` в `text`-режиме top-level result может приходить как JSON event `{"type":"result","schema":"aidd.loop_result.v1",...}`; учитывать его как валидный terminal result.
 
 ## 3) Политика запуска и классификация
 
