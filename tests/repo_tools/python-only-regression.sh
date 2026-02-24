@@ -19,6 +19,9 @@ python3 tests/repo_tools/skill-scripts-guard.py
 log "bash runtime guard"
 python3 tests/repo_tools/bash-runtime-guard.py
 
+log "cli adapter guard"
+python3 tests/repo_tools/cli-adapter-guard.py
+
 log "prompt lint (python-only canon)"
 python3 tests/repo_tools/lint-prompts.py --root "$ROOT_DIR"
 

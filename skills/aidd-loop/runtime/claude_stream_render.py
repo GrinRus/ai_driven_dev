@@ -10,6 +10,17 @@ from typing import Any, Iterable, Optional, TextIO
 
 
 MAX_ARG_CHARS = 200
+HELP_EPILOG = """Examples:
+  python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/claude_stream_render.py --help
+  cat stream.jsonl | python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/claude_stream_render.py --mode text+tools
+
+Outputs:
+  stdout: rendered stream text (and optional tool markers).
+
+Exit codes:
+  0 - success.
+  1 - strict-mode parse failure.
+  2 - CLI usage error (argparse)."""
 
 
 @dataclass
@@ -161,7 +172,11 @@ def render_line(
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Render Claude stream-json into text output.")
+    parser = argparse.ArgumentParser(
+        description="Render Claude stream-json into text output.",
+        epilog=HELP_EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument(
         "--mode",
         choices=("text-only", "text+tools"),

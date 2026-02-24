@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from aidd_runtime import gate_workflow
+from hooks import gate_workflow
 
 
 class GateWorkflowRuntimeResilienceTests(unittest.TestCase):

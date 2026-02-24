@@ -251,6 +251,22 @@ run_runtime_module_guard() {
   fi
 }
 
+run_cli_adapter_guard() {
+  if ! command -v python3 >/dev/null 2>&1; then
+    warn "python3 not found; skipping cli adapter guard"
+    return
+  fi
+  if [[ ! -f "tests/repo_tools/cli-adapter-guard.py" ]]; then
+    warn "tests/repo_tools/cli-adapter-guard.py missing; skipping"
+    return
+  fi
+  log "running cli adapter guard"
+  if ! python3 tests/repo_tools/cli-adapter-guard.py; then
+    err "cli adapter guard failed"
+    STATUS=1
+  fi
+}
+
 run_python_only_regression() {
   if [[ ! -f "tests/repo_tools/python-only-regression.sh" ]]; then
     warn "tests/repo_tools/python-only-regression.sh missing; skipping"
@@ -501,6 +517,7 @@ run_schema_guards
 run_runtime_path_regression
 run_research_legacy_artifact_guard
 run_runtime_module_guard
+run_cli_adapter_guard
 run_python_only_regression
 run_marketplace_ref_guard
 run_repo_linters
