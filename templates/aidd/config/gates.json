@@ -173,7 +173,22 @@
     "mode": "auto",
     "required": false,
     "allow_fallback_rg": true,
-    "warn_on_fallback": true
+    "warn_on_fallback": true,
+    "rollout_wave2": {
+      "enabled": false,
+      "decision_mode": "advisory",
+      "scopes": [
+        "implement",
+        "review",
+        "qa"
+      ],
+      "metrics_artifact": "aidd/reports/observability/ast-index.rollout.json",
+      "thresholds": {
+        "quality_min": 0.75,
+        "latency_p95_ms_max": 2500,
+        "fallback_rate_max": 0.35
+      }
+    }
   },
   "analyst": {
     "enabled": true,

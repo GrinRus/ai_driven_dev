@@ -70,6 +70,7 @@ User‑гайд для workspace находится в `skills/aidd-core/templat
 
 ## Минимальные зависимости
 - `python3`, `rg`, `git` обязательны.
+- `ast-index` опционален: default policy `mode=auto` + deterministic fallback на `rg`; `required` включается только через config gate.
 - Для `tests/repo_tools/ci-lint.sh`: `shellcheck`, `markdownlint`, `yamllint` (иначе warn/skip).
 
 ## Локальный запуск entrypoints
@@ -150,6 +151,7 @@ Agent‑first правило: сначала читаем артефакты (`a
 
 ## Evidence Read Policy (RLM-first)
 - Primary evidence: `aidd/reports/research/<ticket>-rlm.pack.json` (pack-first summary).
+- Secondary evidence (AST, optional): `aidd/reports/research/<ticket>-ast.pack.json`.
 - Secondary evidence (memory): `aidd/reports/memory/<ticket>.semantic.pack.json`, `aidd/reports/memory/<ticket>.decisions.pack.json`.
 - Slice on demand: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_slice.py --ticket <ticket> --query "<token>"`.
 - Slice on demand (memory): `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-memory/runtime/memory_slice.py --ticket <ticket> --query "<token>"`.
@@ -162,9 +164,14 @@ Agent‑first правило: сначала читаем артефакты (`a
   - `prd_review`, `plan_review`, `researcher`, `analyst`
   - `tests_required` (`disabled|soft|hard`), `tests_gate`
   - `deps_allowlist`
+  - `ast_index` (`mode`, `required`, `allow_fallback_rg`, `warn_on_fallback`, `rollout_wave2`)
   - `qa.debounce_minutes`
   - `qa.tests.discover` (allow_paths/max_files/max_bytes)
   - `tasklist_progress`
+- Wave-2 rollout gate (`ast_index.rollout_wave2`) оценивается через doctor:
+  - `decision_mode=advisory|hard`
+  - thresholds: `quality_min`, `latency_p95_ms_max`, `fallback_rate_max`
+  - metrics artifact: `aidd/reports/observability/ast-index.rollout.json`
 - Важные env:
   - `SKIP_AUTO_TESTS`, `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`
 - Stage-chain orchestration для loop stages обязательна (`preflight -> run -> postflight -> stage_result`), debug bypass не поддерживается.

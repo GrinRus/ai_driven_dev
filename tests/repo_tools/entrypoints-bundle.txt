@@ -18,22 +18,22 @@
       "lang": "ru",
       "name": "plan-reviewer",
       "path": "agents/plan-reviewer.md",
-      "prompt_version": "1.0.19",
-      "source_version": "1.0.19"
+      "prompt_version": "1.0.20",
+      "source_version": "1.0.20"
     },
     {
       "lang": "ru",
       "name": "planner",
       "path": "agents/planner.md",
-      "prompt_version": "1.1.12",
-      "source_version": "1.1.12"
+      "prompt_version": "1.1.13",
+      "source_version": "1.1.13"
     },
     {
       "lang": "ru",
       "name": "prd-reviewer",
       "path": "agents/prd-reviewer.md",
-      "prompt_version": "1.0.19",
-      "source_version": "1.0.19"
+      "prompt_version": "1.0.20",
+      "source_version": "1.0.20"
     },
     {
       "lang": "ru",
@@ -46,8 +46,8 @@
       "lang": "ru",
       "name": "researcher",
       "path": "agents/researcher.md",
-      "prompt_version": "1.2.30",
-      "source_version": "1.2.30"
+      "prompt_version": "1.2.31",
+      "source_version": "1.2.31"
     },
     {
       "lang": "ru",
@@ -193,8 +193,8 @@
       "lang": "ru",
       "name": "plan-new",
       "path": "skills/plan-new/SKILL.md",
-      "prompt_version": "1.1.15",
-      "source_version": "1.1.15",
+      "prompt_version": "1.1.16",
+      "source_version": "1.1.16",
       "user_invocable": "true"
     },
     {
@@ -211,8 +211,8 @@
       "lang": "ru",
       "name": "researcher",
       "path": "skills/researcher/SKILL.md",
-      "prompt_version": "1.2.33",
-      "source_version": "1.2.33",
+      "prompt_version": "1.2.34",
+      "source_version": "1.2.34",
       "user_invocable": "true"
     },
     {
@@ -220,8 +220,8 @@
       "lang": "ru",
       "name": "review-spec",
       "path": "skills/review-spec/SKILL.md",
-      "prompt_version": "1.0.22",
-      "source_version": "1.0.22",
+      "prompt_version": "1.0.23",
+      "source_version": "1.0.23",
       "user_invocable": "true"
     },
     {

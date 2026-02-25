@@ -15,6 +15,9 @@
 - Runtime facades for `loop_step`, `loop_run`, `loop_pack`, `tasklist_check`, `tasks_derive`, `reports_pack`, and `qa` now load split implementations from `runtime/*_parts/core.py`.
 
 ### New Features
+- Wave 101 PR-07/PR-08 (AST optional retrieval): researcher pipeline now produces `aidd/reports/research/<ticket>-ast.pack.json`, uses deterministic `ast-index -> rg` fallback in `auto`, and blocks with `next_action` in `required`.
+- Plan/review-spec gates now consume AST evidence in non-blocking optional mode; missing/invalid AST packs are warnings in `auto` and deterministic blocks in `required`.
+- Doctor adds wave-2 rollout diagnostics for AST expansion (`ast_index.rollout_wave2`) with threshold checks for quality/latency/fallback-rate and `decision_mode` (`advisory|hard`).
 - Wave 101 PR-04/PR-05 (Memory v2): added `skills/aidd-memory/runtime/{memory_extract,decision_append,memory_pack,memory_slice,memory_verify}.py` workflow coverage with canonical artifacts `aidd/reports/memory/<ticket>.semantic.pack.json` and `<ticket>.decisions.pack.json`.
 - Loop DocOps now supports validated decision writes through `memory_ops.decision_append` (actions schema + stage contracts + preflight defaults).
 - Gate/readiness adds soft/hard memory checks (`memory_semantic_pack_missing*`, `memory_decisions_pack_missing*`) for `plan/review/qa`.

@@ -120,6 +120,23 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
         "require_semantic_pack": False,
         "require_decisions_pack": False,
     },
+    "ast_index": {
+        "mode": "auto",
+        "required": False,
+        "allow_fallback_rg": True,
+        "warn_on_fallback": True,
+        "rollout_wave2": {
+            "enabled": False,
+            "decision_mode": "advisory",
+            "scopes": ["implement", "review", "qa"],
+            "metrics_artifact": "aidd/reports/observability/ast-index.rollout.json",
+            "thresholds": {
+                "quality_min": 0.75,
+                "latency_p95_ms_max": 2500,
+                "fallback_rate_max": 0.35,
+            },
+        },
+    },
     "analyst": {
         "enabled": True,
         "branches": ["feature/*", "release/*", "hotfix/*"],

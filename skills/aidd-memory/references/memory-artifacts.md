@@ -15,4 +15,3 @@
 ## Notes
 - Wave 101 PR-01 introduces command surfaces and bootstrap contracts.
 - Runtime behavior is completed in later Wave 101 tasks (`W101-2..W101-5`).
-

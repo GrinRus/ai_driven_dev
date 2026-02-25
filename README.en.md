@@ -210,6 +210,46 @@ Recommended read order (pack-first):
 
 Decision writes must go through the validated path (`memory_ops.decision_append`), not direct JSONL edits.
 
+## AST Index (optional + fallback)
+
+AST retrieval in Wave 101 is an optional dependency:
+- minimal required dependencies stay unchanged: `python3`, `rg`, `git`;
+- `ast-index` is enabled via `aidd/config/conventions.json` + `aidd/config/gates.json`.
+
+Modes:
+1. `off`: AST path is disabled.
+1. `auto` (default): try `ast-index` first; on degradation, deterministic `rg` fallback with reason codes.
+1. `required`: missing `ast-index` readiness or failed threshold policy blocks the stage (`BLOCKED`) with `next_action`.
+
+Canonical AST artifact:
+- `aidd/reports/research/<ticket>-ast.pack.json`
+
+Normalized fallback reason codes:
+- `ast_index_binary_missing`
+- `ast_index_index_missing`
+- `ast_index_timeout`
+- `ast_index_json_invalid`
+- `ast_index_fallback_rg`
+
+Diagnostics and rollout gate:
+- `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-observability/runtime/doctor.py` validates:
+  - `ast-index readiness` (optional/required semantics),
+  - `ast-index wave-2 rollout` (threshold gate for expanding scope to `implement/review/qa`).
+- Threshold contract is configured in `aidd/config/gates.json` → `ast_index.rollout_wave2`:
+  - `decision_mode`: `advisory|hard`
+  - `thresholds`: `quality_min`, `latency_p95_ms_max`, `fallback_rate_max`
+  - `metrics_artifact`: `aidd/reports/observability/ast-index.rollout.json`
+
+Example metrics artifact:
+
+```json
+{
+  "quality_score": 0.82,
+  "latency_p95_ms": 1800,
+  "fallback_rate": 0.21
+}
+```
+
 ## Loop mode (implement↔review)
 
 Loop = 1 work_item → implement → review → (revise)* → ship.

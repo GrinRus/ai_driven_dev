@@ -271,7 +271,7 @@ _Назначение EPIC: закрыть retrieval/tooling/compaction конт
   **Effort:** S
   **Risk:** Low
 
-- [ ] **W101-20 (P0) Researcher runtime integration (research-first rollout)** `skills/researcher/runtime/research.py`, `skills/researcher/templates/research.template.md`:
+- [x] **W101-20 (P0) Researcher runtime integration (research-first rollout)** `skills/researcher/runtime/research.py`, `skills/researcher/templates/research.template.md`:
   - в `research.py --auto` включить ast-index path при enabled mode;
   - писать fallback markers/warnings без блокировки при `required=false`.
   **AC:** research pipeline генерирует AST pack при доступности ast-index и детерминированно деградирует на `rg` при недоступности.
@@ -280,7 +280,7 @@ _Назначение EPIC: закрыть retrieval/tooling/compaction конт
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W101-21 (P1) Plan/review-spec consumption of AST evidence (non-blocking)** `skills/plan-new/runtime/research_check.py`, `skills/review-spec/runtime/prd_review_cli.py`, `skills/aidd-policy/references/read-policy.md`, `skills/aidd-core/templates/context-pack.template.md`:
+- [x] **W101-21 (P1) Plan/review-spec consumption of AST evidence (non-blocking)** `skills/plan-new/runtime/research_check.py`, `skills/review-spec/runtime/prd_review_cli.py`, `skills/aidd-policy/references/read-policy.md`, `skills/aidd-core/templates/context-pack.template.md`:
   - включить AST pack в recommended read order после RLM pack;
   - отсутствие AST pack в optional mode не блокирует stage.
   **AC:** read-order расширен без регрессий текущего RLM-first поведения.
@@ -289,7 +289,7 @@ _Назначение EPIC: закрыть retrieval/tooling/compaction конт
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W101-22 (P1) Prompt/skill wiring for research/plan roles** `skills/researcher/SKILL.md`, `skills/plan-new/SKILL.md`, `skills/review-spec/SKILL.md`, `agents`, `tests/repo_tools/lint-prompts.py`:
+- [x] **W101-22 (P1) Prompt/skill wiring for research/plan roles** `skills/researcher/SKILL.md`, `skills/plan-new/SKILL.md`, `skills/review-spec/SKILL.md`, `agents`, `tests/repo_tools/lint-prompts.py`:
   - обновить deterministic guidance: `ast-index preferred, rg fallback`;
   - обновить prompt-version/baseline в соответствии с policy.
   **AC:** роли `researcher/planner/plan-reviewer/prd-reviewer` отражают optional ast-index flow и проходят prompt lint.
@@ -298,7 +298,7 @@ _Назначение EPIC: закрыть retrieval/tooling/compaction конт
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W101-23 (P0) Fallback policy and stage status contract** `skills/aidd-core/runtime/reports/events.py`, `skills/aidd-loop/runtime/output_contract.py`:
+- [x] **W101-23 (P0) Fallback policy and stage status contract** `skills/aidd-core/runtime/reports/events.py`, `skills/aidd-loop/runtime/output_contract.py`:
   - нормализовать логирование reason codes в events/output contracts;
   - optional mode => `WARN`, required mode => `BLOCKED` + deterministic next action.
   **AC:** fallback semantics единообразны в status/reporting слое.
@@ -307,7 +307,7 @@ _Назначение EPIC: закрыть retrieval/tooling/compaction конт
   **Effort:** S
   **Risk:** Medium
 
-- [ ] **W101-24 (P0) Full test suite for ast-index integration** `tests`, `tests/repo_tools/ci-lint.sh`, `tests/repo_tools/smoke-workflow.sh`:
+- [x] **W101-24 (P0) Full test suite for ast-index integration** `tests`, `tests/repo_tools/ci-lint.sh`, `tests/repo_tools/smoke-workflow.sh`:
   - покрыть modes `off/auto/required`, missing binary, missing index, valid JSON path, fallback path;
   - добавить smoke profile со stubbed binary, не требующий внешней обязательной зависимости.
   **AC:** CI/smoke проходят в default profile без mandatory ast-index и покрывают fallback behavior.
@@ -316,7 +316,7 @@ _Назначение EPIC: закрыть retrieval/tooling/compaction конт
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W101-25 (P1) Docs/changelog/operator runbook for AST extension** `README.md`, `README.en.md`, `AGENTS.md`, `CHANGELOG.md`:
+- [x] **W101-25 (P1) Docs/changelog/operator runbook for AST extension** `README.md`, `README.en.md`, `AGENTS.md`, `CHANGELOG.md`:
   - задокументировать install/update/troubleshooting;
   - явно зафиксировать optional dependency и fallback semantics.
   **AC:** docs/changelog согласованы с unified Wave 101 runtime contract.
@@ -325,7 +325,7 @@ _Назначение EPIC: закрыть retrieval/tooling/compaction конт
   **Effort:** S
   **Risk:** Low
 
-- [ ] **W101-26 (P1) Rollout decision gate for wave-2 expansion (implement/review/qa)** `templates/aidd/config/gates.json`, `skills/aidd-observability/runtime/doctor.py`:
+- [x] **W101-26 (P1) Rollout decision gate for wave-2 expansion (implement/review/qa)** `templates/aidd/config/gates.json`, `skills/aidd-observability/runtime/doctor.py`:
   - формализовать критерии wave-2 expansion (`quality`, `latency`, `fallback-rate` thresholds);
   - зафиксировать gate flags/policy для включения implement/review/qa scope.
   **AC:** rollout decisions для wave-2 детерминированы и проверяемы policy tests.

@@ -45,4 +45,3 @@ user-invocable: false
 
 ## Additional resources
 - [references/memory-artifacts.md](references/memory-artifacts.md) (when: artifact names or lifecycle is unclear; why: keep memory paths and write/read order consistent across stages).
-

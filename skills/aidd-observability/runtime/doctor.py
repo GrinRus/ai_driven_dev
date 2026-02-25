@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import shutil
 import sys
 from pathlib import Path
@@ -69,6 +70,143 @@ def _check_loop_observability(project_root: Path) -> tuple[bool, str]:
     if has_stream_liveness:
         return True, f"{loop_log} (stream liveness markers present)"
     return True, f"{loop_log} (no stream liveness markers yet)"
+
+
+def _as_float(value: object) -> float | None:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _as_int(value: object) -> int | None:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _as_bool(value: object, default: bool = False) -> bool:
+    if isinstance(value, bool):
+        return value
+    text = str(value or "").strip().lower()
+    if text in {"1", "true", "yes", "on"}:
+        return True
+    if text in {"0", "false", "no", "off"}:
+        return False
+    return default
+
+
+def _rollout_scopes(raw: object) -> list[str]:
+    if not isinstance(raw, list):
+        return ["implement", "review", "qa"]
+    scopes = [str(item).strip().lower() for item in raw if str(item).strip()]
+    return scopes or ["implement", "review", "qa"]
+
+
+def _evaluate_ast_rollout_wave2(project_root: Path) -> tuple[bool, bool, str, str]:
+    try:
+        gates_cfg = runtime.load_gates_config(project_root)
+    except Exception as exc:
+        return False, False, f"config_error={exc}", ""
+    ast_cfg = gates_cfg.get("ast_index") if isinstance(gates_cfg.get("ast_index"), dict) else {}
+    rollout_cfg = ast_cfg.get("rollout_wave2") if isinstance(ast_cfg.get("rollout_wave2"), dict) else {}
+    enabled = _as_bool(rollout_cfg.get("enabled"), default=False)
+    decision_mode = str(rollout_cfg.get("decision_mode") or "advisory").strip().lower() or "advisory"
+    enforce = decision_mode in {"hard", "required", "block", "enforce"}
+    scopes = _rollout_scopes(rollout_cfg.get("scopes"))
+    thresholds_cfg = rollout_cfg.get("thresholds") if isinstance(rollout_cfg.get("thresholds"), dict) else {}
+    quality_min = _as_float(thresholds_cfg.get("quality_min"))
+    latency_max = _as_int(thresholds_cfg.get("latency_p95_ms_max"))
+    fallback_max = _as_float(thresholds_cfg.get("fallback_rate_max"))
+    if quality_min is None:
+        quality_min = 0.75
+    if latency_max is None:
+        latency_max = 2500
+    if fallback_max is None:
+        fallback_max = 0.35
+
+    metrics_artifact_raw = str(
+        rollout_cfg.get("metrics_artifact") or "aidd/reports/observability/ast-index.rollout.json"
+    ).strip()
+    metrics_artifact_path = runtime.resolve_path_for_target(Path(metrics_artifact_raw), project_root)
+    metrics_rel = runtime.rel_path(metrics_artifact_path, project_root)
+
+    if not enabled:
+        return True, False, (
+            f"enabled=false decision_mode={decision_mode} scopes={','.join(scopes)} "
+            "status=disabled (wave-1 scope only)"
+        ), ""
+
+    if not metrics_artifact_path.exists():
+        detail = (
+            f"enabled=true decision_mode={decision_mode} scopes={','.join(scopes)} "
+            f"artifact={metrics_rel} status=missing_metrics"
+        )
+        error = (
+            "AST wave-2 rollout gate is enforced but metrics artifact is missing: "
+            f"{metrics_rel}. Provide quality/latency/fallback metrics or switch decision_mode=advisory."
+        )
+        return False, enforce, detail, error
+
+    try:
+        metrics_payload = json.loads(metrics_artifact_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        detail = (
+            f"enabled=true decision_mode={decision_mode} scopes={','.join(scopes)} "
+            f"artifact={metrics_rel} status=invalid_json ({exc})"
+        )
+        error = (
+            "AST wave-2 rollout gate is enforced but metrics artifact is invalid JSON: "
+            f"{metrics_rel}. Fix artifact schema or switch decision_mode=advisory."
+        )
+        return False, enforce, detail, error
+
+    if not isinstance(metrics_payload, dict):
+        detail = (
+            f"enabled=true decision_mode={decision_mode} scopes={','.join(scopes)} "
+            f"artifact={metrics_rel} status=invalid_payload"
+        )
+        error = (
+            "AST wave-2 rollout gate is enforced but metrics payload is not an object: "
+            f"{metrics_rel}. Fix artifact schema or switch decision_mode=advisory."
+        )
+        return False, enforce, detail, error
+
+    quality = _as_float(metrics_payload.get("quality_score"))
+    if quality is None:
+        quality = _as_float(metrics_payload.get("quality"))
+    latency = _as_int(metrics_payload.get("latency_p95_ms"))
+    if latency is None:
+        latency = _as_int(metrics_payload.get("latency_ms_p95"))
+    fallback_rate = _as_float(metrics_payload.get("fallback_rate"))
+
+    if quality is None or latency is None or fallback_rate is None:
+        detail = (
+            f"enabled=true decision_mode={decision_mode} scopes={','.join(scopes)} "
+            f"artifact={metrics_rel} status=incomplete_metrics"
+        )
+        error = (
+            "AST wave-2 rollout gate is enforced but metrics artifact misses required fields "
+            "`quality_score|quality`, `latency_p95_ms`, `fallback_rate`."
+        )
+        return False, enforce, detail, error
+
+    quality_ok = quality >= quality_min
+    latency_ok = latency <= latency_max
+    fallback_ok = fallback_rate <= fallback_max
+    rollout_ok = quality_ok and latency_ok and fallback_ok
+    status = "ready" if rollout_ok else "blocked"
+    detail = (
+        f"enabled=true decision_mode={decision_mode} scopes={','.join(scopes)} "
+        f"quality={quality:.3f}>={quality_min:.3f} latency_p95_ms={latency}<={latency_max} "
+        f"fallback_rate={fallback_rate:.3f}<={fallback_max:.3f} status={status} artifact={metrics_rel}"
+    )
+    error = (
+        "AST wave-2 rollout gate thresholds are not satisfied "
+        f"(quality_ok={quality_ok}, latency_ok={latency_ok}, fallback_ok={fallback_ok})."
+    )
+    return rollout_ok, (enforce and not rollout_ok), detail, (error if enforce and not rollout_ok else "")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -199,6 +337,11 @@ def main(argv: list[str] | None = None) -> int:
             "ast-index is required by config but not ready. Install/index ast-index "
             "or change aidd/config/conventions.json + aidd/config/gates.json to optional mode."
         )
+
+    ast_rollout_ok, ast_rollout_block, ast_rollout_detail, ast_rollout_error = _evaluate_ast_rollout_wave2(project_root)
+    rows.append(("ast-index wave-2 rollout", ast_rollout_ok, ast_rollout_detail))
+    if ast_rollout_block and ast_rollout_error:
+        errors.append(ast_rollout_error)
 
     print("AIDD Doctor")
     for name, ok, detail in rows:

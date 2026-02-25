@@ -528,6 +528,37 @@ run_memory_regression() {
   fi
 }
 
+run_ast_index_regression() {
+  if ! command -v python3 >/dev/null 2>&1; then
+    warn "python3 not found; skipping AST integration regression subset"
+    return
+  fi
+  if [[ ! -d "tests" ]]; then
+    log "tests/ directory not found; skipping AST integration regression subset"
+    return
+  fi
+  if ! python3 -m pytest --version >/dev/null 2>&1; then
+    err "pytest is required for AST integration regression subset"
+    STATUS=1
+    return
+  fi
+  log "running AST integration regression subset"
+  if ! AIDD_PACK_ENFORCE_BUDGET=1 python3 -m pytest -q \
+    tests/test_ast_index_adapter.py \
+    tests/test_ast_pack_schema.py \
+    tests/test_ast_pack_budget.py \
+    tests/test_ast_index_research_integration.py \
+    tests/test_research_check.py \
+    tests/test_review_spec.py \
+    tests/test_output_contract.py \
+    tests/test_events.py \
+    tests/test_doctor.py \
+    tests/test_tools_inventory.py; then
+    err "AST integration regression subset failed"
+    STATUS=1
+  fi
+}
+
 cd "$ROOT_DIR"
 
 run_prompt_lint
@@ -550,6 +581,7 @@ run_python_only_regression
 run_marketplace_ref_guard
 run_repo_linters
 
+run_ast_index_regression
 run_memory_regression
 run_python_tests
 

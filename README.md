@@ -198,6 +198,46 @@ Memory v2 включён по умолчанию в Wave 101 как **breaking-o
 
 Decision writes только через validated path (`memory_ops.decision_append`), а не прямым редактированием JSONL.
 
+## AST Index (optional + fallback)
+
+AST retrieval в Wave 101 работает как optional dependency:
+- минимальные обязательные зависимости не меняются: `python3`, `rg`, `git`;
+- `ast-index` подключается опционально через `aidd/config/conventions.json` + `aidd/config/gates.json`.
+
+Режимы:
+1. `off`: AST path отключён.
+1. `auto` (default): сначала `ast-index`, при деградации — детерминированный fallback на `rg` с reason codes.
+1. `required`: отсутствие готовности `ast-index` или провал threshold policy блокирует stage (`BLOCKED`) с `next_action`.
+
+Канонический AST artifact:
+- `aidd/reports/research/<ticket>-ast.pack.json`
+
+Нормализованные fallback reason codes:
+- `ast_index_binary_missing`
+- `ast_index_index_missing`
+- `ast_index_timeout`
+- `ast_index_json_invalid`
+- `ast_index_fallback_rg`
+
+Диагностика и rollout gate:
+- `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-observability/runtime/doctor.py` проверяет:
+  - `ast-index readiness` (optional/required semantics),
+  - `ast-index wave-2 rollout` (пороговый gate для расширения scope на `implement/review/qa`).
+- Пороговый контракт задаётся в `aidd/config/gates.json` → `ast_index.rollout_wave2`:
+  - `decision_mode`: `advisory|hard`
+  - `thresholds`: `quality_min`, `latency_p95_ms_max`, `fallback_rate_max`
+  - `metrics_artifact`: `aidd/reports/observability/ast-index.rollout.json`
+
+Пример metrics artifact:
+
+```json
+{
+  "quality_score": 0.82,
+  "latency_p95_ms": 1800,
+  "fallback_rate": 0.21
+}
+```
+
 ## Loop mode (implement↔review)
 
 Loop = 1 work_item → implement → review → (revise)* → ship.

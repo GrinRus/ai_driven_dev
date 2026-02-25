@@ -45,6 +45,39 @@ def _set_ast_required(project_root: Path, *, mode: str, required: bool) -> None:
 
 
 class AstIndexResearchIntegrationTests(unittest.TestCase):
+    def test_research_auto_mode_off_skips_ast_pack(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="aidd-ast-research-off-") as tmpdir:
+            workspace = Path(tmpdir) / "workspace"
+            project_root = workspace / "aidd"
+            project_root.mkdir(parents=True, exist_ok=True)
+            subprocess.run(
+                cli_cmd("init"),
+                cwd=workspace,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=cli_env(),
+            )
+            ticket = "AST-OFF-1"
+            _write_prd_with_hints(project_root, ticket, "off_marker")
+            _set_ast_binary(project_root, "ast-index-missing-off-test")
+            _set_ast_required(project_root, mode="off", required=False)
+
+            src_dir = workspace / "src"
+            src_dir.mkdir(parents=True, exist_ok=True)
+            (src_dir / "off.py").write_text("def off_marker_fn():\n    return True\n", encoding="utf-8")
+
+            result = subprocess.run(
+                cli_cmd("research", "--ticket", ticket, "--auto"),
+                cwd=workspace,
+                env=cli_env(),
+                text=True,
+                capture_output=True,
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            ast_pack = project_root / "reports" / "research" / f"{ticket}-ast.pack.json"
+            self.assertFalse(ast_pack.exists())
+
     def test_research_auto_writes_ast_pack_with_stub_binary(self) -> None:
         with tempfile.TemporaryDirectory(prefix="aidd-ast-research-stub-") as tmpdir:
             workspace = Path(tmpdir) / "workspace"
@@ -157,6 +190,77 @@ class AstIndexResearchIntegrationTests(unittest.TestCase):
             rows = payload.get("matches", {}).get("rows", [])
             self.assertGreaterEqual(len(rows), 1)
 
+    def test_research_auto_falls_back_when_index_missing(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="aidd-ast-research-index-missing-") as tmpdir:
+            workspace = Path(tmpdir) / "workspace"
+            project_root = workspace / "aidd"
+            project_root.mkdir(parents=True, exist_ok=True)
+            subprocess.run(
+                cli_cmd("init"),
+                cwd=workspace,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=cli_env(),
+            )
+            ticket = "AST-INDEX-MISS-1"
+            _write_prd_with_hints(project_root, ticket, "index_missing_marker")
+
+            src_dir = workspace / "src"
+            src_dir.mkdir(parents=True, exist_ok=True)
+            (src_dir / "index_missing.py").write_text(
+                "def index_missing_marker_func():\n    return True\n",
+                encoding="utf-8",
+            )
+
+            bin_dir = workspace / ".bin"
+            bin_dir.mkdir(parents=True, exist_ok=True)
+            stub_path = bin_dir / "ast-index"
+            stub_path.write_text(
+                "\n".join(
+                    [
+                        "#!/usr/bin/env bash",
+                        "set -euo pipefail",
+                        'cmd=\"${1:-}\"',
+                        'if [[ \"$cmd\" == \"stats\" ]]; then',
+                        "  echo 'index missing' >&2",
+                        "  exit 2",
+                        "fi",
+                        'if [[ \"$cmd\" == \"rebuild\" ]]; then',
+                        "  echo 'rebuild failed' >&2",
+                        "  exit 2",
+                        "fi",
+                        'if [[ \"$cmd\" == \"--version\" ]]; then',
+                        "  echo 'ast-index 0.0.0-test'",
+                        "  exit 0",
+                        "fi",
+                        "exit 2",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            stub_path.chmod(0o755)
+            env = cli_env()
+            env["PATH"] = f"{bin_dir}:{env.get('PATH', '')}"
+
+            result = subprocess.run(
+                cli_cmd("research", "--ticket", ticket, "--auto"),
+                cwd=workspace,
+                env=env,
+                text=True,
+                capture_output=True,
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            ast_pack = project_root / "reports" / "research" / f"{ticket}-ast.pack.json"
+            self.assertTrue(ast_pack.exists())
+            payload = json.loads(ast_pack.read_text(encoding="utf-8"))
+            warnings = payload.get("warnings") or []
+            self.assertIn("ast_index_index_missing", warnings)
+            self.assertIn("ast_index_fallback_rg", warnings)
+            rows = payload.get("matches", {}).get("rows", [])
+            self.assertGreaterEqual(len(rows), 1)
+
     def test_research_blocks_when_ast_required_and_binary_missing(self) -> None:
         with tempfile.TemporaryDirectory(prefix="aidd-ast-research-required-") as tmpdir:
             workspace = Path(tmpdir) / "workspace"
@@ -189,6 +293,66 @@ class AstIndexResearchIntegrationTests(unittest.TestCase):
             self.assertEqual(result.returncode, 2)
             self.assertIn("reason_code=ast_index_binary_missing", result.stderr)
             self.assertIn("next_action", result.stderr)
+
+    def test_research_blocks_when_ast_required_and_index_missing(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="aidd-ast-research-required-index-") as tmpdir:
+            workspace = Path(tmpdir) / "workspace"
+            project_root = workspace / "aidd"
+            project_root.mkdir(parents=True, exist_ok=True)
+            subprocess.run(
+                cli_cmd("init"),
+                cwd=workspace,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=cli_env(),
+            )
+            ticket = "AST-REQ-INDEX-1"
+            _write_prd_with_hints(project_root, ticket, "required_index_marker")
+            _set_ast_required(project_root, mode="required", required=True)
+
+            src_dir = workspace / "src"
+            src_dir.mkdir(parents=True, exist_ok=True)
+            (src_dir / "required_index.py").write_text(
+                "def required_index_marker_func():\n    return True\n",
+                encoding="utf-8",
+            )
+            bin_dir = workspace / ".bin"
+            bin_dir.mkdir(parents=True, exist_ok=True)
+            stub_path = bin_dir / "ast-index"
+            stub_path.write_text(
+                "\n".join(
+                    [
+                        "#!/usr/bin/env bash",
+                        "set -euo pipefail",
+                        'cmd=\"${1:-}\"',
+                        'if [[ \"$cmd\" == \"stats\" ]]; then',
+                        "  echo 'index missing' >&2",
+                        "  exit 2",
+                        "fi",
+                        'if [[ \"$cmd\" == \"rebuild\" ]]; then',
+                        "  echo 'rebuild failed' >&2",
+                        "  exit 2",
+                        "fi",
+                        "exit 2",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            stub_path.chmod(0o755)
+            env = cli_env()
+            env["PATH"] = f"{bin_dir}:{env.get('PATH', '')}"
+
+            result = subprocess.run(
+                cli_cmd("research", "--ticket", ticket, "--auto"),
+                cwd=workspace,
+                env=env,
+                text=True,
+                capture_output=True,
+            )
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("reason_code=ast_index_index_missing", result.stderr)
 
 
 if __name__ == "__main__":

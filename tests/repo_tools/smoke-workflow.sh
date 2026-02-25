@@ -326,6 +326,17 @@ rlm = data.get("rlm") or {}
 rlm["required_for_langs"] = []
 data["rlm"] = rlm
 gates_path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+
+conventions_path = root / "config" / "conventions.json"
+conventions = json.loads(conventions_path.read_text(encoding="utf-8"))
+memory = conventions.get("memory") or {}
+semantic = memory.get("semantic") or {}
+# Keep smoke profile stable when extra evidence sources slightly increase extracted semantic payload size.
+semantic["max_chars"] = max(int(semantic.get("max_chars", 6000) or 6000), 8000)
+semantic["max_lines"] = max(int(semantic.get("max_lines", 320) or 320), 400)
+memory["semantic"] = semantic
+conventions["memory"] = memory
+conventions_path.write_text(json.dumps(conventions, indent=2, ensure_ascii=False), encoding="utf-8")
 PY
 
 log "validate plugin hooks wiring"
@@ -1266,6 +1277,28 @@ then
   )
 else
   log "pytest module not available; skipping loop RCA regression guard"
+fi
+
+log "ast-index smoke profile (stubbed binary, no mandatory external dependency)"
+if python3 - <<'PY' >/dev/null 2>&1
+import importlib.util
+import sys
+sys.exit(0 if importlib.util.find_spec("pytest") else 1)
+PY
+then
+  (
+    cd "$PLUGIN_ROOT"
+    env CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" PYTHONPATH="$PLUGIN_ROOT${PYTHONPATH:+:$PYTHONPATH}" \
+      python3 -m pytest -q \
+        tests/test_ast_index_research_integration.py::AstIndexResearchIntegrationTests::test_research_auto_mode_off_skips_ast_pack \
+        tests/test_ast_index_research_integration.py::AstIndexResearchIntegrationTests::test_research_auto_writes_ast_pack_with_stub_binary \
+        tests/test_ast_index_research_integration.py::AstIndexResearchIntegrationTests::test_research_auto_falls_back_to_rg_when_binary_missing \
+        tests/test_ast_index_research_integration.py::AstIndexResearchIntegrationTests::test_research_auto_falls_back_when_index_missing \
+        tests/test_ast_index_research_integration.py::AstIndexResearchIntegrationTests::test_research_blocks_when_ast_required_and_binary_missing \
+        tests/test_ast_index_research_integration.py::AstIndexResearchIntegrationTests::test_research_blocks_when_ast_required_and_index_missing
+  )
+else
+  log "pytest module not available; skipping ast-index smoke profile"
 fi
 
 log "smoke scenario passed"
