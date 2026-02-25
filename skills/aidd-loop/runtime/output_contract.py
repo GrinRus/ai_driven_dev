@@ -266,7 +266,7 @@ def check_output_contract(
     work_item_key: str,
     log_path: Path,
     stage_result_path: Optional[Path] = None,
-    max_read_items: int = 4,
+    max_read_items: int = 8,
 ) -> Dict[str, object]:
     text = log_path.read_text(encoding="utf-8", errors="replace") if log_path.exists() else ""
     fields = _parse_fields(text)
