@@ -84,10 +84,10 @@ _Статус: план. Цель — запуск нескольких implemen
   - тесты на DAG, scheduler, claim, параллельный раннер, консолидацию.
   **AC:** регрессии ловят гонки/перетирание артефактов/неверный выбор runnable; включены кейсы conflict paths/lock stale/worker crash.
 
-## Wave 101 — Memory v2 (semantic memory + decision log)
+## Wave 101 — Context Engineering Completion (Memory v2 + AST Index)
 
-_Статус: план. Цель — полностью внедрить file-based memory layer поверх текущего pack-first/RLM pipeline: отдельный semantic pack, append-only decision log, deterministic retrieval и gate-ready интеграция._
-_Rollout policy: breaking-only, без обратной совместимости и без backfill legacy артефактов._
+_Статус: план. Цель — полностью закрыть context engineering контур: file-based memory layer поверх pack-first/RLM pipeline + optional AST retrieval с deterministic fallback, compact artifacts, gates и observability._
+_Rollout policy: Memory v2 — breaking-only, без обратной совместимости и без backfill legacy memory артефактов; AST integration — optional (`off|auto|required`) с fallback на `rg`, wave-1 scope: `research/plan/review-spec`._
 
 ### EPIC M1 — Canonical memory artifacts and runtime API
 
@@ -230,9 +230,179 @@ _Rollout policy: breaking-only, без обратной совместимост
   **Effort:** S
   **Risk:** Low
 
-### Wave 101 Critical Path
+### EPIC M4 — Optional AST Index Integration (research/plan-first)
+
+_Назначение EPIC: закрыть retrieval/tooling/compaction контур для code evidence в context engineering сценарии, сохраняя optional зависимость и deterministic fallback на `rg`._
+
+- [ ] **W101-16 (P0) Optional ast-index config contract + bootstrap defaults** `templates/aidd/config/conventions.json`, `templates/aidd/config/gates.json`, `skills/aidd-init/runtime/init.py`:
+  - добавить `ast_index` section в bootstrap/config контракт;
+  - default режим: optional + fallback (`mode=auto`, `required=false`);
+  - отсутствие binary не должно hard-block'ить flow в optional режиме.
+  **AC:** workspace seed содержит `ast_index` knobs; default поведение — fallback, не блокировка.
+  **Deps:** -
+  **Regression/tests:** `python3 -m pytest -q tests/test_init_aidd.py`.
+  **Effort:** S
+  **Risk:** Low
+
+- [ ] **W101-17 (P0) Shared runtime adapter for ast-index with deterministic fallback** `skills/aidd-core/runtime`, `skills/aidd-core/runtime/runtime.py`:
+  - реализовать единый Python adapter: `detect/ensure-index/run-json/normalize`;
+  - reason codes: `ast_index_binary_missing`, `ast_index_index_missing`, `ast_index_timeout`, `ast_index_json_invalid`, `ast_index_fallback_rg`.
+  **AC:** adapter обеспечивает детерминированные reason codes и fallback path.
+  **Deps:** W101-16
+  **Regression/tests:** `python3 -m pytest -q tests/test_ast_index_adapter.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W101-18 (P1) AST evidence pack schema + deterministic artifact writer** `skills/aidd-core/runtime/schemas/aidd`, `skills/aidd-rlm/runtime/reports_pack_parts/core.py`:
+  - добавить schema/serializer для `aidd/reports/research/<ticket>-ast.pack.json`;
+  - enforce budget/trim/sort policy + stable serialization.
+  **AC:** AST pack валиден, детерминирован и укладывается в budget.
+  **Deps:** W101-17
+  **Regression/tests:** `python3 -m pytest -q tests/test_ast_pack_schema.py tests/test_ast_pack_budget.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W101-19 (P1) Observability/doctor integration for ast-index readiness** `skills/aidd-observability/runtime/doctor.py`, `skills/aidd-observability/runtime/tools_inventory.py`:
+  - добавить проверки availability/version/index status;
+  - optional mode не фейлит `doctor`.
+  **AC:** `doctor` диагностирует ast-index readiness и корректно различает optional/required modes.
+  **Deps:** W101-16
+  **Regression/tests:** `python3 -m pytest -q tests/test_doctor.py tests/test_tools_inventory.py`.
+  **Effort:** S
+  **Risk:** Low
+
+- [ ] **W101-20 (P0) Researcher runtime integration (research-first rollout)** `skills/researcher/runtime/research.py`, `skills/researcher/templates/research.template.md`:
+  - в `research.py --auto` включить ast-index path при enabled mode;
+  - писать fallback markers/warnings без блокировки при `required=false`.
+  **AC:** research pipeline генерирует AST pack при доступности ast-index и детерминированно деградирует на `rg` при недоступности.
+  **Deps:** W101-7, W101-17, W101-18
+  **Regression/tests:** `python3 -m pytest -q tests/test_research_command.py tests/test_ast_index_research_integration.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W101-21 (P1) Plan/review-spec consumption of AST evidence (non-blocking)** `skills/plan-new/runtime/research_check.py`, `skills/review-spec/runtime/prd_review_cli.py`, `skills/aidd-policy/references/read-policy.md`, `skills/aidd-core/templates/context-pack.template.md`:
+  - включить AST pack в recommended read order после RLM pack;
+  - отсутствие AST pack в optional mode не блокирует stage.
+  **AC:** read-order расширен без регрессий текущего RLM-first поведения.
+  **Deps:** W101-11, W101-20
+  **Regression/tests:** `python3 -m pytest -q tests/test_research_check.py tests/test_review_spec.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W101-22 (P1) Prompt/skill wiring for research/plan roles** `skills/researcher/SKILL.md`, `skills/plan-new/SKILL.md`, `skills/review-spec/SKILL.md`, `agents`, `tests/repo_tools/lint-prompts.py`:
+  - обновить deterministic guidance: `ast-index preferred, rg fallback`;
+  - обновить prompt-version/baseline в соответствии с policy.
+  **AC:** роли `researcher/planner/plan-reviewer/prd-reviewer` отражают optional ast-index flow и проходят prompt lint.
+  **Deps:** W101-20
+  **Regression/tests:** `python3 tests/repo_tools/prompt-version --help`, `python3 tests/repo_tools/lint-prompts.py --root .`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W101-23 (P0) Fallback policy and stage status contract** `skills/aidd-core/runtime/reports/events.py`, `skills/aidd-loop/runtime/output_contract.py`:
+  - нормализовать логирование reason codes в events/output contracts;
+  - optional mode => `WARN`, required mode => `BLOCKED` + deterministic next action.
+  **AC:** fallback semantics единообразны в status/reporting слое.
+  **Deps:** W101-8, W101-17, W101-20
+  **Regression/tests:** `python3 -m pytest -q tests/test_output_contract.py tests/test_events.py`.
+  **Effort:** S
+  **Risk:** Medium
+
+- [ ] **W101-24 (P0) Full test suite for ast-index integration** `tests`, `tests/repo_tools/ci-lint.sh`, `tests/repo_tools/smoke-workflow.sh`:
+  - покрыть modes `off/auto/required`, missing binary, missing index, valid JSON path, fallback path;
+  - добавить smoke profile со stubbed binary, не требующий внешней обязательной зависимости.
+  **AC:** CI/smoke проходят в default profile без mandatory ast-index и покрывают fallback behavior.
+  **Deps:** W101-13, W101-16..W101-23
+  **Regression/tests:** `tests/repo_tools/ci-lint.sh`, `tests/repo_tools/smoke-workflow.sh`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W101-25 (P1) Docs/changelog/operator runbook for AST extension** `README.md`, `README.en.md`, `AGENTS.md`, `CHANGELOG.md`:
+  - задокументировать install/update/troubleshooting;
+  - явно зафиксировать optional dependency и fallback semantics.
+  **AC:** docs/changelog согласованы с unified Wave 101 runtime contract.
+  **Deps:** W101-14, W101-24
+  **Regression/tests:** `tests/repo_tools/ci-lint.sh`.
+  **Effort:** S
+  **Risk:** Low
+
+- [ ] **W101-26 (P1) Rollout decision gate for wave-2 expansion (implement/review/qa)** `templates/aidd/config/gates.json`, `skills/aidd-observability/runtime/doctor.py`:
+  - формализовать критерии wave-2 expansion (`quality`, `latency`, `fallback-rate` thresholds);
+  - зафиксировать gate flags/policy для включения implement/review/qa scope.
+  **AC:** rollout decisions для wave-2 детерминированы и проверяемы policy tests.
+  **Deps:** W101-12, W101-24
+  **Regression/tests:** `python3 -m pytest -q tests/test_gate_workflow.py tests/test_doctor.py`.
+  **Effort:** S
+  **Risk:** Low
+
+- [ ] **W101-27 (P1) Unified JIT chunk router (`chunk_query`) across markdown/RLM/log/text** `skills/aidd-docio/runtime/chunk_query.py`, `skills/aidd-policy/references/read-policy.md`, `skills/aidd-core/templates/context-pack.template.md`:
+  - добавить единый runtime API `chunk_query` с backend routing (`md_slice`, `rlm_slice`, generic file-chunk/log-chunk);
+  - поддержать базовые JIT примитивы `peek/slice/search/split/get_chunk` в едином контракте CLI;
+  - материализовать результат в `aidd/reports/context/<ticket>-chunk-<hash>.pack.json`.
+  **AC:** один CLI покрывает markdown/jsonl/log/text и пишет deterministic chunk pack artifact.
+  **Deps:** W101-18, W101-21
+  **Regression/tests:** `python3 -m pytest -q tests/test_chunk_query.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W101-28 (P1) Context quality telemetry artifact + KPI counters** `skills/aidd-observability/runtime`, `skills/aidd-core/runtime/reports/events.py`, `skills/aidd-loop/runtime/output_contract.py`, `skills/researcher/runtime/research.py`, `skills/plan-new/runtime/research_check.py`:
+  - добавить агрегированный артефакт `aidd/reports/observability/<ticket>.context-quality.json` (`schema: aidd.context_quality.v1`);
+  - считать KPI: `pack_reads`, `slice_reads`, `full_reads`, `fallback_rate`, `context_expand_count_by_reason`, `output_contract_warn_rate`;
+  - обновлять метрики в loop/research/plan путях без ломки текущих контрактов.
+  **AC:** quality KPI стабильно формируются и пригодны для rollout decisions.
+  **Deps:** W101-23, W101-24, W101-27
+  **Regression/tests:** `python3 -m pytest -q tests/test_context_quality_metrics.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W101-29 (P2) Policy guard modularization (`pretooluse_guard` split)** `hooks/context_gc/pretooluse_guard.py`, `hooks/context_gc`:
+  - декомпозировать `pretooluse_guard` на модули (`rw_policy`, `bash_guard`, `prompt_injection`, `rate_limit`);
+  - сохранить поведение policy decisions (`allow/ask/deny`) и reason-code semantics;
+  - снизить complexity hotspot без изменения публичного workflow контракта.
+  **AC:** функциональное поведение эквивалентно текущему, модульность повышена, регрессий policy enforcement нет.
+  **Deps:** W101-23
+  **Regression/tests:** `python3 -m pytest -q tests/test_context_gc.py tests/test_hook_rw_policy.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+### Wave 101 Critical Path (unified)
 
 1. `W101-1` -> `W101-2` -> `W101-3` + `W101-4` -> `W101-6` -> `W101-7`
 2. `W101-4` -> `W101-10` -> `W101-8` -> `W101-11` -> `W101-12`
 3. `W101-1..W101-12` -> `W101-13` -> `W101-14` -> `W101-15`
+4. `W101-16` -> `W101-17` -> `W101-18` -> `W101-20` -> `W101-21`
+5. `W101-17` -> `W101-23` -> `W101-24`
+6. `W101-20` -> `W101-22` -> `W101-25`
+7. `W101-12` + `W101-24` -> `W101-26`
+8. `W101-18` + `W101-21` -> `W101-27` -> `W101-28`
+9. `W101-23` -> `W101-29`
+10. `W101-26` + `W101-28` + `W101-29` -> full context-engineering closure marker
 
+### Wave 101 Important API/interfaces additions (AST + closure extension)
+
+1. Новый optional config section: `ast_index` в workspace config.
+2. Новый shared adapter API для deterministic ast-index execution + fallback.
+3. Новый optional artifact: `aidd/reports/research/<ticket>-ast.pack.json`.
+4. Новые reason codes для retrieval fallback/diagnostics.
+5. Новый unified runtime CLI: `skills/aidd-docio/runtime/chunk_query.py`.
+6. Новый observability artifact schema: `aidd.context_quality.v1`.
+7. Внутренний policy refactor: модульная структура context-gc pretooluse guard.
+
+### Wave 101 Test scenarios (AST + closure extension)
+
+1. Binary missing, mode `auto`: stage продолжается на `rg` fallback с warning marker.
+2. Binary missing, mode `required`: deterministic `BLOCKED` + next action.
+3. Index missing и auto-bootstrap fail: `WARN+fallback` в `auto`, `BLOCKED` в `required`.
+4. Valid ast-index JSON result: AST pack записан, schema/budgets соблюдены.
+5. Research -> Plan path: AST pack участвует в read order без слома RLM-first semantics.
+6. CI/smoke проходят без mandatory external binary в default profile.
+7. `chunk_query` работает одинаково на markdown/RLM/log/text и пишет chunk pack artifact.
+8. Context quality KPI стабильно отражают `pack/slice/full-read/fallback/context-expand/output-contract`.
+9. После modularization `pretooluse_guard` поведение `allow/ask/deny` и reason codes не меняется.
+
+### Wave 101 Assumptions and defaults (unified)
+
+1. AST-блок интегрирован в `Wave 101` как `W101-16..W101-26`.
+2. Dependency mode для AST части: `optional + fallback to rg`.
+3. Rollout scope AST wave-1: `research/plan/review-spec`.
+4. Без breaking change для минимально обязательных зависимостей (`python3`, `rg`, `git`) в AST части Wave 101.
+5. Метка “100% context-engineering closure” считается достигнутой только после `W101-27..W101-29`.
