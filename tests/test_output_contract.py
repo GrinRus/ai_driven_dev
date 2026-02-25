@@ -349,6 +349,97 @@ class OutputContractTests(unittest.TestCase):
             self.assertEqual(payload.get("reason_code"), "memory_slice_manifest_missing")
             self.assertIn("memory_autoslice.py", str(payload.get("next_action") or ""))
 
+    def test_output_contract_qa_allows_slice_first_read_order(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="output-contract-qa-slice-first-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ensure_gates_config(
+                root,
+                {
+                    "memory": {
+                        "slice_enforcement": "warn",
+                        "enforce_stages": ["qa"],
+                        "max_slice_age_minutes": 240,
+                    }
+                },
+            )
+            write_active_state(root, ticket="DEMO-QA", stage="qa", work_item="iteration_id=I9")
+            scope_key = "qa_scope"
+            actions_log = root / "reports" / "actions" / "DEMO-QA" / scope_key / "qa.actions.json"
+            actions_log.parent.mkdir(parents=True, exist_ok=True)
+            actions_log.write_text("[]\n", encoding="utf-8")
+            manifest_path = root / "reports" / "context" / f"DEMO-QA-memory-slices.qa.{scope_key}.pack.json"
+            manifest_path.parent.mkdir(parents=True, exist_ok=True)
+            manifest_path.write_text(
+                json.dumps(
+                    {
+                        "schema": "aidd.memory.slices.manifest.v1",
+                        "schema_version": "aidd.memory.slices.manifest.v1",
+                        "ticket": "DEMO-QA",
+                        "stage": "qa",
+                        "scope_key": scope_key,
+                        "generated_at": "2099-01-01T00:00:00Z",
+                        "updated_at": "2099-01-01T00:00:00Z",
+                        "slices": {
+                            "cols": ["query", "slice_pack", "latest_alias", "hits"],
+                            "rows": [],
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            log_path = root / "reports" / "loops" / "DEMO-QA" / "cli.qa.slice-first.log"
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            log_path.write_text(
+                "\n".join(
+                    [
+                        "Status: READY",
+                        "Work item key: iteration_id=I9",
+                        "Artifacts updated: aidd/reports/qa/DEMO-QA.json",
+                        "Tests: completed",
+                        "Blockers/Handoff: none",
+                        "Next actions: none",
+                        f"AIDD:ACTIONS_LOG: {actions_log.relative_to(root).as_posix()}",
+                        "AIDD:READ_LOG: "
+                        "aidd/reports/loops/DEMO-QA/qa_scope.loop.pack.md (reason: loop pack); "
+                        "aidd/reports/loops/DEMO-QA/qa_scope/review.latest.pack.md (reason: review pack); "
+                        "aidd/reports/memory/DEMO-QA.semantic.pack.json (reason: memory-semantic-pack); "
+                        f"aidd/reports/context/DEMO-QA-memory-slices.qa.{scope_key}.pack.json (reason: memory-slice-manifest); "
+                        "aidd/reports/context/DEMO-QA.pack.md (reason: rolling context)",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            result = subprocess.run(
+                cli_cmd(
+                    "output-contract",
+                    "--ticket",
+                    "DEMO-QA",
+                    "--stage",
+                    "qa",
+                    "--scope-key",
+                    scope_key,
+                    "--log",
+                    str(log_path),
+                    "--max-read-items",
+                    "8",
+                    "--format",
+                    "json",
+                ),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("status"), "ok")
+            warnings = payload.get("warnings") or []
+            self.assertNotIn("read_order_context_not_first", warnings)
+            self.assertNotIn("read_order_context_before_memory", warnings)
+
 
 if __name__ == "__main__":
     unittest.main()

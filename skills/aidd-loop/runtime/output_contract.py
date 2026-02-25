@@ -360,8 +360,16 @@ def check_output_contract(
                 warnings.append("actions_log_path_missing")
         if context_idx < 0:
             warnings.append("read_order_missing_context_pack")
-        elif context_idx != 0:
-            warnings.append("read_order_context_not_first")
+        if loop_idx >= 0 and review_idx >= 0 and review_idx < loop_idx:
+            warnings.append("read_order_review_before_loop")
+        if context_idx >= 0 and loop_idx >= 0 and context_idx < loop_idx:
+            warnings.append("read_order_context_before_loop")
+        if context_idx >= 0 and review_idx >= 0 and context_idx < review_idx:
+            warnings.append("read_order_context_before_review")
+        if context_idx >= 0 and memory_idx >= 0 and context_idx < memory_idx:
+            warnings.append("read_order_context_before_memory")
+        if context_idx >= 0 and memory_manifest_idx >= 0 and context_idx < memory_manifest_idx:
+            warnings.append("read_order_context_before_memory_slice")
 
     expected_status, stage_result_rel = _expected_status(
         target,
