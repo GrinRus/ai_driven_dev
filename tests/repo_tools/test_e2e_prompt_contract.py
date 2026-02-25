@@ -6,8 +6,8 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-AUDIT_PROMPT_FULL = REPO_ROOT / "aidd_test_flow_prompt_ralph_script_full.txt"
-AUDIT_PROMPT_SMOKE = REPO_ROOT / "aidd_test_flow_prompt_ralph_script.txt"
+AUDIT_PROMPT_FULL = REPO_ROOT / "dev" / "prompts" / "ralph" / "aidd_test_flow_prompt_ralph_script_full.txt"
+AUDIT_PROMPT_SMOKE = REPO_ROOT / "dev" / "prompts" / "ralph" / "aidd_test_flow_prompt_ralph_script.txt"
 RESEARCHER_AGENT = REPO_ROOT / "agents" / "researcher.md"
 RESEARCHER_SKILL = REPO_ROOT / "skills" / "researcher" / "SKILL.md"
 

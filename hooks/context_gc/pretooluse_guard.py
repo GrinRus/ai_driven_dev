@@ -641,7 +641,7 @@ def _should_rate_limit(
 
     log_dir_raw = str(guard.get("log_dir", "aidd/reports/logs"))
     log_dir = _resolve_log_dir(project_dir, aidd_root, log_dir_raw)
-    stamp_path = log_dir / f".context-gc-{guard_name}.stamp"
+    stamp_path = log_dir / f".context_gc_{guard_name}.stamp"
 
     try:
         last_seen = float(stamp_path.read_text(encoding="utf-8").strip() or 0)

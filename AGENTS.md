@@ -62,8 +62,8 @@ User‑гайд для workspace находится в `skills/aidd-core/templat
 - Полный линт + unit‑тесты: `tests/repo_tools/ci-lint.sh`.
 - E2E smoke: `tests/repo_tools/smoke-workflow.sh`.
 - CI policy: workflow `smoke-workflow` запускается всегда и выполняет auto-skip, если runtime-пути (`skills/hooks/tools/agents/templates/.claude-plugin`) не менялись.
-- Runtime module guard: `tests/repo_tools/runtime-module-guard.py` (`>600` lines = WARN, `>900` = ERROR), waivers — `tests/repo_tools/runtime-module-guard-waivers.txt`.
-- Required-check parity: `lint-and-test`, `smoke-workflow`, `dependency-review`; security checks `security-secret-scan` и `security-sast` идут staged rollout (advisory пока `AIDD_SECURITY_ENFORCE!=1`, required при `AIDD_SECURITY_ENFORCE=1`).
+- Runtime module guard: `tests/repo_tools/runtime-module-guard.py` (`>450` lines = WARN, `>700` = ERROR), waivers — `tests/repo_tools/runtime-module-guard-waivers.txt`.
+- Required-check parity: `lint-and-test`, `smoke-workflow`, `dist-check`, `dependency-review`; security checks `security-secret-scan` и `security-sast` идут staged rollout (advisory пока `AIDD_SECURITY_ENFORCE!=1`, required при `AIDD_SECURITY_ENFORCE=1`).
 - Дополнительно (если нужно): `python3 -m pytest -q tests`.
 - Диагностика окружения: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-observability/runtime/doctor.py`.
 - Bootstrap шаблонов (workspace): `/feature-dev-aidd:aidd-init`.
@@ -75,7 +75,7 @@ User‑гайд для workspace находится в `skills/aidd-core/templat
 ## Локальный запуск entrypoints
 - Stage/shared runtime entrypoints (canonical): `CLAUDE_PLUGIN_ROOT=$PWD PYTHONPATH=$PWD python3 skills/<skill>/runtime/<command>.py ...`
 - Deferred-core freeze (wave-1) сохраняется как compatibility surface до завершения cutover.
-- Хуки: `CLAUDE_PLUGIN_ROOT=$PWD hooks/<hook>.sh ...`
+- Хуки: `CLAUDE_PLUGIN_ROOT=$PWD python3 hooks/<hook>.py ...`
 
 ## Shared Ownership Map
 - `skills/aidd-core/runtime/*`: shared core runtime API (canonical).
@@ -231,7 +231,7 @@ model: inherit
 
 ## Автоматизация
 - Перечислите гейты (`gate-*`), хуки и переменные (`SKIP_AUTO_TESTS`, `TEST_SCOPE`), которые агент обязан учитывать.
-- Укажите разрешённые CLI-команды (`<test-runner> …`, `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/progress_cli.py …`, `rg …`) и как агент должен логировать вывод/пути. Опишите, как реагировать на автозапуск `${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh` и когда использовать ручные команды.
+- Укажите разрешённые CLI-команды (`<test-runner> …`, `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/progress_cli.py …`, `rg …`) и как агент должен логировать вывод/пути. Опишите, как реагировать на автозапуск `${CLAUDE_PLUGIN_ROOT}/hooks/format_and_test.py` и когда использовать ручные команды.
 
 ## Пошаговый план
 1. Распишите действия агента (чтение артефактов, запуск `rg`/`<test-runner>`, обновление файлов, обращение к другим агентам).
@@ -278,7 +278,7 @@ model: inherit
 - Уточните ограничения (например, только после `/feature-dev-aidd:review-spec` или при статусе READY).
 
 ## Автоматические хуки и переменные
-- Перечислите хуки/гейты и команды, запускаемые во время выполнения (`python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_feature.py`, `python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py`, `${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh`, `<test-runner> <args>`, `rg`).
+- Перечислите хуки/гейты и команды, запускаемые во время выполнения (`python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_feature.py`, `python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py`, `${CLAUDE_PLUGIN_ROOT}/hooks/format_and_test.py`, `<test-runner> <args>`, `rg`).
 - Опишите переменные окружения (`SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`) и требования к логам/ссылкам на вывод команд.
 
 ## Что редактируется

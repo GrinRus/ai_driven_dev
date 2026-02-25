@@ -11,8 +11,8 @@ from typing import Dict
 ROOT = Path(__file__).resolve().parents[2]
 RUNTIME_GLOB = "skills/*/runtime/*.py"
 WAIVERS_PATH = ROOT / "tests" / "repo_tools" / "runtime-module-guard-waivers.txt"
-DEFAULT_WARN = 600
-DEFAULT_ERROR = 900
+DEFAULT_WARN = 450
+DEFAULT_ERROR = 700
 
 
 def _read_threshold(name: str, fallback: int) -> int:

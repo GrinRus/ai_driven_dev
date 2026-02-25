@@ -163,7 +163,7 @@ skills:
                                 "hooks": [
                                     {
                                         "type": "command",
-                                        "command": "${CLAUDE_PLUGIN_ROOT}/hooks/gate-workflow.sh",
+                                        "command": "${CLAUDE_PLUGIN_ROOT}/hooks/gate_workflow.py",
                                     }
                                 ],
                             }
@@ -174,7 +174,7 @@ skills:
             + "\n",
         )
         _write(
-            root / "hooks" / "gate-workflow.sh",
+            root / "hooks" / "gate_workflow.py",
             "#!/usr/bin/env bash\npython3 ${CLAUDE_PLUGIN_ROOT}/skills/review/runtime/review_run.py --ticket TST-001\n",
         )
 

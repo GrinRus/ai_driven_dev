@@ -3,6 +3,9 @@
 ## Unreleased
 
 ### Breaking Changes
+- Prod-like hardening wave: hook runtime entrypoints migrated from `hooks/*.sh` naming to canonical `hooks/*.py` naming; legacy `.sh` hook paths removed.
+- Root prompt scripts relocated from repo root to `dev/prompts/ralph/` (`aidd_test_flow_prompt_ralph_script*.txt`).
+- Generated topology revision artifacts are no longer tracked under `dev/reports/revision/*`; default topology audit outputs moved to `aidd/.cache/revision/*`.
 - Wave 96 shell-runtime cutover: `tools/*.sh` entrypoints are removed from public runtime API.
 - Wave 97 Python-only runtime canon: canonical runtime API is now `python3 skills/*/runtime/*.py`.
 - `skills/*/scripts/*.sh` moved to transition-only compatibility layer (deprecation window through 2026-03-31).
@@ -15,8 +18,13 @@
 - Runtime facades for `loop_step`, `loop_run`, `loop_pack`, `tasklist_check`, `tasks_derive`, `reports_pack`, and `qa` now load split implementations from `runtime/*_parts/core.py`.
 
 ### New Features
+- Added dist profile contract: `.claude-plugin/dist-manifest.json`.
+- Added dist integrity checker: `python3 tests/repo_tools/dist_manifest_check.py --root .`.
+- Added docs parity guard: `python3 tests/repo_tools/docs_parity_guard.py --root .`.
+- Added repo hygiene guard: `python3 tests/repo_tools/repo_hygiene.py`.
+- Added migration runbook: `docs/runbooks/prod-like-breaking-migration.md`.
 - `${CLAUDE_PLUGIN_ROOT}/tools/doctor.sh` for environment/path diagnostics and workspace checks.
-- Test profiles `fast/targeted/full/none` via `aidd/.cache/test-policy.env` and `AIDD_TEST_*` flags for `format-and-test.sh`.
+- Test profiles `fast/targeted/full/none` via `aidd/.cache/test-policy.env` and `AIDD_TEST_*` flags for `format_and_test.py`.
 - Dedupe cache `aidd/.cache/format-and-test.last.json` to avoid repeating test runs when diff/profile are unchanged.
 - Loop mode (Ralph): `loop-pack`, `review-pack`, `diff-boundary-check`, `loop-step`, `loop-run` with loop packs and loop discipline.
 - Architecture Profile templates (`aidd/docs/architecture/profile.md`).
@@ -27,16 +35,20 @@
 - SDLC contract docs: `aidd/docs/sdlc-flow.md` and `aidd/docs/status-machine.md`.
 - `aidd/AGENTS.md` as the primary agent entrypoint.
 - Plan template (`aidd/docs/plan/template.md`) with mandatory executability sections.
-- QA gate: `aidd/hooks/gate-qa.sh`, heuristic agent via `${CLAUDE_PLUGIN_ROOT}/tools/qa.sh`, and `aidd/agents/qa.md` with severity guidance.
+- QA gate: `aidd/hooks/gate_qa.py`, heuristic agent via `${CLAUDE_PLUGIN_ROOT}/tools/qa.sh`, and `aidd/agents/qa.md` with severity guidance.
 - CI now executes the QA gate (`.github/workflows/ci.yml`) with diff-aware analysis (`QA_AGENT_DIFF_BASE`).
 - Analyst dialog enforcement: updated `aidd/agents/analyst.md`, PRD template with `## Диалог analyst`, script `${CLAUDE_PLUGIN_ROOT}/tools/analyst-check.sh`, gate-workflow integration, smoke coverage, and docs/tests showing the `Ответ N:` workflow.
 - Progress tracking: script `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh`, new `tasklist_progress` gate in `config/gates.json`, gate-workflow integration, smoke coverage, and unit tests validating missing/updated checkboxes.
 - Iteration guidance updated for implementer/reviewer/qa agents, tasklist template guidance (`Checkbox updated: …`), and docs (`README`, `AGENTS.md`) reflecting the mandatory tasklist sync.
 - Auto PRD scaffolding: `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh` and `tools/feature_ids.py` now create `aidd/docs/prd/<ticket>.prd.md` with `Status: draft`, so agents/gates always work against an existing artefact.
-- Runtime workflow tools: `${CLAUDE_PLUGIN_ROOT}/tools/prd-review.sh`, `plan-review-gate`, `prd-review-gate`, `research`, and `context-gc-*.sh`.
+- Runtime workflow tools: `${CLAUDE_PLUGIN_ROOT}/tools/prd-review.sh`, `plan-review-gate`, `prd-review-gate`, `research`, and `context_gc_*.sh`.
 - Agent-first documentation set: updated `/feature-dev-aidd:idea-new`, prompt templates (see `AGENTS.md`), PRD/tasklist/research templates, README (RU/EN), and `AGENTS.md`, ensuring agents log repository inputs and script commands before asking the user.
 
 ### Improvements
+- Runtime module budget tightened: `runtime-module-guard` defaults updated to `warn>450`, `error>700` with zero WARN target.
+- Runtime oversized modules split into thin facades + `*_parts/core.py` implementation units for safer maintenance.
+- Repo tool entrypoints modularized with thin facades: `tests/repo_tools/ci-lint.sh` -> `tests/repo_tools/ci/main.sh`, `tests/repo_tools/smoke-workflow.sh` -> `tests/repo_tools/smoke/main.sh`.
+- CI now includes `dist-check` job and required-check parity includes `dist-check`.
 - Wave 102 completed: all 19 `skills/*/SKILL.md` converged to shared contract structure (`name` baseline, compact `Command contracts`, deterministic `Additional resources` with `when/why`), stage loop policy wording now uses stable semantic markers, and prompt-lint/policy tests were hardened for semantic contract checks.
 - Wave backlog discipline: each wave now has a single active status source-of-truth; historical sections must be marked as archive (non-SoT), and smoke checks guard against conflicting active statuses.
 - `spec-interview` stage chain now explicitly invokes subagent `feature-dev-aidd:spec-interview-writer`, with lint and prompt-test enforcement.
@@ -47,11 +59,11 @@
 - Evidence Read Policy (RLM-first) and context precedence blocks aligned across prompts and anchors.
 - Prompt regression checks and architecture profile validation in repo CI.
 - AIDD no longer bundles runbook guidance; prompts now rely on user-provided steps for test/format/run.
-- `format-and-test.sh` is loop-aware: review skips, loop-mode test gating, and per-run logs in `aidd/reports/tests`.
+- `format_and_test.py` is loop-aware: review skips, loop-mode test gating, and per-run logs in `aidd/reports/tests`.
 - Marketplace manifest uses a GitHub source for the plugin, and `plugin.json` now includes author/repository/homepage/license metadata.
 - Marketplace-only distribution: replaced `claude-workflow` CLI with `${CLAUDE_PLUGIN_ROOT}/tools/*.sh` entrypoints; payload sync/upgrade and release packaging removed.
 - `/feature-dev-aidd:implement` and `implementer` prompts now require a test policy, iteration budget, and report `Test profile`/`Tests run` in the response.
-- `format-and-test.sh` selects tasks by profile (`fastTasks/fullTasks/targetedTask`) and honors `AIDD_TEST_FORCE` when repeating runs.
+- `format_and_test.py` selects tasks by profile (`fastTasks/fullTasks/targetedTask`) and honors `AIDD_TEST_FORCE` when repeating runs.
 - `/feature-dev-aidd:idea-new` no longer triggers research; analyst captures `AIDD:RESEARCH_HINTS`, research is run in `/feature-dev-aidd:researcher`.
 - `analyst-check` no longer validates research; research validation is handled by `${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh` and `gate-workflow`.
 - `/feature-dev-aidd:plan-new` now runs `${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh` before planning.

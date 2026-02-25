@@ -524,7 +524,7 @@ def cli_cmd(*args: str) -> list[str]:
     rest = list(args[1:])
     python_mode = False
     if cmd == "context-gc":
-        raise ValueError("context-gc entrypoints unavailable; use hooks/context-gc-*.sh")
+        raise ValueError("context-gc entrypoints unavailable; use hooks/context_gc_*.py")
     if cmd == "init":
         script = REPO_ROOT / "skills" / "aidd-init" / "runtime" / "init.py"
         python_mode = True

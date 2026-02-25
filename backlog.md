@@ -221,7 +221,7 @@ _Rollout policy: breaking-only, без обратной совместимост
   **Effort:** S
   **Risk:** Low
 
-- [ ] **W101-15 (P1) Update full flow prompt script for Memory v2 (`aidd_test_flow_prompt_ralph_script_full.txt`)** `aidd_test_flow_prompt_ralph_script_full.txt`, `tests/repo_tools/smoke-workflow.sh`:
+- [ ] **W101-15 (P1) Update full flow prompt script for Memory v2 (`dev/prompts/ralph/aidd_test_flow_prompt_ralph_script_full.txt`)** `dev/prompts/ralph/aidd_test_flow_prompt_ralph_script_full.txt`, `tests/repo_tools/smoke-workflow.sh`:
   - обновить full-flow prompt script под Memory v2 read chain (`rlm.pack -> semantic.pack -> decisions.pack -> loop/context packs`);
   - убрать legacy compatibility/backfill шаги из сценария и acceptance flow.
   **AC:** full-flow prompt script соответствует Wave 101 контракту (breaking-only, no backfill) и используется как актуальный operator сценарий.
@@ -235,4 +235,3 @@ _Rollout policy: breaking-only, без обратной совместимост
 1. `W101-1` -> `W101-2` -> `W101-3` + `W101-4` -> `W101-6` -> `W101-7`
 2. `W101-4` -> `W101-10` -> `W101-8` -> `W101-11` -> `W101-12`
 3. `W101-1..W101-12` -> `W101-13` -> `W101-14` -> `W101-15`
-

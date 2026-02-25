@@ -20,8 +20,8 @@ def test_post_hooks_use_project_aidd_root_when_plugin_root_empty(tmp_path):
     write_file(project_root, f"docs/research/{slug}.md", "# Research\nStatus: reviewed\n")
     write_file(project_root, "src/main/kotlin/App.kt", "class App")
 
-    fmt_path = HOOKS_DIR / "format-and-test.sh"
-    lint_path = HOOKS_DIR / "lint-deps.sh"
+    fmt_path = HOOKS_DIR / "format_and_test.py"
+    lint_path = HOOKS_DIR / "lint_deps.py"
     # minimal config for lint-deps allowlist off
     write_file(project_root, "config/gates.json", json.dumps({"deps_allowlist": False}))
 

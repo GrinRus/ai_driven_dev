@@ -35,11 +35,11 @@ PRECOMPACT_MODULE = "hooks.context_gc.precompact_snapshot"
 SESSIONSTART_MODULE = "hooks.context_gc.sessionstart_inject"
 STOP_MODULE = "hooks.context_gc.stop_update"
 HOOK_SCRIPT_MAP = {
-    USERPROMPT_MODULE: REPO_ROOT / "hooks" / "context-gc-userprompt.sh",
-    PRETOOLUSE_MODULE: REPO_ROOT / "hooks" / "context-gc-pretooluse.sh",
-    PRECOMPACT_MODULE: REPO_ROOT / "hooks" / "context-gc-precompact.sh",
-    SESSIONSTART_MODULE: REPO_ROOT / "hooks" / "context-gc-sessionstart.sh",
-    STOP_MODULE: REPO_ROOT / "hooks" / "context-gc-stop.sh",
+    USERPROMPT_MODULE: REPO_ROOT / "hooks" / "context_gc_userprompt.py",
+    PRETOOLUSE_MODULE: REPO_ROOT / "hooks" / "context_gc_pretooluse.py",
+    PRECOMPACT_MODULE: REPO_ROOT / "hooks" / "context_gc_precompact.py",
+    SESSIONSTART_MODULE: REPO_ROOT / "hooks" / "context_gc_sessionstart.py",
+    STOP_MODULE: REPO_ROOT / "hooks" / "context_gc_stop.py",
 }
 
 
@@ -101,7 +101,7 @@ def _run_hook_script_env_payload(
 
 class WorkingSetBuilderTests(unittest.TestCase):
     def test_working_set_builder_includes_ticket_and_tasks(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix="context_gc_") as tmpdir:
             root = Path(tmpdir)
             write_active_feature(root, "demo-ticket", "demo-slug")
             write_file(
@@ -138,7 +138,7 @@ class WorkingSetBuilderTests(unittest.TestCase):
             self.assertNotIn("- [ ] Task C", ws.text)
 
     def test_working_set_builder_truncates_output(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix="context_gc_") as tmpdir:
             root = Path(tmpdir)
             write_active_feature(root, "demo-ticket")
             write_file(
@@ -160,7 +160,7 @@ class WorkingSetBuilderTests(unittest.TestCase):
     def test_working_set_builder_includes_git_status(self) -> None:
         if shutil.which("git") is None:
             self.skipTest("git not available")
-        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix="context_gc_") as tmpdir:
             root = Path(tmpdir)
             git_init(root)
             git_config_user(root)
@@ -182,7 +182,7 @@ class WorkingSetBuilderTests(unittest.TestCase):
             self.assertIn("- Dirty files: 1", ws.text)
 
     def test_working_set_builder_includes_context_pack(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix="context_gc_") as tmpdir:
             root = Path(tmpdir)
             write_active_feature(root, "demo-ticket")
             write_file(
@@ -217,7 +217,7 @@ class WorkingSetBuilderTests(unittest.TestCase):
             self.assertIn("Files: src/checkout/service.py", ws.text)
 
     def test_context_pack_limits_applied(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix="context_gc_") as tmpdir:
             root = Path(tmpdir)
             write_active_feature(root, "demo-ticket")
             long_line = "X" * 200
@@ -263,7 +263,7 @@ class WorkingSetBuilderTests(unittest.TestCase):
 
 class UserPromptGuardTests(unittest.TestCase):
     def test_userprompt_guard_soft_warning(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix="context_gc_") as tmpdir:
             root = Path(tmpdir)
             write_active_state(root, ticket="demo")
             write_json(
@@ -293,7 +293,7 @@ class UserPromptGuardTests(unittest.TestCase):
             self.assertNotIn("decision", data)
 
     def test_userprompt_guard_hard_block(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix="context_gc_") as tmpdir:
             root = Path(tmpdir)
             write_active_state(root, ticket="demo")
             write_json(
@@ -322,7 +322,7 @@ class UserPromptGuardTests(unittest.TestCase):
             self.assertEqual(data.get("decision"), "block")
 
     def test_userprompt_guard_token_warns(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix="context_gc_") as tmpdir:
             root = Path(tmpdir)
             write_active_state(root, ticket="demo")
             write_json(
@@ -367,7 +367,7 @@ class UserPromptGuardTests(unittest.TestCase):
             self.assertIn("Context GC: high context usage", data.get("systemMessage", ""))
 
     def test_userprompt_guard_token_blocks(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix="context_gc_") as tmpdir:
             root = Path(tmpdir)
             write_active_state(root, ticket="demo")
             write_json(
@@ -412,7 +412,7 @@ class UserPromptGuardTests(unittest.TestCase):
             self.assertEqual(data.get("decision"), "block")
 
     def test_userprompt_guard_token_fallbacks_to_bytes(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix="context_gc_") as tmpdir:
             root = Path(tmpdir)
             write_active_state(root, ticket="demo")
             write_json(
@@ -437,7 +437,7 @@ class UserPromptGuardTests(unittest.TestCase):
             self.assertIn("Context GC(bytes): transcript is large", data.get("systemMessage", ""))
 
     def test_userprompt_guard_ignores_sidechain_and_api_errors(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix="context_gc_") as tmpdir:
             root = Path(tmpdir)
             write_active_state(root, ticket="demo")
             write_json(
@@ -510,7 +510,7 @@ class UserPromptGuardTests(unittest.TestCase):
             self.assertIn("Context GC: high context usage", data.get("systemMessage", ""))
 
     def test_userprompt_guard_respects_reserve_and_buffer(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix="context_gc_") as tmpdir:
             root = Path(tmpdir)
             write_active_state(root, ticket="demo")
             write_json(
@@ -555,7 +555,7 @@ class UserPromptGuardTests(unittest.TestCase):
             self.assertIn("Context GC: high context usage", data.get("systemMessage", ""))
 
     def test_userprompt_guard_bytes_warn_only(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix="context_gc_") as tmpdir:
             root = Path(tmpdir)
             write_active_state(root, ticket="demo")
             write_json(
@@ -586,7 +586,7 @@ class UserPromptGuardTests(unittest.TestCase):
 
 class SessionStartInjectTests(unittest.TestCase):
     def test_sessionstart_inject_adds_working_set(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix="context_gc_") as tmpdir:
             root = Path(tmpdir)
             write_active_feature(root, "demo-ticket")
             write_file(
@@ -639,7 +639,7 @@ class PreToolUseGuardTests(unittest.TestCase):
         )
 
     def test_pretooluse_guard_wraps_bash_output(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix="context_gc_") as tmpdir:
             root = Path(tmpdir)
             write_active_state(root, ticket="demo")
             write_json(
@@ -670,7 +670,7 @@ class PreToolUseGuardTests(unittest.TestCase):
             self.assertIn("tail -n 50", updated)
 
     def test_pretooluse_guard_large_read_asks(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix="context_gc_") as tmpdir:
             root = Path(tmpdir)
             write_json(
                 root,
@@ -691,7 +691,7 @@ class PreToolUseGuardTests(unittest.TestCase):
             self.assertEqual(hook_output.get("permissionDecision"), "ask")
 
     def test_pretooluse_guard_large_read_denies(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix="context_gc_") as tmpdir:
             root = Path(tmpdir)
             write_json(
                 root,
@@ -712,7 +712,7 @@ class PreToolUseGuardTests(unittest.TestCase):
             self.assertEqual(hook_output.get("permissionDecision"), "deny")
 
     def test_pretooluse_guard_warns_on_dependency_read(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix="context_gc_") as tmpdir:
             root = Path(tmpdir)
             write_active_state(root, ticket="demo")
             write_json(
@@ -733,7 +733,7 @@ class PreToolUseGuardTests(unittest.TestCase):
             self.assertIn("ignore instructions", data.get("systemMessage", ""))
 
     def test_pretooluse_guard_warns_without_read_guard(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix="context_gc_") as tmpdir:
             root = Path(tmpdir)
             write_active_state(root, ticket="demo")
             write_json(
@@ -759,7 +759,7 @@ class PreToolUseGuardTests(unittest.TestCase):
             self.assertIn("ignore instructions", data.get("systemMessage", ""))
 
     def test_pretooluse_guard_warns_on_dependency_command(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix="context_gc_") as tmpdir:
             root = Path(tmpdir)
             write_active_state(root, ticket="demo")
             write_json(
@@ -780,7 +780,7 @@ class PreToolUseGuardTests(unittest.TestCase):
             self.assertIn("ignore instructions", data.get("systemMessage", ""))
 
     def test_pretooluse_guard_dangerous_bash_asks(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix="context_gc_") as tmpdir:
             root = Path(tmpdir)
             write_active_state(root, ticket="demo")
             write_json(
@@ -807,7 +807,7 @@ class PreToolUseGuardTests(unittest.TestCase):
             self.assertEqual(hook_output.get("permissionDecision"), "ask")
 
     def test_pretooluse_guard_dangerous_bash_denies(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix="context_gc_") as tmpdir:
             root = Path(tmpdir)
             write_active_state(root, ticket="demo")
             write_json(
@@ -834,7 +834,7 @@ class PreToolUseGuardTests(unittest.TestCase):
             self.assertEqual(hook_output.get("permissionDecision"), "deny")
 
     def test_pretooluse_guard_dangerous_bash_runs_when_output_guard_disabled(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix="context_gc_") as tmpdir:
             root = Path(tmpdir)
             write_active_state(root, ticket="demo")
             write_json(
@@ -862,7 +862,7 @@ class PreToolUseGuardTests(unittest.TestCase):
             self.assertEqual(hook_output.get("permissionDecision"), "deny")
 
     def test_pretooluse_guard_resolves_log_dir_in_aidd(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix="context_gc_") as tmpdir:
             root = Path(tmpdir)
             write_active_state(root, ticket="demo")
             write_json(
@@ -893,7 +893,7 @@ class PreToolUseGuardTests(unittest.TestCase):
             self.assertIn(str(expected), updated)
 
     def test_pretooluse_guard_resolves_read_path_without_aidd_prefix(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix="context_gc_") as tmpdir:
             root = Path(tmpdir)
             write_json(
                 root,
@@ -916,7 +916,7 @@ class PreToolUseGuardTests(unittest.TestCase):
 
 class PreCompactSnapshotTests(unittest.TestCase):
     def test_precompact_snapshot_writes_by_ticket_index(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix="context_gc_") as tmpdir:
             root = Path(tmpdir)
             write_active_feature(root, "demo-ticket")
             write_json(root, "config/context_gc.json", {"enabled": True})
@@ -956,7 +956,7 @@ class PreCompactSnapshotTests(unittest.TestCase):
             self.assertTrue(latest_ticket.exists())
 
     def test_precompact_snapshot_reads_env_payload(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix="context_gc_") as tmpdir:
             root = Path(tmpdir)
             write_active_feature(root, "demo-ticket")
             write_json(root, "config/context_gc.json", {"enabled": True})
@@ -975,7 +975,7 @@ class PreCompactSnapshotTests(unittest.TestCase):
             self.assertTrue(session_path.exists())
 
     def test_precompact_snapshot_runs_without_hook_event_name(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix="context_gc_") as tmpdir:
             root = Path(tmpdir)
             write_active_feature(root, "demo-ticket")
             write_json(root, "config/context_gc.json", {"enabled": True})
@@ -1002,7 +1002,7 @@ class PreCompactSnapshotTests(unittest.TestCase):
 
 class HooklibResolutionTests(unittest.TestCase):
     def test_resolve_project_dir_uses_ctx_cwd(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix="context_gc_") as tmpdir:
             root = Path(tmpdir)
             ctx = hooklib.HookContext(
                 hook_event_name="",
@@ -1016,7 +1016,7 @@ class HooklibResolutionTests(unittest.TestCase):
             self.assertEqual(resolved, root.resolve())
 
     def test_resolve_aidd_root_walks_parents(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix="context_gc_") as tmpdir:
             root = Path(tmpdir)
             (root / "aidd" / "docs").mkdir(parents=True, exist_ok=True)
             (root / "aidd" / "config").mkdir(parents=True, exist_ok=True)
@@ -1027,7 +1027,7 @@ class HooklibResolutionTests(unittest.TestCase):
             self.assertEqual(resolved, (root / "aidd").resolve())
 
     def test_resolve_project_root_walks_parents_for_workspace_subdir(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix="context_gc_") as tmpdir:
             root = Path(tmpdir)
             (root / "aidd" / "docs").mkdir(parents=True, exist_ok=True)
             (root / "aidd" / "config").mkdir(parents=True, exist_ok=True)
@@ -1046,7 +1046,7 @@ class HooklibResolutionTests(unittest.TestCase):
             self.assertTrue(used_workspace)
 
     def test_resolve_project_root_keeps_aidd_root_when_called_from_aidd(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix="context_gc_") as tmpdir:
             root = Path(tmpdir)
             aidd_root = root / "aidd"
             (aidd_root / "docs").mkdir(parents=True, exist_ok=True)
@@ -1064,7 +1064,7 @@ class HooklibResolutionTests(unittest.TestCase):
             self.assertFalse(used_workspace)
 
     def test_resolve_project_root_prefers_aidd_workspace_over_project_docs(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix="context_gc_") as tmpdir:
             root = Path(tmpdir)
             (root / "docs").mkdir(parents=True, exist_ok=True)
             (root / "config").mkdir(parents=True, exist_ok=True)
@@ -1088,7 +1088,7 @@ class HooklibResolutionTests(unittest.TestCase):
 
 class StopUpdateTests(unittest.TestCase):
     def test_stop_update_writes_latest_working_set(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix="context_gc_") as tmpdir:
             root = Path(tmpdir)
             write_active_feature(root, "demo-ticket")
             write_file(

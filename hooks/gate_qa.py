@@ -158,7 +158,7 @@ def main(argv: Iterable[str] | None = None) -> int:
 
     args = _parse_args(argv or [])
     if args.help:
-        _log_stdout("Usage: gate-qa.sh [--dry-run] [--only qa] [--payload <json>]")
+        _log_stdout("Usage: gate_qa.py [--dry-run] [--only qa] [--payload <json>]")
         return 0
 
     if os.environ.get("CLAUDE_SKIP_QA") == "1":
