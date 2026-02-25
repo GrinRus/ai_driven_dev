@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 from aidd_runtime import ast_index
+from aidd_runtime import context_quality
 from aidd_runtime import runtime
 from aidd_runtime import status_summary as _status_summary
 
@@ -271,7 +272,7 @@ def check_output_contract(
 
     status = "blocked" if ast_blocked_reason else ("warn" if warnings or missing else "ok")
     reason_code = ast_blocked_reason if ast_blocked_reason else ("output_contract_warn" if status == "warn" else "")
-    return {
+    payload = {
         "schema": "aidd.output_contract.v1",
         "ticket": ticket,
         "stage": stage,
@@ -291,6 +292,18 @@ def check_output_contract(
         "ast_reason_codes": ast_reason_codes,
         "next_action": ast_next_action,
     }
+    try:
+        context_quality.update_from_output_contract(
+            target,
+            ticket=ticket,
+            read_entries=read_entries,
+            status=str(payload.get("status") or ""),
+            reason_code=str(payload.get("reason_code") or ""),
+            ast_reason_codes=ast_reason_codes,
+        )
+    except Exception:
+        pass
+    return payload
 
 
 def parse_args(argv: List[str] | None = None) -> argparse.Namespace:

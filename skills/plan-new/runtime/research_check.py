@@ -13,6 +13,7 @@ if str(_PLUGIN_ROOT) not in sys.path:
 
 from aidd_runtime import runtime
 from aidd_runtime import ast_index
+from aidd_runtime import context_quality
 from aidd_runtime.research_guard import ResearchValidationError, load_settings, validate_research
 
 
@@ -47,12 +48,21 @@ def _ast_research_hint(ticket: str) -> str:
     return f"python3 ${{CLAUDE_PLUGIN_ROOT}}/skills/researcher/runtime/research.py --ticket {ticket} --auto"
 
 
-def _enforce_ast_pack_policy(target: Path, ticket: str) -> None:
+def _enforce_ast_pack_policy(target: Path, ticket: str) -> dict[str, object]:
     cfg = ast_index.load_ast_index_config(target)
+    metrics: dict[str, object] = {
+        "ast_mode": str(cfg.mode),
+        "ast_required": bool(cfg.required),
+        "ast_pack_present": False,
+        "ast_fallback_detected": False,
+        "ast_reason_codes": [],
+    }
     if cfg.mode == "off":
-        return
+        return metrics
     ast_pack = target / "reports" / "research" / f"{ticket}-ast.pack.json"
     if not ast_pack.exists():
+        metrics["ast_fallback_detected"] = True
+        metrics["ast_reason_codes"] = ["ast_index_pack_missing"]
         if cfg.required:
             raise RuntimeError(
                 "BLOCK: missing mandatory AST evidence pack for plan gate "
@@ -63,10 +73,12 @@ def _enforce_ast_pack_policy(target: Path, ticket: str) -> None:
             f"(reason_code=ast_index_pack_missing_warn). Hint: `{_ast_research_hint(ticket)}`.",
             file=sys.stderr,
         )
-        return
+        return metrics
     try:
         payload = json.loads(ast_pack.read_text(encoding="utf-8"))
     except Exception as exc:
+        metrics["ast_fallback_detected"] = True
+        metrics["ast_reason_codes"] = ["ast_index_pack_invalid"]
         if cfg.required:
             raise RuntimeError(
                 "BLOCK: invalid AST evidence pack for plan gate "
@@ -78,8 +90,10 @@ def _enforce_ast_pack_policy(target: Path, ticket: str) -> None:
             f"(reason_code=ast_index_pack_invalid_warn): {runtime.rel_path(ast_pack, target)}.",
             file=sys.stderr,
         )
-        return
+        return metrics
     if not isinstance(payload, dict):
+        metrics["ast_fallback_detected"] = True
+        metrics["ast_reason_codes"] = ["ast_index_pack_invalid"]
         if cfg.required:
             raise RuntimeError(
                 "BLOCK: invalid AST evidence payload for plan gate "
@@ -91,6 +105,21 @@ def _enforce_ast_pack_policy(target: Path, ticket: str) -> None:
             f"(reason_code=ast_index_pack_invalid_warn): {runtime.rel_path(ast_pack, target)}.",
             file=sys.stderr,
         )
+        return metrics
+    metrics["ast_pack_present"] = True
+    warnings = payload.get("warnings") or []
+    if isinstance(warnings, list):
+        normalized_warnings = [str(item).strip().lower() for item in warnings if str(item).strip()]
+        metrics["ast_reason_codes"] = normalized_warnings
+        if any(code in normalized_warnings for code in {
+            ast_index.REASON_BINARY_MISSING,
+            ast_index.REASON_INDEX_MISSING,
+            ast_index.REASON_TIMEOUT,
+            ast_index.REASON_JSON_INVALID,
+            ast_index.REASON_FALLBACK_RG,
+        }):
+            metrics["ast_fallback_detected"] = True
+    return metrics
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -148,7 +177,21 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     _enforce_minimum_rlm_artifacts(target, ticket)
-    _enforce_ast_pack_policy(target, ticket)
+    ast_metrics = _enforce_ast_pack_policy(target, ticket)
+
+    try:
+        context_quality.update_from_ast(
+            target,
+            ticket=ticket,
+            ast_mode=str(ast_metrics.get("ast_mode") or ""),
+            ast_status="ok" if bool(ast_metrics.get("ast_pack_present")) else "warn",
+            ast_reason_codes=ast_metrics.get("ast_reason_codes") or [],
+            ast_fallback_used=bool(ast_metrics.get("ast_fallback_detected")),
+            pack_reads=1 + (1 if bool(ast_metrics.get("ast_pack_present")) else 0),
+            full_reads=2,
+        )
+    except Exception:
+        pass
 
     label = runtime.format_ticket_label(context, fallback=ticket)
     details = [f"status: {summary.status}"]

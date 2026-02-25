@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
 from aidd_runtime import ast_index
+from aidd_runtime import context_quality
 from aidd_runtime.io_utils import append_jsonl, read_jsonl, utc_timestamp
 
 
@@ -72,6 +73,27 @@ def _ast_policy(details: Optional[Dict[str, Any]]) -> tuple[str, str]:
     return ("blocked" if required else "warn"), reason_code
 
 
+def _apply_context_quality_details(root: Path, ticket: str, details: Optional[Dict[str, Any]]) -> None:
+    if not details:
+        return
+    raw = details.get("context_quality")
+    if not isinstance(raw, dict):
+        return
+    context_quality.update_metrics(
+        root,
+        ticket=ticket,
+        pack_reads=int(raw.get("pack_reads") or 0),
+        slice_reads=int(raw.get("slice_reads") or 0),
+        full_reads=int(raw.get("full_reads") or 0),
+        retrieval_events=int(raw.get("retrieval_events") or 0),
+        fallback_events=int(raw.get("fallback_events") or 0),
+        output_contract_total=int(raw.get("output_contract_total") or 0),
+        output_contract_warn=bool(raw.get("output_contract_warn")),
+        context_expand_refresh=bool(raw.get("context_expand_refresh")),
+        source="events",
+    )
+
+
 def events_path(root: Path, ticket: str) -> Path:
     return root / "reports" / "events" / f"{ticket}.jsonl"
 
@@ -129,6 +151,10 @@ def append_event(
 
     path = events_path(root, ticket)
     append_jsonl(path, payload)
+    try:
+        _apply_context_quality_details(root, ticket, normalized_details)
+    except Exception:
+        pass
 
 
 def read_events(root: Path, ticket: str, *, limit: int = 5) -> List[Dict[str, Any]]:

@@ -18,7 +18,18 @@ if str(_PLUGIN_ROOT) not in sys.path:
     sys.path.insert(0, str(_PLUGIN_ROOT))
 
 from aidd_runtime import research_hints as prd_hints
-from aidd_runtime import ast_index, memory_extract, reports_pack, rlm_finalize, rlm_manifest, rlm_nodes_build, rlm_targets, runtime, tasks_derive
+from aidd_runtime import (
+    ast_index,
+    context_quality,
+    memory_extract,
+    reports_pack,
+    rlm_finalize,
+    rlm_manifest,
+    rlm_nodes_build,
+    rlm_targets,
+    runtime,
+    tasks_derive,
+)
 from aidd_runtime.feature_ids import write_active_state
 from aidd_runtime.rlm_config import load_rlm_settings
 
@@ -1175,6 +1186,33 @@ def run(args: argparse.Namespace) -> int:
             },
             report_path=Path(report_rel),
             source="aidd research",
+        )
+    except Exception:
+        pass
+
+    research_pack_reads = 0
+    if pack_exists:
+        research_pack_reads += 1
+    elif worklist_path.exists():
+        research_pack_reads += 1
+    if ast_pack_path:
+        research_pack_reads += 1
+    if memory_semantic_pack:
+        research_pack_reads += 1
+
+    try:
+        context_quality.update_from_ast(
+            target,
+            ticket=ticket,
+            ast_mode=str(ast_outcome.get("mode") or ""),
+            ast_status=ast_status,
+            ast_reason_codes=[
+                ast_reason_code,
+                ast_fallback_reason_code,
+            ],
+            ast_fallback_used=bool(ast_outcome.get("fallback_used")),
+            pack_reads=research_pack_reads,
+            full_reads=0,
         )
     except Exception:
         pass

@@ -344,7 +344,7 @@ _Назначение EPIC: закрыть retrieval/tooling/compaction конт
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W101-28 (P1) Context quality telemetry artifact + KPI counters** `skills/aidd-observability/runtime`, `skills/aidd-core/runtime/reports/events.py`, `skills/aidd-loop/runtime/output_contract.py`, `skills/researcher/runtime/research.py`, `skills/plan-new/runtime/research_check.py`:
+- [x] **W101-28 (P1) Context quality telemetry artifact + KPI counters** `skills/aidd-observability/runtime`, `skills/aidd-core/runtime/reports/events.py`, `skills/aidd-loop/runtime/output_contract.py`, `skills/researcher/runtime/research.py`, `skills/plan-new/runtime/research_check.py`:
   - добавить агрегированный артефакт `aidd/reports/observability/<ticket>.context-quality.json` (`schema: aidd.context_quality.v1`);
   - считать KPI: `pack_reads`, `slice_reads`, `full_reads`, `fallback_rate`, `context_expand_count_by_reason`, `output_contract_warn_rate`;
   - обновлять метрики в loop/research/plan путях без ломки текущих контрактов.
