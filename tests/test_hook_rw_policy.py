@@ -7,7 +7,7 @@ from pathlib import Path
 
 from tests.helpers import REPO_ROOT, ensure_project_root, write_active_state, write_file, write_json
 
-HOOK_SCRIPT = REPO_ROOT / "hooks" / "context-gc-pretooluse.sh"
+HOOK_SCRIPT = REPO_ROOT / "hooks" / "context_gc_pretooluse.py"
 
 
 def _run_pretool(

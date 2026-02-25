@@ -5,24 +5,10 @@ import argparse
 import datetime as dt
 import hashlib
 import json
-import os
 import re
 import subprocess
-import sys
 from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Optional, Tuple
-
-_root_candidates: list[Path] = []
-_env_root = (os.environ.get("CLAUDE_PLUGIN_ROOT") or "").strip()
-if _env_root:
-    _root_candidates.append(Path(_env_root).resolve())
-_root_candidates.extend(Path(__file__).resolve().parents)
-for _root in _root_candidates:
-    if (_root / "aidd_runtime").is_dir():
-        os.environ.setdefault("CLAUDE_PLUGIN_ROOT", str(_root))
-        if str(_root) not in sys.path:
-            sys.path.insert(0, str(_root))
-        break
 
 from aidd_runtime import rlm_targets, runtime
 from aidd_runtime.rlm_links_empty_reason import resolve_empty_reason
@@ -36,11 +22,13 @@ from aidd_runtime.rlm_config import (
     resolve_source_path,
 )
 
+
 SCHEMA = "aidd.rlm_link.v1"
 SCHEMA_VERSION = "v1"
 DEFAULT_RG_BATCH_SIZE = 24
 _PASCAL_RE = re.compile(r"^[A-Z][A-Za-z0-9_]*$")
 _DEFAULT_TYPE_REFS_EXCLUDES = ("java.", "jakarta.", "org.springframework.")
+
 
 def _is_type_symbol(symbol: str) -> bool:
     if not symbol:
@@ -51,6 +39,7 @@ def _is_type_symbol(symbol: str) -> bool:
     if "." in tail:
         tail = tail.split(".")[-1]
     return bool(_PASCAL_RE.match(tail))
+
 
 def _iter_nodes(path: Path) -> Iterable[Dict[str, object]]:
     if not path.exists():
@@ -69,6 +58,7 @@ def _iter_nodes(path: Path) -> Iterable[Dict[str, object]]:
                 nodes.append(payload)
     return nodes
 
+
 def _load_targets(path: Path) -> Dict:
     if not path.exists():
         return {}
@@ -76,6 +66,7 @@ def _load_targets(path: Path) -> Dict:
         return json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
         return {}
+
 
 def _load_manifest(path: Path) -> Dict:
     if not path.exists():
@@ -85,9 +76,11 @@ def _load_manifest(path: Path) -> Dict:
     except json.JSONDecodeError:
         return {}
 
+
 def _find_worklist_pack(root: Path, ticket: str) -> Optional[Path]:
     candidate = root / "reports" / "research" / f"{ticket}-rlm.worklist.pack.json"
     return candidate if candidate.exists() else None
+
 
 def _load_worklist_scope(root: Path, ticket: str) -> Optional[Dict[str, object]]:
     worklist_path = _find_worklist_pack(root, ticket)
@@ -102,8 +95,10 @@ def _load_worklist_scope(root: Path, ticket: str) -> Optional[Dict[str, object]]
     scope = payload.get("worklist_scope")
     return scope if isinstance(scope, dict) else None
 
+
 def _normalize_prefixes(values: Iterable[str]) -> List[str]:
     return rlm_targets.normalize_prefixes(values)
+
 
 def _normalize_symbol_prefixes(raw: object) -> List[str]:
     prefixes: List[str] = []

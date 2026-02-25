@@ -39,7 +39,7 @@ def _write_snapshot(
 def _log(aidd_root: Path, message: str) -> None:
     log_dir = aidd_root / "reports" / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
-    log_path = log_dir / "context-gc-precompact.log"
+    log_path = log_dir / "context_gc_precompact.log"
     now = datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
     with log_path.open("a", encoding="utf-8", errors="replace") as handle:
         handle.write(f"[context-gc:precompact] {now} {message}\n")

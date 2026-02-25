@@ -15,7 +15,7 @@ from tests.helpers import (
     write_file,
 )
 
-HOOK = HOOKS_DIR / "format-and-test.sh"
+HOOK = HOOKS_DIR / "format_and_test.py"
 
 
 def write_settings(tmp_path: Path, overrides: dict) -> Path:

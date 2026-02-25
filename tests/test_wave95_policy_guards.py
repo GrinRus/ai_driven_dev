@@ -66,7 +66,7 @@ class Wave95PolicyGuards(unittest.TestCase):
             if isinstance(hook, dict)
         ]
         self.assertFalse(any("gate-prd-review" in cmd for cmd in commands))
-        self.assertTrue(any("gate-workflow.sh" in cmd for cmd in commands))
+        self.assertTrue(any("gate_workflow.py" in cmd for cmd in commands))
 
 
 if __name__ == "__main__":

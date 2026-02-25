@@ -5,13 +5,11 @@ import os
 import sys
 from pathlib import Path
 
-HOOK_PREFIX = "[gate-workflow]"
-
 
 def _bootstrap() -> None:
     raw = os.environ.get("CLAUDE_PLUGIN_ROOT")
     if not raw:
-        print(f"{HOOK_PREFIX} CLAUDE_PLUGIN_ROOT is required to run hooks.", file=sys.stderr)
+        print("[context_gc_userprompt] CLAUDE_PLUGIN_ROOT is required to run hooks.", file=sys.stderr)
         raise SystemExit(2)
     plugin_root = Path(raw).expanduser().resolve()
     if str(plugin_root) not in sys.path:
@@ -23,9 +21,12 @@ def _bootstrap() -> None:
 
 def main() -> int:
     _bootstrap()
-    from hooks import gate_workflow as tools_module
+    from hooks.context_gc import userprompt_guard
 
-    return tools_module.main()
+    result = userprompt_guard.main()
+    if isinstance(result, int):
+        return result
+    return 0
 
 
 if __name__ == "__main__":  # pragma: no cover

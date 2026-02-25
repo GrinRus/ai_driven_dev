@@ -311,7 +311,7 @@ def write_loop_preflight_contract_artifacts(
 
 def test_no_active_feature_allows_changes(tmp_path):
     write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
-    result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    result = run_hook(tmp_path, "gate_workflow.py", SRC_PAYLOAD)
     assert result.returncode == 0, result.stderr
 
 
@@ -326,7 +326,7 @@ def test_missing_prd_blocks_when_feature_active(tmp_path):
     )
     write_spec_ready(tmp_path, "demo-checkout")
 
-    result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    result = run_hook(tmp_path, "gate_workflow.py", SRC_PAYLOAD)
     assert result.returncode == 2
     assert (
         "нет PRD" in result.stdout
@@ -342,7 +342,7 @@ def test_missing_plan_blocks(tmp_path):
     write_json(tmp_path, "reports/prd/demo-checkout.json", REVIEW_REPORT)
     write_research_doc(tmp_path)
 
-    result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    result = run_hook(tmp_path, "gate_workflow.py", SRC_PAYLOAD)
     assert result.returncode == 2
     assert "нет плана" in result.stdout or "нет плана" in result.stderr
 
@@ -363,7 +363,7 @@ def test_tasklist_blocks_when_next3_missing_fields(tmp_path):
     tasklist_path.write_text(text, encoding="utf-8")
     append_handoff(tasklist_path, handoff_block("research", f"research:{ticket}:handoff", "Research handoff"))
 
-    result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    result = run_hook(tmp_path, "gate_workflow.py", SRC_PAYLOAD)
     assert result.returncode == 2
     combined = (result.stdout + result.stderr).lower()
     assert "next_3" in combined or "dod" in combined or "boundaries" in combined
@@ -385,7 +385,7 @@ def test_tasklist_blocks_when_test_execution_missing(tmp_path):
     tasklist_path.write_text(text, encoding="utf-8")
     append_handoff(tasklist_path, handoff_block("research", f"research:{ticket}:handoff", "Research handoff"))
 
-    result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    result = run_hook(tmp_path, "gate_workflow.py", SRC_PAYLOAD)
     assert result.returncode == 2
     combined = (result.stdout + result.stderr).lower()
     assert "test_execution" in combined or "profile" in combined
@@ -407,7 +407,7 @@ def test_tasklist_blocks_when_plan_iteration_missing_in_tasklist(tmp_path):
     write_loop_preflight_contract_artifacts(tmp_path, ticket=ticket, stage="review", scope_key=ticket)
     append_handoff(tasklist_path, handoff_block("research", f"research:{ticket}:handoff", "Research handoff"))
 
-    result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    result = run_hook(tmp_path, "gate_workflow.py", SRC_PAYLOAD)
     assert result.returncode == 2
     combined = (result.stdout + result.stderr).lower()
     assert "iteration_id" in combined or "missing iteration" in combined
@@ -428,7 +428,7 @@ def test_pending_baseline_allows_docs_only(tmp_path):
         "# Research\n\nStatus: pending\n\nКонтекст пуст: требуется baseline после автоматического запуска.\n",
     )
     # doc-only change: should allow pending baseline
-    result = run_hook(tmp_path, "gate-workflow.sh", DOC_PAYLOAD)
+    result = run_hook(tmp_path, "gate_workflow.py", DOC_PAYLOAD)
     assert result.returncode == 0, result.stderr
 
 
@@ -444,7 +444,7 @@ def test_gate_workflow_surfaces_rlm_status_pending_for_downstream_pending(tmp_pa
     write_research_doc(tmp_path, ticket=ticket, status="pending", rlm_status="pending")
     write_file(tmp_path, f"docs/research/{ticket}.md", "# Research\n\nStatus: pending\n")
 
-    result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    result = run_hook(tmp_path, "gate_workflow.py", SRC_PAYLOAD)
     assert result.returncode == 2
     combined = result.stdout + result.stderr
     assert "reason_code=rlm_nodes_missing" in combined or "reason_code=rlm_status_pending" in combined
@@ -481,8 +481,8 @@ def test_gate_workflow_surfaces_rlm_status_pending_reason_code(tmp_path):
         {"schema": "aidd.report.pack.v1", "type": "rlm", "status": "pending"},
     )
 
-    result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
-    assert result.returncode == 0
+    result = run_hook(tmp_path, "gate_workflow.py", SRC_PAYLOAD)
+    assert result.returncode == 2
     combined = result.stdout + result.stderr
     assert "reason_code=rlm_status_pending" in combined
     assert "policy=warn_continue" in combined
@@ -510,7 +510,7 @@ def test_research_required_then_passes_after_report(tmp_path):
     )
 
     # Missing research report should block
-    result_block = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    result_block = run_hook(tmp_path, "gate_workflow.py", SRC_PAYLOAD)
     assert result_block.returncode == 2
 
     # Add research report and expect pass
@@ -518,7 +518,7 @@ def test_research_required_then_passes_after_report(tmp_path):
     # add research handoff marker to tasklist to satisfy gate handoff check
     append_handoff(tasklist_path, handoff_block("research", f"research:{ticket}:handoff", "Research handoff"))
 
-    result_ok = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    result_ok = run_hook(tmp_path, "gate_workflow.py", SRC_PAYLOAD)
     assert result_ok.returncode == 0, result_ok.stderr
 
 
@@ -536,7 +536,7 @@ def test_autodetects_aidd_root_with_ready_prd_and_research(tmp_path):
         project_root / f"docs/tasklist/{ticket}.md",
         handoff_block("research", f"research:{ticket}:handoff", "Research handoff"),
     )
-    result = run_hook(tmp_path, "gate-workflow.sh", AIDD_SRC_PAYLOAD)
+    result = run_hook(tmp_path, "gate_workflow.py", AIDD_SRC_PAYLOAD)
     assert result.returncode == 0, result.stderr
 
 
@@ -575,7 +575,7 @@ def test_prd_draft_blocks_even_with_reviewed_research(tmp_path):
         {"ticket": ticket, "generated_at": _timestamp(), "profile": {}, "status": "reviewed"},
     )
 
-    result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    result = run_hook(tmp_path, "gate_workflow.py", SRC_PAYLOAD)
     assert result.returncode == 2
     combined = (result.stdout + result.stderr).lower()
     assert "draft" in combined or "готов" in combined
@@ -600,7 +600,7 @@ def test_idea_new_flow_creates_active_in_aidd_and_blocks_until_ready(tmp_path):
     write_json(project_root, f"reports/research/{ticket}-rlm.pack.json", {"ticket": ticket, "generated_at": _timestamp(), "profile": {}})
     write_json(project_root, f"reports/prd/{ticket}.json", REVIEW_REPORT)
     # missing reviewed research -> should block
-    result_block = run_hook(tmp_path, "gate-workflow.sh", IDEA_PAYLOAD)
+    result_block = run_hook(tmp_path, "gate_workflow.py", IDEA_PAYLOAD)
     assert result_block.returncode == 2
 
     # after research reviewed -> should pass
@@ -610,7 +610,7 @@ def test_idea_new_flow_creates_active_in_aidd_and_blocks_until_ready(tmp_path):
         handoff_block("research", f"research:{ticket}:handoff", "Research handoff"),
     )
 
-    result_ok = run_hook(tmp_path, "gate-workflow.sh", IDEA_PAYLOAD)
+    result_ok = run_hook(tmp_path, "gate_workflow.py", IDEA_PAYLOAD)
     assert result_ok.returncode == 0, result_ok.stderr
 
 
@@ -651,7 +651,7 @@ def test_idea_new_rich_context_allows_ready_without_auto_research(tmp_path):
         f"reports/reviewer/{ticket}/{ticket}.tests.json",
         {"ticket": ticket, "tests": "optional"},
     )
-    result = run_hook(tmp_path, "gate-workflow.sh", IDEA_PAYLOAD)
+    result = run_hook(tmp_path, "gate_workflow.py", IDEA_PAYLOAD)
     assert result.returncode == 0, result.stderr
 
 
@@ -665,7 +665,7 @@ def test_research_required_before_code_changes(tmp_path):
     write_file(tmp_path, "docs/tasklist/demo-checkout.md", "- [ ] <ticket> placeholder\n")
     write_spec_ready(tmp_path, ticket)
 
-    result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    result = run_hook(tmp_path, "gate_workflow.py", SRC_PAYLOAD)
     assert result.returncode == 2
     combined = (result.stdout + result.stderr).lower()
     assert "reason_code=rlm_status_pending" in combined or "research" in combined or "отчёт" in combined
@@ -699,7 +699,7 @@ def test_research_required_before_code_changes(tmp_path):
         + handoff_block("research", "research:demo-checkout:handoff", "Research handoff")
         + "<!-- handoff:research end -->\n",
     )
-    result_ok = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    result_ok = run_hook(tmp_path, "gate_workflow.py", SRC_PAYLOAD)
     assert result_ok.returncode == 0, result_ok.stderr
 
 
@@ -728,7 +728,7 @@ def test_blocked_status_blocks(tmp_path):
     )
     write_spec_ready(tmp_path, "demo-checkout")
 
-    result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    result = run_hook(tmp_path, "gate_workflow.py", SRC_PAYLOAD)
     assert result.returncode == 2
     assert "Status" in result.stdout or "Status" in result.stderr
 
@@ -741,7 +741,7 @@ def test_missing_tasks_blocks(tmp_path):
     write_json(tmp_path, "reports/prd/demo-checkout.json", REVIEW_REPORT)
     write_research_doc(tmp_path)
 
-    result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    result = run_hook(tmp_path, "gate_workflow.py", SRC_PAYLOAD)
     assert result.returncode == 2
     assert "нет задач" in result.stdout or "нет задач" in result.stderr
 
@@ -766,7 +766,7 @@ def test_tasks_with_slug_allow_changes(tmp_path):
         + "<!-- handoff:research end -->\n",
     )
 
-    result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    result = run_hook(tmp_path, "gate_workflow.py", SRC_PAYLOAD)
     assert result.returncode == 0, result.stderr
 
 
@@ -795,7 +795,7 @@ def test_review_handoff_blocks_without_tasklist_entry(tmp_path):
         + "<!-- handoff:research end -->\n",
     )
 
-    result_block = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    result_block = run_hook(tmp_path, "gate_workflow.py", SRC_PAYLOAD)
     assert result_block.returncode == 2
     combined = result_block.stdout + result_block.stderr
     assert "handoff" in combined.lower()
@@ -811,7 +811,7 @@ def test_review_handoff_blocks_without_tasklist_entry(tmp_path):
         + "<!-- handoff:review end -->\n",
     )
 
-    result_ok = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    result_ok = run_hook(tmp_path, "gate_workflow.py", SRC_PAYLOAD)
     assert result_ok.returncode == 0, result_ok.stderr
 
 
@@ -841,7 +841,7 @@ def test_review_handoff_blocks_on_empty_report(tmp_path):
         + "<!-- handoff:research end -->\n",
     )
 
-    result_block = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    result_block = run_hook(tmp_path, "gate_workflow.py", SRC_PAYLOAD)
     assert result_block.returncode == 2
     combined = result_block.stdout + result_block.stderr
     assert "handoff" in combined.lower()
@@ -857,7 +857,7 @@ def test_review_handoff_blocks_on_empty_report(tmp_path):
         + "<!-- handoff:review end -->\n",
     )
 
-    result_ok = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    result_ok = run_hook(tmp_path, "gate_workflow.py", SRC_PAYLOAD)
     assert result_ok.returncode == 0, result_ok.stderr
 
 
@@ -889,7 +889,7 @@ def test_handoff_uses_configured_qa_report(tmp_path):
 
     result = run_hook(
         tmp_path,
-        "gate-workflow.sh",
+        "gate_workflow.py",
         SRC_PAYLOAD,
         extra_env={"CLAUDE_SKIP_TASKLIST_PROGRESS": "1"},
     )
@@ -898,7 +898,7 @@ def test_handoff_uses_configured_qa_report(tmp_path):
 
 def test_plugin_hooks_cover_workflow_events():
     hooks = _plugin_hooks()
-    assert _has_command(hooks, "Stop", "gate-workflow.sh"), "gate-workflow missing in Stop"
+    assert _has_command(hooks, "Stop", "gate_workflow.py"), "gate-workflow missing in Stop"
     for event, entries in hooks.get("hooks", {}).items():
         for entry in entries:
             for hook in entry.get("hooks", []):
@@ -1029,7 +1029,7 @@ def test_pending_research_baseline_blocks_downstream_source_edits(tmp_path):
         },
     )
 
-    result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    result = run_hook(tmp_path, "gate_workflow.py", SRC_PAYLOAD)
     assert result.returncode == 2
     combined = result.stdout + result.stderr
     assert (
@@ -1085,7 +1085,7 @@ def test_progress_blocks_without_checkbox(tmp_path):
         "class App {\n    fun call() = \"updated\"\n}\n",
     )
 
-    result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    result = run_hook(tmp_path, "gate_workflow.py", SRC_PAYLOAD)
     assert result.returncode == 2
     combined = result.stdout + result.stderr
     assert "handoff-задачи" in combined or "tasks-derive" in combined
@@ -1102,7 +1102,7 @@ def test_progress_blocks_without_checkbox(tmp_path):
         + "<!-- handoff:research end -->\n",
     )
 
-    result_ok = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    result_ok = run_hook(tmp_path, "gate_workflow.py", SRC_PAYLOAD)
     assert result_ok.returncode == 0, result_ok.stderr
 
 
@@ -1122,7 +1122,7 @@ def test_hook_uses_aidd_docs_when_root_docs_present(tmp_path):
     write_file(project_root, "src/main/kotlin/App.kt", "class App")
 
     payload = '{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}'
-    result = run_hook(tmp_path, "gate-workflow.sh", payload)
+    result = run_hook(tmp_path, "gate_workflow.py", payload)
     assert result.returncode == 2
     combined = (result.stdout + result.stderr).lower()
     assert root_prd not in combined
@@ -1141,7 +1141,7 @@ def test_hook_requires_plugin_root(tmp_path):
 
     env = {"CLAUDE_PLUGIN_ROOT": ""}
     payload = '{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}'
-    result = run_hook(tmp_path, "gate-workflow.sh", payload, extra_env=env)
+    result = run_hook(tmp_path, "gate_workflow.py", payload, extra_env=env)
     assert result.returncode == 2
     assert "CLAUDE_PLUGIN_ROOT is required" in result.stderr
 
@@ -1176,7 +1176,7 @@ def test_hook_prefers_aidd_active_markers_over_root_docs(tmp_path):
     write_file(project_root, "src/main/kotlin/App.kt", "class App")
 
     payload = '{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}'
-    result = run_hook(tmp_path, "gate-workflow.sh", payload)
+    result = run_hook(tmp_path, "gate_workflow.py", payload)
     assert result.returncode in (0, 2)
     combined = (result.stdout + result.stderr).lower()
     assert ticket.lower() in combined or "block" not in combined
@@ -1214,7 +1214,7 @@ def test_hook_allows_with_duplicate_docs(tmp_path):
     write_file(project_root, "src/main/kotlin/App.kt", "class App")
     payload = '{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}'
     env = {"CLAUDE_SKIP_TASKLIST_PROGRESS": "1"}
-    result = run_hook(tmp_path, "gate-workflow.sh", payload, extra_env=env)
+    result = run_hook(tmp_path, "gate_workflow.py", payload, extra_env=env)
     assert result.returncode == 0
     combined = (result.stdout + result.stderr).lower()
     assert root_prd not in combined
@@ -1254,7 +1254,7 @@ def test_reviewer_marker_with_slug_hint(tmp_path):
     }
     write_json(tmp_path, f"reports/reviewer/{slug_hint}/{ticket}.tests.json", reviewer_marker)
 
-    result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    result = run_hook(tmp_path, "gate_workflow.py", SRC_PAYLOAD)
     assert result.returncode == 2
     assert "reviewer запросил тесты" in result.stdout or "reviewer запросил тесты" in result.stderr
     combined_output = (result.stdout + result.stderr).lower()
@@ -1297,7 +1297,7 @@ def test_reviewer_required_warns_but_does_not_block_implement_stage(tmp_path):
     }
     write_json(tmp_path, f"reports/reviewer/{slug_hint}/{ticket}.tests.json", reviewer_marker)
 
-    result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    result = run_hook(tmp_path, "gate_workflow.py", SRC_PAYLOAD)
     assert result.returncode == 0
     combined_output = result.stdout + result.stderr
     assert "WARN: reviewer запросил тесты" in combined_output
@@ -1307,14 +1307,14 @@ def test_documents_are_not_blocked(tmp_path):
     write_active_feature(tmp_path, "demo-checkout")
     # PRD and plan intentionally absent
 
-    result = run_hook(tmp_path, "gate-workflow.sh", DOC_PAYLOAD)
+    result = run_hook(tmp_path, "gate_workflow.py", DOC_PAYLOAD)
     assert result.returncode == 0, result.stderr
 
 
 def test_loop_preflight_missing_does_not_block_docs_only_when_stage_active(tmp_path):
     write_active_state(tmp_path, ticket="demo-checkout", stage="implement", work_item="iteration_id=I1")
 
-    result = run_hook(tmp_path, "gate-workflow.sh", DOC_PAYLOAD)
+    result = run_hook(tmp_path, "gate_workflow.py", DOC_PAYLOAD)
     assert result.returncode == 0, result.stderr
     combined = result.stdout + result.stderr
     assert "reason_code=preflight_missing" not in combined
@@ -1324,7 +1324,7 @@ def test_loop_preflight_missing_blocks_src_changes_when_stage_active(tmp_path):
     write_active_state(tmp_path, ticket="demo-checkout", stage="implement", work_item="iteration_id=I1")
     write_file(tmp_path, "src/main/kotlin/App.kt", "class App\n")
 
-    result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    result = run_hook(tmp_path, "gate_workflow.py", SRC_PAYLOAD)
     assert result.returncode == 2
     combined = result.stdout + result.stderr
     assert "reason_code=preflight_missing" in combined

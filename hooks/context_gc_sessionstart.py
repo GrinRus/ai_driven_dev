@@ -9,7 +9,7 @@ from pathlib import Path
 def _bootstrap() -> None:
     raw = os.environ.get("CLAUDE_PLUGIN_ROOT")
     if not raw:
-        print("[context-gc-sessionstart] CLAUDE_PLUGIN_ROOT is required to run hooks.", file=sys.stderr)
+        print("[context_gc_sessionstart] CLAUDE_PLUGIN_ROOT is required to run hooks.", file=sys.stderr)
         raise SystemExit(2)
     plugin_root = Path(raw).expanduser().resolve()
     if str(plugin_root) not in sys.path:

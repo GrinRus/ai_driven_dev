@@ -31,7 +31,7 @@ def _require_plugin_root() -> Path:
 PLUGIN_ROOT = _require_plugin_root()
 if str(PLUGIN_ROOT) not in sys.path:
     sys.path.insert(0, str(PLUGIN_ROOT))
-HOOKS_DIR = Path(__file__).resolve().parent
+HOOKS_DIR = Path(__file__).resolve().parents[1]
 VENDOR_DIR = HOOKS_DIR / "_vendor"
 if VENDOR_DIR.exists():
     sys.path.insert(0, str(VENDOR_DIR))

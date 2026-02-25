@@ -9,7 +9,7 @@ from pathlib import Path
 def _bootstrap() -> None:
     raw = os.environ.get("CLAUDE_PLUGIN_ROOT")
     if not raw:
-        print("[context-gc-pretooluse] CLAUDE_PLUGIN_ROOT is required to run hooks.", file=sys.stderr)
+        print("[context_gc_precompact] CLAUDE_PLUGIN_ROOT is required to run hooks.", file=sys.stderr)
         raise SystemExit(2)
     plugin_root = Path(raw).expanduser().resolve()
     if str(plugin_root) not in sys.path:
@@ -21,9 +21,9 @@ def _bootstrap() -> None:
 
 def main() -> int:
     _bootstrap()
-    from hooks.context_gc import pretooluse_guard
+    from hooks.context_gc import precompact_snapshot
 
-    result = pretooluse_guard.main()
+    result = precompact_snapshot.main()
     if isinstance(result, int):
         return result
     return 0

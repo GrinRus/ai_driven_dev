@@ -16,4 +16,4 @@ dist/
 .DS_Store
 /.claude/
 /aidd
-aidd_test_flow_prompt_*.txt
+/dev/reports/revision/

@@ -98,7 +98,7 @@ def test_researcher_blocks_pending_baseline_in_downstream_stage(tmp_path):
         "# Research\n\nStatus: pending\n\nКонтекст пуст, требуется baseline\n",
     )
 
-    result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    result = run_hook(tmp_path, "gate_workflow.py", SRC_PAYLOAD)
     assert result.returncode == 2
     combined = (result.stdout + result.stderr).lower()
     assert (
@@ -117,7 +117,7 @@ def test_researcher_blocks_pending_baseline_without_extra_flags(tmp_path):
         "# Research\n\nStatus: pending\n\nКонтекст пуст, требуется baseline\n",
     )
 
-    result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    result = run_hook(tmp_path, "gate_workflow.py", SRC_PAYLOAD)
     assert result.returncode == 2
     combined = (result.stdout + result.stderr).lower()
     assert (
@@ -136,7 +136,7 @@ def test_researcher_blocks_pending_without_baseline_marker(tmp_path):
         "# Research\n\nStatus: pending\n\n(no baseline note)\n",
     )
 
-    result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    result = run_hook(tmp_path, "gate_workflow.py", SRC_PAYLOAD)
     assert result.returncode == 2
     combined = (result.stdout + result.stderr).lower()
     assert (
@@ -151,7 +151,7 @@ def test_researcher_blocks_missing_report(tmp_path):
     _setup_common_artifacts(tmp_path, ticket)
     # Researcher report intentionally missing
 
-    result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    result = run_hook(tmp_path, "gate_workflow.py", SRC_PAYLOAD)
     assert result.returncode == 2
     combined = (result.stdout + result.stderr).lower()
     assert (
