@@ -83,9 +83,12 @@ def _check_relative_links(path: Path, errors: list[str]) -> None:
         target = match.group(1).strip()
         if not target or target.startswith(("http://", "https://", "#", "mailto:")):
             continue
-        if target.startswith("/"):
+        normalized_target = target.split("#", 1)[0].split("?", 1)[0].strip()
+        if not normalized_target:
             continue
-        target_path = (path.parent / target).resolve()
+        if normalized_target.startswith("/"):
+            continue
+        target_path = (path.parent / normalized_target).resolve()
         if not target_path.exists():
             errors.append(f"{path.as_posix()}: broken relative link -> {target}")
 
