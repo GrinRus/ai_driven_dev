@@ -756,6 +756,8 @@ def run_stream_command(
         if stream_mode == "raw":
             writer.write("[stream] WARN: raw mode enabled; JSON events will be printed.\n")
             writer.flush()
+        renderer = opencode_stream_render if runner_platform == "opencode" else claude_stream_render
+        render_state = renderer.RenderState()
         proc = subprocess.Popen(
             command,
             cwd=cwd,
@@ -780,13 +782,13 @@ def run_stream_command(
                 writer.write(line)
                 writer.flush()
                 continue
-            renderer = opencode_stream_render if runner_platform == "opencode" else claude_stream_render
             renderer.render_line(
                 line,
                 writer=writer,
                 mode="text+tools" if stream_mode == "tools" else "text-only",
                 strict=False,
                 warn_stream=writer,
+                state=render_state,
             )
         if proc.stdout:
             proc.stdout.close()

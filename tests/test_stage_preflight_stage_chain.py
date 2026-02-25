@@ -1,4 +1,5 @@
 import json
+import io
 import subprocess
 import tempfile
 import unittest
@@ -29,6 +30,36 @@ class StagePreflightStageChainTests(unittest.TestCase):
         self.assertEqual(command[:3], ["run", "--format", "json"])
         self.assertEqual(command[3], "--command")
         self.assertIn("feature-dev-aidd:implement DEMO-1", command[4])
+
+    def test_run_stream_command_opencode_preserves_renderer_state(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="opencode-stream-state-") as tmpdir:
+            root = Path(tmpdir)
+            output = io.StringIO()
+            log_path = root / "run.log"
+            stream_jsonl_path = root / "stream.jsonl"
+            stream_log_path = root / "stream.log"
+            command = [
+                "python3",
+                "-c",
+                (
+                    "import json,sys;"
+                    "sys.stdout.write(json.dumps({'type':'message','text':'done'})+'\\n');"
+                    "sys.stdout.write(json.dumps({'type':'tool.execute.after','name':'Bash','status':'ok'})+'\\n')"
+                ),
+            ]
+            code = loop_step_stage_chain.run_stream_command(
+                command=command,
+                cwd=root,
+                log_path=log_path,
+                stream_mode="tools",
+                stream_jsonl_path=stream_jsonl_path,
+                stream_log_path=stream_log_path,
+                output_stream=output,
+                runner_platform="opencode",
+            )
+            self.assertEqual(code, 0)
+            rendered = output.getvalue()
+            self.assertIn("done\n[tool:stop] Bash status=ok", rendered)
 
     def _run_preflight(self, stage: str) -> None:
         with tempfile.TemporaryDirectory(prefix=f"preflight-{stage}-") as tmpdir:
