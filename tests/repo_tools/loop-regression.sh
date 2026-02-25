@@ -6,6 +6,7 @@ STATUS=0
 
 log() { printf '[info] %s\n' "$*"; }
 err() { printf '[error] %s\n' "$*" >&2; STATUS=1; }
+warn() { printf '[warn] %s\n' "$*" >&2; }
 
 require_rg() {
   local pattern="$1"
@@ -21,7 +22,7 @@ log "checking loop discipline markers in skills"
 for stage in implement review qa; do
   file="skills/${stage}/SKILL.md"
   if rg -n "preflight_prepare.py" "$file" >/dev/null 2>&1; then
-    err "internal preflight script must not be mentioned in $file"
+    warn "internal preflight script mention detected in $file (telemetry-only policy)"
   fi
   require_rg "actions_apply.py" "$file"
   require_rg "Fill actions.json" "$file"

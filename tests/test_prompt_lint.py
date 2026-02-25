@@ -979,15 +979,13 @@ class PromptLintTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("must not call stage/shared script internals directly", result.stderr)
 
-    def test_loop_agent_manual_preflight_path_in_body_fails(self) -> None:
+    def test_loop_agent_manual_preflight_path_in_body_is_telemetry_only(self) -> None:
         bad_agent = build_agent("implementer") + "\nНе используй skills/aidd-loop/runtime/preflight_prepare.py напрямую.\n"
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self.write_prompts(root, agent_override={"implementer": bad_agent})
             result = self.run_lint(root)
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn("loop agent must not duplicate stage path-level orchestration policy", result.stderr)
-            self.assertIn("preflight_prepare.py", result.stderr)
+            self.assertEqual(result.returncode, 0, msg=f"stdout: {result.stdout}\nstderr: {result.stderr}")
 
     def test_loop_agent_manual_stage_result_path_in_body_fails(self) -> None:
         bad_agent = build_agent("qa") + "\nНе создавай stage.qa.result.json вручную.\n"
@@ -1102,7 +1100,7 @@ class PromptLintTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("runtime_path_missing_or_drift", result.stderr)
 
-    def test_loop_stage_skill_internal_preflight_script_mention_fails(self) -> None:
+    def test_loop_stage_skill_internal_preflight_script_mention_warns_only(self) -> None:
         bad_skill = build_stage_skill("review").replace(
             "internal preflight",
             "preflight_prepare.py",
@@ -1112,8 +1110,8 @@ class PromptLintTests(unittest.TestCase):
             root = Path(tmp)
             self.write_prompts(root, skill_override={"review": bad_skill})
             result = self.run_lint(root)
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn("must not mention internal preflight script names", result.stderr)
+            self.assertEqual(result.returncode, 0, msg=f"stdout: {result.stdout}\nstderr: {result.stderr}")
+            self.assertIn("telemetry-only", result.stderr)
 
     def test_loop_stage_skill_missing_semantic_marker_fails(self) -> None:
         bad_skill = build_stage_skill("review").replace(

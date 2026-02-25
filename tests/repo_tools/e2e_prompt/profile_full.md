@@ -1,5 +1,3 @@
-# AIDD E2E Flow Audit Prompt (TST-001, FULL)
-
 Задача: **AIDD E2E Flow Audit (TST-001) + Ralph Loop Compliance + Full-flow task selection**  
 База канона: **skill-first, python-only runtime, RLM-only research, no-fork stage orchestration**.
 
@@ -259,23 +257,7 @@
 
 ## 7) MUST-READ
 
-Перед стартом прочитай:
-
-- `$PLUGIN_DIR/skills/aidd-core/templates/workspace-agents.md`
-- `$PLUGIN_DIR/skills/aidd-core/templates/stage-lexicon.md`
-- `$PLUGIN_DIR/skills/tasks-new/templates/tasklist.template.md`
-- `$PLUGIN_DIR/skills/aidd-loop/templates/loop-pack.template.md`
-- `$PLUGIN_DIR/skills/researcher/templates/research.template.md`
-- `$PLUGIN_DIR/templates/aidd/config/gates.json`
-- `$PLUGIN_DIR/templates/aidd/config/conventions.json`
-- `$PLUGIN_DIR/skills/aidd-core/SKILL.md`
-- `$PLUGIN_DIR/skills/aidd-loop/SKILL.md`
-- `$PLUGIN_DIR/skills/researcher/SKILL.md`
-- `$PLUGIN_DIR/skills/aidd-stage-research/SKILL.md`
-- `$PLUGIN_DIR/skills/spec-interview/SKILL.md`
-- `$PLUGIN_DIR/skills/implement/SKILL.md`
-- `$PLUGIN_DIR/skills/review/SKILL.md`
-- `$PLUGIN_DIR/skills/qa/SKILL.md`
+{{MUST_READ_MANIFEST}}
 
 ## 8) Каталог задач для шага 3 (выбрать ровно одну)
 

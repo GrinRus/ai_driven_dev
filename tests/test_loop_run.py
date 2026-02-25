@@ -21,6 +21,20 @@ def _fixture_json(name: str) -> dict:
 
 
 class LoopRunTests(unittest.TestCase):
+    def test_loop_run_extract_next_action_sanitizes_legacy_alias(self) -> None:
+        message = "BLOCK: pending. Next action: `/feature-dev-aidd:tasklist-refiner DEMO-1`."
+        value = loop_run_module._extract_next_action(message)  # type: ignore[attr-defined]
+        self.assertIn("/feature-dev-aidd:tasks-new", value)
+        self.assertNotIn("/feature-dev-aidd:tasklist-refiner", value)
+
+    def test_loop_run_probe_rejects_sanitized_slash_command_tokens(self) -> None:
+        tokens, expanded = loop_run_module._expand_next_action_command(  # type: ignore[attr-defined]
+            "/feature-dev-aidd:planner DEMO-1",
+            REPO_ROOT,
+        )
+        self.assertEqual(tokens, [])
+        self.assertIn("/feature-dev-aidd:plan-new", expanded)
+
     def _seed_stage_chain_baseline(self, root: Path, ticket: str) -> None:
         write_active_state(root, ticket=ticket)
         if not (root / "docs" / "tasklist" / f"{ticket}.md").exists():

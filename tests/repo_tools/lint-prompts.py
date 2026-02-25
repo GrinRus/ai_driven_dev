@@ -184,8 +184,6 @@ AGENT_SELF_STAGE_COMMAND_MAP: Dict[str, str] = {
 }
 AGENT_STAGE_COMMAND_REF_RE = re.compile(r"/feature-dev-aidd:([a-z0-9-]+)", re.IGNORECASE)
 AGENT_LOOP_PATH_LEVEL_POLICY_RE = (
-    re.compile(r"skills/aidd-loop/runtime/preflight_prepare\.py", re.IGNORECASE),
-    re.compile(r"skills/(?:implement|review|qa)/runtime/preflight(?:_[a-z0-9]+)?\.py", re.IGNORECASE),
     re.compile(r"stage\.(?:implement|review|qa)\.result\.json", re.IGNORECASE),
 )
 AGENT_RLM_PRELOAD_ROLES = {
@@ -1058,8 +1056,9 @@ def lint_skills(root: Path) -> Tuple[List[str], List[str]]:
                         f"`can't open file .../skills/.../runtime/...`"
                     )
                 if LOOP_INTERNAL_PREFLIGHT_SCRIPT_RE.search(info.body):
-                    errors.append(
-                        f"{info.path}: loop stage guidance must not mention internal preflight script names"
+                    warnings.append(
+                        f"{info.path}: loop stage guidance mentions internal preflight script names; "
+                        "treated as telemetry-only (no hard-fail by mention)"
                     )
                 if not LOOP_MANUAL_STAGE_RESULT_BAN_RE.search(info.body):
                     errors.append(
