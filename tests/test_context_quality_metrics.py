@@ -132,9 +132,11 @@ class ContextQualityMetricsTests(unittest.TestCase):
             metrics = quality.get("metrics") or {}
             self.assertGreaterEqual(int(metrics.get("pack_reads") or 0), 2)
             self.assertGreaterEqual(int(metrics.get("slice_reads") or 0), 1)
+            self.assertGreaterEqual(int(metrics.get("memory_slice_reads") or 0), 1)
             self.assertGreaterEqual(int(metrics.get("full_reads") or 0), 1)
             self.assertEqual(int(metrics.get("output_contract_total") or 0), 1)
             self.assertGreater(float(metrics.get("output_contract_warn_rate") or 0), 0.0)
+            self.assertIn("rg_without_slice_rate", metrics)
             reason_counts = metrics.get("context_expand_count_by_reason") or {}
             self.assertEqual(int(reason_counts.get("read_outside_readmap") or 0), 2)
             self.assertEqual(int(reason_counts.get("expand_write_boundary") or 0), 1)

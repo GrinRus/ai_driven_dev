@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import sys
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from typing import Dict, List
 
@@ -13,6 +15,7 @@ from aidd_runtime import actions_validate
 from aidd_runtime import docops
 from aidd_runtime import io_utils
 from aidd_runtime import memory_common
+from aidd_runtime import memory_pack
 from aidd_runtime import memory_verify
 from aidd_runtime import runtime
 from aidd_runtime.io_utils import utc_timestamp
@@ -133,6 +136,52 @@ def _apply_action(
     return f"unsupported action type: {action_type}", False, True
 
 
+def _refresh_decisions_pack(root: Path, *, ticket: str) -> tuple[str, bool]:
+    stdout_buffer = io.StringIO()
+    stderr_buffer = io.StringIO()
+    rc = 1
+    try:
+        with redirect_stdout(stdout_buffer), redirect_stderr(stderr_buffer):
+            rc = int(memory_pack.main(["--ticket", ticket, "--format", "json"]))
+    except SystemExit as exc:
+        try:
+            rc = int(exc.code or 1)
+        except (TypeError, ValueError):
+            rc = 1
+    except Exception as exc:  # pragma: no cover - defensive
+        return f"memory decisions pack refresh failed (reason_code=memory_decisions_pack_stale): {exc}", False
+
+    payload: Dict[str, object] = {}
+    stdout_text = stdout_buffer.getvalue().strip()
+    if stdout_text:
+        try:
+            parsed = json.loads(stdout_text)
+        except json.JSONDecodeError:
+            parsed = None
+        if isinstance(parsed, dict):
+            payload = parsed
+        else:
+            for line in reversed(stdout_text.splitlines()):
+                try:
+                    parsed_line = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(parsed_line, dict):
+                    payload = parsed_line
+                    break
+    if rc != 0:
+        err = stderr_buffer.getvalue().strip() or "memory_pack_failed"
+        return (
+            "memory decisions pack refresh failed "
+            f"(reason_code=memory_decisions_pack_stale): {err}",
+            False,
+        )
+    pack_path = str(payload.get("decisions_pack") or "").strip()
+    if not pack_path:
+        pack_path = runtime.rel_path(memory_common.decisions_pack_path(root, ticket), root)
+    return f"memory decisions pack refreshed ({pack_path})", True
+
+
 def _apply_actions(root: Path, payload: Dict[str, object], apply_log: Path) -> List[Dict[str, object]]:
     ticket = str(payload.get("ticket") or "")
     stage = str(payload.get("stage") or "")
@@ -142,6 +191,7 @@ def _apply_actions(root: Path, payload: Dict[str, object], apply_log: Path) -> L
         raise ValueError("actions must be a list")
 
     results: List[Dict[str, object]] = []
+    decision_appended = False
     for idx, action in enumerate(actions):
         if not isinstance(action, dict):
             results.append(
@@ -167,6 +217,11 @@ def _apply_actions(root: Path, payload: Dict[str, object], apply_log: Path) -> L
                 status = "error"
             else:
                 status = "applied" if changed else "skipped"
+            if (
+                action_type == "memory_ops.decision_append"
+                and status == "applied"
+            ):
+                decision_appended = True
         except Exception as exc:  # pragma: no cover - defensive
             message = f"exception: {exc}"
             status = "error"
@@ -177,6 +232,17 @@ def _apply_actions(root: Path, payload: Dict[str, object], apply_log: Path) -> L
                 "type": action_type,
                 "status": status,
                 "message": message,
+            }
+        )
+    if decision_appended:
+        refresh_message, refresh_ok = _refresh_decisions_pack(root, ticket=ticket)
+        results.append(
+            {
+                "timestamp": utc_timestamp(),
+                "index": len(results),
+                "type": "memory_ops.decision_pack_refresh",
+                "status": "applied" if refresh_ok else "error",
+                "message": refresh_message,
             }
         )
     if not results:

@@ -11,50 +11,50 @@
       "lang": "ru",
       "name": "implementer",
       "path": "agents/implementer.md",
-      "prompt_version": "1.1.41",
-      "source_version": "1.1.41"
+      "prompt_version": "1.1.42",
+      "source_version": "1.1.42"
     },
     {
       "lang": "ru",
       "name": "plan-reviewer",
       "path": "agents/plan-reviewer.md",
-      "prompt_version": "1.0.20",
-      "source_version": "1.0.20"
+      "prompt_version": "1.0.21",
+      "source_version": "1.0.21"
     },
     {
       "lang": "ru",
       "name": "planner",
       "path": "agents/planner.md",
-      "prompt_version": "1.1.13",
-      "source_version": "1.1.13"
+      "prompt_version": "1.1.14",
+      "source_version": "1.1.14"
     },
     {
       "lang": "ru",
       "name": "prd-reviewer",
       "path": "agents/prd-reviewer.md",
-      "prompt_version": "1.0.20",
-      "source_version": "1.0.20"
+      "prompt_version": "1.0.21",
+      "source_version": "1.0.21"
     },
     {
       "lang": "ru",
       "name": "qa",
       "path": "agents/qa.md",
-      "prompt_version": "1.0.30",
-      "source_version": "1.0.30"
+      "prompt_version": "1.0.31",
+      "source_version": "1.0.31"
     },
     {
       "lang": "ru",
       "name": "researcher",
       "path": "agents/researcher.md",
-      "prompt_version": "1.2.31",
-      "source_version": "1.2.31"
+      "prompt_version": "1.2.32",
+      "source_version": "1.2.32"
     },
     {
       "lang": "ru",
       "name": "reviewer",
       "path": "agents/reviewer.md",
-      "prompt_version": "1.0.35",
-      "source_version": "1.0.35"
+      "prompt_version": "1.0.36",
+      "source_version": "1.0.36"
     },
     {
       "lang": "ru",

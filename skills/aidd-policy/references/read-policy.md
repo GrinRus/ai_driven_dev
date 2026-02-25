@@ -10,7 +10,10 @@ Recommended order:
 - `aidd/reports/research/<ticket>-ast.pack.json` (if exists; optional in `ast_index.mode=auto`)
 - `aidd/reports/memory/<ticket>.semantic.pack.json`
 - `aidd/reports/memory/<ticket>.decisions.pack.json`
+- `aidd/reports/context/<ticket>-memory-slices.<stage>.<scope_key>.pack.json`
+- `aidd/reports/context/<ticket>-memory-slice.<stage>.<scope_key>.latest.pack.json`
 - `aidd/reports/loops/<ticket>/<scope_key>.loop.pack.md`
 - `aidd/reports/context/<ticket>.pack.md`
 - `aidd/reports/context/<ticket>-chunk-*.pack.json` (on-demand JIT chunks via `chunk_query.py`)
 - specific files/slices needed to resolve blockers
+- full read fallback only after slice/manifest attempts with explicit `reason_code`

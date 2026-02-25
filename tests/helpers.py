@@ -119,6 +119,26 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
         "stages": ["plan", "review", "qa"],
         "require_semantic_pack": False,
         "require_decisions_pack": False,
+        "slice_enforcement": "warn",
+        "enforce_stages": ["research", "plan", "review-spec", "implement", "review", "qa"],
+        "max_slice_age_minutes": 240,
+        "rg_policy": "controlled_fallback",
+        "rollout_hardening": {
+            "enabled": False,
+            "decision_mode": "advisory",
+            "metrics_artifact": "aidd/reports/observability/memory.rollout.json",
+            "stages_plan": ["research", "plan", "review-spec"],
+            "stages_loop": ["implement", "review", "qa"],
+            "thresholds": {
+                "memory_slice_coverage_min": 0.9,
+                "rg_without_slice_rate_max": 0.1,
+                "decisions_pack_stale_events_max": 0,
+            },
+            "windows": {
+                "plan_runs": 100,
+                "loop_runs": 50,
+            },
+        },
     },
     "ast_index": {
         "mode": "auto",

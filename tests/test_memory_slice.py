@@ -100,9 +100,22 @@ class MemorySliceTests(unittest.TestCase):
             os.chdir(workspace)
             try:
                 rc = memory_slice.main(["--ticket", ticket, "--query", "sqlite"])
+                rc_stage = memory_slice.main(
+                    [
+                        "--ticket",
+                        ticket,
+                        "--query",
+                        "sqlite",
+                        "--stage",
+                        "implement",
+                        "--scope-key",
+                        "iteration_id_I1",
+                    ]
+                )
             finally:
                 os.chdir(old_cwd)
             self.assertEqual(rc, 0)
+            self.assertEqual(rc_stage, 0)
 
             latest_path = project_root / "reports" / "context" / f"{ticket}-memory-slice.latest.pack.json"
             self.assertTrue(latest_path.exists())
@@ -111,8 +124,17 @@ class MemorySliceTests(unittest.TestCase):
             self.assertGreaterEqual(int(payload.get("stats", {}).get("hits", 0)), 1)
             matches = payload.get("matches", {}).get("rows", [])
             self.assertTrue(matches)
+            stage_latest = (
+                project_root / "reports" / "context" / f"{ticket}-memory-slice.implement.iteration_id_I1.latest.pack.json"
+            )
+            self.assertTrue(stage_latest.exists(), "stage-aware latest alias must be written")
+            manifest = project_root / "reports" / "context" / f"{ticket}-memory-slices.implement.iteration_id_I1.pack.json"
+            self.assertTrue(manifest.exists(), "stage-aware manifest must be written")
+            manifest_payload = json.loads(manifest.read_text(encoding="utf-8"))
+            self.assertEqual(manifest_payload.get("schema"), "aidd.memory.slices.manifest.v1")
+            rows = ((manifest_payload.get("slices") or {}).get("rows") or [])
+            self.assertTrue(any((isinstance(row, list) and row and row[0] == "sqlite") for row in rows))
 
 
 if __name__ == "__main__":
     unittest.main()
-

@@ -22,6 +22,11 @@
 - Loop DocOps now supports validated decision writes through `memory_ops.decision_append` (actions schema + stage contracts + preflight defaults).
 - Gate/readiness adds soft/hard memory checks (`memory_semantic_pack_missing*`, `memory_decisions_pack_missing*`) for `plan/review/qa`.
 - Smoke workflow now validates Memory v2 lifecycle end-to-end (extract/verify/append/pack/slice).
+- Wave 102 (Memory usage alignment): added stage-aware autoslice runtime `skills/aidd-memory/runtime/memory_autoslice.py` plus manifests `aidd/reports/context/<ticket>-memory-slices.<stage>.<scope_key>.pack.json` and latest slice aliases.
+- Read-discipline hardening: `research/plan/review-spec/implement/review/qa` now materialize memory slice manifests; output contract checks read order and emits deterministic reason codes (`memory_slice_missing`, `memory_slice_stale`, `memory_slice_manifest_missing`, `rg_without_slice`).
+- Controlled `rg` fallback is enforced by context guards (`rg_guard`/`bash_guard` integration): `rg` without fresh slice manifest becomes `ask/deny` by policy mode.
+- Memory decision freshness: `memory_ops.decision_append` triggers same-run `decisions.pack` refresh and stale events are tracked with `memory_decisions_pack_stale`.
+- Observability extension: `aidd.context_quality.v1` now tracks `memory_slice_reads`, `rg_invocations`, `rg_without_slice_rate`, `decisions_pack_stale_events`; doctor adds `memory.rollout_hardening` threshold diagnostics.
 - `${CLAUDE_PLUGIN_ROOT}/tools/doctor.sh` for environment/path diagnostics and workspace checks.
 - Test profiles `fast/targeted/full/none` via `aidd/.cache/test-policy.env` and `AIDD_TEST_*` flags for `format-and-test.sh`.
 - Dedupe cache `aidd/.cache/format-and-test.last.json` to avoid repeating test runs when diff/profile are unchanged.

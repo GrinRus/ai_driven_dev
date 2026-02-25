@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import json
 import re
 from pathlib import Path
@@ -11,7 +12,10 @@ from typing import Dict, List, Optional, Tuple
 
 from aidd_runtime import ast_index
 from aidd_runtime import context_quality
+from aidd_runtime import gates
+from aidd_runtime import memory_common
 from aidd_runtime import runtime
+from aidd_runtime import stage_lexicon
 from aidd_runtime import status_summary as _status_summary
 
 
@@ -138,6 +142,84 @@ def _ast_next_action(ticket: str, reason_code: str) -> str:
     return f"python3 ${{CLAUDE_PLUGIN_ROOT}}/skills/researcher/runtime/research.py --ticket {ticket} --auto"
 
 
+def _memory_autoslice_hint(ticket: str, stage: str, scope_key: str) -> str:
+    return (
+        "python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-memory/runtime/memory_autoslice.py "
+        f"--ticket {ticket} --stage {stage} --scope-key {scope_key}"
+    )
+
+
+def _load_memory_slice_gate(target: Path) -> Dict[str, object]:
+    try:
+        config = gates.load_gates_config(target)
+    except Exception:
+        config = {}
+    memory_cfg = config.get("memory") if isinstance(config.get("memory"), dict) else {}
+    raw_mode = str(memory_cfg.get("slice_enforcement") or "warn").strip().lower()
+    mode = raw_mode if raw_mode in {"off", "warn", "hard"} else "warn"
+    raw_stages = memory_cfg.get("enforce_stages")
+    if isinstance(raw_stages, list):
+        stages = [
+            stage_lexicon.resolve_stage_name(str(item).strip())
+            for item in raw_stages
+            if str(item).strip()
+        ]
+        stages = [stage for stage in stages if stage]
+    else:
+        stages = ["research", "plan", "review-spec", "implement", "review", "qa"]
+    try:
+        max_age = max(1, int(memory_cfg.get("max_slice_age_minutes") or 240))
+    except (TypeError, ValueError):
+        max_age = 240
+    return {
+        "mode": mode,
+        "stages": stages,
+        "max_slice_age_minutes": max_age,
+    }
+
+
+def _memory_manifest_rel_path(target: Path, ticket: str, stage: str, scope_key: str) -> str:
+    manifest_path = memory_common.memory_slices_manifest_path(target, ticket, stage, scope_key)
+    return runtime.rel_path(manifest_path, target)
+
+
+def _parse_timestamp(raw: object) -> Optional[dt.datetime]:
+    value = str(raw or "").strip()
+    if not value:
+        return None
+    if value.endswith("Z"):
+        value = value[:-1] + "+00:00"
+    try:
+        parsed = dt.datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=dt.timezone.utc)
+    return parsed.astimezone(dt.timezone.utc)
+
+
+def _manifest_age_minutes(path: Path) -> Optional[float]:
+    if not path.exists():
+        return None
+    payload: Dict[str, object] = {}
+    try:
+        parsed = json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(parsed, dict):
+            payload = parsed
+    except Exception:
+        payload = {}
+    ts_value = payload.get("updated_at") or payload.get("generated_at")
+    ts = _parse_timestamp(ts_value)
+    if ts is None:
+        try:
+            ts = dt.datetime.fromtimestamp(path.stat().st_mtime, tz=dt.timezone.utc)
+        except OSError:
+            return None
+    now = dt.datetime.now(dt.timezone.utc)
+    delta = now - ts
+    return max(0.0, delta.total_seconds() / 60.0)
+
+
 def _find_index(entries: List[Dict[str, str]], predicate) -> int:
     for idx, entry in enumerate(entries):
         if predicate(entry):
@@ -198,6 +280,51 @@ def check_output_contract(
     context_idx = _find_index(read_entries, lambda item: "/reports/context/" in (item.get("path") or ""))
     memory_idx = _find_index(read_entries, lambda item: _is_memory_pack(item.get("path") or ""))
     ast_idx = _find_index(read_entries, lambda item: _is_ast_pack(item.get("path") or ""))
+    full_read_idx = _find_index(read_entries, lambda item: _is_full_doc(item.get("path") or ""))
+
+    memory_gate = _load_memory_slice_gate(target)
+    memory_policy_mode = str(memory_gate.get("mode") or "warn")
+    memory_enforce_stages = {
+        stage_lexicon.resolve_stage_name(item) for item in (memory_gate.get("stages") or [])
+    }
+    memory_enforced = memory_policy_mode != "off" and stage in memory_enforce_stages
+    memory_manifest_expected = _memory_manifest_rel_path(target, ticket, stage, scope_key)
+    manifest_filename = Path(memory_manifest_expected).name
+    memory_manifest_idx = _find_index(
+        read_entries,
+        lambda item: (
+            str(item.get("path") or "").strip().replace("\\", "/") == memory_manifest_expected
+            or str(item.get("path") or "").strip().replace("\\", "/").endswith(f"/{manifest_filename}")
+            or str(item.get("path") or "").strip().replace("\\", "/").endswith(manifest_filename)
+        ),
+    )
+    memory_manifest_path = runtime.resolve_path_for_target(Path(memory_manifest_expected), target)
+    memory_manifest_exists = memory_manifest_path.exists()
+    memory_manifest_age = _manifest_age_minutes(memory_manifest_path)
+    try:
+        memory_max_age = int(memory_gate.get("max_slice_age_minutes") or 240)
+    except (TypeError, ValueError):
+        memory_max_age = 240
+    memory_blocked_reason = ""
+    memory_next_action = ""
+    if memory_enforced:
+        if memory_manifest_idx < 0:
+            warnings.append("memory_slice_missing")
+        if not memory_manifest_exists:
+            warnings.append("memory_slice_manifest_missing")
+        if memory_manifest_age is not None and memory_manifest_age > float(memory_max_age):
+            warnings.append("memory_slice_stale")
+        if full_read_idx >= 0 and (memory_manifest_idx < 0 or memory_manifest_idx > full_read_idx):
+            warnings.append("memory_slice_missing")
+        if memory_policy_mode == "hard":
+            if "memory_slice_stale" in warnings:
+                memory_blocked_reason = "memory_slice_stale"
+            elif "memory_slice_manifest_missing" in warnings:
+                memory_blocked_reason = "memory_slice_manifest_missing"
+            elif "memory_slice_missing" in warnings:
+                memory_blocked_reason = "memory_slice_missing"
+            if memory_blocked_reason:
+                memory_next_action = _memory_autoslice_hint(ticket, stage, scope_key)
 
     if stage in {"implement", "review"}:
         actions_value = str(fields.get("actions_log") or "").strip()
@@ -270,8 +397,10 @@ def check_output_contract(
         else:
             warnings.append("ast_index_fallback_warn")
 
-    status = "blocked" if ast_blocked_reason else ("warn" if warnings or missing else "ok")
-    reason_code = ast_blocked_reason if ast_blocked_reason else ("output_contract_warn" if status == "warn" else "")
+    blocked_reason = memory_blocked_reason or ast_blocked_reason
+    status = "blocked" if blocked_reason else ("warn" if warnings or missing else "ok")
+    reason_code = blocked_reason if blocked_reason else ("output_contract_warn" if status == "warn" else "")
+    next_action = memory_next_action if memory_blocked_reason else ast_next_action
     payload = {
         "schema": "aidd.output_contract.v1",
         "ticket": ticket,
@@ -290,7 +419,14 @@ def check_output_contract(
         "actions_log": fields.get("actions_log", ""),
         "ast_required": ast_required,
         "ast_reason_codes": ast_reason_codes,
-        "next_action": ast_next_action,
+        "memory_slice_policy_mode": memory_policy_mode,
+        "memory_slice_enforced": memory_enforced,
+        "memory_slice_manifest_expected": memory_manifest_expected,
+        "memory_slice_manifest_read": memory_manifest_idx >= 0,
+        "memory_slice_manifest_exists": memory_manifest_exists,
+        "memory_slice_manifest_age_minutes": None if memory_manifest_age is None else round(memory_manifest_age, 3),
+        "memory_slice_max_age_minutes": memory_max_age,
+        "next_action": next_action,
     }
     try:
         context_quality.update_from_output_contract(
@@ -300,6 +436,7 @@ def check_output_contract(
             status=str(payload.get("status") or ""),
             reason_code=str(payload.get("reason_code") or ""),
             ast_reason_codes=ast_reason_codes,
+            warnings=payload.get("warnings") or [],
         )
     except Exception:
         pass

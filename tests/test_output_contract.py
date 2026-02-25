@@ -201,6 +201,154 @@ class OutputContractTests(unittest.TestCase):
             self.assertIn("ast_index_required_fallback", payload.get("warnings") or [])
             self.assertTrue(payload.get("next_action"))
 
+    def test_output_contract_warns_when_memory_slice_manifest_missing(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="output-contract-memory-warn-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ensure_gates_config(
+                root,
+                {
+                    "memory": {
+                        "slice_enforcement": "warn",
+                        "enforce_stages": ["implement"],
+                        "max_slice_age_minutes": 240,
+                    }
+                },
+            )
+            write_active_state(root, ticket="DEMO-MEM-WARN", stage="implement", work_item="iteration_id=I1")
+            stage_result = {
+                "schema": "aidd.stage_result.v1",
+                "ticket": "DEMO-MEM-WARN",
+                "stage": "implement",
+                "scope_key": "iteration_id_I1",
+                "work_item_key": "iteration_id=I1",
+                "result": "continue",
+                "updated_at": "2024-01-02T00:00:00Z",
+            }
+            write_file(
+                root,
+                "reports/loops/DEMO-MEM-WARN/iteration_id_I1/stage.implement.result.json",
+                json.dumps(stage_result),
+            )
+            actions_log = root / "reports" / "actions" / "DEMO-MEM-WARN" / "iteration_id_I1" / "implement.actions.json"
+            actions_log.parent.mkdir(parents=True, exist_ok=True)
+            actions_log.write_text("[]\n", encoding="utf-8")
+            log_path = root / "reports" / "loops" / "DEMO-MEM-WARN" / "cli.implement.mem-warn.log"
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            log_path.write_text(
+                "\n".join(
+                    [
+                        "Status: WARN",
+                        "Work item key: iteration_id=I1",
+                        "Artifacts updated: src/demo.py",
+                        "Tests: skipped reason_code=manual_skip",
+                        "Blockers/Handoff: none",
+                        "Next actions: none",
+                        f"AIDD:ACTIONS_LOG: {actions_log.relative_to(root).as_posix()}",
+                        "AIDD:READ_LOG: aidd/reports/loops/DEMO-MEM-WARN/iteration_id_I1.loop.pack.md (reason: loop pack); "
+                        "aidd/docs/prd/DEMO-MEM-WARN.prd.md (reason: missing field)",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                cli_cmd(
+                    "output-contract",
+                    "--ticket",
+                    "DEMO-MEM-WARN",
+                    "--stage",
+                    "implement",
+                    "--log",
+                    str(log_path),
+                    "--format",
+                    "json",
+                ),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("status"), "warn")
+            self.assertEqual(payload.get("reason_code"), "output_contract_warn")
+            warnings = payload.get("warnings") or []
+            self.assertIn("memory_slice_missing", warnings)
+            self.assertIn("memory_slice_manifest_missing", warnings)
+
+    def test_output_contract_blocks_when_memory_slice_manifest_missing_in_hard_mode(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="output-contract-memory-hard-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ensure_gates_config(
+                root,
+                {
+                    "memory": {
+                        "slice_enforcement": "hard",
+                        "enforce_stages": ["implement"],
+                        "max_slice_age_minutes": 240,
+                    }
+                },
+            )
+            write_active_state(root, ticket="DEMO-MEM-HARD", stage="implement", work_item="iteration_id=I1")
+            stage_result = {
+                "schema": "aidd.stage_result.v1",
+                "ticket": "DEMO-MEM-HARD",
+                "stage": "implement",
+                "scope_key": "iteration_id_I1",
+                "work_item_key": "iteration_id=I1",
+                "result": "continue",
+                "updated_at": "2024-01-02T00:00:00Z",
+            }
+            write_file(
+                root,
+                "reports/loops/DEMO-MEM-HARD/iteration_id_I1/stage.implement.result.json",
+                json.dumps(stage_result),
+            )
+            actions_log = root / "reports" / "actions" / "DEMO-MEM-HARD" / "iteration_id_I1" / "implement.actions.json"
+            actions_log.parent.mkdir(parents=True, exist_ok=True)
+            actions_log.write_text("[]\n", encoding="utf-8")
+            log_path = root / "reports" / "loops" / "DEMO-MEM-HARD" / "cli.implement.mem-hard.log"
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            log_path.write_text(
+                "\n".join(
+                    [
+                        "Status: WARN",
+                        "Work item key: iteration_id=I1",
+                        "Artifacts updated: src/demo.py",
+                        "Tests: skipped reason_code=manual_skip",
+                        "Blockers/Handoff: none",
+                        "Next actions: none",
+                        f"AIDD:ACTIONS_LOG: {actions_log.relative_to(root).as_posix()}",
+                        "AIDD:READ_LOG: aidd/reports/loops/DEMO-MEM-HARD/iteration_id_I1.loop.pack.md (reason: loop pack); "
+                        "aidd/docs/prd/DEMO-MEM-HARD.prd.md (reason: missing field)",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                cli_cmd(
+                    "output-contract",
+                    "--ticket",
+                    "DEMO-MEM-HARD",
+                    "--stage",
+                    "implement",
+                    "--log",
+                    str(log_path),
+                    "--format",
+                    "json",
+                ),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertEqual(payload.get("reason_code"), "memory_slice_manifest_missing")
+            self.assertIn("memory_autoslice.py", str(payload.get("next_action") or ""))
+
 
 if __name__ == "__main__":
     unittest.main()

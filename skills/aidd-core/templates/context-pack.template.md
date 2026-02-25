@@ -15,6 +15,8 @@ artefact_links:
 - research_ast_pack: aidd/reports/research/<ticket>-ast.pack.json (if exists)
 - memory_semantic_pack: aidd/reports/memory/<ticket>.semantic.pack.json (if exists)
 - memory_decisions_pack: aidd/reports/memory/<ticket>.decisions.pack.json (if exists)
+- memory_slice_manifest: aidd/reports/context/<ticket>-memory-slices.<stage>.<scope_key>.pack.json (if exists)
+- memory_slice_latest: aidd/reports/context/<ticket>-memory-slice.<stage>.<scope_key>.latest.pack.json (if exists)
 - chunk_packs: aidd/reports/context/<ticket>-chunk-*.pack.json (if exists, JIT retrieval)
 - loop_pack: aidd/reports/loops/<ticket>/<scope_key>.loop.pack.md (implement/review)
 - review_pack: aidd/reports/loops/<ticket>/<scope_key>/review.latest.pack.md (if exists)

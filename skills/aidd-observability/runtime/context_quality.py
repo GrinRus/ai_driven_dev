@@ -44,6 +44,13 @@ def _is_slice_path(path: str) -> bool:
     return any(token in normalized for token in ("-slice", "/slices/", "-chunk-"))
 
 
+def _is_memory_slice_path(path: str) -> bool:
+    normalized = str(path or "").strip().replace("\\", "/")
+    if not normalized:
+        return False
+    return "-memory-slice" in normalized or "-memory-slices." in normalized
+
+
 def _is_full_read_path(path: str) -> bool:
     normalized = str(path or "").strip().replace("\\", "/")
     if not normalized:
@@ -56,16 +63,20 @@ def _is_full_read_path(path: str) -> bool:
 
 
 def classify_read_entries(read_entries: Sequence[Dict[str, Any]]) -> Dict[str, int]:
-    counts = {"pack_reads": 0, "slice_reads": 0, "full_reads": 0}
+    counts = {"pack_reads": 0, "slice_reads": 0, "memory_slice_reads": 0, "full_reads": 0}
     for entry in read_entries:
         path = str((entry or {}).get("path") or "").strip()
         if not path:
             continue
         if _is_slice_path(path):
             counts["slice_reads"] += 1
+            if _is_memory_slice_path(path):
+                counts["memory_slice_reads"] += 1
             continue
         if _is_pack_path(path):
             counts["pack_reads"] += 1
+            if _is_memory_slice_path(path):
+                counts["memory_slice_reads"] += 1
             continue
         if _is_full_read_path(path):
             counts["full_reads"] += 1
@@ -82,10 +93,15 @@ def _default_payload(ticket: str) -> Dict[str, Any]:
         "metrics": {
             "pack_reads": 0,
             "slice_reads": 0,
+            "memory_slice_reads": 0,
             "full_reads": 0,
             "retrieval_events": 0,
             "fallback_events": 0,
             "fallback_rate": 0.0,
+            "rg_invocations": 0,
+            "rg_without_slice": 0,
+            "rg_without_slice_rate": 0.0,
+            "decisions_pack_stale_events": 0,
             "output_contract_total": 0,
             "output_contract_warns": 0,
             "output_contract_warn_rate": 0.0,
@@ -114,10 +130,15 @@ def _load_payload(path: Path, ticket: str) -> Dict[str, Any]:
         payload["metrics"] = metrics
     metrics.setdefault("pack_reads", 0)
     metrics.setdefault("slice_reads", 0)
+    metrics.setdefault("memory_slice_reads", 0)
     metrics.setdefault("full_reads", 0)
     metrics.setdefault("retrieval_events", 0)
     metrics.setdefault("fallback_events", 0)
     metrics.setdefault("fallback_rate", 0.0)
+    metrics.setdefault("rg_invocations", 0)
+    metrics.setdefault("rg_without_slice", 0)
+    metrics.setdefault("rg_without_slice_rate", 0.0)
+    metrics.setdefault("decisions_pack_stale_events", 0)
     metrics.setdefault("output_contract_total", 0)
     metrics.setdefault("output_contract_warns", 0)
     metrics.setdefault("output_contract_warn_rate", 0.0)
@@ -153,9 +174,13 @@ def update_metrics(
     ticket: str,
     pack_reads: int = 0,
     slice_reads: int = 0,
+    memory_slice_reads: int = 0,
     full_reads: int = 0,
     retrieval_events: int = 0,
     fallback_events: int = 0,
+    rg_invocations: int = 0,
+    rg_without_slice: int = 0,
+    decisions_pack_stale_events: int = 0,
     output_contract_total: int = 0,
     output_contract_warn: bool = False,
     context_expand_refresh: bool = False,
@@ -167,15 +192,24 @@ def update_metrics(
 
     metrics["pack_reads"] = _as_int(metrics.get("pack_reads")) + max(0, _as_int(pack_reads))
     metrics["slice_reads"] = _as_int(metrics.get("slice_reads")) + max(0, _as_int(slice_reads))
+    metrics["memory_slice_reads"] = _as_int(metrics.get("memory_slice_reads")) + max(0, _as_int(memory_slice_reads))
     metrics["full_reads"] = _as_int(metrics.get("full_reads")) + max(0, _as_int(full_reads))
     metrics["retrieval_events"] = _as_int(metrics.get("retrieval_events")) + max(0, _as_int(retrieval_events))
     metrics["fallback_events"] = _as_int(metrics.get("fallback_events")) + max(0, _as_int(fallback_events))
+    metrics["rg_invocations"] = _as_int(metrics.get("rg_invocations")) + max(0, _as_int(rg_invocations))
+    metrics["rg_without_slice"] = _as_int(metrics.get("rg_without_slice")) + max(0, _as_int(rg_without_slice))
+    metrics["decisions_pack_stale_events"] = _as_int(metrics.get("decisions_pack_stale_events")) + max(
+        0, _as_int(decisions_pack_stale_events)
+    )
     metrics["output_contract_total"] = _as_int(metrics.get("output_contract_total")) + max(0, _as_int(output_contract_total))
     metrics["output_contract_warns"] = _as_int(metrics.get("output_contract_warns")) + (1 if output_contract_warn else 0)
 
     retrieval_total = max(0, _as_int(metrics.get("retrieval_events")))
     fallback_total = max(0, _as_int(metrics.get("fallback_events")))
     metrics["fallback_rate"] = round((fallback_total / retrieval_total), 6) if retrieval_total else 0.0
+    rg_total = max(0, _as_int(metrics.get("rg_invocations")))
+    rg_without_slice_total = max(0, _as_int(metrics.get("rg_without_slice")))
+    metrics["rg_without_slice_rate"] = round((rg_without_slice_total / rg_total), 6) if rg_total else 0.0
 
     contract_total = max(0, _as_int(metrics.get("output_contract_total")))
     contract_warns = max(0, _as_int(metrics.get("output_contract_warns")))
@@ -199,24 +233,36 @@ def update_from_output_contract(
     status: str,
     reason_code: str,
     ast_reason_codes: Sequence[str],
+    warnings: Sequence[str] | None = None,
 ) -> Dict[str, Any]:
     read_counts = classify_read_entries(read_entries)
     ast_codes = {_normalize_reason_code(code) for code in ast_reason_codes if _normalize_reason_code(code)}
+    warning_codes = {
+        _normalize_reason_code(item) for item in (warnings or []) if _normalize_reason_code(item)
+    }
+    reason_code_token = _normalize_reason_code(reason_code)
     ast_pack_seen = any(
         str((entry or {}).get("path") or "").strip().replace("\\", "/").endswith("-ast.pack.json")
         for entry in read_entries
     )
     retrieval_events = 1 if (ast_pack_seen or ast_codes) else 0
     fallback_events = 1 if ast_codes else 0
-    warn = str(status or "").strip().lower() == "warn" or _normalize_reason_code(reason_code) == "output_contract_warn"
+    rg_without_slice = 1 if ("rg_without_slice" in warning_codes or reason_code_token == "rg_without_slice") else 0
+    decisions_pack_stale = (
+        1 if ("memory_decisions_pack_stale" in warning_codes or reason_code_token == "memory_decisions_pack_stale") else 0
+    )
+    warn = str(status or "").strip().lower() == "warn" or reason_code_token == "output_contract_warn"
     return update_metrics(
         root,
         ticket=ticket,
         pack_reads=read_counts["pack_reads"],
         slice_reads=read_counts["slice_reads"],
+        memory_slice_reads=read_counts["memory_slice_reads"],
         full_reads=read_counts["full_reads"],
         retrieval_events=retrieval_events,
         fallback_events=fallback_events,
+        rg_without_slice=rg_without_slice,
+        decisions_pack_stale_events=decisions_pack_stale,
         output_contract_total=1,
         output_contract_warn=warn,
         context_expand_refresh=True,
@@ -249,4 +295,20 @@ def update_from_ast(
         fallback_events=fallback_events,
         context_expand_refresh=True,
         source="research_plan",
+    )
+
+
+def update_from_rg_policy(
+    root: Path,
+    *,
+    ticket: str,
+    rg_without_slice: bool,
+) -> Dict[str, Any]:
+    return update_metrics(
+        root,
+        ticket=ticket,
+        rg_invocations=1,
+        rg_without_slice=1 if rg_without_slice else 0,
+        context_expand_refresh=False,
+        source="rg_guard",
     )

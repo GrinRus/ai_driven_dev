@@ -76,6 +76,8 @@ class ReviewSpecAstPolicyTests(unittest.TestCase):
 
         self.assertEqual(code, 0)
         self.assertIn("reason_code=ast_index_pack_missing_warn", stderr.getvalue())
+        manifest = self.project_root / "reports" / "context" / f"{ticket}-memory-slices.review-spec.{ticket}.pack.json"
+        self.assertTrue(manifest.exists(), "review-spec should materialize stage memory slice manifest")
         run_mock.assert_called_once()
 
     def test_prd_review_cli_required_ast_missing_blocks(self) -> None:

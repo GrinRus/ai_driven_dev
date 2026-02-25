@@ -89,10 +89,13 @@ class PreflightPrepareTests(unittest.TestCase):
             self.assertIn("src/feature/**", writemap_payload.get("allowed_paths", []))
             self.assertIn(f"aidd/reports/memory/{ticket}.semantic.pack.json", entry_paths)
             self.assertIn(f"aidd/reports/memory/{ticket}.decisions.pack.json", entry_paths)
+            memory_manifest_rel = f"aidd/reports/context/{ticket}-memory-slices.implement.{scope_key}.pack.json"
+            self.assertIn(memory_manifest_rel, entry_paths)
             self.assertLess(
                 entry_paths.index(f"aidd/reports/memory/{ticket}.semantic.pack.json"),
                 entry_paths.index(f"aidd/reports/context/{ticket}.pack.md"),
             )
+            self.assertIn("memory_slice_manifest", details.get("artifacts", {}))
 
     def test_preflight_prepare_blocks_without_work_item_key(self) -> None:
         with tempfile.TemporaryDirectory(prefix="preflight-prepare-") as tmpdir:

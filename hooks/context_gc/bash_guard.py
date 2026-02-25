@@ -10,6 +10,8 @@ from hooks.context_gc.prompt_injection import prompt_injection_guard_message
 from hooks.context_gc.rate_limit import resolve_log_dir, should_rate_limit
 from hooks.hooklib import pretooluse_decision
 
+_RG_COMMAND_RE = re.compile(r"(?<![A-Za-z0-9_./-])rg(?:\s|$)")
+
 
 def _wrap_with_log_and_tail(log_dir: Path, tail_lines: int, original_cmd: str) -> str:
     ts = datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -85,6 +87,10 @@ def is_aidd_scoped(path_value: str, project_dir: Path, aidd_root: Optional[Path]
 def command_targets_aidd(command: str) -> bool:
     lowered = command.lower()
     return any(token in lowered for token in ("aidd/", "docs/", "reports/", "config/", ".cache/"))
+
+
+def is_rg_command(command: str) -> bool:
+    return bool(_RG_COMMAND_RE.search(str(command or "")))
 
 
 def handle_bash(project_dir: Path, aidd_root: Optional[Path], cfg: Dict[str, Any], tool_input: Dict[str, Any]) -> None:

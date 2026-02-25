@@ -252,6 +252,10 @@ def _policy_state(project_dir: Path, aidd_root: Optional[Path]) -> Dict[str, Any
     }
 
 
+def policy_state(project_dir: Path, aidd_root: Optional[Path]) -> Dict[str, Any]:
+    return _policy_state(project_dir, aidd_root)
+
+
 def _is_tasklist_or_context_pack(candidates: list[str]) -> bool:
     prefixes = (
         "docs/tasklist/",

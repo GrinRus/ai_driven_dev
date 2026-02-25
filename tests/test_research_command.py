@@ -665,6 +665,8 @@ class ResearchCommandTest(unittest.TestCase):
             self.assertTrue(semantic_pack.exists())
             payload = json.loads(semantic_pack.read_text(encoding="utf-8"))
             self.assertEqual(payload.get("schema"), "aidd.memory.semantic.v1")
+            manifest_pack = project_root / "reports" / "context" / "MEM-1-memory-slices.research.MEM-1.pack.json"
+            self.assertTrue(manifest_pack.exists(), "research --auto should materialize memory autoslice manifest")
 
 
 

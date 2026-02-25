@@ -792,6 +792,7 @@ def build_ast_pack(
     query: str = "",
     limits: Optional[Dict[str, int]] = None,
     warnings: Optional[List[str]] = None,
+    generated_at: Optional[str] = None,
 ) -> Dict[str, Any]:
     lim = {**AST_LIMITS, **(limits or {})}
     snippet_chars = int(lim.get("snippet_chars") or AST_LIMITS["snippet_chars"])
@@ -840,7 +841,7 @@ def build_ast_pack(
         "kind": "pack",
         "ticket": ticket,
         "slug_hint": (slug_hint or ticket).strip() or ticket,
-        "generated_at": _utc_timestamp(),
+        "generated_at": str(generated_at or "").strip() or _utc_timestamp(),
         "source_path": source_path or "",
         "engine": "ast-index",
         "query": query,
@@ -924,6 +925,14 @@ def write_ast_pack(
     lim = {**AST_LIMITS, **(limits or {})}
     max_chars = int(lim.get("max_chars") or AST_BUDGET["max_chars"])
     max_lines = int(lim.get("max_lines") or AST_BUDGET["max_lines"])
+    generated_at = ""
+    if output.exists():
+        try:
+            previous_payload = json.loads(output.read_text(encoding="utf-8"))
+        except Exception:
+            previous_payload = {}
+        if isinstance(previous_payload, dict):
+            generated_at = str(previous_payload.get("generated_at") or "").strip()
     payload = build_ast_pack(
         entries,
         ticket=ticket,
@@ -932,6 +941,7 @@ def write_ast_pack(
         query=query,
         limits=lim,
         warnings=warnings,
+        generated_at=generated_at,
     )
     text, trimmed, errors = _auto_trim_ast_pack(payload, max_chars=max_chars, max_lines=max_lines)
     if trimmed:

@@ -121,6 +121,7 @@ Notes:
 | `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-memory/runtime/decision_append.py --ticket <ticket> --topic "<topic>" --decision "<decision>"` | Append one item to the decisions log |
 | `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-memory/runtime/memory_pack.py --ticket <ticket>` | Rebuild decisions pack |
 | `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-memory/runtime/memory_slice.py --ticket <ticket> --query "<token>"` | Build targeted memory slice pack |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-memory/runtime/memory_autoslice.py --ticket <ticket> --stage <stage> --scope-key <scope_key> --format json` | Build stage-aware memory slice manifest (`memory-slices.<stage>.<scope_key>.pack.json`) |
 | `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-memory/runtime/memory_verify.py --input <artifact.json-or-jsonl>` | Validate memory schema + budgets |
 | `python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan-new/runtime/research_check.py --ticket <ticket>` | Verify Research status `reviewed` |
 | `python3 ${CLAUDE_PLUGIN_ROOT}/skills/idea-new/runtime/analyst_check.py --ticket <ticket>` | Verify PRD `READY` and Q/A sync |
@@ -195,20 +196,39 @@ RLM artifacts (pack-first):
 - Slice tool: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_slice.py --ticket <ticket> --query "<token>" [--paths path1,path2] [--lang kt,java]`.
 - RLM pack budget: `config/conventions.json` → `rlm.pack_budget` (`max_chars`, `max_lines`, top-N limits).
 
-## Memory v2 (breaking-only)
+## Memory v2 + Slice Enforcement (breaking-only)
 
 Memory v2 is enabled in Wave 101 as a **breaking-only** contract:
 - no backfill of legacy memory state;
 - no fallback to legacy memory artifacts;
 - source of truth is `aidd/reports/memory/<ticket>.semantic.pack.json` and `aidd/reports/memory/<ticket>.decisions.pack.json`.
 
+Wave 102 adds stage-aware lightweight memory artifacts:
+- `aidd/reports/memory/<ticket>.decisions.jsonl` (append-only log);
+- `aidd/reports/context/<ticket>-memory-slices.<stage>.<scope_key>.pack.json` (manifest);
+- `aidd/reports/context/<ticket>-memory-slice-<hash>.pack.json` + alias `...memory-slice.<stage>.<scope_key>.latest.pack.json`.
+
 Recommended read order (pack-first):
 1. `aidd/reports/research/<ticket>-rlm.pack.json`
+1. `aidd/reports/research/<ticket>-ast.pack.json` (optional)
 1. `aidd/reports/memory/<ticket>.semantic.pack.json`
 1. `aidd/reports/memory/<ticket>.decisions.pack.json`
-1. `aidd/reports/context/<ticket>.pack.md` and on-demand slices
+1. `aidd/reports/context/<ticket>-memory-slices.<stage>.<scope_key>.pack.json`
+1. specific chunk/slice artifacts (`*-memory-slice-*.pack.json`, `rlm_slice`, `chunk_query`)
+1. `aidd/reports/context/<ticket>.pack.md` and full-read fallback (only with reason codes)
 
 Decision writes must go through the validated path (`memory_ops.decision_append`), not direct JSONL edits.
+After `memory_ops.decision_append`, runtime rebuilds `decisions.pack` in the same execution; stale windows are reported via `memory_decisions_pack_stale`.
+
+`rg` policy:
+1. default is `memory.slice_enforcement=warn` with `memory.rg_policy=controlled_fallback`;
+1. `rg` is allowed only after a fresh memory slice manifest attempt (otherwise `rg_without_slice`, `ask/deny` by mode);
+1. hard rollout is switched in `aidd/config/gates.json` after KPI readiness.
+
+Diagnostics and telemetry:
+- `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-observability/runtime/doctor.py` evaluates `memory.rollout_hardening`;
+- KPI artifact: `aidd/reports/observability/<ticket>.context-quality.json` (`memory_slice_reads`, `rg_invocations`, `rg_without_slice_rate`, `decisions_pack_stale_events`);
+- rollout thresholds are configured in `aidd/config/gates.json` → `memory.rollout_hardening`.
 
 ## AST Index (optional + fallback)
 

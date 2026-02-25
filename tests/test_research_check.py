@@ -649,6 +649,8 @@ class ResearchCheckTests(unittest.TestCase):
 
         self.assertEqual(code, 0)
         self.assertIn("reason_code=ast_index_pack_missing_warn", stderr.getvalue())
+        manifest = project_root / "reports" / "context" / f"{ticket}-memory-slices.plan.{ticket}.pack.json"
+        self.assertTrue(manifest.exists(), "plan gate should materialize stage memory slice manifest")
 
     def test_research_check_blocks_when_ast_pack_missing_in_required_mode(self) -> None:
         workspace, project_root = self._setup_workspace()

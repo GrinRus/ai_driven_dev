@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from pathlib import Path
 from typing import Any, Dict, Iterable, List
 
@@ -27,6 +28,41 @@ DEFAULT_DECISIONS_MAX_HISTORY = 150
 
 DEFAULT_SLICE_MAX_HITS = 20
 DEFAULT_SLICE_MAX_CHARS = 3000
+DEFAULT_SLICE_POLICY_MODE = "warn"
+DEFAULT_SLICE_ENFORCE_STAGES = ("research", "plan", "review-spec", "implement", "review", "qa")
+DEFAULT_SLICE_MAX_AGE_MINUTES = 240
+DEFAULT_RG_POLICY = "controlled_fallback"
+DEFAULT_SLICE_MANIFEST_MAX_SLICES = 6
+DEFAULT_SLICE_MANIFEST_MAX_CHARS = 12000
+
+DEFAULT_STAGE_QUERIES: Dict[str, List[str]] = {
+    "research": [
+        "constraint|invariant|default",
+        "open_questions|decision|risk",
+    ],
+    "plan": [
+        "constraint|invariant|fallback|required",
+        "decision|topic|status",
+    ],
+    "review-spec": [
+        "acceptance|constraint|invariant",
+        "decision|topic|conflict",
+    ],
+    "implement": [
+        "decision|topic|active",
+        "constraint|fallback|status",
+    ],
+    "review": [
+        "decision|topic|active",
+        "invariant|constraint|risk",
+    ],
+    "qa": [
+        "decision|topic|active",
+        "constraint|fallback|status",
+    ],
+}
+
+_FILE_TOKEN_RE = re.compile(r"[^A-Za-z0-9_.-]+")
 
 
 def stable_id(*parts: Any, length: int = 12) -> str:
@@ -81,6 +117,53 @@ def slice_limits(settings: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _normalize_file_token(value: str, *, fallback: str) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return fallback
+    cleaned = _FILE_TOKEN_RE.sub("_", text).strip("._-")
+    return cleaned or fallback
+
+
+def slice_policy(settings: Dict[str, Any]) -> Dict[str, Any]:
+    policy = settings.get("slice_policy") if isinstance(settings.get("slice_policy"), dict) else {}
+    raw_mode = str(policy.get("mode") or DEFAULT_SLICE_POLICY_MODE).strip().lower()
+    mode = raw_mode if raw_mode in {"off", "warn", "hard"} else DEFAULT_SLICE_POLICY_MODE
+    raw_rg_policy = str(policy.get("rg_policy") or DEFAULT_RG_POLICY).strip().lower()
+    rg_policy = raw_rg_policy if raw_rg_policy in {"free", "controlled_fallback", "deny"} else DEFAULT_RG_POLICY
+    raw_stages = policy.get("enforce_stages")
+    if isinstance(raw_stages, list):
+        enforce_stages = [str(item).strip().lower() for item in raw_stages if str(item).strip()]
+    else:
+        enforce_stages = list(DEFAULT_SLICE_ENFORCE_STAGES)
+    raw_stage_queries = policy.get("stage_queries")
+    stage_queries: Dict[str, List[str]] = {
+        key: list(values)
+        for key, values in DEFAULT_STAGE_QUERIES.items()
+    }
+    if isinstance(raw_stage_queries, dict):
+        for key, values in raw_stage_queries.items():
+            stage = str(key).strip().lower()
+            if not stage:
+                continue
+            if isinstance(values, list):
+                normalized = [str(item).strip() for item in values if str(item).strip()]
+                if normalized:
+                    stage_queries[stage] = normalized
+    manifest_budget = policy.get("manifest_budget") if isinstance(policy.get("manifest_budget"), dict) else {}
+    return {
+        "mode": mode,
+        "enforce_stages": enforce_stages or list(DEFAULT_SLICE_ENFORCE_STAGES),
+        "max_slice_age_minutes": max(1, int(policy.get("max_slice_age_minutes") or DEFAULT_SLICE_MAX_AGE_MINUTES)),
+        "rg_policy": rg_policy,
+        "manifest_budget": {
+            "max_slices": max(1, int(manifest_budget.get("max_slices") or DEFAULT_SLICE_MANIFEST_MAX_SLICES)),
+            "max_chars": max(2000, int(manifest_budget.get("max_chars") or DEFAULT_SLICE_MANIFEST_MAX_CHARS)),
+        },
+        "stage_queries": stage_queries,
+    }
+
+
 def semantic_pack_path(project_root: Path, ticket: str) -> Path:
     return project_root / "reports" / "memory" / f"{ticket}.semantic.pack.json"
 
@@ -100,6 +183,18 @@ def memory_slice_path(project_root: Path, ticket: str, query: str) -> Path:
 
 def memory_slice_latest_path(project_root: Path, ticket: str) -> Path:
     return project_root / "reports" / "context" / f"{ticket}-memory-slice.latest.pack.json"
+
+
+def memory_slice_stage_latest_path(project_root: Path, ticket: str, stage: str, scope_key: str) -> Path:
+    stage_token = _normalize_file_token(stage, fallback="stage")
+    scope_token = _normalize_file_token(scope_key, fallback="ticket")
+    return project_root / "reports" / "context" / f"{ticket}-memory-slice.{stage_token}.{scope_token}.latest.pack.json"
+
+
+def memory_slices_manifest_path(project_root: Path, ticket: str, stage: str, scope_key: str) -> Path:
+    stage_token = _normalize_file_token(stage, fallback="stage")
+    scope_token = _normalize_file_token(scope_key, fallback="ticket")
+    return project_root / "reports" / "context" / f"{ticket}-memory-slices.{stage_token}.{scope_token}.pack.json"
 
 
 def canonical_json(payload: Dict[str, Any]) -> str:

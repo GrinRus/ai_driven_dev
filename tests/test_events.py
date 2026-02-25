@@ -57,6 +57,40 @@ class EventReasonCodeTests(unittest.TestCase):
             self.assertEqual(details.get("ast_fallback_policy"), "blocked")
             self.assertEqual(details.get("next_action"), "ast-index rebuild")
 
+    def test_append_event_applies_extended_context_quality_metrics(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="events-context-quality-") as tmpdir:
+            root = Path(tmpdir) / "aidd"
+            root.mkdir(parents=True, exist_ok=True)
+            events.append_event(
+                root,
+                ticket="EV-CQ-1",
+                slug_hint="ev-cq-1",
+                event_type="loop",
+                status="ok",
+                details={
+                    "context_quality": {
+                        "pack_reads": 1,
+                        "slice_reads": 1,
+                        "memory_slice_reads": 1,
+                        "full_reads": 0,
+                        "retrieval_events": 1,
+                        "fallback_events": 0,
+                        "rg_invocations": 2,
+                        "rg_without_slice": 1,
+                        "decisions_pack_stale_events": 1,
+                    }
+                },
+                source="test",
+            )
+
+            quality_path = root / "reports" / "observability" / "EV-CQ-1.context-quality.json"
+            payload = json.loads(quality_path.read_text(encoding="utf-8"))
+            metrics = payload.get("metrics") or {}
+            self.assertGreaterEqual(int(metrics.get("memory_slice_reads") or 0), 1)
+            self.assertGreaterEqual(int(metrics.get("rg_invocations") or 0), 2)
+            self.assertGreaterEqual(int(metrics.get("rg_without_slice") or 0), 1)
+            self.assertGreaterEqual(int(metrics.get("decisions_pack_stale_events") or 0), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

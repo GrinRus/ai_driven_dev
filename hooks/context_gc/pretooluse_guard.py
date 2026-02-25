@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional
 from hooks.context_gc.bash_guard import command_targets_aidd, handle_bash, is_aidd_scoped
 from hooks.context_gc.prompt_injection import prompt_injection_guard_message
 from hooks.context_gc.rate_limit import should_rate_limit
+from hooks.context_gc.rg_guard import rg_fallback_decision
 from hooks.context_gc.rw_policy import enforce_rw_policy, manual_preflight_bash_decision, resolve_tool_path
 from hooks.hooklib import (
     load_config,
@@ -110,6 +111,14 @@ def main() -> None:
                     permission_decision=manual_preflight_decision["decision"],
                     reason=manual_preflight_decision["reason"],
                     system_message=manual_preflight_decision["system_message"],
+                )
+                return
+            rg_decision = rg_fallback_decision(project_dir, aidd_root, tool_input)
+            if rg_decision:
+                pretooluse_decision(
+                    permission_decision=rg_decision["decision"],
+                    reason=rg_decision["reason"],
+                    system_message=rg_decision["system_message"],
                 )
                 return
 

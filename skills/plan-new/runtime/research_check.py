@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import os
 import sys
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
 _PLUGIN_ROOT = Path(__file__).resolve().parents[3]
@@ -14,6 +16,7 @@ if str(_PLUGIN_ROOT) not in sys.path:
 from aidd_runtime import runtime
 from aidd_runtime import ast_index
 from aidd_runtime import context_quality
+from aidd_runtime import memory_autoslice
 from aidd_runtime.research_guard import ResearchValidationError, load_settings, validate_research
 
 
@@ -46,6 +49,80 @@ def _enforce_minimum_rlm_artifacts(target: Path, ticket: str) -> None:
 
 def _ast_research_hint(ticket: str) -> str:
     return f"python3 ${{CLAUDE_PLUGIN_ROOT}}/skills/researcher/runtime/research.py --ticket {ticket} --auto"
+
+
+def _run_memory_autoslice(*, target: Path, ticket: str, stage: str) -> dict[str, object]:
+    scope_key = runtime.resolve_scope_key(runtime.read_active_work_item(target), ticket)
+    outcome: dict[str, object] = {
+        "status": "error",
+        "reason_code": "",
+        "manifest_pack": "",
+        "queries_ok": 0,
+        "queries_total": 0,
+        "stderr": "",
+    }
+    stdout_buffer = io.StringIO()
+    stderr_buffer = io.StringIO()
+    exit_code = 1
+    try:
+        with redirect_stdout(stdout_buffer), redirect_stderr(stderr_buffer):
+            exit_code = int(
+                memory_autoslice.main(
+                    [
+                        "--ticket",
+                        ticket,
+                        "--stage",
+                        stage,
+                        "--scope-key",
+                        scope_key,
+                        "--format",
+                        "json",
+                    ]
+                )
+            )
+    except SystemExit as exc:
+        try:
+            exit_code = int(exc.code or 1)
+        except (TypeError, ValueError):
+            exit_code = 1
+    except Exception as exc:  # pragma: no cover - defensive
+        outcome["reason_code"] = "memory_autoslice_failed"
+        outcome["stderr"] = str(exc)
+        return outcome
+
+    stderr_text = stderr_buffer.getvalue().strip()
+    if stderr_text:
+        outcome["stderr"] = stderr_text
+
+    payload: dict[str, object] = {}
+    stdout_text = stdout_buffer.getvalue().strip()
+    if stdout_text:
+        try:
+            parsed = json.loads(stdout_text)
+        except json.JSONDecodeError:
+            parsed = None
+        if isinstance(parsed, dict):
+            payload = parsed
+        else:
+            for line in reversed(stdout_text.splitlines()):
+                try:
+                    parsed_line = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(parsed_line, dict):
+                    payload = parsed_line
+                    break
+    status = str(payload.get("status") or "").strip().lower()
+    outcome["status"] = status or ("ok" if exit_code == 0 else "error")
+    outcome["reason_code"] = str(payload.get("reason_code") or "").strip()
+    outcome["manifest_pack"] = str(payload.get("manifest_pack") or "").strip()
+    outcome["queries_ok"] = int(payload.get("queries_ok") or 0)
+    outcome["queries_total"] = int(payload.get("queries_total") or 0)
+    if exit_code != 0 and outcome["status"] not in {"warn", "blocked"}:
+        outcome["status"] = "error"
+        if not outcome["reason_code"]:
+            outcome["reason_code"] = "memory_autoslice_failed"
+    return outcome
 
 
 def _enforce_ast_pack_policy(target: Path, ticket: str) -> dict[str, object]:
@@ -178,6 +255,32 @@ def main(argv: list[str] | None = None) -> int:
 
     _enforce_minimum_rlm_artifacts(target, ticket)
     ast_metrics = _enforce_ast_pack_policy(target, ticket)
+    autoslice = _run_memory_autoslice(target=target, ticket=ticket, stage="plan")
+    memory_slice_status = str(autoslice.get("status") or "error")
+    memory_slice_reason_code = str(autoslice.get("reason_code") or "").strip()
+    memory_slice_manifest = str(autoslice.get("manifest_pack") or "").strip()
+    if memory_slice_status == "blocked":
+        reason_label = memory_slice_reason_code or "memory_slice_missing"
+        raise RuntimeError(
+            "BLOCK: memory autoslice blocked for plan gate "
+            f"(reason_code={reason_label}). Next action: "
+            f"`python3 ${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-memory/runtime/memory_autoslice.py "
+            f"--ticket {ticket} --stage plan --scope-key {runtime.resolve_scope_key(runtime.read_active_work_item(target), ticket)}`."
+        )
+    if memory_slice_status == "warn":
+        reason_label = memory_slice_reason_code or "memory_slice_missing_warn"
+        print(
+            "[aidd] WARN: memory autoslice degraded for plan gate "
+            f"(reason_code={reason_label}).",
+            file=sys.stderr,
+        )
+    elif memory_slice_status != "ok":
+        reason_label = memory_slice_reason_code or "memory_autoslice_failed"
+        print(
+            "[aidd] WARN: failed to materialize memory autoslice for plan gate "
+            f"(reason_code={reason_label}).",
+            file=sys.stderr,
+        )
 
     try:
         context_quality.update_from_ast(
@@ -187,7 +290,7 @@ def main(argv: list[str] | None = None) -> int:
             ast_status="ok" if bool(ast_metrics.get("ast_pack_present")) else "warn",
             ast_reason_codes=ast_metrics.get("ast_reason_codes") or [],
             ast_fallback_used=bool(ast_metrics.get("ast_fallback_detected")),
-            pack_reads=1 + (1 if bool(ast_metrics.get("ast_pack_present")) else 0),
+            pack_reads=1 + (1 if bool(ast_metrics.get("ast_pack_present")) else 0) + (1 if memory_slice_manifest else 0),
             full_reads=2,
         )
     except Exception:

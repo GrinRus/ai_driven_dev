@@ -21,6 +21,7 @@ from aidd_runtime import research_hints as prd_hints
 from aidd_runtime import (
     ast_index,
     context_quality,
+    memory_autoslice,
     memory_extract,
     reports_pack,
     rlm_finalize,
@@ -437,14 +438,21 @@ def _run_memory_extract(*, target: Path, ticket: str) -> dict[str, str]:
     payload: dict[str, object] = {}
     stdout_text = stdout_buffer.getvalue().strip()
     if stdout_text:
-        for line in reversed(stdout_text.splitlines()):
-            try:
-                parsed = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if isinstance(parsed, dict):
-                payload = parsed
-                break
+        try:
+            parsed = json.loads(stdout_text)
+        except json.JSONDecodeError:
+            parsed = None
+        if isinstance(parsed, dict):
+            payload = parsed
+        else:
+            for line in reversed(stdout_text.splitlines()):
+                try:
+                    parsed_line = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(parsed_line, dict):
+                    payload = parsed_line
+                    break
 
     semantic_rel = str(payload.get("semantic_pack") or "").strip() or f"reports/memory/{ticket}.semantic.pack.json"
     semantic_path = runtime.resolve_path_for_target(Path(semantic_rel), target)
@@ -459,6 +467,79 @@ def _run_memory_extract(*, target: Path, ticket: str) -> dict[str, str]:
         outcome["reason_code"] = "memory_extract_missing_artifact"
     else:
         outcome["reason_code"] = str(payload.get("reason_code") or "").strip() or "memory_extract_failed"
+    return outcome
+
+
+def _run_memory_autoslice(*, target: Path, ticket: str) -> dict[str, Any]:
+    outcome: dict[str, Any] = {
+        "status": "error",
+        "reason_code": "",
+        "manifest_pack": "",
+        "queries_ok": 0,
+        "queries_total": 0,
+        "stderr": "",
+    }
+    stdout_buffer = io.StringIO()
+    stderr_buffer = io.StringIO()
+    exit_code = 1
+    try:
+        with redirect_stdout(stdout_buffer), redirect_stderr(stderr_buffer):
+            exit_code = int(
+                memory_autoslice.main(
+                    [
+                        "--ticket",
+                        ticket,
+                        "--stage",
+                        "research",
+                        "--scope-key",
+                        runtime.resolve_scope_key("", ticket),
+                        "--format",
+                        "json",
+                    ]
+                )
+            )
+    except SystemExit as exc:
+        try:
+            exit_code = int(exc.code or 1)
+        except (TypeError, ValueError):
+            exit_code = 1
+    except Exception as exc:
+        outcome["reason_code"] = "memory_autoslice_failed"
+        outcome["stderr"] = str(exc)
+        return outcome
+
+    stderr_text = stderr_buffer.getvalue().strip()
+    if stderr_text:
+        outcome["stderr"] = stderr_text
+
+    payload: dict[str, Any] = {}
+    stdout_text = stdout_buffer.getvalue().strip()
+    if stdout_text:
+        try:
+            parsed = json.loads(stdout_text)
+        except json.JSONDecodeError:
+            parsed = None
+        if isinstance(parsed, dict):
+            payload = parsed
+        else:
+            for line in reversed(stdout_text.splitlines()):
+                try:
+                    parsed_line = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(parsed_line, dict):
+                    payload = parsed_line
+                    break
+    status = str(payload.get("status") or "").strip().lower()
+    outcome["status"] = status or ("ok" if exit_code == 0 else "error")
+    outcome["reason_code"] = str(payload.get("reason_code") or "").strip()
+    outcome["manifest_pack"] = str(payload.get("manifest_pack") or "").strip()
+    outcome["queries_ok"] = int(payload.get("queries_ok") or 0)
+    outcome["queries_total"] = int(payload.get("queries_total") or 0)
+    if exit_code != 0 and outcome["status"] not in {"warn", "blocked"}:
+        outcome["status"] = "error"
+        if not outcome["reason_code"]:
+            outcome["reason_code"] = "memory_autoslice_failed"
     return outcome
 
 
@@ -1106,6 +1187,9 @@ def run(args: argparse.Namespace) -> int:
     memory_status = "skipped"
     memory_semantic_pack = ""
     memory_reason_code = ""
+    memory_slice_status = "skipped"
+    memory_slice_reason_code = ""
+    memory_slice_manifest_pack = ""
     if rlm_status == "ready":
         memory_outcome = _run_memory_extract(target=target, ticket=ticket)
         memory_status = str(memory_outcome.get("status") or "error")
@@ -1123,6 +1207,34 @@ def run(args: argparse.Namespace) -> int:
                 print(f"[aidd] ERROR: {stderr_note}", file=sys.stderr)
             return 2
         print(f"[aidd] memory semantic pack saved to {memory_semantic_pack}.")
+        autoslice_outcome = _run_memory_autoslice(target=target, ticket=ticket)
+        memory_slice_status = str(autoslice_outcome.get("status") or "error")
+        memory_slice_reason_code = str(autoslice_outcome.get("reason_code") or "").strip()
+        memory_slice_manifest_pack = str(autoslice_outcome.get("manifest_pack") or "").strip()
+        if memory_slice_status == "blocked":
+            reason_label = memory_slice_reason_code or "memory_slice_missing"
+            print(
+                "[aidd] ERROR: memory autoslice blocked research stage "
+                f"(reason_code={reason_label}).",
+                file=sys.stderr,
+            )
+            return 2
+        if memory_slice_status == "warn":
+            reason_label = memory_slice_reason_code or "memory_slice_missing_warn"
+            print(
+                "[aidd] WARN: memory autoslice degraded "
+                f"(reason_code={reason_label}).",
+                file=sys.stderr,
+            )
+        elif memory_slice_status != "ok":
+            reason_label = memory_slice_reason_code or "memory_autoslice_failed"
+            print(
+                "[aidd] WARN: failed to materialize memory autoslice "
+                f"(reason_code={reason_label}).",
+                file=sys.stderr,
+            )
+        elif memory_slice_manifest_pack:
+            print(f"[aidd] memory slice manifest saved to {memory_slice_manifest_pack}.")
     else:
         memory_reason_code = "rlm_not_ready"
 
@@ -1173,6 +1285,9 @@ def run(args: argparse.Namespace) -> int:
                 "memory_status": memory_status,
                 "memory_semantic_pack": memory_semantic_pack or None,
                 "memory_reason_code": memory_reason_code or None,
+                "memory_slice_status": memory_slice_status,
+                "memory_slice_reason_code": memory_slice_reason_code or None,
+                "memory_slice_manifest_pack": memory_slice_manifest_pack or None,
                 "ast_mode": str(ast_outcome.get("mode") or ""),
                 "ast_required": bool(ast_outcome.get("required")),
                 "ast_status": ast_status,
@@ -1198,6 +1313,8 @@ def run(args: argparse.Namespace) -> int:
     if ast_pack_path:
         research_pack_reads += 1
     if memory_semantic_pack:
+        research_pack_reads += 1
+    if memory_slice_manifest_pack:
         research_pack_reads += 1
 
     try:

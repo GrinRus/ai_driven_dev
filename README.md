@@ -108,6 +108,7 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 | `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-memory/runtime/decision_append.py --ticket <ticket> --topic "<topic>" --decision "<decision>"` | Добавить запись в append-only decisions log |
 | `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-memory/runtime/memory_pack.py --ticket <ticket>` | Пересобрать decisions pack |
 | `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-memory/runtime/memory_slice.py --ticket <ticket> --query "<token>"` | Получить targeted memory slice pack |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-memory/runtime/memory_autoslice.py --ticket <ticket> --stage <stage> --scope-key <scope_key> --format json` | Сформировать stage-aware manifest (`memory-slices.<stage>.<scope_key>.pack.json`) |
 | `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-memory/runtime/memory_verify.py --input <artifact.json-or-jsonl>` | Проверить memory schema + budgets |
 | `python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan-new/runtime/research_check.py --ticket <ticket>` | Проверить статус Research `reviewed` |
 | `python3 ${CLAUDE_PLUGIN_ROOT}/skills/idea-new/runtime/analyst_check.py --ticket <ticket>` | Проверить PRD `READY` и синхронизацию вопросов/ответов |
@@ -183,20 +184,39 @@ RLM artifacts (pack-first):
 - Slice-инструмент: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_slice.py --ticket <ticket> --query "<token>" [--paths path1,path2] [--lang kt,java]`.
 - Бюджет RLM pack: `config/conventions.json` → `rlm.pack_budget` (`max_chars`, `max_lines`, top-N limits).
 
-## Memory v2 (breaking-only)
+## Memory v2 + slice enforcement (breaking-only)
 
 Memory v2 включён по умолчанию в Wave 101 как **breaking-only** контракт:
 - без backfill legacy memory state;
 - без fallback на старые memory-артефакты;
 - source of truth: `aidd/reports/memory/<ticket>.semantic.pack.json`, `aidd/reports/memory/<ticket>.decisions.pack.json`.
 
+Wave 102 добавляет stage-aware lightweight memory контур:
+- `aidd/reports/memory/<ticket>.decisions.jsonl` (append-only log);
+- `aidd/reports/context/<ticket>-memory-slices.<stage>.<scope_key>.pack.json` (manifest);
+- `aidd/reports/context/<ticket>-memory-slice-<hash>.pack.json` + alias `...memory-slice.<stage>.<scope_key>.latest.pack.json`.
+
 Рекомендуемый read order (pack-first):
 1. `aidd/reports/research/<ticket>-rlm.pack.json`
+1. `aidd/reports/research/<ticket>-ast.pack.json` (optional)
 1. `aidd/reports/memory/<ticket>.semantic.pack.json`
 1. `aidd/reports/memory/<ticket>.decisions.pack.json`
-1. `aidd/reports/context/<ticket>.pack.md` и on-demand slices
+1. `aidd/reports/context/<ticket>-memory-slices.<stage>.<scope_key>.pack.json`
+1. specific chunk/slice artifacts (`*-memory-slice-*.pack.json`, `rlm_slice`, `chunk_query`)
+1. `aidd/reports/context/<ticket>.pack.md` и full-read fallback (только при обосновании)
 
 Decision writes только через validated path (`memory_ops.decision_append`), а не прямым редактированием JSONL.
+После `memory_ops.decision_append` runtime пересобирает `decisions.pack` в том же execution; stale-window закрывается reason-code `memory_decisions_pack_stale`.
+
+`rg` policy:
+1. default `memory.slice_enforcement=warn`, `memory.rg_policy=controlled_fallback`;
+1. `rg` разрешён только после попытки чтения свежего memory slice manifest (иначе `rg_without_slice`, `ask/deny` по mode);
+1. hard rollout переключается через `aidd/config/gates.json` после KPI готовности.
+
+Диагностика/telemetry:
+- `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-observability/runtime/doctor.py` проверяет rollout readiness (`memory.rollout_hardening`);
+- KPI artifact: `aidd/reports/observability/<ticket>.context-quality.json` (`memory_slice_reads`, `rg_invocations`, `rg_without_slice_rate`, `decisions_pack_stale_events`);
+- rollout thresholds хранятся в `aidd/config/gates.json` → `memory.rollout_hardening`.
 
 ## AST Index (optional + fallback)
 

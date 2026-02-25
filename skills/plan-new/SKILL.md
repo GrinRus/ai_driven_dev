@@ -28,8 +28,8 @@ Follow `feature-dev-aidd:aidd-core`.
 1. Set active stage `plan` and active feature.
 2. Run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan-new/runtime/research_check.py --ticket <ticket>`.
 3. Gate readiness with `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/prd_check.py` and `python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan-new/runtime/research_check.py`; block if either fails.
-4. Use the existing rolling context pack as input evidence; read order stays RLM-first, then optional AST pack (`<ticket>-ast.pack.json`), then memory/context packs.
-5. Treat `ast-index` evidence as preferred when present; in optional mode absence/fallback markers are non-blocking.
+4. Use pack/slice-first read order: RLM pack -> optional AST pack (`<ticket>-ast.pack.json`) -> memory semantic/decisions packs -> stage memory slice manifest (`<ticket>-memory-slices.plan.<scope_key>.pack.json`) -> context pack.
+5. Treat `ast-index` evidence as preferred when present; `rg` is controlled fallback and should run only after memory slice manifest is materialized.
 6. Run subagent `feature-dev-aidd:planner`, then run subagent `feature-dev-aidd:validator`; keep updates within plan artifacts and canonical stage outputs.
 7. Update `aidd/docs/plan/<ticket>.md` and return the output contract.
 

@@ -209,6 +209,116 @@ def _evaluate_ast_rollout_wave2(project_root: Path) -> tuple[bool, bool, str, st
     return rollout_ok, (enforce and not rollout_ok), detail, (error if enforce and not rollout_ok else "")
 
 
+def _evaluate_memory_rollout_hardening(project_root: Path) -> tuple[bool, bool, str, str]:
+    try:
+        gates_cfg = runtime.load_gates_config(project_root)
+    except Exception as exc:
+        return False, False, f"config_error={exc}", ""
+
+    memory_cfg = gates_cfg.get("memory") if isinstance(gates_cfg.get("memory"), dict) else {}
+    rollout_cfg = memory_cfg.get("rollout_hardening") if isinstance(memory_cfg.get("rollout_hardening"), dict) else {}
+    enabled = _as_bool(rollout_cfg.get("enabled"), default=False)
+    decision_mode = str(rollout_cfg.get("decision_mode") or "advisory").strip().lower() or "advisory"
+    enforce = decision_mode in {"hard", "required", "block", "enforce"}
+    stages_plan = _rollout_scopes(rollout_cfg.get("stages_plan"))
+    stages_loop = _rollout_scopes(rollout_cfg.get("stages_loop"))
+
+    thresholds_cfg = rollout_cfg.get("thresholds") if isinstance(rollout_cfg.get("thresholds"), dict) else {}
+    coverage_min = _as_float(thresholds_cfg.get("memory_slice_coverage_min"))
+    rg_without_slice_max = _as_float(thresholds_cfg.get("rg_without_slice_rate_max"))
+    stale_events_max = _as_int(thresholds_cfg.get("decisions_pack_stale_events_max"))
+    if coverage_min is None:
+        coverage_min = 0.9
+    if rg_without_slice_max is None:
+        rg_without_slice_max = 0.1
+    if stale_events_max is None:
+        stale_events_max = 0
+
+    windows_cfg = rollout_cfg.get("windows") if isinstance(rollout_cfg.get("windows"), dict) else {}
+    plan_runs = _as_int(windows_cfg.get("plan_runs"))
+    loop_runs = _as_int(windows_cfg.get("loop_runs"))
+    if plan_runs is None:
+        plan_runs = 100
+    if loop_runs is None:
+        loop_runs = 50
+
+    metrics_artifact_raw = str(
+        rollout_cfg.get("metrics_artifact") or "aidd/reports/observability/memory.rollout.json"
+    ).strip()
+    metrics_artifact_path = runtime.resolve_path_for_target(Path(metrics_artifact_raw), project_root)
+    metrics_rel = runtime.rel_path(metrics_artifact_path, project_root)
+
+    if not enabled:
+        return True, False, (
+            f"enabled=false decision_mode={decision_mode} status=disabled "
+            f"stages_plan={','.join(stages_plan)} stages_loop={','.join(stages_loop)}"
+        ), ""
+
+    if not metrics_artifact_path.exists():
+        detail = (
+            f"enabled=true decision_mode={decision_mode} status=missing_metrics artifact={metrics_rel} "
+            f"windows(plan={plan_runs},loop={loop_runs})"
+        )
+        error = (
+            "Memory hardening rollout gate is enforced but metrics artifact is missing: "
+            f"{metrics_rel}. Provide memory_slice_coverage/rg_without_slice_rate/decisions_pack_stale_events "
+            "or switch decision_mode=advisory."
+        )
+        return (not enforce), enforce, detail, (error if enforce else "")
+
+    try:
+        metrics_payload = json.loads(metrics_artifact_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        detail = (
+            f"enabled=true decision_mode={decision_mode} status=invalid_json artifact={metrics_rel} ({exc})"
+        )
+        error = (
+            "Memory hardening rollout gate is enforced but metrics artifact is invalid JSON: "
+            f"{metrics_rel}."
+        )
+        return (not enforce), enforce, detail, (error if enforce else "")
+    if not isinstance(metrics_payload, dict):
+        detail = f"enabled=true decision_mode={decision_mode} status=invalid_payload artifact={metrics_rel}"
+        error = (
+            "Memory hardening rollout gate is enforced but metrics payload is not an object: "
+            f"{metrics_rel}."
+        )
+        return (not enforce), enforce, detail, (error if enforce else "")
+
+    coverage = _as_float(metrics_payload.get("memory_slice_coverage"))
+    if coverage is None:
+        coverage = _as_float(metrics_payload.get("memory_slice_coverage_rate"))
+    rg_rate = _as_float(metrics_payload.get("rg_without_slice_rate"))
+    stale_events = _as_int(metrics_payload.get("decisions_pack_stale_events"))
+
+    if coverage is None or rg_rate is None or stale_events is None:
+        detail = f"enabled=true decision_mode={decision_mode} status=incomplete_metrics artifact={metrics_rel}"
+        error = (
+            "Memory hardening rollout gate is enforced but metrics artifact misses required fields "
+            "`memory_slice_coverage`, `rg_without_slice_rate`, `decisions_pack_stale_events`."
+        )
+        return (not enforce), enforce, detail, (error if enforce else "")
+
+    coverage_ok = coverage >= coverage_min
+    rg_ok = rg_rate <= rg_without_slice_max
+    stale_ok = stale_events <= stale_events_max
+    rollout_ok = coverage_ok and rg_ok and stale_ok
+    status = "ready" if rollout_ok else "blocked"
+    detail = (
+        f"enabled=true decision_mode={decision_mode} status={status} artifact={metrics_rel} "
+        f"memory_slice_coverage={coverage:.3f}>={coverage_min:.3f} "
+        f"rg_without_slice_rate={rg_rate:.3f}<={rg_without_slice_max:.3f} "
+        f"decisions_pack_stale_events={stale_events}<={stale_events_max} "
+        f"windows(plan={plan_runs},loop={loop_runs}) "
+        f"stages_plan={','.join(stages_plan)} stages_loop={','.join(stages_loop)}"
+    )
+    error = (
+        "Memory hardening rollout thresholds are not satisfied "
+        f"(coverage_ok={coverage_ok}, rg_without_slice_ok={rg_ok}, decisions_pack_stale_ok={stale_ok})."
+    )
+    return rollout_ok, (enforce and not rollout_ok), detail, (error if enforce and not rollout_ok else "")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="AIDD install diagnostics.")
     parser.parse_args(argv)
@@ -342,6 +452,11 @@ def main(argv: list[str] | None = None) -> int:
     rows.append(("ast-index wave-2 rollout", ast_rollout_ok, ast_rollout_detail))
     if ast_rollout_block and ast_rollout_error:
         errors.append(ast_rollout_error)
+
+    memory_rollout_ok, memory_rollout_block, memory_rollout_detail, memory_rollout_error = _evaluate_memory_rollout_hardening(project_root)
+    rows.append(("memory hardening rollout", memory_rollout_ok, memory_rollout_detail))
+    if memory_rollout_block and memory_rollout_error:
+        errors.append(memory_rollout_error)
 
     print("AIDD Doctor")
     for name, ok, detail in rows:

@@ -6,7 +6,7 @@ from pathlib import Path
 
 from tests.helpers import ensure_project_root, write_active_state
 
-from aidd_runtime import decision_append, memory_pack
+from aidd_runtime import actions_apply, decision_append, memory_pack
 
 
 class MemoryDecisionsTests(unittest.TestCase):
@@ -81,7 +81,59 @@ class MemoryDecisionsTests(unittest.TestCase):
             self.assertEqual(len(payload.get("superseded_heads", {}).get("rows", [])), 1)
             self.assertGreaterEqual(int(payload.get("stats", {}).get("invalid_entries", 0)), 1)
 
+    def test_actions_apply_refreshes_decisions_pack_after_append(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="memory-decisions-actions-") as tmpdir:
+            workspace = Path(tmpdir)
+            project_root = ensure_project_root(workspace)
+            ticket = "MEM-DEC-ACT"
+            scope_key = "iteration_id_I1"
+            write_active_state(
+                project_root,
+                ticket=ticket,
+                slug_hint=ticket.lower(),
+                stage="implement",
+                work_item="iteration_id=I1",
+            )
+            actions_path = project_root / "reports" / "actions" / ticket / scope_key / "implement.actions.json"
+            actions_path.parent.mkdir(parents=True, exist_ok=True)
+            actions_payload = {
+                "schema_version": "aidd.actions.v1",
+                "stage": "implement",
+                "ticket": ticket,
+                "scope_key": scope_key,
+                "work_item_key": "iteration_id=I1",
+                "allowed_action_types": ["memory_ops.decision_append"],
+                "actions": [
+                    {
+                        "type": "memory_ops.decision_append",
+                        "params": {
+                            "topic": "retrieval-order",
+                            "decision": "pack/slice first",
+                            "status": "active",
+                        },
+                    }
+                ],
+            }
+            actions_path.write_text(json.dumps(actions_payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+            old_cwd = Path.cwd()
+            os.chdir(workspace)
+            try:
+                rc = actions_apply.main(
+                    [
+                        "--actions",
+                        str(actions_path),
+                    ]
+                )
+            finally:
+                os.chdir(old_cwd)
+            self.assertEqual(rc, 0)
+            pack_path = project_root / "reports" / "memory" / f"{ticket}.decisions.pack.json"
+            self.assertTrue(pack_path.exists(), "decisions pack should be refreshed in same actions-apply run")
+            payload = json.loads(pack_path.read_text(encoding="utf-8"))
+            rows = (payload.get("active_decisions") or {}).get("rows") or []
+            self.assertTrue(rows)
+
 
 if __name__ == "__main__":
     unittest.main()
-

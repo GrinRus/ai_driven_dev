@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import io
 import json
 import os
 import sys
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from typing import Optional
 
@@ -13,6 +15,7 @@ if str(_PLUGIN_ROOT) not in sys.path:
 
 from aidd_runtime import prd_review
 from aidd_runtime import ast_index
+from aidd_runtime import memory_autoslice
 from aidd_runtime.research_guard import ResearchValidationError, load_settings as load_research_settings, validate_research
 from aidd_runtime import runtime
 
@@ -83,6 +86,76 @@ def _enforce_ast_pack_policy(target: Path, ticket: str) -> int:
     return 0
 
 
+def _run_memory_autoslice(*, target: Path, ticket: str, stage: str) -> dict[str, object]:
+    scope_key = runtime.resolve_scope_key(runtime.read_active_work_item(target), ticket)
+    outcome: dict[str, object] = {
+        "status": "error",
+        "reason_code": "",
+        "manifest_pack": "",
+        "stderr": "",
+    }
+    stdout_buffer = io.StringIO()
+    stderr_buffer = io.StringIO()
+    exit_code = 1
+    try:
+        with redirect_stdout(stdout_buffer), redirect_stderr(stderr_buffer):
+            exit_code = int(
+                memory_autoslice.main(
+                    [
+                        "--ticket",
+                        ticket,
+                        "--stage",
+                        stage,
+                        "--scope-key",
+                        scope_key,
+                        "--format",
+                        "json",
+                    ]
+                )
+            )
+    except SystemExit as exc:
+        try:
+            exit_code = int(exc.code or 1)
+        except (TypeError, ValueError):
+            exit_code = 1
+    except Exception as exc:  # pragma: no cover - defensive
+        outcome["reason_code"] = "memory_autoslice_failed"
+        outcome["stderr"] = str(exc)
+        return outcome
+
+    stderr_text = stderr_buffer.getvalue().strip()
+    if stderr_text:
+        outcome["stderr"] = stderr_text
+
+    payload: dict[str, object] = {}
+    stdout_text = stdout_buffer.getvalue().strip()
+    if stdout_text:
+        try:
+            parsed = json.loads(stdout_text)
+        except json.JSONDecodeError:
+            parsed = None
+        if isinstance(parsed, dict):
+            payload = parsed
+        else:
+            for line in reversed(stdout_text.splitlines()):
+                try:
+                    parsed_line = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(parsed_line, dict):
+                    payload = parsed_line
+                    break
+    status = str(payload.get("status") or "").strip().lower()
+    outcome["status"] = status or ("ok" if exit_code == 0 else "error")
+    outcome["reason_code"] = str(payload.get("reason_code") or "").strip()
+    outcome["manifest_pack"] = str(payload.get("manifest_pack") or "").strip()
+    if exit_code != 0 and outcome["status"] not in {"warn", "blocked"}:
+        outcome["status"] = "error"
+        if not outcome["reason_code"]:
+            outcome["reason_code"] = "memory_autoslice_failed"
+    return outcome
+
+
 def main(argv: Optional[list[str]] = None) -> int:
     args = prd_review.parse_args(argv)
     _, target = runtime.require_workflow_root()
@@ -107,6 +180,31 @@ def main(argv: Optional[list[str]] = None) -> int:
         ast_policy_code = _enforce_ast_pack_policy(target, ticket)
         if ast_policy_code != 0:
             return ast_policy_code
+        autoslice = _run_memory_autoslice(target=target, ticket=ticket, stage="review-spec")
+        autoslice_status = str(autoslice.get("status") or "error")
+        autoslice_reason = str(autoslice.get("reason_code") or "").strip()
+        if autoslice_status == "blocked":
+            reason = autoslice_reason or "memory_slice_missing"
+            print(
+                "[prd-review] ERROR: memory autoslice blocked review-spec stage "
+                f"(reason_code={reason}).",
+                file=sys.stderr,
+            )
+            return 2
+        if autoslice_status == "warn":
+            reason = autoslice_reason or "memory_slice_missing_warn"
+            print(
+                "[prd-review] WARN: memory autoslice degraded "
+                f"(reason_code={reason}).",
+                file=sys.stderr,
+            )
+        elif autoslice_status != "ok":
+            reason = autoslice_reason or "memory_autoslice_failed"
+            print(
+                "[prd-review] WARN: failed to materialize memory autoslice "
+                f"(reason_code={reason}).",
+                file=sys.stderr,
+            )
     pack_only_requested = bool(getattr(args, "pack_only", False) or os.getenv("AIDD_PACK_ONLY", "").strip() == "1")
     raw_report_arg = getattr(args, "report", None)
     explicit_pack_report_arg = False

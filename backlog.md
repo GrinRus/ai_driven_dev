@@ -440,3 +440,50 @@ _Назначение EPIC: закрыть retrieval/tooling/compaction конт
 2. User-facing изменения в runtime контрактах требуют синхронного docs/changelog обновления в wave batch.
 3. Не объединять соседние батчи при незакрытых high-risk задачах (`W101-10`, `W101-12`, `W101-23`, `W101-28`).
 4. Финальное закрытие Wave 101 фиксируется только при выполнении `W101-26 + W101-28 + W101-29`.
+
+## Wave 102 — Memory Usage Alignment (Feature-Scoped Lightweight Memory + Slice-First)
+
+_Статус: implemented. Цель — выровнять memory usage по core-стадиям, enforce pack/slice-first чтение и перевести `rg` в controlled fallback._
+
+- [x] **W102-1 (P0) Config contract для slice enforcement и rg fallback** `templates/aidd/config/{conventions.json,gates.json}`, `skills/aidd-init/runtime/init.py`:
+  - добавлены `memory.slice_policy` и `memory.rg_policy`;
+  - defaults: `warn + controlled_fallback`, backward compatible.
+
+- [x] **W102-2 (P0) Stage-aware autoslice runtime** `skills/aidd-memory/runtime/{memory_autoslice.py,memory_common.py,memory_slice.py}`:
+  - реализован deterministic manifest writer + latest alias;
+  - добавлены stage/scope flags (`--stage`, `--scope-key`, `--manifest`, `--latest-alias`).
+
+- [x] **W102-3 (P0) Autoslice integration: research/plan/review-spec** `skills/researcher/runtime/research.py`, `skills/plan-new/runtime/research_check.py`, `skills/review-spec/runtime/prd_review_cli.py`:
+  - стадии materialize memory slice manifest;
+  - warn-mode не блокирует pipeline при деградации.
+
+- [x] **W102-4 (P0) Autoslice integration: loop preflight (`implement/review/qa`)** `skills/aidd-loop/runtime/preflight_prepare.py`:
+  - preflight materializes stage/scope memory slice manifest для loop stages.
+
+- [x] **W102-5 (P0) Decisions freshness after append** `skills/aidd-docio/runtime/actions_apply.py`, `skills/aidd-memory/runtime/memory_pack.py`:
+  - `memory_ops.decision_append` автоматически пересобирает `decisions.pack` в том же run;
+  - stale кейсы маркируются reason-code.
+
+- [x] **W102-6 (P0) Output contract memory-slice evidence enforcement** `skills/aidd-loop/runtime/output_contract.py`, `skills/aidd-policy/references/read-policy.md`, `skills/aidd-core/templates/context-pack.template.md`:
+  - проверяется наличие/свежесть memory manifest до full-read fallback;
+  - reason-codes нормализованы (`memory_slice_missing`, `memory_slice_stale`, `memory_slice_manifest_missing`).
+
+- [x] **W102-7 (P0) Hook guard для `rg` controlled fallback** `hooks/context_gc/{pretooluse_guard.py,bash_guard.py,rg_guard.py,rw_policy.py}`:
+  - `rg` без свежего memory slice manifest -> `ask/deny` по mode;
+  - после manifest attempt `rg` допускается как controlled fallback.
+
+- [x] **W102-8 (P1) Telemetry/KPI expansion for memory/slice/rg** `skills/aidd-observability/runtime/context_quality.py`, `skills/aidd-core/runtime/reports/events.py`:
+  - добавлены KPI: `memory_slice_reads`, `rg_invocations`, `rg_without_slice`, `rg_without_slice_rate`, `decisions_pack_stale_events`.
+
+- [x] **W102-9 (P1) Doctor rollout gate for warn->hard switch** `skills/aidd-observability/runtime/doctor.py`, `templates/aidd/config/gates.json`:
+  - doctor вычисляет readiness `memory.rollout_hardening` по threshold contract.
+
+- [x] **W102-10 (P1) Prompt/skill wiring under memory slice-first policy** `skills/*/SKILL.md`, `agents/*.md`:
+  - для `research/plan/review-spec/implement/review/qa` добавлен deterministic guidance `memory slice first, rg controlled fallback`.
+
+- [x] **W102-11 (P0) Full regression + smoke profile** `tests/`, `tests/repo_tools/{ci-lint.sh,smoke-workflow.sh}`:
+  - покрыты modes `off/warn/hard`, stale-pack, rg fallback, stage manifests;
+  - без новых mandatory внешних зависимостей.
+
+- [x] **W102-12 (P1) Docs/runbook/changelog alignment** `README.md`, `README.en.md`, `AGENTS.md`, `CHANGELOG.md`:
+  - documented policy, fallback semantics, rollout thresholds и troubleshooting.
