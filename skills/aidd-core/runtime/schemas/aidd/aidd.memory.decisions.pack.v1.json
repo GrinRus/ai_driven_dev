@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "aidd.memory.decisions.pack.v1",
+  "schema": "aidd.schema.v1",
+  "schema_version": "aidd.memory.decisions.pack.v1",
+  "title": "AIDD Memory Decisions Pack v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "schema_version",
+    "pack_version",
+    "type",
+    "kind",
+    "ticket",
+    "slug_hint",
+    "generated_at",
+    "source_path",
+    "active_decisions",
+    "superseded_heads",
+    "conflicts",
+    "stats"
+  ],
+  "properties": {
+    "schema": {
+      "const": "aidd.memory.decisions.pack.v1"
+    },
+    "schema_version": {
+      "const": "aidd.memory.decisions.pack.v1"
+    },
+    "pack_version": {
+      "type": "string"
+    },
+    "type": {
+      "const": "memory-decisions"
+    },
+    "kind": {
+      "const": "pack"
+    },
+    "ticket": {
+      "type": "string"
+    },
+    "slug_hint": {
+      "type": "string"
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "source_path": {
+      "type": "string"
+    },
+    "active_decisions": {
+      "type": "object"
+    },
+    "superseded_heads": {
+      "type": "object"
+    },
+    "conflicts": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "stats": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": true
+}
+

@@ -100,7 +100,7 @@ _Rollout policy: Memory v2 — breaking-only, без обратной совме
   **Effort:** S
   **Risk:** Low
 
-- [ ] **W101-2 (P0) Memory schemas + validator contract (`semantic/decisions/pack`)** `skills/aidd-core/runtime/schemas/aidd/*.json`, `skills/aidd-memory/runtime/memory_verify.py`, `tests/test_memory_verify.py`:
+- [x] **W101-2 (P0) Memory schemas + validator contract (`semantic/decisions/pack`)** `skills/aidd-core/runtime/schemas/aidd/*.json`, `skills/aidd-memory/runtime/memory_verify.py`, `tests/test_memory_verify.py`:
   - добавить схемы `aidd.memory.semantic.v1`, `aidd.memory.decision.v1`, `aidd.memory.decisions.pack.v1`;
   - реализовать schema+budget validation.
   **AC:** memory artifacts валидируются детерминированно; invalid payloads блокируются с reason codes.
@@ -109,7 +109,7 @@ _Rollout policy: Memory v2 — breaking-only, без обратной совме
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W101-3 (P0) Semantic extractor runtime (`memory_extract.py`) with deterministic pack budgets** `skills/aidd-memory/runtime/memory_extract.py`, `tests/test_memory_extract.py`:
+- [x] **W101-3 (P0) Semantic extractor runtime (`memory_extract.py`) with deterministic pack budgets** `skills/aidd-memory/runtime/memory_extract.py`, `tests/test_memory_extract.py`:
   - извлекать `terms/defaults/constraints/invariants/open_questions` из `aidd/docs/*` и `aidd/reports/context/*.pack.md`;
   - писать `aidd/reports/memory/<ticket>.semantic.pack.json` c stable ordering и trim policy.
   **AC:** semantic pack генерируется для активного ticket и укладывается в budget.
@@ -118,7 +118,7 @@ _Rollout policy: Memory v2 — breaking-only, без обратной совме
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W101-4 (P0) Append-only decision log + decisions pack assembly** `skills/aidd-memory/runtime/decision_append.py`, `skills/aidd-memory/runtime/memory_pack.py`, `tests/test_memory_decisions.py`:
+- [x] **W101-4 (P0) Append-only decision log + decisions pack assembly** `skills/aidd-memory/runtime/decision_append.py`, `skills/aidd-memory/runtime/memory_pack.py`, `tests/test_memory_decisions.py`:
   - реализовать append-only `aidd/reports/memory/<ticket>.decisions.jsonl`;
   - собирать `aidd/reports/memory/<ticket>.decisions.pack.json` (active/superseded chain, conflict summary, top-N).
   **AC:** решения сохраняются как immutable log; decision pack отражает актуальное состояние без дублей.
@@ -127,7 +127,7 @@ _Rollout policy: Memory v2 — breaking-only, без обратной совме
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W101-5 (P1) Targeted memory retrieval (`memory_slice.py`) aligned with pack-first read discipline** `skills/aidd-memory/runtime/memory_slice.py`, `tests/test_memory_slice.py`:
+- [x] **W101-5 (P1) Targeted memory retrieval (`memory_slice.py`) aligned with pack-first read discipline** `skills/aidd-memory/runtime/memory_slice.py`, `tests/test_memory_slice.py`:
   - добавить query-based slice для semantic/decisions memory;
   - сохранять slice artifacts в `aidd/reports/context/`.
   **AC:** memory slice работает как targeted evidence path без full-read.
