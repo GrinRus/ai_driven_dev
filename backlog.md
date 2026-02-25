@@ -406,3 +406,37 @@ _Назначение EPIC: закрыть retrieval/tooling/compaction конт
 3. Rollout scope AST wave-1: `research/plan/review-spec`.
 4. Без breaking change для минимально обязательных зависимостей (`python3`, `rg`, `git`) в AST части Wave 101.
 5. Метка “100% context-engineering closure” считается достигнутой только после `W101-27..W101-29`.
+
+### Wave 101 Delivery mode (execution)
+
+1. Выбран режим поставки: **инкрементные PR-батчи**.
+2. Запрещён перескок через `P0` dependencies из `W101-*`.
+3. Каждый батч должен закрывать измеримый контракт (`runtime/API/artifacts/tests`), а не частичную заготовку.
+
+### Wave 101 PR-batch execution plan (`W101-1..W101-29`)
+
+| Batch | Tasks | Main output | Required checks | Exit criteria |
+| --- | --- | --- | --- | --- |
+| PR-01 `foundation-contracts` | `W101-1`, `W101-6`, `W101-16` | bootstrap contracts for `aidd-memory` + `ast_index` | `python3 -m pytest -q tests/test_init_aidd.py`, `tests/repo_tools/ci-lint.sh` | workspace seed содержит memory/ast knobs; skill/runtime surface зарегистрирован |
+| PR-02 `memory-core-runtime` | `W101-2`, `W101-3`, `W101-4`, `W101-5` | memory schemas + extract/append/pack/slice runtime | `python3 -m pytest -q tests/test_memory_verify.py tests/test_memory_extract.py tests/test_memory_decisions.py tests/test_memory_slice.py` | deterministic generation/validation для `semantic.pack` и `decisions.pack` |
+| PR-03 `memory-flow-readchain` | `W101-7`, `W101-8`, `W101-11` | memory read-chain integration в `research/loop/policy/templates` | `python3 -m pytest -q tests/test_research_command.py tests/test_preflight_prepare.py tests/test_output_contract.py tests/test_status.py` | pack-first read order включает memory artifacts без policy regressions |
+| PR-04 `memory-governance` | `W101-9`, `W101-10`, `W101-12` | working-set enrichment + decision writes via validated actions + gates | `python3 -m pytest -q tests/test_wave95_policy_guards.py tests/test_wave93_validators.py tests/test_context_expand.py tests/test_gate_workflow.py tests/test_research_check.py` | soft/hard memory-gates и controlled writes работают детерминированно |
+| PR-05 `memory-hardening-docs` | `W101-13`, `W101-14`, `W101-15` | memory e2e hardening + docs/changelog + prompt sync | `tests/repo_tools/ci-lint.sh`, `tests/repo_tools/smoke-workflow.sh`, `python3 tests/repo_tools/lint-prompts.py --root .` | Memory v2 стабилен в e2e и задокументирован |
+| PR-06 `ast-foundation` | `W101-17`, `W101-18`, `W101-19` | AST adapter + schema/writer + observability readiness | `python3 -m pytest -q tests/test_ast_index_adapter.py tests/test_ast_pack_schema.py tests/test_ast_pack_budget.py tests/test_doctor.py tests/test_tools_inventory.py` | optional AST path готов, fallback reason-codes стабильны |
+| PR-07 `ast-flow-integration` | `W101-20`, `W101-21`, `W101-22`, `W101-23` | AST flow in `research/plan/review-spec` + status/fallback contract | `python3 -m pytest -q tests/test_research_command.py tests/test_ast_index_research_integration.py tests/test_research_check.py tests/test_review_spec.py tests/test_output_contract.py tests/test_events.py`, prompt lint/version checks | AST retrieval включён без регрессии RLM-first; optional/required semantics детерминированы |
+| PR-08 `ast-regression-rollout` | `W101-24`, `W101-25`, `W101-26` | AST full regression + docs + rollout decision gate | `tests/repo_tools/ci-lint.sh`, `tests/repo_tools/smoke-workflow.sh`, `python3 -m pytest -q tests/test_gate_workflow.py tests/test_doctor.py` | AST track production-ready в optional mode |
+| PR-09 `closure-router-guard` | `W101-27`, `W101-29` | unified JIT `chunk_query` + modularized `pretooluse_guard` | `python3 -m pytest -q tests/test_chunk_query.py tests/test_context_gc.py tests/test_hook_rw_policy.py` | JIT router готов; policy behavior эквивалентен до/после refactor |
+| PR-10 `closure-telemetry` | `W101-28` | context-quality KPI artifact (`aidd.context_quality.v1`) | `python3 -m pytest -q tests/test_context_quality_metrics.py`, `tests/repo_tools/ci-lint.sh`, `tests/repo_tools/smoke-workflow.sh` | quality telemetry стабильна; closure marker для Wave 101 достигнут |
+
+### Wave 101 High-risk regression gates
+
+1. После `W101-10`, `W101-12`, `W101-23`, `W101-28` обязателен расширенный regression gate.
+2. Для расширенного gate требуется минимум: профильные `pytest` + `tests/repo_tools/ci-lint.sh`.
+3. Для финальных hardening батчей (`PR-05`, `PR-08`, `PR-10`) обязательны оба full checks: `ci-lint.sh` и `smoke-workflow.sh`.
+
+### Wave 101 Merge policy
+
+1. `SKILL.md`/`agents/*` изменения мержатся только с обновлением `prompt_version` и успешным `lint-prompts`.
+2. User-facing изменения в runtime контрактах требуют синхронного docs/changelog обновления в wave batch.
+3. Не объединять соседние батчи при незакрытых high-risk задачах (`W101-10`, `W101-12`, `W101-23`, `W101-28`).
+4. Финальное закрытие Wave 101 фиксируется только при выполнении `W101-26 + W101-28 + W101-29`.
