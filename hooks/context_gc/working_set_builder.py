@@ -7,7 +7,7 @@ import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from hooks.hooklib import load_config, resolve_aidd_root, resolve_context_gc_mode
 
@@ -89,6 +89,115 @@ def _extract_pack_excerpt(md: str, max_lines: int, max_chars: int) -> Optional[s
     return text or None
 
 
+def _extract_list_block(payload: Dict[str, Any], key: str) -> List[List[Any]]:
+    block = payload.get(key)
+    if not isinstance(block, dict):
+        return []
+    rows = block.get("rows")
+    if not isinstance(rows, list):
+        return []
+    cleaned: List[List[Any]] = []
+    for item in rows:
+        if isinstance(item, list):
+            cleaned.append(item)
+    return cleaned
+
+
+def _normalize_inline(value: Any) -> str:
+    return " ".join(str(value or "").split())
+
+
+def _memory_semantic_lines(payload: Dict[str, Any]) -> List[str]:
+    lines: List[str] = []
+    term_rows = _extract_list_block(payload, "terms")
+    if term_rows:
+        lines.append("- terms:")
+        for row in term_rows[:4]:
+            term = _normalize_inline(row[0] if len(row) > 0 else "")
+            definition = _normalize_inline(row[1] if len(row) > 1 else "")
+            if term:
+                if definition:
+                    lines.append(f"  - {term}: {definition}")
+                else:
+                    lines.append(f"  - {term}")
+    default_rows = _extract_list_block(payload, "defaults")
+    if default_rows:
+        lines.append("- defaults:")
+        for row in default_rows[:4]:
+            key = _normalize_inline(row[0] if len(row) > 0 else "")
+            value = _normalize_inline(row[1] if len(row) > 1 else "")
+            if key:
+                if value:
+                    lines.append(f"  - {key}={value}")
+                else:
+                    lines.append(f"  - {key}")
+    constraint_rows = _extract_list_block(payload, "constraints")
+    if constraint_rows:
+        lines.append("- constraints:")
+        for row in constraint_rows[:3]:
+            text = _normalize_inline(row[1] if len(row) > 1 else "")
+            severity = _normalize_inline(row[3] if len(row) > 3 else "")
+            if text:
+                if severity:
+                    lines.append(f"  - [{severity}] {text}")
+                else:
+                    lines.append(f"  - {text}")
+    open_questions = payload.get("open_questions")
+    if isinstance(open_questions, list):
+        questions = [_normalize_inline(item) for item in open_questions if _normalize_inline(item)]
+        if questions:
+            lines.append("- open_questions:")
+            for item in questions[:2]:
+                lines.append(f"  - {item}")
+    return lines
+
+
+def _memory_decisions_lines(payload: Dict[str, Any]) -> List[str]:
+    lines: List[str] = []
+    active_rows = _extract_list_block(payload, "active_decisions")
+    if active_rows:
+        lines.append("- active_decisions:")
+        for row in active_rows[:5]:
+            topic = _normalize_inline(row[1] if len(row) > 1 else "")
+            decision = _normalize_inline(row[2] if len(row) > 2 else "")
+            status = _normalize_inline(row[3] if len(row) > 3 else "")
+            if topic:
+                entry = f"{topic}: {decision}" if decision else topic
+                if status:
+                    entry = f"{entry} [{status}]"
+                lines.append(f"  - {entry}")
+    conflicts = payload.get("conflicts")
+    if isinstance(conflicts, list):
+        conflict_items = [_normalize_inline(item) for item in conflicts if _normalize_inline(item)]
+        if conflict_items:
+            lines.append("- conflicts:")
+            for item in conflict_items[:3]:
+                lines.append(f"  - {item}")
+    return lines
+
+
+def _extract_memory_excerpt(path: Path, *, max_lines: int, max_chars: int) -> Optional[str]:
+    if not path.exists():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    if not isinstance(payload, dict):
+        return None
+
+    schema = str(payload.get("schema") or "").strip()
+    lines: List[str] = []
+    if schema == "aidd.memory.semantic.v1":
+        lines = _memory_semantic_lines(payload)
+    elif schema == "aidd.memory.decisions.pack.v1":
+        lines = _memory_decisions_lines(payload)
+    if not lines:
+        return None
+
+    return _extract_pack_excerpt("\n".join(lines), max_lines=max_lines, max_chars=max_chars)
+
+
 def _rel_to_root(root: Path, path: Path) -> str:
     try:
         return path.relative_to(root).as_posix()
@@ -124,6 +233,11 @@ def build_working_set(project_dir: Path) -> WorkingSet:
     max_tasks = int(ws_cfg.get("max_tasks", 25))
     pack_max_lines = int(ws_cfg.get("context_pack_max_lines", 20))
     pack_max_chars = int(ws_cfg.get("context_pack_max_chars", 1200))
+    memory_enabled = bool(ws_cfg.get("include_memory_packs", True))
+    memory_semantic_max_lines = int(ws_cfg.get("memory_semantic_max_lines", 12))
+    memory_semantic_max_chars = int(ws_cfg.get("memory_semantic_max_chars", 900))
+    memory_decisions_max_lines = int(ws_cfg.get("memory_decisions_max_lines", 10))
+    memory_decisions_max_chars = int(ws_cfg.get("memory_decisions_max_chars", 800))
 
     ticket = None
     slug = None
@@ -162,6 +276,28 @@ def build_working_set(project_dir: Path) -> WorkingSet:
             if excerpt:
                 parts.append("#### Context Pack (rolling)")
                 parts.append(excerpt)
+                parts.append("")
+
+        if memory_enabled:
+            semantic_pack_path = aidd_root / "reports" / "memory" / f"{ticket}.semantic.pack.json"
+            decisions_pack_path = aidd_root / "reports" / "memory" / f"{ticket}.decisions.pack.json"
+            semantic_excerpt = _extract_memory_excerpt(
+                semantic_pack_path,
+                max_lines=memory_semantic_max_lines,
+                max_chars=memory_semantic_max_chars,
+            )
+            if semantic_excerpt:
+                parts.append("#### Memory Semantic (excerpt)")
+                parts.append(semantic_excerpt)
+                parts.append("")
+            decisions_excerpt = _extract_memory_excerpt(
+                decisions_pack_path,
+                max_lines=memory_decisions_max_lines,
+                max_chars=memory_decisions_max_chars,
+            )
+            if decisions_excerpt:
+                parts.append("#### Memory Decisions (excerpt)")
+                parts.append(decisions_excerpt)
                 parts.append("")
 
         if tasklist.exists():

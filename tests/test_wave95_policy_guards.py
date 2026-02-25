@@ -68,6 +68,16 @@ class Wave95PolicyGuards(unittest.TestCase):
         self.assertFalse(any("gate-prd-review" in cmd for cmd in commands))
         self.assertTrue(any("gate-workflow.sh" in cmd for cmd in commands))
 
+    def test_context_gc_template_contains_memory_working_set_budget(self) -> None:
+        cfg_path = REPO_ROOT / "templates" / "aidd" / "config" / "context_gc.json"
+        payload = json.loads(cfg_path.read_text(encoding="utf-8"))
+        ws = payload.get("working_set") if isinstance(payload, dict) else {}
+        self.assertTrue(ws.get("include_memory_packs", False))
+        self.assertGreater(int(ws.get("memory_semantic_max_lines", 0)), 0)
+        self.assertGreater(int(ws.get("memory_semantic_max_chars", 0)), 0)
+        self.assertGreater(int(ws.get("memory_decisions_max_lines", 0)), 0)
+        self.assertGreater(int(ws.get("memory_decisions_max_chars", 0)), 0)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -54,10 +54,35 @@ class Wave93SchemaAndValidatorTests(unittest.TestCase):
                 "tasklist_ops.append_progress_log",
                 "tasklist_ops.next3_recompute",
                 "context_pack_ops.context_pack_update",
+                "memory_ops.decision_append",
             ],
             "actions": [],
         }
         self.assertEqual(actions_validate.validate_actions_data(v1), [])
+
+        memory_action = dict(v1)
+        memory_action["actions"] = [
+            {
+                "type": "memory_ops.decision_append",
+                "params": {
+                    "topic": "retrieval-order",
+                    "decision": "prefer pack-first",
+                    "status": "active",
+                    "alternatives": ["read full docs"],
+                },
+            }
+        ]
+        self.assertEqual(actions_validate.validate_actions_data(memory_action), [])
+
+        memory_invalid = dict(memory_action)
+        memory_invalid["actions"] = [
+            {
+                "type": "memory_ops.decision_append",
+                "params": {"decision": "missing topic"},
+            }
+        ]
+        errors = actions_validate.validate_actions_data(memory_invalid)
+        self.assertTrue(any("topic" in err for err in errors))
 
         invalid = dict(v1)
         invalid.pop("allowed_action_types")
@@ -155,6 +180,14 @@ class Wave93SchemaAndValidatorTests(unittest.TestCase):
             payload = skill_contract_validate.load_contract(path)
             errors = skill_contract_validate.validate_contract_data(payload, contract_path=path)
             self.assertEqual(errors, [], f"contract {path} failed: {errors}")
+
+    def test_loop_contracts_allow_memory_decision_action_type(self) -> None:
+        for stage in ("implement", "review", "qa"):
+            path = REPO_ROOT / "skills" / stage / "CONTRACT.yaml"
+            payload = skill_contract_validate.load_contract(path)
+            actions = payload.get("actions") if isinstance(payload, dict) else {}
+            allowed = actions.get("allowed_types") if isinstance(actions, dict) else []
+            self.assertIn("memory_ops.decision_append", allowed, f"{path} missing memory decision action")
 
     def test_loop_stage_contract_requires_canonical_stage_result_entrypoint(self) -> None:
         path = REPO_ROOT / "skills" / "implement" / "CONTRACT.yaml"

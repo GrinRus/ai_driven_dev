@@ -38,7 +38,14 @@
     "allowed_action_types": {
       "type": "array",
       "items": {
-        "type": "string"
+        "type": "string",
+        "enum": [
+          "tasklist_ops.set_iteration_done",
+          "tasklist_ops.append_progress_log",
+          "tasklist_ops.next3_recompute",
+          "context_pack_ops.context_pack_update",
+          "memory_ops.decision_append"
+        ]
       },
       "uniqueItems": true
     },

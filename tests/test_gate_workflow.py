@@ -1291,3 +1291,91 @@ def test_loop_preflight_missing_blocks_src_changes_when_stage_active(tmp_path):
     assert result.returncode == 2
     combined = result.stdout + result.stderr
     assert "reason_code=preflight_missing" in combined
+
+
+def test_gate_workflow_blocks_when_memory_semantic_pack_required_hard(tmp_path):
+    ticket = "demo-memory-hard"
+    ensure_gates_config(
+        tmp_path,
+        {
+            "prd_review": {"enabled": False},
+            "plan_review": {"enabled": False},
+            "analyst": {"enabled": False},
+            "reviewer": {"enabled": False},
+            "memory": {
+                "enabled": True,
+                "mode": "hard",
+                "stages": ["review"],
+                "require_semantic_pack": True,
+                "require_decisions_pack": False,
+            },
+        },
+    )
+    write_active_feature(tmp_path, ticket)
+    write_active_stage(tmp_path, "review")
+    write_file(tmp_path, f"docs/prd/{ticket}.prd.md", approved_prd(ticket))
+    write_json(tmp_path, f"reports/prd/{ticket}.json", REVIEW_REPORT)
+    write_plan_with_review(tmp_path, ticket)
+    tasklist_path = write_tasklist_ready(tmp_path, ticket)
+    append_handoff(
+        tasklist_path,
+        f"<!-- handoff:research start (source: aidd/reports/research/{ticket}-rlm.pack.json) -->\n"
+        "<!-- handoff:research end -->\n",
+    )
+    write_research_doc(tmp_path, ticket=ticket, status="reviewed")
+    write_loop_preflight_contract_artifacts(tmp_path, ticket=ticket, stage="review", scope_key=ticket)
+    write_file(tmp_path, "src/main/kotlin/App.kt", "class App\n")
+
+    result = run_hook(
+        tmp_path,
+        "gate-workflow.sh",
+        SRC_PAYLOAD,
+        extra_env={"CLAUDE_SKIP_TASKLIST_PROGRESS": "1"},
+    )
+    assert result.returncode == 2
+    combined = result.stdout + result.stderr
+    assert "reason_code=memory_semantic_pack_missing" in combined
+
+
+def test_gate_workflow_warns_when_memory_semantic_pack_required_soft(tmp_path):
+    ticket = "demo-memory-soft"
+    ensure_gates_config(
+        tmp_path,
+        {
+            "prd_review": {"enabled": False},
+            "plan_review": {"enabled": False},
+            "analyst": {"enabled": False},
+            "reviewer": {"enabled": False},
+            "memory": {
+                "enabled": True,
+                "mode": "soft",
+                "stages": ["review"],
+                "require_semantic_pack": True,
+                "require_decisions_pack": False,
+            },
+        },
+    )
+    write_active_feature(tmp_path, ticket)
+    write_active_stage(tmp_path, "review")
+    write_file(tmp_path, f"docs/prd/{ticket}.prd.md", approved_prd(ticket))
+    write_json(tmp_path, f"reports/prd/{ticket}.json", REVIEW_REPORT)
+    write_plan_with_review(tmp_path, ticket)
+    tasklist_path = write_tasklist_ready(tmp_path, ticket)
+    append_handoff(
+        tasklist_path,
+        f"<!-- handoff:research start (source: aidd/reports/research/{ticket}-rlm.pack.json) -->\n"
+        "<!-- handoff:research end -->\n",
+    )
+    write_research_doc(tmp_path, ticket=ticket, status="reviewed")
+    write_loop_preflight_contract_artifacts(tmp_path, ticket=ticket, stage="review", scope_key=ticket)
+    write_file(tmp_path, "src/main/kotlin/App.kt", "class App\n")
+
+    result = run_hook(
+        tmp_path,
+        "gate-workflow.sh",
+        SRC_PAYLOAD,
+        extra_env={"CLAUDE_SKIP_TASKLIST_PROGRESS": "1"},
+    )
+    assert result.returncode == 0, result.stderr
+    combined = result.stdout + result.stderr
+    assert "reason_code=memory_semantic_pack_missing_warn" in combined

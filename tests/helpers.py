@@ -113,6 +113,13 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
         "require_links": True,
         "required_for_langs": ["kt", "kts", "java"],
     },
+    "memory": {
+        "enabled": True,
+        "mode": "soft",
+        "stages": ["plan", "review", "qa"],
+        "require_semantic_pack": False,
+        "require_decisions_pack": False,
+    },
     "analyst": {
         "enabled": True,
         "branches": ["feature/*", "release/*", "hotfix/*"],

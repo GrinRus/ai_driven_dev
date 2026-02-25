@@ -24,6 +24,7 @@ DEFAULT_ACTION_TYPES = [
     "tasklist_ops.append_progress_log",
     "tasklist_ops.next3_recompute",
     "context_pack_ops.context_pack_update",
+    "memory_ops.decision_append",
 ]
 ALWAYS_ALLOW_REPORTS = ["aidd/reports/**", "aidd/reports/actions/**"]
 MEMORY_OPTIONAL_REFS: Tuple[Tuple[str, str], ...] = (

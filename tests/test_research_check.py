@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import contextlib
 import datetime as dt
+import io
 import os
 import sys
 import tempfile
@@ -96,6 +98,83 @@ class ResearchCheckTests(unittest.TestCase):
                 "entries": entries if entries is not None else [{"file_id": "file-app"}],
             },
         )
+
+    def _write_rlm_ready_evidence(self, root: Path, ticket: str) -> None:
+        self._write_rlm_baseline(root, ticket, status="ready", entries=[])
+        write_file(
+            root,
+            f"reports/research/{ticket}-rlm.nodes.jsonl",
+            '{"node_kind":"file","file_id":"file-app","id":"file-app","path":"src/main/kotlin/App.kt","rev_sha":"rev-app"}\n',
+        )
+        write_file(
+            root,
+            f"reports/research/{ticket}-rlm.links.jsonl",
+            '{"link_kind":"import","source":"file-app","target":"file-app","id":"link-1"}\n',
+        )
+        write_json(
+            root,
+            f"reports/research/{ticket}-rlm.links.stats.json",
+            {"links_total": 1},
+        )
+        write_json(
+            root,
+            f"reports/research/{ticket}-rlm.pack.json",
+            {"schema": "aidd.report.pack.v1", "type": "rlm", "status": "ready"},
+        )
+
+    def _write_memory_packs(
+        self,
+        root: Path,
+        ticket: str,
+        *,
+        semantic: bool = True,
+        decisions: bool = True,
+    ) -> None:
+        if semantic:
+            write_json(
+                root,
+                f"reports/memory/{ticket}.semantic.pack.json",
+                {
+                    "schema": "aidd.memory.semantic.v1",
+                    "schema_version": "aidd.memory.semantic.v1",
+                    "pack_version": "v1",
+                    "type": "memory-semantic",
+                    "kind": "pack",
+                    "ticket": ticket,
+                    "slug_hint": ticket.lower(),
+                    "generated_at": _timestamp(),
+                    "source_path": f"aidd/docs/research/{ticket}.md",
+                    "terms": {"cols": ["term", "definition", "aliases", "scope", "confidence"], "rows": []},
+                    "defaults": {"cols": ["key", "value", "source", "rationale"], "rows": []},
+                    "constraints": {"cols": ["id", "text", "source", "severity"], "rows": []},
+                    "invariants": {"cols": ["id", "text", "source"], "rows": []},
+                    "open_questions": [],
+                    "stats": {},
+                },
+            )
+        if decisions:
+            write_json(
+                root,
+                f"reports/memory/{ticket}.decisions.pack.json",
+                {
+                    "schema": "aidd.memory.decisions.pack.v1",
+                    "schema_version": "aidd.memory.decisions.pack.v1",
+                    "pack_version": "v1",
+                    "type": "memory-decisions",
+                    "kind": "pack",
+                    "ticket": ticket,
+                    "slug_hint": ticket.lower(),
+                    "generated_at": _timestamp(),
+                    "source_path": f"aidd/reports/memory/{ticket}.decisions.jsonl",
+                    "active_decisions": {
+                        "cols": ["decision_id", "topic", "decision", "status", "ts", "scope_key", "stage", "source_path"],
+                        "rows": [],
+                    },
+                    "superseded_heads": {"cols": ["decision_id", "supersedes", "topic", "status", "ts"], "rows": []},
+                    "conflicts": [],
+                    "stats": {},
+                },
+            )
 
     def test_research_check_blocks_missing_report(self) -> None:
         workspace, project_root = self._setup_workspace()
@@ -441,29 +520,7 @@ class ResearchCheckTests(unittest.TestCase):
         write_active_feature(project_root, ticket)
         write_active_stage(project_root, "review")
         self._write_base_research(project_root, ticket)
-        self._write_rlm_baseline(project_root, ticket, status="ready", entries=[])
-
-        nodes_path = project_root / "reports" / "research" / f"{ticket}-rlm.nodes.jsonl"
-        links_path = project_root / "reports" / "research" / f"{ticket}-rlm.links.jsonl"
-        nodes_path.parent.mkdir(parents=True, exist_ok=True)
-        nodes_path.write_text(
-            '{"node_kind":"file","file_id":"file-app","id":"file-app","path":"src/main/kotlin/App.kt","rev_sha":"rev-app"}\n',
-            encoding="utf-8",
-        )
-        links_path.write_text(
-            '{"link_kind":"import","source":"file-app","target":"file-app","id":"link-1"}\n',
-            encoding="utf-8",
-        )
-        write_json(
-            project_root,
-            f"reports/research/{ticket}-rlm.links.stats.json",
-            {"links_total": 1},
-        )
-        write_json(
-            project_root,
-            f"reports/research/{ticket}-rlm.pack.json",
-            {"schema": "aidd.report.pack.v1", "type": "rlm", "status": "ready"},
-        )
+        self._write_rlm_ready_evidence(project_root, ticket)
 
         args = self._make_args(ticket)
         old_cwd = Path.cwd()
@@ -479,29 +536,7 @@ class ResearchCheckTests(unittest.TestCase):
         write_active_feature(project_root, ticket)
         write_active_stage(project_root, "review")
         self._write_base_research(project_root, ticket)
-        self._write_rlm_baseline(project_root, ticket, status="ready", entries=[])
-
-        nodes_path = project_root / "reports" / "research" / f"{ticket}-rlm.nodes.jsonl"
-        links_path = project_root / "reports" / "research" / f"{ticket}-rlm.links.jsonl"
-        nodes_path.parent.mkdir(parents=True, exist_ok=True)
-        nodes_path.write_text(
-            '{"node_kind":"file","file_id":"file-app","id":"file-app","path":"src/main/kotlin/App.kt","rev_sha":"rev-app"}\n',
-            encoding="utf-8",
-        )
-        links_path.write_text(
-            '{"link_kind":"import","source":"file-app","target":"file-app","id":"link-1"}\n',
-            encoding="utf-8",
-        )
-        write_json(
-            project_root,
-            f"reports/research/{ticket}-rlm.links.stats.json",
-            {"links_total": 1},
-        )
-        write_json(
-            project_root,
-            f"reports/research/{ticket}-rlm.pack.json",
-            {"schema": "aidd.report.pack.v1", "type": "rlm", "status": "ready"},
-        )
+        self._write_rlm_ready_evidence(project_root, ticket)
 
         # Legacy artifacts are intentionally malformed; gate must ignore them in RLM-only mode.
         legacy_context_suffix = "-context.json"
@@ -516,6 +551,74 @@ class ResearchCheckTests(unittest.TestCase):
             research_check.main(args)
         finally:
             os.chdir(old_cwd)
+
+    def test_research_check_blocks_when_memory_semantic_pack_required_hard(self) -> None:
+        workspace, project_root = self._setup_workspace()
+        ticket = "demo-memory-hard"
+        ensure_gates_config(
+            project_root,
+            {
+                "memory": {
+                    "enabled": True,
+                    "mode": "hard",
+                    "stages": ["plan"],
+                    "require_semantic_pack": True,
+                    "require_decisions_pack": False,
+                }
+            },
+        )
+        write_active_feature(project_root, ticket)
+        write_active_stage(project_root, "plan")
+        self._write_base_research(project_root, ticket, status="reviewed")
+        self._write_rlm_ready_evidence(project_root, ticket)
+        self._write_memory_packs(project_root, ticket, semantic=False, decisions=True)
+
+        args = self._make_args(ticket)
+        old_cwd = Path.cwd()
+        os.chdir(workspace)
+        try:
+            with self.assertRaises(RuntimeError) as excinfo:
+                research_check.main(args)
+        finally:
+            os.chdir(old_cwd)
+
+        text = str(excinfo.exception)
+        self.assertIn("reason_code=memory_semantic_pack_missing", text)
+        self.assertIn("memory_extract.py --ticket", text)
+
+    def test_research_check_warns_when_memory_semantic_pack_required_soft(self) -> None:
+        workspace, project_root = self._setup_workspace()
+        ticket = "demo-memory-soft"
+        ensure_gates_config(
+            project_root,
+            {
+                "memory": {
+                    "enabled": True,
+                    "mode": "soft",
+                    "stages": ["plan"],
+                    "require_semantic_pack": True,
+                    "require_decisions_pack": False,
+                }
+            },
+        )
+        write_active_feature(project_root, ticket)
+        write_active_stage(project_root, "plan")
+        self._write_base_research(project_root, ticket, status="reviewed")
+        self._write_rlm_ready_evidence(project_root, ticket)
+        self._write_memory_packs(project_root, ticket, semantic=False, decisions=True)
+
+        args = self._make_args(ticket)
+        old_cwd = Path.cwd()
+        os.chdir(workspace)
+        stderr = io.StringIO()
+        try:
+            with contextlib.redirect_stderr(stderr):
+                code = research_check.main(args)
+        finally:
+            os.chdir(old_cwd)
+
+        self.assertEqual(code, 0)
+        self.assertIn("reason_code=memory_semantic_pack_missing_warn", stderr.getvalue())
 
 
 if __name__ == "__main__":

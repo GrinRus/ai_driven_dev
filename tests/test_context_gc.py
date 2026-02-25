@@ -260,6 +260,71 @@ class WorkingSetBuilderTests(unittest.TestCase):
             self.assertLessEqual(len(context_block), 80)
             self.assertLessEqual(len(context_block.splitlines()), 2)
 
+    def test_working_set_builder_includes_memory_pack_excerpts(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+            root = Path(tmpdir)
+            ticket = "demo-ticket"
+            write_active_feature(root, ticket)
+            write_json(
+                root,
+                f"reports/memory/{ticket}.semantic.pack.json",
+                {
+                    "schema": "aidd.memory.semantic.v1",
+                    "terms": {
+                        "cols": ["term", "definition", "aliases", "scope", "confidence"],
+                        "rows": [
+                            ["rlm", "retrieval lifecycle map", [], "reports/research", 0.9],
+                            ["pack", "bounded artifact", [], "reports/context", 0.8],
+                        ],
+                    },
+                    "defaults": {
+                        "cols": ["key", "value", "source", "rationale"],
+                        "rows": [["mode", "auto", "config", "safe default"]],
+                    },
+                    "constraints": {
+                        "cols": ["id", "text", "source", "severity"],
+                        "rows": [["c1", "Must not read outside readmap", "policy", "high"]],
+                    },
+                    "open_questions": ["Should memory pack be required?"],
+                },
+            )
+            write_json(
+                root,
+                f"reports/memory/{ticket}.decisions.pack.json",
+                {
+                    "schema": "aidd.memory.decisions.pack.v1",
+                    "active_decisions": {
+                        "cols": ["decision_id", "topic", "decision", "status", "ts", "scope_key", "stage", "source_path"],
+                        "rows": [
+                            ["d1", "read-order", "prefer pack-first", "active", "2026-01-01T00:00:00Z", "s1", "review", "aidd/reports/context/demo-ticket.pack.md"],
+                            ["d2", "fallback", "use rg if ast unavailable", "active", "2026-01-01T00:00:01Z", "s1", "review", "aidd/reports/context/demo-ticket.pack.md"],
+                        ],
+                    },
+                    "conflicts": ["read-order: 2 active variants"],
+                },
+            )
+            write_json(
+                root,
+                "config/context_gc.json",
+                {
+                    "working_set": {
+                        "include_git_status": False,
+                        "include_memory_packs": True,
+                        "memory_semantic_max_lines": 6,
+                        "memory_semantic_max_chars": 180,
+                        "memory_decisions_max_lines": 5,
+                        "memory_decisions_max_chars": 180,
+                    }
+                },
+            )
+
+            ws = working_set_builder.build_working_set(root)
+
+            self.assertIn("#### Memory Semantic (excerpt)", ws.text)
+            self.assertIn("#### Memory Decisions (excerpt)", ws.text)
+            self.assertIn("rlm: retrieval lifecycle map", ws.text)
+            self.assertIn("read-order: prefer pack-first [active]", ws.text)
+
 
 class UserPromptGuardTests(unittest.TestCase):
     def test_userprompt_guard_soft_warning(self) -> None:

@@ -165,7 +165,7 @@ _Rollout policy: Memory v2 — breaking-only, без обратной совме
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W101-9 (P1) Context-GC working set enrichment with bounded memory excerpts** `hooks/context_gc/working_set_builder.py`, `templates/aidd/config/context_gc.json`, `tests/test_wave95_policy_guards.py`:
+- [x] **W101-9 (P1) Context-GC working set enrichment with bounded memory excerpts** `hooks/context_gc/working_set_builder.py`, `templates/aidd/config/context_gc.json`, `tests/test_wave95_policy_guards.py`:
   - добавить short excerpts из semantic/decisions packs в auto working set;
   - сохранить global char limits и deterministic truncation.
   **AC:** session start получает memory summary без превышения context budget.
@@ -174,7 +174,7 @@ _Rollout policy: Memory v2 — breaking-only, без обратной совме
   **Effort:** S
   **Risk:** Low
 
-- [ ] **W101-10 (P0) DocOps/actions support for decision writes in loop mode** `skills/aidd-docio/runtime/actions_validate.py`, `skills/aidd-docio/runtime/actions_apply.py`, `skills/aidd-core/runtime/schemas/aidd/aidd.actions.v1.json`, `skills/implement/CONTRACT.yaml`, `skills/review/CONTRACT.yaml`, `skills/qa/CONTRACT.yaml`, `tests/test_wave93_validators.py`:
+- [x] **W101-10 (P0) DocOps/actions support for decision writes in loop mode** `skills/aidd-docio/runtime/actions_validate.py`, `skills/aidd-docio/runtime/actions_apply.py`, `skills/aidd-core/runtime/schemas/aidd/aidd.actions.v1.json`, `skills/implement/CONTRACT.yaml`, `skills/review/CONTRACT.yaml`, `skills/qa/CONTRACT.yaml`, `tests/test_wave93_validators.py`:
   - добавить action type `memory_ops.decision_append`;
   - разрешить controlled decision updates через actions path.
   **AC:** loop stage может писать decision log только через validated actions flow.
@@ -194,7 +194,7 @@ _Rollout policy: Memory v2 — breaking-only, без обратной совме
 
 ### EPIC M3 — Gates, regression suite, rollout
 
-- [ ] **W101-12 (P0) Gate support: soft/hard memory readiness for `plan/review/qa`** `skills/aidd-core/runtime/research_guard.py`, `skills/aidd-core/runtime/gate_workflow.py`, `tests/test_gate_workflow.py`, `tests/test_research_check.py`:
+- [x] **W101-12 (P0) Gate support: soft/hard memory readiness for `plan/review/qa`** `skills/aidd-core/runtime/research_guard.py`, `skills/aidd-core/runtime/gate_workflow.py`, `tests/test_gate_workflow.py`, `tests/test_research_check.py`:
   - добавить configurable memory checks (`require_semantic_pack`, `require_decisions_pack`);
   - ввести reason codes для warn/block rollout.
   **AC:** при включённой политике gate детерминированно сигнализирует memory incompleteness.
