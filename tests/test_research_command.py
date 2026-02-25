@@ -481,7 +481,10 @@ class ResearchCommandTest(unittest.TestCase):
             research_doc = (project_root / "docs" / "research" / "PENDING-1.md").read_text(encoding="utf-8")
             self.assertIn("Pending reason: finalize_prereqs_missing", research_doc)
             self.assertIn("Next action: python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_finalize.py --ticket PENDING-1", research_doc)
-            self.assertIn("Auto recovery: bootstrap_attempted=yes, finalize_attempted=yes, recovery_path=bootstrap_then_finalize", research_doc)
+            self.assertIn(
+                "Auto recovery: auto_recovery_attempted=yes, bootstrap_attempted=yes, finalize_attempted=yes, recovery_path=bootstrap_then_finalize",
+                research_doc,
+            )
             active_payload = json.loads((project_root / "docs" / ".active.json").read_text(encoding="utf-8"))
             self.assertEqual(active_payload.get("stage"), "research")
 

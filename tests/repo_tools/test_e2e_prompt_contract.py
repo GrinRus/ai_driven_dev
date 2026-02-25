@@ -92,7 +92,7 @@ class E2EPromptContractTests(unittest.TestCase):
         self.assertIn("retry-триггер разрешён только по текущему stage-return", text)
         self.assertIn("question retry для шага 6 запрещён", text)
         self.assertIn("prompt-flow drift (non-canonical stage orchestration)", text)
-        self.assertIn("manual preflight/debug path", text)
+        self.assertNotIn("manual preflight/debug path", text)
 
     def test_prompt_policy_uses_stage_return_only_signal_extraction(self) -> None:
         for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
@@ -250,14 +250,14 @@ class E2EPromptContractTests(unittest.TestCase):
         self.assertIn("NOT VERIFIED (upstream_seed_stage_failed)", text)
         self.assertIn("NOT VERIFIED (upstream_loop_stage_failed)", text)
 
-    def test_prompts_enforce_runtime_drift_fail_fast_and_manual_stage_chain_preflight_forbidden(self) -> None:
+    def test_prompts_enforce_runtime_drift_fail_fast_without_manual_stage_chain_preflight_guard(self) -> None:
         full_text = _read(AUDIT_PROMPT_FULL)
         smoke_text = _read(AUDIT_PROMPT_SMOKE)
         self.assertIn("runtime_path_missing_or_drift", full_text)
         self.assertIn("immediate `blocked`", full_text)
-        self.assertIn("manual_stage_chain_preflight_forbidden", full_text)
+        self.assertNotIn("manual_stage_chain_preflight_forbidden", full_text)
         self.assertIn("runtime_path_missing_or_drift", smoke_text)
-        self.assertIn("manual_stage_chain_preflight_forbidden", smoke_text)
+        self.assertNotIn("manual_stage_chain_preflight_forbidden", smoke_text)
 
     def test_full_prompt_requires_ralph_recoverable_probe_for_research_gate(self) -> None:
         text = _read(AUDIT_PROMPT_FULL)
@@ -282,8 +282,8 @@ class E2EPromptContractTests(unittest.TestCase):
             body_lower = _body(skill_path).lower()
             frontmatter_lower = _front_matter(skill_path).lower()
             stage = skill_path.parent.name
-            self.assertIn("forbidden", lower)
-            self.assertRegex(lower, r"(manual|direct|вручн|прям).{0,220}preflight")
+            self.assertNotIn("preflight_prepare.py", lower)
+            self.assertIn("internal preflight", lower)
             self.assertRegex(lower, r"stage\." + re.escape(stage) + r"\.result\.json")
             self.assertIn("stage-chain", lower)
             self.assertIn("actions_apply.py", lower)

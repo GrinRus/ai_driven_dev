@@ -3,8 +3,8 @@ name: review-spec
 description: Reviews plan and PRD, then gates readiness for implementation. Use when plan and PRD artifacts are ready for spec approval.
 argument-hint: $1 [note...]
 lang: ru
-prompt_version: 1.0.22
-source_version: 1.0.22
+prompt_version: 1.0.23
+source_version: 1.0.23
 allowed-tools:
   - Read
   - Edit
@@ -32,15 +32,16 @@ Follow `feature-dev-aidd:aidd-core`.
 4. Use the existing rolling context pack as review input; do not invoke standalone context-pack builder scripts from this stage.
 5. Run subagent `feature-dev-aidd:plan-reviewer`, then run subagent `feature-dev-aidd:prd-reviewer`.
 6. Persist PRD review report with `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review-spec/runtime/prd_review_cli.py --ticket <ticket> --report aidd/reports/prd/<ticket>.json`.
-7. Return the output contract with canonical next action: `/feature-dev-aidd:tasks-new <ticket>` when READY, or `/feature-dev-aidd:spec-interview <ticket>` when BLOCKED by missing/unresolved spec inputs.
+7. Review-stage RLM policy: if RLM links are empty, the runtime performs bounded auto-heal (`rlm_links_build`, then finalize probe) and returns WARN attribution with evidence instead of terminal block when review can continue.
+8. Return the output contract with canonical next action: `/feature-dev-aidd:tasks-new <ticket>` when READY, or `/feature-dev-aidd:spec-interview <ticket>` when BLOCKED by missing/unresolved spec inputs.
 
 ## Command contracts
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review-spec/runtime/prd_review_cli.py`
 - When to run: as canonical review-spec stage entrypoint before PRD approval decisions.
 - Inputs: `--ticket <ticket>` plus active PRD/plan artifacts.
 - Outputs: normalized PRD review report payload and readiness status.
-- Failure mode: non-zero exit when review inputs are incomplete or report validation fails.
-- Next action: fix missing artifacts/review findings, then rerun the CLI.
+- Failure mode: non-zero exit when review inputs are incomplete or report validation fails; RLM links-empty path is handled as bounded auto-heal then WARN attribution.
+- Next action: fix missing artifacts/review findings or unresolved RLM prerequisites and rerun the CLI.
 
 ## Notes
 - Planning stage: `AIDD:ACTIONS_LOG: n/a`.

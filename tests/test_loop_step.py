@@ -159,7 +159,7 @@ class LoopStepTests(unittest.TestCase):
             self.assertIn("can't open file", str(payload.get("reason") or ""))
             self.assertEqual(payload.get("runner_source"), "cli_arg")
 
-    def test_loop_step_tripwire_blocks_manual_preflight_prepare_path(self) -> None:
+    def test_loop_step_collects_manual_preflight_prepare_as_telemetry_only(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-tripwire-manual-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             ticket = "DEMO-TRIPWIRE-PREFLIGHT"
@@ -197,12 +197,13 @@ class LoopStepTests(unittest.TestCase):
                 cwd=root,
                 env=env,
             )
-            self.assertEqual(result.returncode, 20, msg=result.stderr)
+            self.assertNotEqual(result.returncode, 127, msg=result.stderr)
             payload = json.loads(result.stdout)
-            self.assertEqual(payload.get("status"), "blocked")
-            self.assertEqual(payload.get("reason_code"), "runtime_path_missing_or_drift")
-            self.assertEqual(payload.get("drift_tripwire_hit"), True)
-            self.assertIn("manual preflight path is forbidden", str(payload.get("reason") or ""))
+            self.assertNotEqual(payload.get("status"), "blocked")
+            self.assertNotEqual(payload.get("reason_code"), "runtime_path_missing_or_drift")
+            self.assertEqual(payload.get("drift_tripwire_hit"), False)
+            telemetry = payload.get("drift_telemetry_events") or []
+            self.assertTrue(any("manual_preflight_runtime_call=" in str(item) for item in telemetry), telemetry)
 
     def test_loop_step_ignore_legacy_skip_flag_in_strict_mode(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:

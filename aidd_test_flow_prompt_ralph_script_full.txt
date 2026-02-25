@@ -83,7 +83,7 @@
 - R14: Если в stage-логе (включая nested tool calls) есть запуск `python3 skills/.../runtime/*.py` из `PROJECT_DIR` и ошибка вида `can't open file .../skills/...`, классифицировать как `prompt-flow drift (non-canonical runtime path)`; не как env blocker.
 - R14.1: Если такой drift встречается только во вложенном tool-call, но тот же stage завершился валидным top-level result (`exit_code=0` и `result_count>=1` или эквивалентный `done/success` payload), классифицировать как `WARN(prompt_flow_drift_recovered)`, не как `NOT VERIFIED`.
 - R14.2: Для `runtime_path_missing_or_drift` (включая direct вызовы non-canonical `preflight*.py`) применять fail-fast: immediate `blocked`, без guessed retries и без manual recovery path.
-- R14.3: Если в stage-логе есть direct `python3 .../skills/aidd-loop/runtime/preflight_prepare.py` вне canonical stage-chain, классифицировать как `prompt-flow drift (manual_stage_chain_preflight_forbidden)` и останавливать manual recovery для текущего шага.
+- R14.3: Если в stage-логе есть direct вызов внутреннего stage-chain preflight entrypoint вне canonical stage-chain, классифицировать как `prompt-flow drift (non-canonical stage orchestration)` и останавливать manual recovery для текущего шага.
 - R15: Если `*_run<N>.summary.txt` содержит `result_count=0` при валидном `init` (plugin/slash_commands/skills присутствуют), классифицировать как `prompt-exec issue (no_top_level_result)` и фиксировать отдельно.
 - R15.1: Если `result_count` в summary отсутствует или пустой (`result_count=`), не трактовать это как `0` автоматически; сначала проверять top-level result/event в run-log, и только при подтверждённом отсутствии результата классифицировать `no_top_level_result`.
 - R15.2: Для `loop-run` в `text`-режиме валидным top-level result считать JSON event `{"type":"result","schema":"aidd.loop_result.v1",...}` (в дополнение к строке summary `[loop-run] status=...`).
@@ -246,7 +246,7 @@
 6. Если stage-return содержит `Unknown skill` или отсутствуют feature-dev-aidd slash commands в `init`:
    - **не** применять question retry-шаблон;
    - классифицировать как `ENV_BLOCKER(plugin_not_loaded)` и остановить аудит.
-7. Если stage-return уводит в ручной preflight/ручную запись `stage.*.result.json`, предлагает запускать `skills/aidd-loop/runtime/preflight_prepare.py` напрямую или рекомендует legacy stage aliases (`/feature-dev-aidd:planner`, `/feature-dev-aidd:tasklist-refiner`, `/feature-dev-aidd:implementer`, `/feature-dev-aidd:reviewer`) как основной recovery path/next action:
+7. Если stage-return уводит в ручной preflight/ручную запись `stage.*.result.json`, предлагает direct вызов внутреннего stage-chain preflight entrypoint или рекомендует legacy stage aliases (`/feature-dev-aidd:planner`, `/feature-dev-aidd:tasklist-refiner`, `/feature-dev-aidd:implementer`, `/feature-dev-aidd:reviewer`) как основной recovery path/next action:
    - классифицировать как `prompt-flow drift (non-canonical stage orchestration)` и `policy_violation(stage_result_manual_write)` при попытке ручного stage-result write;
    - не выполнять этот manual path в e2e аудите;
    - зафиксировать `NOT VERIFIED` для шага и продолжить только по разрешённому сценарию.
@@ -452,7 +452,7 @@
 - каждый slash stage-run через launcher;
 - при `Unknown skill` -> `ENV_BLOCKER(plugin_not_loaded)` и stop;
 - question retry использовать только для реальных stage-вопросов/BLOCK.
-- manual preflight/debug path (`.../preflight_prepare.py`, ручная запись `stage.*.result.json`) не использовать как recovery для slash stage-команд 5.x; использовать только canonical slash-stage путь и fallback'и, явно разрешённые в соответствующем подпункте.
+- manual internal stage-chain/debug path (включая ручную запись `stage.*.result.json`) не использовать как recovery для slash stage-команд 5.x; использовать только canonical slash-stage путь и fallback'и, явно разрешённые в соответствующем подпункте.
 
 #### 5.1 idea-new
 
@@ -658,8 +658,8 @@ Anti-cascade gate (до шага 8):
   - искать shell-chain токены (`&&`, `||`, `;`) только в command-полях секции `AIDD:TEST_EXECUTION`; в prose/notes не считать инцидентом;
   - если найдено в command-поле как единая task entry, по умолчанию пометить `INFO(tasklist_hygiene)` и продолжить QA с фиксацией риска;
   - повышать до `WARN(tasklist_hygiene)` только если тот же shell-chain реально исполнялся в текущем QA run и дал fail-сигнал;
-- если в логе виден direct вызов `python3 .../skills/qa/runtime/preflight.py` или `python3 .../skills/aidd-loop/runtime/preflight_prepare.py` вне canonical stage-chain:
-  - классифицировать как `prompt-flow drift (manual_stage_chain_preflight_forbidden)`;
+- если в логе виден direct вызов non-canonical stage preflight runtime вне canonical stage-chain:
+  - классифицировать как `prompt-flow drift (non-canonical stage orchestration)`;
   - не продолжать manual recovery path для текущего шага.
 - при вопросах: retry;
 - если QA-run упал по `python3 skills/qa/runtime/qa.py` + `can't open file`:

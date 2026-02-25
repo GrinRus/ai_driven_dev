@@ -3,8 +3,8 @@ name: review
 description: Runs review-stage validation for scope changes, findings, and follow-up task derivation. Use when review stage needs verdict and handoff tasks.
 argument-hint: $1 [note...]
 lang: ru
-prompt_version: 1.0.41
-source_version: 1.0.41
+prompt_version: 1.0.42
+source_version: 1.0.42
 allowed-tools:
   - Read
   - Edit
@@ -35,14 +35,14 @@ Follow `feature-dev-aidd:aidd-core` and `feature-dev-aidd:aidd-loop`.
 
 ## Steps
 1. Inputs: resolve active `<ticket>/<scope_key>` and verify loop/readmap artifacts required for review stage.
-2. Stage-chain policy: execute only via stage-chain; manual/direct preflight runtime invocation is forbidden for operators. `[AIDD_LOOP_POLICY:MANUAL_PREFLIGHT_FORBIDDEN]`
+2. Stage-chain policy: execute via canonical stage-chain orchestration through stage runtime entrypoint; internal preflight/postflight are orchestration details and not operator commands.
 3. Manual write/create of `stage.review.result.json` is forbidden; stage-result files are produced only by stage-chain postflight. `[AIDD_LOOP_POLICY:MANUAL_STAGE_RESULT_FORBIDDEN]`
 4. Runtime-path safety: use only runtime commands from this skill contracts. If stdout/stderr contains `can't open file .../skills/.../runtime/...`, stop with BLOCKED `runtime_path_missing_or_drift`; do not invent alternate filenames and do not retry guessed commands.
 5. Test command safety: do not run raw build/test commands (`./gradlew`, `mvn test`, `npm test`) in review stage orchestration. Manage test requirement via `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review/runtime/reviewer_tests.py` and existing `aidd/reports/tests/**` evidence. If you detect cwd mismatch (`./gradlew` missing or `does not contain a Gradle build`), record blocker `tests_cwd_mismatch` and stop repeated retries.
 6. Read order after stage-chain preflight artifacts: `readmap.md` -> loop pack -> review pack (if exists) -> rolling context pack; do not perform broad repo scan before these artifacts.
 7. Run subagent `feature-dev-aidd:reviewer`.
 8. Orchestration: produce review artifacts with `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review/runtime/review_report.py`, `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review/runtime/review_pack.py`, `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review/runtime/reviewer_tests.py`, and `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/tasks_derive.py`; then Fill actions.json for `aidd/reports/actions/<ticket>/<scope_key>/review.actions.json` and validate via `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review/runtime/review_run.py`.
-9. Canonical stage-chain: preflight (`preflight_prepare.py` inside stage-chain) -> stage runtime -> actions_apply.py/postflight -> `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py`; it must produce `aidd/reports/loops/<ticket>/<scope_key>/stage.review.result.json`. `[AIDD_LOOP_POLICY:CANONICAL_STAGE_RESULT_PATH]`
+9. Canonical stage-chain: internal preflight -> stage runtime -> actions_apply.py/postflight -> `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py`; it must produce `aidd/reports/loops/<ticket>/<scope_key>/stage.review.result.json`. `[AIDD_LOOP_POLICY:CANONICAL_STAGE_RESULT_PATH]`
 10. Non-canonical stage-result path under `skills/aidd-loop/runtime/` is forbidden (treat as prompt-flow drift). `[AIDD_LOOP_POLICY:NON_CANONICAL_STAGE_RESULT_FORBIDDEN]`
 11. Output: return review-stage contract, findings summary, and next action/handoff.
 

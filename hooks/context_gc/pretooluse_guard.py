@@ -441,16 +441,14 @@ def _manual_preflight_bash_decision(
     stage = str(state.get("stage") or "").strip()
     ticket = str(state.get("ticket") or "").strip()
     hint = _canonical_stage_rerun_hint(stage, ticket)
-    strict_mode = resolve_hooks_mode() == "strict"
-    return _deny_or_warn(
-        strict_mode,
-        reason="Loop stage policy: manual stage-chain preflight invocation is forbidden.",
-        system_message=(
-            "Loop stage policy: direct `python3 .../skills/aidd-loop/runtime/preflight_prepare.py` "
-            "invocation is forbidden. Re-run canonical stage command "
-            f"`{hint}`; stage-chain will regenerate preflight artifacts automatically."
+    return {
+        "decision": "allow",
+        "reason": "Loop stage telemetry: manual preflight runtime invocation detected.",
+        "system_message": (
+            "Loop stage telemetry: detected direct internal preflight runtime invocation. "
+            f"Preferred operator path remains canonical stage command `{hint}`."
         ),
-    )
+    }
 
 
 def _docops_only_violation(candidates: list[str], state: Dict[str, Any]) -> bool:

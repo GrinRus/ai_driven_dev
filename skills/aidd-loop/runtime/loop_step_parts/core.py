@@ -207,7 +207,7 @@ def _detect_runtime_path_tripwire(
     raw_log_path: Path,
     stream_jsonl_path: Optional[Path],
     stream_log_path: Optional[Path],
-) -> Tuple[bool, str, str]:
+) -> Tuple[bool, str, str, List[str]]:
     text_chunks: List[str] = [
         _file_head_tail_text(raw_log_path),
         _file_head_tail_text(stream_jsonl_path),
@@ -215,23 +215,22 @@ def _detect_runtime_path_tripwire(
     ]
     combined = "\n".join(chunk for chunk in text_chunks if chunk)
     if not combined:
-        return False, "", ""
+        return False, "", "", []
 
     missing_match = _CANT_OPEN_RUNTIME_RE.search(combined)
     if missing_match:
         evidence = missing_match.group(0).strip()
         reason = f"runtime path drift detected: {evidence}"
-        return True, RUNTIME_PATH_DRIFT_REASON_CODE, reason
+        return True, RUNTIME_PATH_DRIFT_REASON_CODE, reason, []
 
+    telemetry_events: List[str] = []
     for command_line in _iter_python_command_lines(combined):
         normalized = command_line.strip()
         if _MANUAL_PREFLIGHT_PREPARE_CMD_RE.search(normalized):
-            reason = f"manual preflight path is forbidden in loop-step: {normalized}"
-            return True, RUNTIME_PATH_DRIFT_REASON_CODE, reason
+            telemetry_events.append(f"manual_preflight_runtime_call={normalized}")
         if _NON_CANONICAL_STAGE_PREFLIGHT_CMD_RE.search(normalized):
-            reason = f"non-canonical stage preflight command is forbidden in loop-step: {normalized}"
-            return True, RUNTIME_PATH_DRIFT_REASON_CODE, reason
-    return False, "", ""
+            telemetry_events.append(f"non_canonical_stage_preflight_runtime_call={normalized}")
+    return False, "", "", telemetry_events
 
 
 def _extract_marker_source(line: str) -> str:
@@ -1705,7 +1704,7 @@ def main(argv: list[str] | None = None) -> int:
             question_answers_path=question_answers_path,
             **stage_sync_kwargs,
         )
-    drift_hit, drift_reason_code, drift_reason = _detect_runtime_path_tripwire(
+    drift_hit, drift_reason_code, drift_reason, drift_telemetry_events = _detect_runtime_path_tripwire(
         raw_log_path=log_path,
         stream_jsonl_path=stream_jsonl_path,
         stream_log_path=stream_log_path,
@@ -1736,6 +1735,7 @@ def main(argv: list[str] | None = None) -> int:
             question_questions_path=question_questions_path,
             question_answers_path=question_answers_path,
             drift_tripwire_hit=True,
+            drift_telemetry_events=drift_telemetry_events,
             **stage_sync_kwargs,
         )
     if returncode != 0:
@@ -1766,6 +1766,7 @@ def main(argv: list[str] | None = None) -> int:
             question_answers=question_answers_compact,
             question_questions_path=question_questions_path,
             question_answers_path=question_answers_path,
+            drift_telemetry_events=drift_telemetry_events,
             **stage_sync_kwargs,
         )
 
@@ -2387,6 +2388,7 @@ def main(argv: list[str] | None = None) -> int:
         output_contract_status=output_contract_status,
         stage_result_diag=stage_result_diag,
         stage_requested_result=stage_requested_result,
+        drift_telemetry_events=drift_telemetry_events,
         **question_retry_kwargs,
         **stage_sync_kwargs,
     )
@@ -2433,6 +2435,7 @@ def emit_result(
     question_answers_path: str = "",
     runner_source: str = "",
     drift_tripwire_hit: bool = False,
+    drift_telemetry_events: List[str] | None = None,
 ) -> int:
     status_value = status if status in {"blocked", "continue", "done"} else "blocked"
     work_item_value = str(work_item_key or "").strip()
@@ -2520,6 +2523,7 @@ def emit_result(
         "question_questions_path": str(question_questions_path or "").strip() or None,
         "question_answers_path": str(question_answers_path or "").strip() or None,
         "drift_tripwire_hit": bool(drift_tripwire_hit),
+        "drift_telemetry_events": [str(item) for item in (drift_telemetry_events or []) if str(item).strip()],
         "marker_signal_events": marker_signal_events,
         "report_noise_events": report_noise_events,
         "report_noise": "marker_semantics_noise_only" if report_noise_events and not marker_signal_events else "",

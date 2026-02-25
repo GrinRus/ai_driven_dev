@@ -20,7 +20,9 @@ cd "$ROOT_DIR"
 log "checking loop discipline markers in skills"
 for stage in implement review qa; do
   file="skills/${stage}/SKILL.md"
-  require_rg "preflight_prepare.py" "$file"
+  if rg -n "preflight_prepare.py" "$file" >/dev/null 2>&1; then
+    err "internal preflight script must not be mentioned in $file"
+  fi
   require_rg "actions_apply.py" "$file"
   require_rg "Fill actions.json" "$file"
   require_rg "aidd-loop" "$file"

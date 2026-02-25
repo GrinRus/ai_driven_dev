@@ -41,14 +41,14 @@ Default: ...
 
 ## Loop safety
 - Loop stages run through canonical stage-chain (`preflight -> run -> postflight -> stage_result`).
-- Manual stage-result writes and manual preflight invocation remain forbidden operator paths.
+- Manual stage-result writes remain forbidden operator paths.
 - Missing preflight/readmap/writemap/actions/log artifacts is a contract violation.
 
 ## Runtime path safety
 - Never guess runtime filenames/paths.
 - Execute only runtime entrypoints explicitly listed in the current stage skill `Command contracts`.
 - Use only canonical active-state runtime commands from the current stage contract; do not use deprecated aliases.
-- For loop stages, do not invoke preflight runtime directly from stage prompt flow; preflight belongs to canonical stage-chain orchestration only.
+- For loop stages, internal preflight runtime remains a stage-chain orchestration detail, not a user-facing command contract.
 - If command output contains `can't open file .../skills/.../runtime/...`, stop and report BLOCKED (`runtime_path_missing_or_drift`) with evidence path.
 
 ## Retry safety

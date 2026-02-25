@@ -115,11 +115,7 @@ CONTEXT_PACK_REFRESH_WITHOUT_AGENT_RE = re.compile(
     r"context_pack\.py[^\n]{0,260}--refresh(?![^\n]{0,260}--agent)",
     re.IGNORECASE,
 )
-LOOP_MANUAL_PREFLIGHT_BAN_RE = re.compile(
-    r"(?:(?:manual|direct|вручн|прям).{0,220}preflight.{0,220}(?:forbidden|do not|запрещ|не\s+запуск)"
-    r"|(?:forbidden|do not|запрещ|не\s+запуск).{0,220}(?:manual|direct|вручн|прям).{0,220}preflight)",
-    re.IGNORECASE | re.DOTALL,
-)
+LOOP_INTERNAL_PREFLIGHT_SCRIPT_RE = re.compile(r"preflight_prepare\.py", re.IGNORECASE)
 LOOP_MANUAL_STAGE_RESULT_BAN_RE = re.compile(
     r"(?:(?:не\s+пис|не\s+создав|запрещено|do not (?:write|create)|forbidden).{0,260}"
     r"stage\.[a-z0-9_.-]*result\.json"
@@ -129,7 +125,6 @@ LOOP_MANUAL_STAGE_RESULT_BAN_RE = re.compile(
 LOOP_CANONICAL_STAGE_RESULT_PATH = "${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py"
 LOOP_NON_CANONICAL_STAGE_RESULT_PATH = "skills/aidd-loop/runtime/stage_result.py"
 LOOP_POLICY_MARKERS = {
-    "manual_preflight_forbidden": "[AIDD_LOOP_POLICY:MANUAL_PREFLIGHT_FORBIDDEN]",
     "manual_stage_result_forbidden": "[AIDD_LOOP_POLICY:MANUAL_STAGE_RESULT_FORBIDDEN]",
     "canonical_stage_result_path": "[AIDD_LOOP_POLICY:CANONICAL_STAGE_RESULT_PATH]",
     "non_canonical_stage_result_forbidden": "[AIDD_LOOP_POLICY:NON_CANONICAL_STAGE_RESULT_FORBIDDEN]",
@@ -1062,9 +1057,9 @@ def lint_skills(root: Path) -> Tuple[List[str], List[str]]:
                         f"{info.path}: loop stage guidance must define runtime path failure trigger "
                         f"`can't open file .../skills/.../runtime/...`"
                     )
-                if not LOOP_MANUAL_PREFLIGHT_BAN_RE.search(info.body):
+                if LOOP_INTERNAL_PREFLIGHT_SCRIPT_RE.search(info.body):
                     errors.append(
-                        f"{info.path}: missing explicit policy that manual/direct preflight runtime invocation is forbidden"
+                        f"{info.path}: loop stage guidance must not mention internal preflight script names"
                     )
                 if not LOOP_MANUAL_STAGE_RESULT_BAN_RE.search(info.body):
                     errors.append(
