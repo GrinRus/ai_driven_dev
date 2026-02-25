@@ -15,6 +15,10 @@
 - Runtime facades for `loop_step`, `loop_run`, `loop_pack`, `tasklist_check`, `tasks_derive`, `reports_pack`, and `qa` now load split implementations from `runtime/*_parts/core.py`.
 
 ### New Features
+- Wave 101 PR-04/PR-05 (Memory v2): added `skills/aidd-memory/runtime/{memory_extract,decision_append,memory_pack,memory_slice,memory_verify}.py` workflow coverage with canonical artifacts `aidd/reports/memory/<ticket>.semantic.pack.json` and `<ticket>.decisions.pack.json`.
+- Loop DocOps now supports validated decision writes through `memory_ops.decision_append` (actions schema + stage contracts + preflight defaults).
+- Gate/readiness adds soft/hard memory checks (`memory_semantic_pack_missing*`, `memory_decisions_pack_missing*`) for `plan/review/qa`.
+- Smoke workflow now validates Memory v2 lifecycle end-to-end (extract/verify/append/pack/slice).
 - `${CLAUDE_PLUGIN_ROOT}/tools/doctor.sh` for environment/path diagnostics and workspace checks.
 - Test profiles `fast/targeted/full/none` via `aidd/.cache/test-policy.env` and `AIDD_TEST_*` flags for `format-and-test.sh`.
 - Dedupe cache `aidd/.cache/format-and-test.last.json` to avoid repeating test runs when diff/profile are unchanged.

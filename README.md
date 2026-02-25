@@ -23,6 +23,7 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 - Research обязателен перед планированием: `research-check` требует статус `reviewed`.
 - Гейты PRD/Plan Review/QA и безопасные хуки (stage-aware).
 - Rolling context pack (pack-first): `aidd/reports/context/<ticket>.pack.md`.
+- Memory v2 (breaking-only): `semantic.pack` + `decisions.pack` как внешний контекст, decision writes через validated actions.
 - Hooks mode: по умолчанию `AIDD_HOOKS_MODE=fast`, строгий режим — `AIDD_HOOKS_MODE=strict`.
 - Автоформат + тест‑политика по стадиям: `implement` — без тестов, `review` — targeted, `qa` — full.
 - Loop mode implement↔review: loop pack/review pack, diff boundary guard, loop-step/loop-run.
@@ -103,6 +104,11 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 | `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-init/runtime/init.py` | Создать `./aidd` из шаблонов (без перезаписи) |
 | `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-observability/runtime/doctor.py` | Диагностика окружения, путей и наличия `aidd/` |
 | `python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py --ticket <ticket>` | Сгенерировать RLM-only research артефакты |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-memory/runtime/memory_extract.py --ticket <ticket>` | Сформировать semantic memory pack |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-memory/runtime/decision_append.py --ticket <ticket> --topic "<topic>" --decision "<decision>"` | Добавить запись в append-only decisions log |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-memory/runtime/memory_pack.py --ticket <ticket>` | Пересобрать decisions pack |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-memory/runtime/memory_slice.py --ticket <ticket> --query "<token>"` | Получить targeted memory slice pack |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-memory/runtime/memory_verify.py --input <artifact.json-or-jsonl>` | Проверить memory schema + budgets |
 | `python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan-new/runtime/research_check.py --ticket <ticket>` | Проверить статус Research `reviewed` |
 | `python3 ${CLAUDE_PLUGIN_ROOT}/skills/idea-new/runtime/analyst_check.py --ticket <ticket>` | Проверить PRD `READY` и синхронизацию вопросов/ответов |
 | `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/progress_cli.py --source <stage> --ticket <ticket>` | Подтвердить прогресс tasklist |
@@ -176,6 +182,21 @@ RLM artifacts (pack-first):
 - Pack summary: `aidd/reports/research/<ticket>-rlm.pack.json`.
 - Slice-инструмент: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_slice.py --ticket <ticket> --query "<token>" [--paths path1,path2] [--lang kt,java]`.
 - Бюджет RLM pack: `config/conventions.json` → `rlm.pack_budget` (`max_chars`, `max_lines`, top-N limits).
+
+## Memory v2 (breaking-only)
+
+Memory v2 включён по умолчанию в Wave 101 как **breaking-only** контракт:
+- без backfill legacy memory state;
+- без fallback на старые memory-артефакты;
+- source of truth: `aidd/reports/memory/<ticket>.semantic.pack.json`, `aidd/reports/memory/<ticket>.decisions.pack.json`.
+
+Рекомендуемый read order (pack-first):
+1. `aidd/reports/research/<ticket>-rlm.pack.json`
+1. `aidd/reports/memory/<ticket>.semantic.pack.json`
+1. `aidd/reports/memory/<ticket>.decisions.pack.json`
+1. `aidd/reports/context/<ticket>.pack.md` и on-demand slices
+
+Decision writes только через validated path (`memory_ops.decision_append`), а не прямым редактированием JSONL.
 
 ## Loop mode (implement↔review)
 

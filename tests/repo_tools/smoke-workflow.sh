@@ -61,6 +61,18 @@ run_cli() {
       entrypoint="$PLUGIN_ROOT/skills/researcher/runtime/research.py"
       mode="python"
       ;;
+    memory-extract|decision-append|memory-pack|memory-slice|memory-verify)
+      local memory_runtime=""
+      case "$cmd" in
+        memory-extract) memory_runtime="memory_extract.py" ;;
+        decision-append) memory_runtime="decision_append.py" ;;
+        memory-pack) memory_runtime="memory_pack.py" ;;
+        memory-slice) memory_runtime="memory_slice.py" ;;
+        memory-verify) memory_runtime="memory_verify.py" ;;
+      esac
+      entrypoint="$PLUGIN_ROOT/skills/aidd-memory/runtime/${memory_runtime}"
+      mode="python"
+      ;;
     reports-pack|rlm-nodes-build|rlm-links-build|rlm-jsonl-compact|rlm-finalize|rlm-verify)
       local rlm_runtime=""
       case "$cmd" in
@@ -602,6 +614,33 @@ PY
 
 log "research-check must pass"
 run_cli research-check --ticket "$TICKET" --expected-stage plan >/dev/null
+
+log "build and verify semantic memory pack"
+run_cli memory-extract --ticket "$TICKET" >/dev/null
+[[ -f "$WORKDIR/reports/memory/${TICKET}.semantic.pack.json" ]] || {
+  echo "[smoke] memory-extract did not create semantic memory pack" >&2
+  exit 1
+}
+run_cli memory-verify --input "reports/memory/${TICKET}.semantic.pack.json" --quiet >/dev/null
+
+log "exercise memory decision lifecycle"
+run_cli decision-append \
+  --ticket "$TICKET" \
+  --topic "Checkout idempotency" \
+  --decision "Use request-id dedupe for checkout writes." \
+  --alternatives "retry-without-dedupe,at-least-once-only" \
+  --rationale "Prevents duplicate charge side-effects." >/dev/null
+run_cli memory-pack --ticket "$TICKET" >/dev/null
+[[ -f "$WORKDIR/reports/memory/${TICKET}.decisions.pack.json" ]] || {
+  echo "[smoke] memory-pack did not create decisions pack" >&2
+  exit 1
+}
+run_cli memory-verify --input "reports/memory/${TICKET}.decisions.pack.json" --quiet >/dev/null
+run_cli memory-slice --ticket "$TICKET" --query "checkout|idempotency|dedupe" >/dev/null
+[[ -f "$WORKDIR/reports/context/${TICKET}-memory-slice.latest.pack.json" ]] || {
+  echo "[smoke] memory-slice did not create latest slice artifact" >&2
+  exit 1
+}
 
 log "expect block while PRD draft / research handoff pending"
 assert_gate_exit 2 "draft PRD"

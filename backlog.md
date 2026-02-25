@@ -203,7 +203,7 @@ _Rollout policy: Memory v2 — breaking-only, без обратной совме
   **Effort:** M
   **Risk:** High
 
-- [ ] **W101-13 (P0) End-to-end regression coverage for Memory v2** `tests/test_memory_*.py`, `tests/test_preflight_prepare.py`, `tests/test_output_contract.py`, `tests/repo_tools/smoke-workflow.sh`, `tests/repo_tools/ci-lint.sh`:
+- [x] **W101-13 (P0) End-to-end regression coverage for Memory v2** `tests/test_memory_*.py`, `tests/test_preflight_prepare.py`, `tests/test_output_contract.py`, `tests/repo_tools/smoke-workflow.sh`, `tests/repo_tools/ci-lint.sh`:
   - покрыть unit/integration/e2e сценарии generation/read/write/gates;
   - добавить smoke steps для memory artifacts lifecycle.
   **AC:** Memory v2 покрыт regression tests и не ломает текущие stage pipelines.
@@ -212,7 +212,7 @@ _Rollout policy: Memory v2 — breaking-only, без обратной совме
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W101-14 (P1) Docs/changelog/operator guidance for Memory v2 rollout (breaking-only)** `AGENTS.md`, `README.md`, `README.en.md`, `templates/aidd/AGENTS.md`, `CHANGELOG.md`, `docs/memory-v2-rfc.md`:
+- [x] **W101-14 (P1) Docs/changelog/operator guidance for Memory v2 rollout (breaking-only)** `AGENTS.md`, `README.md`, `README.en.md`, `templates/aidd/AGENTS.md`, `CHANGELOG.md`, `docs/memory-v2-rfc.md`:
   - обновить canonical docs под semantic/decision memory paths и rollout policy;
   - зафиксировать breaking rollout: без backward compatibility/backfill для legacy memory state.
   **AC:** docs/prompts/notes согласованы с runtime и тестовым контрактом Memory v2 и явно фиксируют breaking-only policy.
@@ -221,7 +221,7 @@ _Rollout policy: Memory v2 — breaking-only, без обратной совме
   **Effort:** S
   **Risk:** Low
 
-- [ ] **W101-15 (P1) Update full flow prompt script for Memory v2 (`aidd_test_flow_prompt_ralph_script_full.txt`)** `aidd_test_flow_prompt_ralph_script_full.txt`, `tests/repo_tools/smoke-workflow.sh`:
+- [x] **W101-15 (P1) Update full flow prompt script for Memory v2 (`aidd_test_flow_prompt_ralph_script_full.txt`)** `aidd_test_flow_prompt_ralph_script_full.txt`, `tests/repo_tools/smoke-workflow.sh`:
   - обновить full-flow prompt script под Memory v2 read chain (`rlm.pack -> semantic.pack -> decisions.pack -> loop/context packs`);
   - убрать legacy compatibility/backfill шаги из сценария и acceptance flow.
   **AC:** full-flow prompt script соответствует Wave 101 контракту (breaking-only, no backfill) и используется как актуальный operator сценарий.

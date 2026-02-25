@@ -23,12 +23,19 @@
 ## Evidence read policy (summary)
 - Primary evidence (research): `aidd/reports/research/<ticket>-rlm.pack.json`.
 - Slice on demand: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_slice.py --ticket <ticket> --query "<token>"`.
+- Secondary evidence (memory): `aidd/reports/memory/<ticket>.semantic.pack.json`, `aidd/reports/memory/<ticket>.decisions.pack.json`.
+- Memory slice on demand: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-memory/runtime/memory_slice.py --ticket <ticket> --query "<token>"`.
 
 ## Migration policy (legacy -> RLM-only)
 - Legacy pre-RLM research context/targets artifacts не читаются гейтами и не считаются evidence.
 - Для старого workspace состояния пересоберите research stage: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py --ticket <ticket> --auto`.
 - Если после research `rlm_status=pending`, выполните handoff на shared owner: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_finalize.py --ticket <ticket>`.
 - Gate readiness для plan/review/qa требует минимальный RLM набор: `rlm-targets`, `rlm-manifest`, `rlm.worklist.pack`, `rlm.nodes`, `rlm.links`, `rlm.pack`.
+
+## Memory v2 (breaking-only)
+- Memory artifacts считаются canonical только в формате v2 (`semantic.pack` + `decisions.pack`).
+- Legacy memory backfill не выполняется.
+- Решения пишутся только через validated runtime path (`memory_ops.decision_append`), не прямым редактированием JSONL.
 
 ## Ответы пользователя
 Ответы давайте в рамках той же команды (без смены стадии). Если ответы приходят в чате, попросите блок:

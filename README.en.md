@@ -19,7 +19,7 @@
 - Mirror section structure, headlines, and links.
 - Update the date below whenever both files are aligned.
 
-_Last sync with `README.md`: 2026-02-21._
+_Last sync with `README.md`: 2026-02-25._
 
 ## What it is
 AIDD is AI-Driven Development: the LLM works not as "one big brain" but as a team of roles inside your SDLC. The Claude Code plugin helps you move away from vibe-coding by capturing artifacts (PRD/plan/tasklist/reports), running quality gates, and adding agents, slash commands, hooks, and the `aidd/` structure.
@@ -30,6 +30,7 @@ Key features:
 - Research is required before planning: `research-check` expects status `reviewed`.
 - PRD/Plan Review/QA gates and safe hooks (stage-aware).
 - Rolling context pack (pack-first): `aidd/reports/context/<ticket>.pack.md`.
+- Memory v2 (breaking-only): `semantic.pack` + `decisions.pack` as external context, with decision writes through validated actions.
 - Hooks mode: default `AIDD_HOOKS_MODE=fast`, strict mode via `AIDD_HOOKS_MODE=strict`.
 - Auto-formatting + stage test policy: `implement` — no tests, `review` — targeted, `qa` — full.
 - Loop mode implement↔review: loop pack/review pack, diff boundary guard, loop-step/loop-run.
@@ -116,6 +117,11 @@ Notes:
 | `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-init/runtime/init.py` | Create `./aidd` from templates (no overwrite) |
 | `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-observability/runtime/doctor.py` | Diagnose environment, paths, and `aidd/` presence |
 | `python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py --ticket <ticket>` | Generate RLM-only research artifacts |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-memory/runtime/memory_extract.py --ticket <ticket>` | Build semantic memory pack |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-memory/runtime/decision_append.py --ticket <ticket> --topic "<topic>" --decision "<decision>"` | Append one item to the decisions log |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-memory/runtime/memory_pack.py --ticket <ticket>` | Rebuild decisions pack |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-memory/runtime/memory_slice.py --ticket <ticket> --query "<token>"` | Build targeted memory slice pack |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-memory/runtime/memory_verify.py --input <artifact.json-or-jsonl>` | Validate memory schema + budgets |
 | `python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan-new/runtime/research_check.py --ticket <ticket>` | Verify Research status `reviewed` |
 | `python3 ${CLAUDE_PLUGIN_ROOT}/skills/idea-new/runtime/analyst_check.py --ticket <ticket>` | Verify PRD `READY` and Q/A sync |
 | `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/progress_cli.py --source <stage> --ticket <ticket>` | Confirm tasklist progress |
@@ -188,6 +194,21 @@ RLM artifacts (pack-first):
 - Pack summary: `aidd/reports/research/<ticket>-rlm.pack.json`.
 - Slice tool: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_slice.py --ticket <ticket> --query "<token>" [--paths path1,path2] [--lang kt,java]`.
 - RLM pack budget: `config/conventions.json` → `rlm.pack_budget` (`max_chars`, `max_lines`, top-N limits).
+
+## Memory v2 (breaking-only)
+
+Memory v2 is enabled in Wave 101 as a **breaking-only** contract:
+- no backfill of legacy memory state;
+- no fallback to legacy memory artifacts;
+- source of truth is `aidd/reports/memory/<ticket>.semantic.pack.json` and `aidd/reports/memory/<ticket>.decisions.pack.json`.
+
+Recommended read order (pack-first):
+1. `aidd/reports/research/<ticket>-rlm.pack.json`
+1. `aidd/reports/memory/<ticket>.semantic.pack.json`
+1. `aidd/reports/memory/<ticket>.decisions.pack.json`
+1. `aidd/reports/context/<ticket>.pack.md` and on-demand slices
+
+Decision writes must go through the validated path (`memory_ops.decision_append`), not direct JSONL edits.
 
 ## Loop mode (implement↔review)
 

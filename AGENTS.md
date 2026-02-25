@@ -113,7 +113,7 @@ Loop policy: `OUT_OF_SCOPE|NO_BOUNDARIES_DEFINED` → WARN + handoff, `FORBIDDEN
 
 Ключевые команды:
 - Идея: `/feature-dev-aidd:idea-new <ticket> [note...]` → PRD + `analyst` (`slug_hint` формируется внутри команды из note).
-- Research: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py --ticket <ticket> --auto` → `/feature-dev-aidd:researcher <ticket>` (RLM targets/manifest/worklist + pack).
+- Research: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py --ticket <ticket> --auto` → `/feature-dev-aidd:researcher <ticket>` (RLM targets/manifest/worklist + pack + `memory semantic`).
 - План: `/feature-dev-aidd:plan-new <ticket>`.
 - Review‑spec (plan + PRD): `/feature-dev-aidd:review-spec <ticket>`.
 - Тасклист: `/feature-dev-aidd:tasks-new <ticket>`.
@@ -140,9 +140,19 @@ Agent‑first правило: сначала читаем артефакты (`a
 - Гейты стадий `plan/review/qa` требуют минимальный набор RLM evidence:
   `rlm-targets`, `rlm-manifest`, `rlm.worklist.pack`, `rlm.nodes`, `rlm.links`, `rlm.pack`.
 
+## Memory v2 policy
+- Memory v2 работает как breaking-only контракт: legacy memory backfill не поддерживается.
+- Canonical artifacts:
+  - `aidd/reports/memory/<ticket>.semantic.pack.json`
+  - `aidd/reports/memory/<ticket>.decisions.jsonl`
+  - `aidd/reports/memory/<ticket>.decisions.pack.json`
+- Decision writes только через validated path (`memory_ops.decision_append`), без прямого редактирования JSONL.
+
 ## Evidence Read Policy (RLM-first)
 - Primary evidence: `aidd/reports/research/<ticket>-rlm.pack.json` (pack-first summary).
+- Secondary evidence (memory): `aidd/reports/memory/<ticket>.semantic.pack.json`, `aidd/reports/memory/<ticket>.decisions.pack.json`.
 - Slice on demand: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_slice.py --ticket <ticket> --query "<token>"`.
+- Slice on demand (memory): `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-memory/runtime/memory_slice.py --ticket <ticket> --query "<token>"`.
 - Use raw `rg` only for spot-checks.
 - JSONL‑streams (`*-rlm.nodes.jsonl`, `*-rlm.links.jsonl`) читаются фрагментами, не целиком.
 
@@ -178,6 +188,8 @@ Agent‑first правило: сначала читаем артефакты (`a
   - RLM manifest: `aidd/reports/research/<ticket>-rlm-manifest.json`
   - RLM nodes/links: `aidd/reports/research/<ticket>-rlm.nodes.jsonl`, `*-rlm.links.jsonl`
   - RLM pack: `aidd/reports/research/<ticket>-rlm.pack.json`
+  - Memory semantic pack: `aidd/reports/memory/<ticket>.semantic.pack.json`
+  - Memory decision log/pack: `aidd/reports/memory/<ticket>.decisions.jsonl`, `<ticket>.decisions.pack.json`
   - QA: `aidd/reports/qa/<ticket>.json` + pack
   - PRD review: `aidd/reports/prd/<ticket>.json` + pack
   - Reviewer marker: `aidd/reports/reviewer/<ticket>/<scope_key>.json`

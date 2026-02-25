@@ -500,6 +500,34 @@ run_python_tests() {
   fi
 }
 
+run_memory_regression() {
+  if ! command -v python3 >/dev/null 2>&1; then
+    warn "python3 not found; skipping Memory v2 regression subset"
+    return
+  fi
+  if [[ ! -d "tests" ]]; then
+    log "tests/ directory not found; skipping Memory v2 regression subset"
+    return
+  fi
+  if ! python3 -m pytest --version >/dev/null 2>&1; then
+    err "pytest is required for Memory v2 regression subset"
+    STATUS=1
+    return
+  fi
+  log "running Memory v2 regression subset"
+  if ! AIDD_PACK_ENFORCE_BUDGET=1 python3 -m pytest -q \
+    tests/test_memory_verify.py \
+    tests/test_memory_extract.py \
+    tests/test_memory_decisions.py \
+    tests/test_memory_slice.py \
+    tests/test_preflight_prepare.py \
+    tests/test_output_contract.py \
+    tests/test_research_command.py; then
+    err "Memory v2 regression subset failed"
+    STATUS=1
+  fi
+}
+
 cd "$ROOT_DIR"
 
 run_prompt_lint
@@ -522,6 +550,7 @@ run_python_only_regression
 run_marketplace_ref_guard
 run_repo_linters
 
+run_memory_regression
 run_python_tests
 
 exit "$STATUS"
