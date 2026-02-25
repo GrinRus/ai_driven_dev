@@ -385,6 +385,54 @@ class HookReadWritePolicyTests(unittest.TestCase):
             self.assertIn("forbidden", data.get("systemMessage", "").lower())
             self.assertIn("/feature-dev-aidd:qa", data.get("systemMessage", ""))
 
+    def test_strict_denies_manual_preflight_prepare_bash_command_in_light_mode(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="hook-rw-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-RW"
+            write_active_state(root, ticket=ticket, stage="review", work_item="iteration_id=I1")
+
+            payload = {
+                "hook_event_name": "PreToolUse",
+                "tool_name": "Bash",
+                "tool_input": {
+                    "command": (
+                        "python3 /plugin/skills/aidd-loop/runtime/preflight_prepare.py "
+                        f"--ticket {ticket} --stage review"
+                    )
+                },
+            }
+            result = _run_pretool(root, payload, hooks_mode="strict", context_gc_mode="light")
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            data = json.loads(result.stdout)
+            decision = data.get("hookSpecificOutput", {}).get("permissionDecision")
+            self.assertEqual(decision, "deny")
+            self.assertIn("forbidden", data.get("systemMessage", "").lower())
+            self.assertIn("/feature-dev-aidd:review", data.get("systemMessage", ""))
+
+    def test_fast_warns_on_manual_preflight_prepare_bash_command_in_off_mode(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="hook-rw-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-RW"
+            write_active_state(root, ticket=ticket, stage="implement", work_item="iteration_id=I1")
+
+            payload = {
+                "hook_event_name": "PreToolUse",
+                "tool_name": "Bash",
+                "tool_input": {
+                    "command": (
+                        "python3 /plugin/skills/aidd-loop/runtime/preflight_prepare.py "
+                        f"--ticket {ticket} --stage implement"
+                    )
+                },
+            }
+            result = _run_pretool(root, payload, hooks_mode="fast", context_gc_mode="off")
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            data = json.loads(result.stdout)
+            decision = data.get("hookSpecificOutput", {}).get("permissionDecision")
+            self.assertEqual(decision, "allow")
+            self.assertIn("forbidden", data.get("systemMessage", "").lower())
+            self.assertIn("/feature-dev-aidd:implement", data.get("systemMessage", ""))
+
     def test_strict_planning_stage_denies_write_outside_writemap(self) -> None:
         with tempfile.TemporaryDirectory(prefix="hook-rw-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))

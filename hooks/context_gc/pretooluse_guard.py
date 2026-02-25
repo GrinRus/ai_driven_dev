@@ -667,19 +667,6 @@ def handle_bash(project_dir: Path, aidd_root: Optional[Path], cfg: Dict[str, Any
     if not isinstance(cmd, str) or not cmd.strip():
         return
 
-    manual_preflight_decision = _manual_preflight_bash_decision(
-        command=cmd,
-        project_dir=project_dir,
-        aidd_root=aidd_root,
-    )
-    if manual_preflight_decision:
-        pretooluse_decision(
-            permission_decision=manual_preflight_decision["decision"],
-            reason=manual_preflight_decision["reason"],
-            system_message=manual_preflight_decision["system_message"],
-        )
-        return
-
     injection_message = _prompt_injection_guard_message(
         cfg,
         project_dir,
@@ -849,6 +836,22 @@ def main() -> None:
     tool_input = ctx.raw.get("tool_input") or {}
     if not isinstance(tool_input, dict):
         return
+
+    if tool_name == "Bash":
+        cmd = tool_input.get("command")
+        if isinstance(cmd, str) and cmd.strip():
+            manual_preflight_decision = _manual_preflight_bash_decision(
+                command=cmd,
+                project_dir=project_dir,
+                aidd_root=aidd_root,
+            )
+            if manual_preflight_decision:
+                pretooluse_decision(
+                    permission_decision=manual_preflight_decision["decision"],
+                    reason=manual_preflight_decision["reason"],
+                    system_message=manual_preflight_decision["system_message"],
+                )
+                return
 
     policy_decision = _enforce_rw_policy(
         tool_name=tool_name,
