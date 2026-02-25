@@ -3,8 +3,8 @@ name: plan-new
 description: Drafts implementation plan from ready PRD and research artifacts. Use when PRD and research gates pass and plan stage should start.
 argument-hint: $1 [note...]
 lang: ru
-prompt_version: 1.1.15
-source_version: 1.1.15
+prompt_version: 1.1.16
+source_version: 1.1.16
 allowed-tools:
   - Read
   - Edit
@@ -28,9 +28,10 @@ Follow `feature-dev-aidd:aidd-core`.
 1. Set active stage `plan` and active feature.
 2. Run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan-new/runtime/research_check.py --ticket <ticket>`.
 3. Gate readiness with `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/prd_check.py` and `python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan-new/runtime/research_check.py`; block if either fails.
-4. Use the existing rolling context pack as input evidence; do not invoke standalone context-pack builder scripts from this stage.
-5. Run subagent `feature-dev-aidd:planner`, then run subagent `feature-dev-aidd:validator`; keep updates within plan artifacts and canonical stage outputs.
-6. Update `aidd/docs/plan/<ticket>.md` and return the output contract.
+4. Use the existing rolling context pack as input evidence; read order stays RLM-first, then optional AST pack (`<ticket>-ast.pack.json`), then memory/context packs.
+5. Treat `ast-index` evidence as preferred when present; in optional mode absence/fallback markers are non-blocking.
+6. Run subagent `feature-dev-aidd:planner`, then run subagent `feature-dev-aidd:validator`; keep updates within plan artifacts and canonical stage outputs.
+7. Update `aidd/docs/plan/<ticket>.md` and return the output contract.
 
 ## Command contracts
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan-new/runtime/research_check.py`

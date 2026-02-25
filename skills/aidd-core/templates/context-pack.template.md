@@ -12,6 +12,7 @@ artefact_links:
 - tasklist: aidd/docs/tasklist/<ticket>.md (if exists)
 - research: aidd/docs/research/<ticket>.md (if exists)
 - spec: aidd/docs/spec/<ticket>.spec.yaml (if exists)
+- research_ast_pack: aidd/reports/research/<ticket>-ast.pack.json (if exists)
 - memory_semantic_pack: aidd/reports/memory/<ticket>.semantic.pack.json (if exists)
 - memory_decisions_pack: aidd/reports/memory/<ticket>.decisions.pack.json (if exists)
 - loop_pack: aidd/reports/loops/<ticket>/<scope_key>.loop.pack.md (implement/review)

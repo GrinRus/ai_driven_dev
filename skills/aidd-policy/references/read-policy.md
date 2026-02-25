@@ -7,6 +7,7 @@
 
 Recommended order:
 - `aidd/reports/research/<ticket>-rlm.pack.json`
+- `aidd/reports/research/<ticket>-ast.pack.json` (if exists; optional in `ast_index.mode=auto`)
 - `aidd/reports/memory/<ticket>.semantic.pack.json`
 - `aidd/reports/memory/<ticket>.decisions.pack.json`
 - `aidd/reports/loops/<ticket>/<scope_key>.loop.pack.md`

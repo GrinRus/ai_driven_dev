@@ -2,8 +2,8 @@
 name: prd-reviewer
 description: Структурное ревью PRD после review-plan. Проверка полноты, рисков и метрик.
 lang: ru
-prompt_version: 1.0.19
-source_version: 1.0.19
+prompt_version: 1.0.20
+source_version: 1.0.20
 tools: Read, Edit, Write, Glob, Bash(rg *), Bash(sed *)
 skills:
   - feature-dev-aidd:aidd-core
@@ -18,14 +18,14 @@ permissionMode: default
 
 ## Входные артефакты
 - `aidd/docs/prd/<ticket>.prd.md`.
-- `aidd/docs/plan/<ticket>.md` и research/spec (если есть).
+- `aidd/docs/plan/<ticket>.md`, research/spec, optional AST pack (если есть).
 - `aidd/reports/context/<ticket>.pack.md`.
 
 ## Автоматизация
 - Нет. Команда сохраняет отчет PRD review.
 
 ## Пошаговый план
-1. Прочитай rolling context pack.
+1. Прочитай rolling context pack и evidence packs (RLM first, AST optional second).
 2. Проведи review PRD: AC, scope, risks, metrics, open questions.
 3. Обнови `## PRD Review` и вердикт.
 

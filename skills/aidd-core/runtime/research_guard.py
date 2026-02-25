@@ -40,6 +40,15 @@ RESEARCH_TEMPLATE_MARKERS = (
     "{{rlm_warnings}}",
     "{{rlm_nodes_path}}",
     "{{rlm_links_path}}",
+    "{{ast_mode}}",
+    "{{ast_required}}",
+    "{{ast_status}}",
+    "{{ast_query}}",
+    "{{ast_pack_path}}",
+    "{{ast_matches}}",
+    "{{ast_reason_code}}",
+    "{{ast_fallback_reason}}",
+    "{{ast_next_action}}",
 )
 STATUS_LINE_RE = re.compile(r"^\*{0,2}\s*status\s*\*{0,2}\s*:\s*(.+)$", re.IGNORECASE)
 LIST_ITEM_RE = re.compile(r"^(?:[-+*])\s+")

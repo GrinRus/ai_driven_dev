@@ -12,6 +12,7 @@ if str(_PLUGIN_ROOT) not in sys.path:
     sys.path.insert(0, str(_PLUGIN_ROOT))
 
 from aidd_runtime import prd_review
+from aidd_runtime import ast_index
 from aidd_runtime.research_guard import ResearchValidationError, load_settings as load_research_settings, validate_research
 from aidd_runtime import runtime
 
@@ -23,6 +24,63 @@ def _resolve_report_target_path(target: Path, ticket: str, raw: object) -> Path:
             return candidate.resolve()
         return runtime.resolve_path_for_target(candidate, target)
     return target / "reports" / "prd" / f"{ticket}.json"
+
+
+def _ast_research_hint(ticket: str) -> str:
+    return f"python3 ${{CLAUDE_PLUGIN_ROOT}}/skills/researcher/runtime/research.py --ticket {ticket} --auto"
+
+
+def _enforce_ast_pack_policy(target: Path, ticket: str) -> int:
+    cfg = ast_index.load_ast_index_config(target)
+    if cfg.mode == "off":
+        return 0
+    ast_pack = target / "reports" / "research" / f"{ticket}-ast.pack.json"
+    if not ast_pack.exists():
+        if cfg.required:
+            print(
+                "[prd-review] ERROR: mandatory AST evidence pack missing "
+                f"(reason_code=ast_index_pack_missing). Next action: `{_ast_research_hint(ticket)}`.",
+                file=sys.stderr,
+            )
+            return 2
+        print(
+            "[prd-review] WARN: optional AST evidence pack missing "
+            f"(reason_code=ast_index_pack_missing_warn). Hint: `{_ast_research_hint(ticket)}`.",
+            file=sys.stderr,
+        )
+        return 0
+    try:
+        payload = json.loads(ast_pack.read_text(encoding="utf-8"))
+    except Exception as exc:
+        if cfg.required:
+            print(
+                "[prd-review] ERROR: mandatory AST evidence pack invalid JSON "
+                f"(reason_code=ast_index_pack_invalid): {runtime.rel_path(ast_pack, target)} ({exc}). "
+                f"Next action: `{_ast_research_hint(ticket)}`.",
+                file=sys.stderr,
+            )
+            return 2
+        print(
+            "[prd-review] WARN: optional AST evidence pack invalid JSON "
+            f"(reason_code=ast_index_pack_invalid_warn): {runtime.rel_path(ast_pack, target)}.",
+            file=sys.stderr,
+        )
+        return 0
+    if not isinstance(payload, dict):
+        if cfg.required:
+            print(
+                "[prd-review] ERROR: mandatory AST evidence payload must be object "
+                f"(reason_code=ast_index_pack_invalid): {runtime.rel_path(ast_pack, target)}. "
+                f"Next action: `{_ast_research_hint(ticket)}`.",
+                file=sys.stderr,
+            )
+            return 2
+        print(
+            "[prd-review] WARN: optional AST evidence payload must be object "
+            f"(reason_code=ast_index_pack_invalid_warn): {runtime.rel_path(ast_pack, target)}.",
+            file=sys.stderr,
+        )
+    return 0
 
 
 def main(argv: Optional[list[str]] = None) -> int:
@@ -46,6 +104,9 @@ def main(argv: Optional[list[str]] = None) -> int:
         except ResearchValidationError as exc:
             print(str(exc), file=sys.stderr)
             return 2
+        ast_policy_code = _enforce_ast_pack_policy(target, ticket)
+        if ast_policy_code != 0:
+            return ast_policy_code
     pack_only_requested = bool(getattr(args, "pack_only", False) or os.getenv("AIDD_PACK_ONLY", "").strip() == "1")
     raw_report_arg = getattr(args, "report", None)
     explicit_pack_report_arg = False

@@ -620,6 +620,66 @@ class ResearchCheckTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn("reason_code=memory_semantic_pack_missing_warn", stderr.getvalue())
 
+    def test_research_check_warns_when_ast_pack_missing_in_optional_mode(self) -> None:
+        workspace, project_root = self._setup_workspace()
+        ticket = "demo-ast-soft"
+        ensure_gates_config(
+            project_root,
+            {
+                "ast_index": {
+                    "mode": "auto",
+                    "required": False,
+                }
+            },
+        )
+        write_active_feature(project_root, ticket)
+        write_active_stage(project_root, "plan")
+        self._write_base_research(project_root, ticket, status="reviewed")
+        self._write_rlm_ready_evidence(project_root, ticket)
+
+        args = self._make_args(ticket)
+        old_cwd = Path.cwd()
+        os.chdir(workspace)
+        stderr = io.StringIO()
+        try:
+            with contextlib.redirect_stderr(stderr):
+                code = research_check.main(args)
+        finally:
+            os.chdir(old_cwd)
+
+        self.assertEqual(code, 0)
+        self.assertIn("reason_code=ast_index_pack_missing_warn", stderr.getvalue())
+
+    def test_research_check_blocks_when_ast_pack_missing_in_required_mode(self) -> None:
+        workspace, project_root = self._setup_workspace()
+        ticket = "demo-ast-hard"
+        ensure_gates_config(
+            project_root,
+            {
+                "ast_index": {
+                    "mode": "required",
+                    "required": True,
+                }
+            },
+        )
+        write_active_feature(project_root, ticket)
+        write_active_stage(project_root, "plan")
+        self._write_base_research(project_root, ticket, status="reviewed")
+        self._write_rlm_ready_evidence(project_root, ticket)
+
+        args = self._make_args(ticket)
+        old_cwd = Path.cwd()
+        os.chdir(workspace)
+        try:
+            with self.assertRaises(RuntimeError) as excinfo:
+                research_check.main(args)
+        finally:
+            os.chdir(old_cwd)
+
+        text = str(excinfo.exception)
+        self.assertIn("reason_code=ast_index_pack_missing", text)
+        self.assertIn("research.py --ticket", text)
+
 
 if __name__ == "__main__":
     unittest.main()

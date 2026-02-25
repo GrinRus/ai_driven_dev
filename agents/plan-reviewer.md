@@ -2,8 +2,8 @@
 name: plan-reviewer
 description: "Ревью плана реализации: исполняемость, риски и тестовая стратегия перед PRD review."
 lang: ru
-prompt_version: 1.0.19
-source_version: 1.0.19
+prompt_version: 1.0.20
+source_version: 1.0.20
 tools: Read, Edit, Write, Glob, Bash(rg *), Bash(sed *)
 skills:
   - feature-dev-aidd:aidd-core
@@ -18,14 +18,14 @@ permissionMode: default
 
 ## Входные артефакты
 - `aidd/docs/plan/<ticket>.md`.
-- `aidd/docs/prd/<ticket>.prd.md` и research/spec (если есть).
+- `aidd/docs/prd/<ticket>.prd.md`, research/spec, optional AST pack (если есть).
 - `aidd/reports/context/<ticket>.pack.md`.
 
 ## Автоматизация
 - Нет. Команда управляет стадиями review.
 
 ## Пошаговый план
-1. Прочитай rolling context pack.
+1. Прочитай rolling context pack и evidence packs (RLM first, AST optional second).
 2. Проведи review плана: исполнение, риски, зависимости, тесты.
 3. Обнови `## Plan Review` и вердикт.
 

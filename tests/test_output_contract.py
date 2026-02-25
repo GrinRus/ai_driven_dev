@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tests.helpers import cli_cmd, cli_env, ensure_project_root, write_active_state, write_file
+from tests.helpers import cli_cmd, cli_env, ensure_gates_config, ensure_project_root, write_active_state, write_file
 
 
 class OutputContractTests(unittest.TestCase):
@@ -70,6 +70,136 @@ class OutputContractTests(unittest.TestCase):
             self.assertIn("status_mismatch_stage_result", warnings)
             self.assertIn("read_order_context_before_loop", warnings)
             self.assertIn("read_order_context_before_memory", warnings)
+
+    def test_output_contract_optional_ast_fallback_warns(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="output-contract-ast-soft-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ensure_gates_config(root, {"ast_index": {"mode": "auto", "required": False}})
+            write_active_state(root, ticket="DEMO-AST", stage="implement", work_item="iteration_id=I1")
+            stage_result = {
+                "schema": "aidd.stage_result.v1",
+                "ticket": "DEMO-AST",
+                "stage": "implement",
+                "scope_key": "iteration_id_I1",
+                "work_item_key": "iteration_id=I1",
+                "result": "continue",
+                "updated_at": "2024-01-02T00:00:00Z",
+            }
+            write_file(
+                root,
+                "reports/loops/DEMO-AST/iteration_id_I1/stage.implement.result.json",
+                json.dumps(stage_result),
+            )
+            actions_log = root / "reports" / "actions" / "DEMO-AST" / "iteration_id_I1" / "implement.actions.json"
+            actions_log.parent.mkdir(parents=True, exist_ok=True)
+            actions_log.write_text("[]\n", encoding="utf-8")
+            log_path = root / "reports" / "loops" / "DEMO-AST" / "cli.implement.ast-soft.log"
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            log_path.write_text(
+                "\n".join(
+                    [
+                        "Status: WARN",
+                        "Work item key: iteration_id=I1",
+                        "Artifacts updated: src/demo.py",
+                        "Tests: skipped reason_code=manual_skip",
+                        "Blockers/Handoff: none",
+                        "Next actions: none",
+                        f"AIDD:ACTIONS_LOG: {actions_log.relative_to(root).as_posix()}",
+                        "AIDD:READ_LOG: aidd/reports/loops/DEMO-AST/iteration_id_I1.loop.pack.md (reason: loop pack); "
+                        "aidd/reports/research/DEMO-AST-ast.pack.json (reason: reason_code=ast_index_binary_missing)",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                cli_cmd(
+                    "output-contract",
+                    "--ticket",
+                    "DEMO-AST",
+                    "--stage",
+                    "implement",
+                    "--log",
+                    str(log_path),
+                    "--format",
+                    "json",
+                ),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("status"), "warn")
+            self.assertEqual(payload.get("reason_code"), "output_contract_warn")
+            warnings = payload.get("warnings") or []
+            self.assertIn("ast_index_fallback_warn", warnings)
+
+    def test_output_contract_required_ast_fallback_blocks(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="output-contract-ast-hard-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ensure_gates_config(root, {"ast_index": {"mode": "required", "required": True}})
+            write_active_state(root, ticket="DEMO-AST-REQ", stage="implement", work_item="iteration_id=I1")
+            stage_result = {
+                "schema": "aidd.stage_result.v1",
+                "ticket": "DEMO-AST-REQ",
+                "stage": "implement",
+                "scope_key": "iteration_id_I1",
+                "work_item_key": "iteration_id=I1",
+                "result": "continue",
+                "updated_at": "2024-01-02T00:00:00Z",
+            }
+            write_file(
+                root,
+                "reports/loops/DEMO-AST-REQ/iteration_id_I1/stage.implement.result.json",
+                json.dumps(stage_result),
+            )
+            actions_log = root / "reports" / "actions" / "DEMO-AST-REQ" / "iteration_id_I1" / "implement.actions.json"
+            actions_log.parent.mkdir(parents=True, exist_ok=True)
+            actions_log.write_text("[]\n", encoding="utf-8")
+            log_path = root / "reports" / "loops" / "DEMO-AST-REQ" / "cli.implement.ast-hard.log"
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            log_path.write_text(
+                "\n".join(
+                    [
+                        "Status: WARN",
+                        "Work item key: iteration_id=I1",
+                        "Artifacts updated: src/demo.py",
+                        "Tests: skipped reason_code=manual_skip",
+                        "Blockers/Handoff: none",
+                        "Next actions: none",
+                        f"AIDD:ACTIONS_LOG: {actions_log.relative_to(root).as_posix()}",
+                        "AIDD:READ_LOG: aidd/reports/loops/DEMO-AST-REQ/iteration_id_I1.loop.pack.md (reason: loop pack); "
+                        "aidd/reports/research/DEMO-AST-REQ-ast.pack.json (reason: reason_code=ast_index_binary_missing)",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                cli_cmd(
+                    "output-contract",
+                    "--ticket",
+                    "DEMO-AST-REQ",
+                    "--stage",
+                    "implement",
+                    "--log",
+                    str(log_path),
+                    "--format",
+                    "json",
+                ),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertEqual(payload.get("reason_code"), "ast_index_binary_missing")
+            self.assertIn("ast_index_required_fallback", payload.get("warnings") or [])
+            self.assertTrue(payload.get("next_action"))
 
 
 if __name__ == "__main__":

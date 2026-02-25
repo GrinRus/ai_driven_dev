@@ -9,6 +9,7 @@ import re
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+from aidd_runtime import ast_index
 from aidd_runtime import runtime
 from aidd_runtime import status_summary as _status_summary
 
@@ -30,6 +31,14 @@ FULL_DOC_PREFIXES = (
     "aidd/docs/research/",
     "aidd/docs/spec/",
 )
+_REASON_CODE_RE = re.compile(r"reason_code\s*=\s*([a-z0-9_:-]+)", re.IGNORECASE)
+AST_REASON_CODES = {
+    ast_index.REASON_BINARY_MISSING,
+    ast_index.REASON_INDEX_MISSING,
+    ast_index.REASON_TIMEOUT,
+    ast_index.REASON_JSON_INVALID,
+    ast_index.REASON_FALLBACK_RG,
+}
 
 
 def _normalize_line(line: str) -> str:
@@ -99,6 +108,35 @@ def _is_memory_pack(path: str) -> bool:
     return normalized.startswith("aidd/reports/memory/") and normalized.endswith(".pack.json")
 
 
+def _is_ast_pack(path: str) -> bool:
+    normalized = path.replace("\\", "/")
+    return normalized.startswith("aidd/reports/research/") and normalized.endswith("-ast.pack.json")
+
+
+def _extract_reason_codes(reason: str) -> List[str]:
+    if not reason:
+        return []
+    found = {match.group(1).strip().lower() for match in _REASON_CODE_RE.finditer(reason)}
+    lowered = reason.lower()
+    for code in AST_REASON_CODES:
+        if code in lowered:
+            found.add(code)
+    return sorted(found)
+
+
+def _ast_next_action(ticket: str, reason_code: str) -> str:
+    code = str(reason_code or "").strip().lower()
+    if code == ast_index.REASON_BINARY_MISSING:
+        return "Install ast-index and run `ast-index rebuild` in workspace root."
+    if code == ast_index.REASON_INDEX_MISSING:
+        return "Run `ast-index rebuild` in workspace root and rerun the stage."
+    if code == ast_index.REASON_TIMEOUT:
+        return f"Rerun `python3 ${{CLAUDE_PLUGIN_ROOT}}/skills/researcher/runtime/research.py --ticket {ticket} --auto` after increasing ast_index.timeout_s."
+    if code == ast_index.REASON_JSON_INVALID:
+        return "Update ast-index to a version that supports `--format json` and rebuild index."
+    return f"python3 ${{CLAUDE_PLUGIN_ROOT}}/skills/researcher/runtime/research.py --ticket {ticket} --auto"
+
+
 def _find_index(entries: List[Dict[str, str]], predicate) -> int:
     for idx, entry in enumerate(entries):
         if predicate(entry):
@@ -158,6 +196,7 @@ def check_output_contract(
     review_idx = _find_index(read_entries, lambda item: "review.latest.pack" in (item.get("path") or ""))
     context_idx = _find_index(read_entries, lambda item: "/reports/context/" in (item.get("path") or ""))
     memory_idx = _find_index(read_entries, lambda item: _is_memory_pack(item.get("path") or ""))
+    ast_idx = _find_index(read_entries, lambda item: _is_ast_pack(item.get("path") or ""))
 
     if stage in {"implement", "review"}:
         actions_value = str(fields.get("actions_log") or "").strip()
@@ -179,6 +218,8 @@ def check_output_contract(
             warnings.append("read_order_context_before_review")
         if context_idx >= 0 and memory_idx >= 0 and context_idx < memory_idx:
             warnings.append("read_order_context_before_memory")
+        if ast_idx >= 0 and loop_idx >= 0 and ast_idx < loop_idx:
+            warnings.append("read_order_ast_before_loop")
     elif stage == "qa":
         actions_value = str(fields.get("actions_log") or "").strip()
         if not actions_value:
@@ -205,8 +246,31 @@ def check_output_contract(
     status_output = fields.get("status", "")
     if expected_status and status_output and expected_status.upper() != status_output.strip().upper():
         warnings.append("status_mismatch_stage_result")
+    ast_required = False
+    try:
+        ast_cfg = ast_index.load_ast_index_config(target)
+        ast_required = bool(ast_cfg.required) and str(ast_cfg.mode).strip().lower() != "off"
+    except Exception:
+        ast_required = False
+    ast_reason_codes: list[str] = []
+    for entry in read_entries:
+        reason_codes = _extract_reason_codes(entry.get("reason") or "")
+        for code in reason_codes:
+            if code in AST_REASON_CODES:
+                ast_reason_codes.append(code)
+    ast_reason_codes = sorted(set(ast_reason_codes))
+    ast_blocked_reason = ""
+    ast_next_action = ""
+    if ast_reason_codes:
+        if ast_required:
+            warnings.append("ast_index_required_fallback")
+            ast_blocked_reason = ast_reason_codes[0]
+            ast_next_action = _ast_next_action(ticket, ast_blocked_reason)
+        else:
+            warnings.append("ast_index_fallback_warn")
 
-    status = "warn" if warnings or missing else "ok"
+    status = "blocked" if ast_blocked_reason else ("warn" if warnings or missing else "ok")
+    reason_code = ast_blocked_reason if ast_blocked_reason else ("output_contract_warn" if status == "warn" else "")
     return {
         "schema": "aidd.output_contract.v1",
         "ticket": ticket,
@@ -216,13 +280,16 @@ def check_output_contract(
         "log_path": runtime.rel_path(log_path, target) if log_path else "",
         "stage_result_path": stage_result_rel,
         "status": status,
-        "reason_code": "output_contract_warn" if status == "warn" else "",
+        "reason_code": reason_code,
         "missing_fields": missing,
         "warnings": sorted(set(warnings)),
         "status_output": status_output,
         "status_expected": expected_status,
         "read_log": read_entries,
         "actions_log": fields.get("actions_log", ""),
+        "ast_required": ast_required,
+        "ast_reason_codes": ast_reason_codes,
+        "next_action": ast_next_action,
     }
 
 
