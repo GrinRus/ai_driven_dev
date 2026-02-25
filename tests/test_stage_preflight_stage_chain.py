@@ -1,4 +1,5 @@
 import json
+import io
 import subprocess
 import tempfile
 import unittest
@@ -10,13 +11,55 @@ from tests.helpers import REPO_ROOT, cli_env, ensure_project_root, write_active_
 
 class StagePreflightStageChainTests(unittest.TestCase):
     def test_resolve_runner_normalizes_assignment_prefix_token(self) -> None:
-        tokens, _raw, notices = loop_step_stage_chain.resolve_runner(
+        tokens, _raw, notices, platform = loop_step_stage_chain.resolve_runner(
             "AIDD_LOOP_RUNNER=claude --dangerously-skip-permissions",
             REPO_ROOT,
         )
         self.assertTrue(tokens)
         self.assertEqual(tokens[0], "claude")
         self.assertIn("normalized", notices)
+        self.assertEqual(platform, "claude")
+
+    def test_build_command_opencode_uses_feature_namespace(self) -> None:
+        command = loop_step_stage_chain.build_command(
+            "implement",
+            "DEMO-1",
+            "AIDD:ANSWERS Q1=A",
+            runner_platform="opencode",
+        )
+        self.assertEqual(command[:3], ["run", "--format", "json"])
+        self.assertEqual(command[3], "--command")
+        self.assertIn("feature-dev-aidd:implement DEMO-1", command[4])
+
+    def test_run_stream_command_opencode_preserves_renderer_state(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="opencode-stream-state-") as tmpdir:
+            root = Path(tmpdir)
+            output = io.StringIO()
+            log_path = root / "run.log"
+            stream_jsonl_path = root / "stream.jsonl"
+            stream_log_path = root / "stream.log"
+            command = [
+                "python3",
+                "-c",
+                (
+                    "import json,sys;"
+                    "sys.stdout.write(json.dumps({'type':'message','text':'done'})+'\\n');"
+                    "sys.stdout.write(json.dumps({'type':'tool.execute.after','name':'Bash','status':'ok'})+'\\n')"
+                ),
+            ]
+            code = loop_step_stage_chain.run_stream_command(
+                command=command,
+                cwd=root,
+                log_path=log_path,
+                stream_mode="tools",
+                stream_jsonl_path=stream_jsonl_path,
+                stream_log_path=stream_log_path,
+                output_stream=output,
+                runner_platform="opencode",
+            )
+            self.assertEqual(code, 0)
+            rendered = output.getvalue()
+            self.assertIn("done\n[tool:stop] Bash status=ok", rendered)
 
     def _run_preflight(self, stage: str) -> None:
         with tempfile.TemporaryDirectory(prefix=f"preflight-{stage}-") as tmpdir:

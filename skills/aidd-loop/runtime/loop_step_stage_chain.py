@@ -14,10 +14,13 @@ from pathlib import Path
 from typing import Dict, List, Optional, TextIO, Tuple
 
 from aidd_runtime import claude_stream_render
+from aidd_runtime import opencode_stream_render
 from aidd_runtime import runtime
 
 _APPROVAL_ALLOW_VALUES = {"1", "true", "yes", "on"}
 _CLAUDE_COMMANDS = {"claude", "claude.exe"}
+_OPENCODE_COMMANDS = {"opencode", "opencode.exe"}
+_RUNNER_PLATFORM_VALUES = {"auto", "claude", "opencode"}
 _DIFF_BOUNDARY_OUT_OF_SCOPE_RE = re.compile(r"^OUT_OF_SCOPE\s+(.+)$", re.MULTILINE)
 _DIFF_BOUNDARY_FORBIDDEN_RE = re.compile(r"^FORBIDDEN\s+(.+)$", re.MULTILINE)
 
@@ -88,6 +91,28 @@ def inject_plugin_flags(tokens: List[str], plugin_root: Path) -> Tuple[List[str]
     return updated, notices
 
 
+def _requested_runner_platform(raw: str | None) -> tuple[str, list[str]]:
+    notices: list[str] = []
+    value = str(raw or os.environ.get("AIDD_LOOP_RUNNER_PLATFORM") or "auto").strip().lower()
+    if value not in _RUNNER_PLATFORM_VALUES:
+        notices.append(f"runner platform `{value}` unsupported; fallback to auto")
+        return "auto", notices
+    return value, notices
+
+
+def _resolve_runner_platform(requested: str, tokens: List[str]) -> tuple[str, list[str]]:
+    notices: list[str] = []
+    runner_name = Path(tokens[0]).name.lower() if tokens else ""
+    inferred = "opencode" if runner_name in _OPENCODE_COMMANDS else "claude"
+    if requested == "auto":
+        return inferred, notices
+    if requested != inferred and runner_name in (_CLAUDE_COMMANDS | _OPENCODE_COMMANDS):
+        notices.append(
+            f"runner platform override `{requested}` differs from runner binary `{runner_name}`; override applied"
+        )
+    return requested, notices
+
+
 def validate_command_available(plugin_root: Path, stage: str) -> Tuple[bool, str, str]:
     if not plugin_root.exists():
         return False, f"plugin root not found: {plugin_root}", "plugin_root_missing"
@@ -100,31 +125,50 @@ def validate_command_available(plugin_root: Path, stage: str) -> Tuple[bool, str
     return False, f"command not found: /feature-dev-aidd:{stage}", "command_unavailable"
 
 
-def resolve_runner(args_runner: str | None, plugin_root: Path) -> Tuple[List[str], str, str]:
-    raw = args_runner or os.environ.get("AIDD_LOOP_RUNNER") or "claude"
+def resolve_runner(
+    args_runner: str | None,
+    plugin_root: Path,
+    runner_platform: str | None = None,
+) -> Tuple[List[str], str, str, str]:
+    requested_platform, platform_notices = _requested_runner_platform(runner_platform)
+    default_runner = "opencode" if requested_platform == "opencode" else "claude"
+    raw = args_runner or os.environ.get("AIDD_LOOP_RUNNER") or default_runner
     tokens = shlex.split(raw) if raw.strip() else ["claude"]
     notices: List[str] = []
+    notices.extend(platform_notices)
     tokens, normalize_notices = _normalize_runner_tokens(tokens)
     notices.extend(normalize_notices)
     if "-p" in tokens:
         tokens = [token for token in tokens if token != "-p"]
         notices.append("runner flag -p dropped; loop-step adds -p with slash command")
-    if "--no-session-persistence" in tokens:
+    effective_platform, platform_resolve_notices = _resolve_runner_platform(requested_platform, tokens)
+    notices.extend(platform_resolve_notices)
+    if "--no-session-persistence" in tokens and effective_platform == "claude":
         if not runner_supports_flag(tokens[0], "--no-session-persistence"):
             tokens = [token for token in tokens if token != "--no-session-persistence"]
             notices.append("runner flag --no-session-persistence unsupported; dropped")
     approval_allowed = str(os.environ.get("AIDD_LOOP_ALLOW_APPROVAL") or "").strip().lower() in _APPROVAL_ALLOW_VALUES
     runner_name = Path(tokens[0]).name.lower() if tokens else ""
-    if not approval_allowed and runner_name in _CLAUDE_COMMANDS:
+    if effective_platform == "claude" and not approval_allowed and runner_name in _CLAUDE_COMMANDS:
         if "--dangerously-skip-permissions" not in tokens:
             if runner_supports_flag(tokens[0], "--dangerously-skip-permissions"):
                 tokens.append("--dangerously-skip-permissions")
                 notices.append("runner flag --dangerously-skip-permissions enforced for loop non-interactive mode")
             else:
                 notices.append("runner missing --dangerously-skip-permissions support")
-    tokens, flag_notices = inject_plugin_flags(tokens, plugin_root)
-    notices.extend(flag_notices)
-    return tokens, raw, "; ".join(notices)
+    if effective_platform == "claude":
+        tokens, flag_notices = inject_plugin_flags(tokens, plugin_root)
+        notices.extend(flag_notices)
+    else:
+        updated, stripped_plugin = _strip_flag_with_value(tokens, "--plugin-dir")
+        updated, stripped_add = _strip_flag_with_value(updated, "--add-dir")
+        if stripped_plugin or stripped_add:
+            notices.append("runner plugin flags dropped for opencode platform")
+        if "--dangerously-skip-permissions" in updated:
+            updated = [token for token in updated if token != "--dangerously-skip-permissions"]
+            notices.append("runner flag --dangerously-skip-permissions dropped for opencode platform")
+        tokens = updated
+    return tokens, raw, "; ".join(notices), effective_platform
 
 
 def _parse_stage_chain_output(stdout: str) -> Dict[str, str]:
@@ -635,12 +679,14 @@ def validate_stage_chain_contract(
     return False, message, reason_code
 
 
-def build_command(stage: str, ticket: str, answers: str = "") -> List[str]:
-    command = f"/feature-dev-aidd:{stage} {ticket}"
+def build_command(stage: str, ticket: str, answers: str = "", runner_platform: str = "claude") -> List[str]:
+    command = f"feature-dev-aidd:{stage} {ticket}"
     compact_answers = str(answers or "").strip()
     if compact_answers:
         command = f"{command} {compact_answers}"
-    return ["-p", command]
+    if runner_platform == "opencode":
+        return ["run", "--format", "json", "--command", command]
+    return ["-p", f"/{command}"]
 
 
 class MultiWriter:
@@ -691,6 +737,7 @@ def run_stream_command(
     output_stream: TextIO,
     header_lines: Optional[List[str]] = None,
     env: Optional[Dict[str, str]] = None,
+    runner_platform: str = "claude",
 ) -> int:
     log_path.parent.mkdir(parents=True, exist_ok=True)
     stream_jsonl_path.parent.mkdir(parents=True, exist_ok=True)
@@ -709,6 +756,8 @@ def run_stream_command(
         if stream_mode == "raw":
             writer.write("[stream] WARN: raw mode enabled; JSON events will be printed.\n")
             writer.flush()
+        renderer = opencode_stream_render if runner_platform == "opencode" else claude_stream_render
+        render_state = renderer.RenderState()
         proc = subprocess.Popen(
             command,
             cwd=cwd,
@@ -733,12 +782,13 @@ def run_stream_command(
                 writer.write(line)
                 writer.flush()
                 continue
-            claude_stream_render.render_line(
+            renderer.render_line(
                 line,
                 writer=writer,
                 mode="text+tools" if stream_mode == "tools" else "text-only",
                 strict=False,
                 warn_stream=writer,
+                state=render_state,
             )
         if proc.stdout:
             proc.stdout.close()

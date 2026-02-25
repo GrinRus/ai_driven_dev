@@ -1,10 +1,12 @@
-# AIDD Claude Code Plugin - Language-agnostic Workflow Template
+# AIDD Claude Code + OpenCode Plugin - Language-agnostic Workflow Template
 
-> Готовый плагин для Claude Code: слэш-команды, агенты, хуки и шаблоны для процесса idea → research → plan → review-spec → spec-interview (опционально) → tasklist → implement → review → qa.
+> Готовый плагин для Claude Code и OpenCode: слэш-команды, агенты, хуки и шаблоны для процесса idea → research → plan → review-spec → spec-interview (опционально) → tasklist → implement → review → qa.
 
 ## Оглавление
 - [Что это](#что-это)
 - [Быстрый старт](#быстрый-старт)
+- [Подключение OpenCode](#подключение-opencode)
+- [Глобальная установка OpenCode](#глобальная-установка-opencode)
 - [Скрипты и проверки](#скрипты-и-проверки)
 - [Слэш-команды](#слэш-команды)
 - [Предпосылки](#предпосылки)
@@ -15,7 +17,7 @@
 - [Лицензия](#лицензия)
 
 ## Что это
-AIDD — это AI-Driven Development: LLM работает не как «один большой мозг», а как команда ролей внутри привычного SDLC. Плагин для Claude Code помогает уйти от вайб-коддинга: фиксирует артефакты (PRD/plan/tasklist/отчёты), проводит через quality‑гейты и добавляет агентов, слэш‑команды, хуки и структуру `aidd/`.
+AIDD — это AI-Driven Development: LLM работает не как «один большой мозг», а как команда ролей внутри привычного SDLC. Плагин для Claude Code/OpenCode помогает уйти от вайб-коддинга: фиксирует артефакты (PRD/plan/tasklist/отчёты), проводит через quality‑гейты и добавляет агентов, слэш‑команды, хуки и структуру `aidd/`.
 
 Ключевые возможности:
 - Слэш-команды и агенты для цепочки idea → research → plan → review-spec → spec-interview (опционально) → tasklist → implement → review → qa.
@@ -26,6 +28,7 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 - Hooks mode: по умолчанию `AIDD_HOOKS_MODE=fast`, строгий режим — `AIDD_HOOKS_MODE=strict`.
 - Автоформат + тест‑политика по стадиям: `implement` — без тестов, `review` — targeted, `qa` — full.
 - Loop mode implement↔review: loop pack/review pack, diff boundary guard, loop-step/loop-run.
+- Dual runtime loop orchestration: `--runner-platform auto|claude|opencode` + `AIDD_LOOP_RUNNER_PLATFORM`.
 - Единый формат ответов `AIDD:ANSWERS` + Q-идентификаторы в `AIDD:OPEN_QUESTIONS` (план ссылается на `PRD QN` без дублирования).
 - Конвенции веток и коммитов через `aidd/config/conventions.json`.
 
@@ -63,11 +66,94 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 /feature-dev-aidd:aidd-init
 ```
 
-`/feature-dev-aidd:aidd-init` создаёт `./aidd` и `.claude/settings.json` с дефолтами `automation.tests`. Для обновления/детекта под стек используйте:
+`/feature-dev-aidd:aidd-init` создаёт `./aidd`, `.claude/settings.json` (дефолты `automation.tests`), `opencode.json` + `.opencode.json` (compat) и `.opencode/{commands,agents}` (из `skills/*/SKILL.md` и `agents/*.md`). Для обновления/детекта под стек используйте:
 
 ```text
 /feature-dev-aidd:aidd-init --detect-build-tools
 ```
+
+## Подключение OpenCode
+
+Если хотите запускать AIDD через OpenCode (dual-runtime), сделайте это один раз:
+
+```bash
+export CLAUDE_PLUGIN_ROOT="/absolute/path/to/ai_driven_dev"
+
+cd "$CLAUDE_PLUGIN_ROOT/platform/opencode-plugin"
+npm install --no-audit --no-fund --no-package-lock
+npm run build
+
+cd "/path/to/your/workspace"
+CLAUDE_PLUGIN_ROOT="$CLAUDE_PLUGIN_ROOT" \
+PYTHONPATH="$CLAUDE_PLUGIN_ROOT" \
+python3 "$CLAUDE_PLUGIN_ROOT/skills/aidd-init/runtime/init.py"
+```
+
+Что это делает:
+- Собирает TS plugin bridge в `platform/opencode-plugin/dist/index.js`.
+- Генерирует в workspace `opencode.json` (`.opencode.json` как compat) и `.opencode/{commands,agents}`.
+
+Проверка:
+
+```bash
+cat opencode.json
+ls .opencode/commands | head
+ls .opencode/agents | head
+```
+
+После этого запускайте `opencode` из корня workspace, где лежит `opencode.json` (или `.opencode.json` в compat-сценариях).
+
+## Глобальная установка OpenCode
+
+Если хотите, чтобы AIDD-команды/агенты OpenCode были доступны во всех проектах на машине:
+
+```bash
+export AIDD_PLUGIN_ROOT="/absolute/path/to/ai_driven_dev"
+export CLAUDE_PLUGIN_ROOT="$AIDD_PLUGIN_ROOT"
+
+cd "$AIDD_PLUGIN_ROOT/platform/opencode-plugin"
+npm install --no-audit --no-fund --no-package-lock
+npm run build
+
+mkdir -p "$HOME/.config/opencode/plugins" "$HOME/.config/opencode/commands" "$HOME/.config/opencode/agents"
+cat > "$HOME/.config/opencode/plugins/feature-dev-aidd-opencode-bridge.mjs" <<EOF
+process.env.AIDD_PLUGIN_ROOT = "$AIDD_PLUGIN_ROOT";
+process.env.CLAUDE_PLUGIN_ROOT = "$AIDD_PLUGIN_ROOT";
+export { default } from "$AIDD_PLUGIN_ROOT/platform/opencode-plugin/dist/index.js";
+EOF
+
+python3 - <<'PY'
+import json
+import os
+import shutil
+from pathlib import Path
+
+root = Path(os.environ["AIDD_PLUGIN_ROOT"]).resolve()
+cfg = Path.home() / ".config" / "opencode"
+commands = cfg / "commands"
+agents = cfg / "agents"
+commands.mkdir(parents=True, exist_ok=True)
+agents.mkdir(parents=True, exist_ok=True)
+
+manifest = json.loads((root / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
+for entry in manifest.get("skills", []):
+    src = root / str(entry).lstrip("./")
+    if src.is_dir():
+        src = src / "SKILL.md"
+    if src.is_file():
+        shutil.copy2(src, commands / f"{src.parent.name}.md")
+
+for entry in manifest.get("agents", []):
+    src = root / str(entry).lstrip("./")
+    if src.is_file():
+        shutil.copy2(src, agents / src.name)
+PY
+```
+
+Почему именно так:
+- OpenCode глобально читает `~/.config/opencode/{plugins,commands,agents}`.
+- Loader в `plugins/` фиксирует `AIDD_PLUGIN_ROOT`, поэтому bridge корректно находит `hooks/opencode_bridge.py` из любого `cwd`.
+- Не копируйте `dist/*.js` в отдельную папку без `AIDD_PLUGIN_ROOT`: иначе пути к Python hooks будут некорректны.
 
 ### 3. Запустите фичу в Claude Code
 
@@ -189,6 +275,7 @@ Loop = 1 work_item → implement → review → (revise)* → ship.
 Команды:
 - Manual: `/feature-dev-aidd:implement <ticket>` → `/feature-dev-aidd:review <ticket>`.
 - Loop CLI: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/loop_step.py --ticket <ticket>` (fresh sessions).
+- OpenCode loop CLI: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/loop_step.py --ticket <ticket> --runner-platform opencode --runner "opencode"`.
 - One-shot: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/loop_run.py --ticket <ticket> --max-iterations 5`.
 - Scope guard: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/runtime/diff_boundary_check.py --ticket <ticket>`.
 - Stream (optional): `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/loop_step.py --ticket <ticket> --stream=text|tools|raw`,
@@ -203,6 +290,7 @@ CLAUDE_PLUGIN_ROOT="/path/to/ai_driven_dev" PYTHONPATH="$CLAUDE_PLUGIN_ROOT" pyt
 - Ralph plugin использует stop-hook в той же сессии (completion promise). AIDD loop-mode — fresh sessions.
 - Для max-iterations используйте формат с пробелом: `--max-iterations 5` (без `=`).
 - Если `CLAUDE_PLUGIN_ROOT`/`AIDD_PLUGIN_DIR` не задан, loop-скрипты пытаются auto-detect по пути скрипта и печатают WARN; при недоступности авто‑детекта — BLOCKED.
+- Platform override: `AIDD_LOOP_RUNNER_PLATFORM=auto|claude|opencode` (CLI: `--runner-platform`).
 - Stream логи: `aidd/reports/loops/<ticket>/cli.loop-*.stream.log` (human) и `aidd/reports/loops/<ticket>/cli.loop-*.stream.jsonl` (raw).
 - Loop run log: `aidd/reports/loops/<ticket>/loop.run.log`.
 - Настройки cadence/tests хранятся в `.claude/settings.json` в корне workspace (без `aidd/.claude`).
@@ -219,6 +307,7 @@ CLAUDE_PLUGIN_ROOT="/path/to/ai_driven_dev" PYTHONPATH="$CLAUDE_PLUGIN_ROOT" pyt
 ## Предпосылки
 - `bash`, `git`, `python3`.
 - Claude Code с доступом к plugin marketplace.
+- Для OpenCode runtime/checks: `opencode` CLI, `node`, `npm`.
 - Инструменты сборки/тестов вашего стека (по желанию).
 - MCP интеграции опциональны: `.mcp.json` не входит в плагин по умолчанию.
 

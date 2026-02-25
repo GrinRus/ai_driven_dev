@@ -28,6 +28,40 @@ class LoopRunTests(unittest.TestCase):
         if not (root / "docs" / "prd" / f"{ticket}.prd.md").exists():
             write_file(root, f"docs/prd/{ticket}.prd.md", "Status: READY\n")
 
+    def test_resolve_runner_platform_auto_detects_opencode(self) -> None:
+        resolved = loop_run_module.resolve_runner_platform("auto", "opencode")
+        self.assertEqual(resolved, "opencode")
+
+    def test_run_loop_step_forwards_runner_platform(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-run-platform-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-RUNNER-PLATFORM"
+            write_active_state(root, ticket=ticket, stage="implement", work_item="iteration_id=I1")
+            self._seed_stage_chain_baseline(root, ticket)
+            captured = {}
+
+            def _fake_subprocess_run(cmd, **kwargs):
+                captured["cmd"] = cmd
+                return subprocess.CompletedProcess(args=cmd, returncode=0, stdout='{"status":"done"}', stderr="")
+
+            with patch("subprocess.run", side_effect=_fake_subprocess_run):
+                result = loop_run_module.run_loop_step(
+                    REPO_ROOT,
+                    root.parent,
+                    root,
+                    ticket,
+                    None,
+                    "opencode",
+                    from_qa=None,
+                    work_item_key=None,
+                    select_qa_handoff=False,
+                    stream_mode=None,
+                    timeout_seconds=10,
+                )
+            self.assertEqual(result.returncode, 0)
+            self.assertIn("--runner-platform", captured.get("cmd", []))
+            self.assertIn("opencode", captured.get("cmd", []))
+
     def test_loop_run_ship_clears_state(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
@@ -1440,6 +1474,7 @@ class LoopRunTests(unittest.TestCase):
                     root,
                     ticket,
                     None,
+                    None,
                     from_qa=None,
                     work_item_key=None,
                     select_qa_handoff=False,
@@ -1475,6 +1510,7 @@ class LoopRunTests(unittest.TestCase):
                     root,
                     ticket,
                     None,
+                    None,
                     from_qa=None,
                     work_item_key=None,
                     select_qa_handoff=False,
@@ -1508,6 +1544,7 @@ class LoopRunTests(unittest.TestCase):
                     root.parent,
                     root,
                     ticket,
+                    None,
                     None,
                     from_qa=None,
                     work_item_key=None,
@@ -1544,6 +1581,7 @@ class LoopRunTests(unittest.TestCase):
                     root.parent,
                     root,
                     ticket,
+                    None,
                     None,
                     from_qa=None,
                     work_item_key=None,

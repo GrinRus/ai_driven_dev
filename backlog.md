@@ -236,3 +236,92 @@ _Rollout policy: breaking-only, без обратной совместимост
 2. `W101-4` -> `W101-10` -> `W101-8` -> `W101-11` -> `W101-12`
 3. `W101-1..W101-12` -> `W101-13` -> `W101-14` -> `W101-15`
 
+## Wave 102 — OpenCode Dual Runtime (Claude + OpenCode parity)
+
+_Статус: выполнено (ветка реализации). Цель — full-parity поддержка OpenCode в AIDD flow при сохранении совместимости с Claude runtime._
+_Execution gate: реализация кода разрешена только после фиксации задач Wave 102 в backlog._
+
+### EPIC O1 — Runner platform adapter + stage command routing
+
+- [x] **W102-1 (P0) Introduce runner platform contract (`auto|claude|opencode`)** `skills/aidd-loop/runtime/loop_step_parts/core.py`, `skills/aidd-loop/runtime/loop_run_parts/core.py`, `skills/aidd-loop/runtime/loop_step_stage_chain.py`, `tests/test_loop_step.py`, `tests/test_loop_run.py`:
+  - добавить `--runner-platform` + env `AIDD_LOOP_RUNNER_PLATFORM`;
+  - режим `auto`: `opencode` выбирается при runner command `opencode*`, иначе `claude`;
+  - сохранить backward compatibility для текущего `--runner` path.
+  **DoD:** loop-step/loop-run поддерживают platform selection без регрессий текущего Claude пути.
+  **Risks:** runtime coupling к Claude flags/permission mode.
+  **Verification artifacts:** обновлённые unit tests + loop logs c `runner_platform`.
+
+- [x] **W102-2 (P0) Add platform-specific command builder for stage invocation** `skills/aidd-loop/runtime/loop_step_stage_chain.py`, `tests/test_loop_step.py`:
+  - `claude`: сохранить `-p /feature-dev-aidd:<stage> <ticket>`;
+  - `opencode`: `opencode run --format json --command "feature-dev-aidd:<stage> <ticket> ..."`.
+  **DoD:** command namespace `feature-dev-aidd:*` сохранён для обоих рантаймов.
+  **Risks:** shell quoting/args drift для answers retry payload.
+  **Verification artifacts:** command snapshot checks в loop-step тестах.
+
+### EPIC O2 — Stream rendering parity for OpenCode
+
+- [x] **W102-3 (P0) Implement OpenCode stream renderer + parser switch** `skills/aidd-loop/runtime/opencode_stream_render.py`, `skills/aidd-loop/runtime/loop_step_stage_chain.py`, `tests/repo_tools/opencode-stream-render`, `tests/fixtures/opencode_stream/*`:
+  - добавить OpenCode event parser (text/tools modes);
+  - переключать renderer по runner platform;
+  - сохранить текущий `claude_stream_render.py` как canonical Claude path.
+  **DoD:** stream logs и tty output корректны для Claude и OpenCode.
+  **Risks:** несовместимость event payload между версиями OpenCode.
+  **Verification artifacts:** stream fixture tests + regression logs.
+
+### EPIC O3 — OpenCode TS plugin bridge to existing Python hooks/gates
+
+- [x] **W102-4 (P0) Add TypeScript OpenCode plugin package** `platform/opencode-plugin/package.json`, `platform/opencode-plugin/tsconfig.json`, `platform/opencode-plugin/src/index.ts`, `platform/opencode-plugin/src/bridge.ts`, `platform/opencode-plugin/src/types.ts`:
+  - реализовать plugin hooks (`chat.message`, `tool.execute.before`, `event`, `permission.ask`);
+  - сделать bridge к текущим Python hooks через subprocess payload adapter.
+  **DoD:** TS plugin собирается и может вызывать существующий Python hook stack.
+  **Risks:** API drift OpenCode SDK/plugin hooks.
+  **Verification artifacts:** plugin unit tests + build output `dist/index.js`.
+
+- [x] **W102-5 (P0) Enforce strict hard-block semantics in bridge contract** `platform/opencode-plugin/src/index.ts`, `hooks/hooklib.py`, `tests/test_opencode_bridge.py`:
+  - `decision=block`, `permissionDecision=deny|ask` должны приводить к hard-block;
+  - `updatedInput` из PreToolUse должен маппиться в tool args mutation.
+  **DoD:** fail-closed behavior подтверждён тестами для block/deny/ask.
+  **Risks:** OpenCode hook runtime может ограничивать hard stop в отдельных событиях.
+  **Verification artifacts:** bridge integration tests with explicit reason codes.
+
+### EPIC O4 — Workspace bootstrap for OpenCode
+
+- [x] **W102-6 (P0) Extend `aidd-init` with `.opencode` bootstrap artifacts** `skills/aidd-init/runtime/init.py`, `tests/test_init_aidd.py`:
+  - генерировать `.opencode.json`;
+  - генерировать `.opencode/{commands,agents}` из SoT (`skills/*/SKILL.md`, `agents/*.md`);
+  - сохранить idempotent behavior и `--force` semantics.
+  **DoD:** fresh install создаёт OpenCode bootstrap; повторный запуск не перетирает без `--force`.
+  **Risks:** path resolution plugin cache vs workspace.
+  **Verification artifacts:** init tests for create/idempotency/force.
+
+### EPIC O5 — CI, smoke, required checks
+
+- [x] **W102-7 (P0) Add required OpenCode checks in CI (Phase 1 required)** `.github/workflows/ci.yml`, `tests/repo_tools/ci-lint.sh`, `tests/repo_tools/smoke-workflow.sh`:
+  - добавить Node setup + npm install/build/test для `platform/opencode-plugin`;
+  - добавить OpenCode smoke path alongside existing Claude smoke;
+  - сделать проверки required в `lint-and-test`.
+  **DoD:** PR CI зелёный только при прохождении Claude + OpenCode checks.
+  **Risks:** flaky CLI smoke, version pinning for OpenCode/npm deps.
+  **Verification artifacts:** CI logs + smoke artifacts.
+
+### EPIC O6 — Docs/release metadata
+
+- [x] **W102-8 (P1) Update docs, changelog, and plugin metadata for dual-runtime** `README.md`, `README.en.md`, `AGENTS.md`, `CHANGELOG.md`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`:
+  - задокументировать dual-runtime запуск и OpenCode prerequisites;
+  - отразить новые CLI args/env и bootstrap outputs;
+  - обновить версии для user-facing release.
+  **DoD:** docs и metadata согласованы с runtime behavior и CI checks.
+  **Risks:** несогласованность RU/EN и runtime contracts.
+  **Verification artifacts:** doc lint + prompt/runtime checks.
+
+### Wave 102 Acceptance Gate
+
+- [x] **W102-GATE (P0) Migration acceptance checklist**:
+  - все существующие regression tests зелёные;
+  - новые OpenCode tests зелёные;
+  - strict hard-block semantics подтверждён;
+  - namespace `feature-dev-aidd:*` сохранён;
+  - `--runner-platform`/`AIDD_LOOP_RUNNER_PLATFORM` задокументированы.
+  **DoD:** migration признана READY только при полном прохождении checklist.
+  **Risks:** partial parity скрывает runtime drift.
+  **Verification artifacts:** `tests/repo_tools/ci-lint.sh`, `tests/repo_tools/smoke-workflow.sh`, pytest suite.

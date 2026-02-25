@@ -5,6 +5,7 @@ __pycache__/
 .build/
 build/
 dist/
+node_modules/
 .python-version
 .pytest_cache/
 .mypy_cache/

@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+RENDER=(python3 "${ROOT_DIR}/skills/aidd-loop/runtime/opencode_stream_render.py")
+FIXTURES="${ROOT_DIR}/tests/fixtures/opencode_stream"
+
+fail() {
+  printf '[error] %s\n' "$*" >&2
+  exit 1
+}
+
+out="$(${RENDER[@]} --mode text-only < "${FIXTURES}/text_delta.jsonl")"
+if [[ "${out}" != "Hello world" ]]; then
+  fail "text-only output mismatch: '${out}'"
+fi
+
+out_tools="$(${RENDER[@]} --mode text+tools < "${FIXTURES}/tool_events.jsonl")"
+if ! printf '%s' "${out_tools}" | rg -q "\[tool:start\] Bash"; then
+  fail "tool start missing in text+tools output"
+fi
+if ! printf '%s' "${out_tools}" | rg -q "\[tool:stop\] Bash"; then
+  fail "tool stop missing in text+tools output"
+fi
+if ! printf '%s' "${out_tools}" | rg -q "status=ok"; then
+  fail "tool stop status missing in text+tools output"
+fi
+
+set +e
+stderr_default="$(${RENDER[@]} --mode text-only < "${FIXTURES}/invalid.jsonl" 2>&1 >/dev/null)"
+status_default=$?
+set -e
+if [[ ${status_default} -ne 0 ]]; then
+  fail "renderer should exit 0 on invalid json in soft mode"
+fi
+if ! printf '%s' "${stderr_default}" | rg -q "WARN: invalid json"; then
+  fail "renderer should warn on invalid json in soft mode"
+fi
+
+set +e
+AIDD_STREAM_STRICT=1 "${RENDER[@]}" --mode text-only < "${FIXTURES}/invalid.jsonl" >/dev/null 2>"${FIXTURES}/strict.err"
+status_strict=$?
+set -e
+if [[ ${status_strict} -ne 1 ]]; then
+  fail "renderer should exit 1 on invalid json in strict mode"
+fi
+if ! rg -q "WARN: invalid json" "${FIXTURES}/strict.err"; then
+  fail "renderer should warn on invalid json in strict mode"
+fi
+rm -f "${FIXTURES}/strict.err"
+
+printf '[ok] opencode stream renderer\n'
