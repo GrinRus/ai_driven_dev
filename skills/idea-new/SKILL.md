@@ -28,7 +28,7 @@ Follow `feature-dev-aidd:aidd-core`.
 2. Slug synthesis: generate a short LLM summary from `idea_note`, normalize it into kebab-case token (`[a-z0-9-]`, 2-6 words), and use it as internal `slug_hint`; if `idea_note` is empty, fallback to `<ticket>` token. Do not ask user for `slug_hint`.
 3. Preflight: set active stage `idea` and active feature with `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_stage.py` and `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_feature.py <ticket> --slug-note "<generated-slug>"`.
 4. Orchestration: build/update the rolling context pack `aidd/reports/context/<ticket>.pack.md` and run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/idea-new/runtime/analyst_check.py --ticket <ticket>`.
-5. Run subagent `analyst`. First action: read the rolling context pack.
+5. Run subagent `feature-dev-aidd:analyst`. First action: read the rolling context pack.
 6. Postflight: if answers already exist, rerun `python3 ${CLAUDE_PLUGIN_ROOT}/skills/idea-new/runtime/analyst_check.py --ticket <ticket>` and sync PRD readiness status.
 7. Output: return open questions (if any) and explicit next step `/feature-dev-aidd:researcher <ticket>`.
 

@@ -28,7 +28,7 @@ Follow `feature-dev-aidd:aidd-core`.
 2. Run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py --ticket <ticket> --auto`.
 3. Re-run the same entrypoint with optional overrides (`--paths`, `--keywords`, `--note`) when targeted refresh is needed.
 4. Validate RLM outputs (`*-rlm-targets.json`, `*-rlm-manifest.json`, `*-rlm.worklist.pack.json`, optional `*-rlm.pack.json`).
-5. Run subagent `researcher`. First action: read RLM pack/worklist.
+5. Run subagent `feature-dev-aidd:researcher`. First action: read RLM pack/worklist.
 6. In `--auto` mode run bounded canonical finalize recovery once (`rlm_finalize --bootstrap-if-missing`) from stage runtime.
 7. If RLM is still pending after auto recovery, return deterministic pending reason + explicit next action (`python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_finalize.py --ticket <ticket>`) and append research handoff via `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/tasks_derive.py --source research --append`.
 8. Return the output contract with explicit next step (`/feature-dev-aidd:plan-new <ticket>` when stage handoff is ready).

@@ -54,7 +54,7 @@ Follow `feature-dev-aidd:aidd-core` and `feature-dev-aidd:aidd-loop`.
 4. Runtime-path safety: use only runtime commands from this skill contracts. If stdout/stderr contains `can't open file .../skills/.../runtime/...`, stop with immediate BLOCKED `runtime_path_missing_or_drift`; one runtime-path error is terminal for current run, do not invent alternate filenames, and do not retry guessed commands.
 5. Retry safety: do not rerun the same failing shell command more than once without new evidence/artifacts. For cwd/build mismatches, stop with blocker and handoff instead of looped retries.
 6. Read order after stage-chain preflight artifacts: `readmap.md` -> loop pack -> review pack (if exists) -> rolling context pack; do not perform broad repo scan before these artifacts.
-7. Run subagent `implementer`.
+7. Run subagent `feature-dev-aidd:implementer`.
 8. Orchestration: use the existing rolling context pack (do not regenerate it), Fill actions.json (v1) at `aidd/reports/actions/<ticket>/<scope_key>/implement.actions.json`, and validate schema via `python3 ${CLAUDE_PLUGIN_ROOT}/skills/implement/runtime/implement_run.py`.
 9. Canonical stage-chain: internal preflight -> stage runtime -> actions_apply.py/postflight -> `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py`; it must produce `aidd/reports/loops/<ticket>/<scope_key>/stage.implement.result.json`. `[AIDD_LOOP_POLICY:CANONICAL_STAGE_RESULT_PATH]`
 10. Non-canonical stage-result path under `skills/aidd-loop/runtime/` is forbidden (treat as prompt-flow drift). `[AIDD_LOOP_POLICY:NON_CANONICAL_STAGE_RESULT_FORBIDDEN]`

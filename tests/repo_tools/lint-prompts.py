@@ -100,6 +100,7 @@ NO_FORK_FORBIDDEN_PHRASES = (
     "(fork)",
     "delegate to subagent",
 )
+RUN_SUBAGENT_NAMESPACE_RE = re.compile(r"run subagent `([^`]+)`", re.IGNORECASE)
 LEGACY_STAGE_ALIAS_TO_CANONICAL = {
     "/feature-dev-aidd:planner": "/feature-dev-aidd:plan-new",
     "/feature-dev-aidd:tasklist-refiner": "/feature-dev-aidd:tasks-new",
@@ -1212,6 +1213,13 @@ def lint_skills(root: Path) -> Tuple[List[str], List[str]]:
                         f"{info.path}: stage must contain exactly {expected_subagents} `Run subagent` step(s) "
                         f"(found {subagent_mentions})"
                     )
+                for match in RUN_SUBAGENT_NAMESPACE_RE.finditer(info.body):
+                    token = str(match.group(1) or "").strip()
+                    if token and not token.startswith("feature-dev-aidd:"):
+                        errors.append(
+                            f"{info.path}: stage subagent ref `{token}` must use namespaced form "
+                            "`feature-dev-aidd:<agent>`"
+                        )
                 body_lc = info.body.lower()
                 forbidden_phrases = [phrase for phrase in NO_FORK_FORBIDDEN_PHRASES if phrase in body_lc]
                 if forbidden_phrases:
