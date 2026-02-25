@@ -94,6 +94,11 @@ def _is_report_path(path: str) -> bool:
     return normalized.startswith("aidd/reports/")
 
 
+def _is_memory_pack(path: str) -> bool:
+    normalized = path.replace("\\", "/")
+    return normalized.startswith("aidd/reports/memory/") and normalized.endswith(".pack.json")
+
+
 def _find_index(entries: List[Dict[str, str]], predicate) -> int:
     for idx, entry in enumerate(entries):
         if predicate(entry):
@@ -128,7 +133,7 @@ def check_output_contract(
     work_item_key: str,
     log_path: Path,
     stage_result_path: Optional[Path] = None,
-    max_read_items: int = 3,
+    max_read_items: int = 4,
 ) -> Dict[str, object]:
     text = log_path.read_text(encoding="utf-8", errors="replace") if log_path.exists() else ""
     fields = _parse_fields(text)
@@ -152,6 +157,7 @@ def check_output_contract(
     loop_idx = _find_index(read_entries, lambda item: ".loop.pack." in (item.get("path") or ""))
     review_idx = _find_index(read_entries, lambda item: "review.latest.pack" in (item.get("path") or ""))
     context_idx = _find_index(read_entries, lambda item: "/reports/context/" in (item.get("path") or ""))
+    memory_idx = _find_index(read_entries, lambda item: _is_memory_pack(item.get("path") or ""))
 
     if stage in {"implement", "review"}:
         actions_value = str(fields.get("actions_log") or "").strip()
@@ -171,6 +177,8 @@ def check_output_contract(
             warnings.append("read_order_context_before_loop")
         if context_idx >= 0 and review_idx >= 0 and context_idx < review_idx:
             warnings.append("read_order_context_before_review")
+        if context_idx >= 0 and memory_idx >= 0 and context_idx < memory_idx:
+            warnings.append("read_order_context_before_memory")
     elif stage == "qa":
         actions_value = str(fields.get("actions_log") or "").strip()
         if not actions_value:
@@ -227,7 +235,7 @@ def parse_args(argv: List[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--work-item-key", help="Optional work item key override.")
     parser.add_argument("--log", dest="log_path", required=True, help="Path to command output log.")
     parser.add_argument("--stage-result", help="Optional stage_result path override.")
-    parser.add_argument("--max-read-items", type=int, default=3, help="Max entries allowed in AIDD:READ_LOG.")
+    parser.add_argument("--max-read-items", type=int, default=4, help="Max entries allowed in AIDD:READ_LOG.")
     parser.add_argument("--format", choices=("json", "text"), default="json")
     return parser.parse_args(argv)
 

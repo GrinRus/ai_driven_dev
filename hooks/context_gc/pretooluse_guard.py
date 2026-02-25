@@ -148,6 +148,11 @@ def _command_targets_aidd(command: str) -> bool:
 
 
 ALWAYS_ALLOW_PATTERNS = ["aidd/reports/**", "aidd/reports/actions/**"]
+MEMORY_READ_PATTERNS = [
+    "aidd/reports/memory/*.semantic.pack.json",
+    "aidd/reports/memory/*.decisions.pack.json",
+    "aidd/reports/memory/*.decisions.jsonl",
+]
 _SCOPE_KEY_RE = re.compile(r"[^A-Za-z0-9_.-]+")
 _STAGE_RESULT_SUFFIXES = (
     "/stage.implement.result.json",
@@ -352,6 +357,7 @@ def _policy_state(project_dir: Path, aidd_root: Optional[Path]) -> Dict[str, Any
     if isinstance(readmap.get("always_allow"), list):
         read_allowed.extend(str(item) for item in readmap.get("always_allow") if str(item).strip())
     read_allowed.extend(ALWAYS_ALLOW_PATTERNS)
+    read_allowed.extend(MEMORY_READ_PATTERNS)
 
     write_allowed = []
     if isinstance(writemap.get("allowed_paths"), list):

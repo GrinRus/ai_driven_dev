@@ -74,6 +74,7 @@ class PreflightPrepareTests(unittest.TestCase):
             writemap_payload = json.loads(writemap.read_text(encoding="utf-8"))
             actions_payload = json.loads(actions_template.read_text(encoding="utf-8"))
             result_payload = json.loads(preflight_result.read_text(encoding="utf-8"))
+            entry_paths = [str(item.get("path") or "") for item in readmap_payload.get("entries") or []]
 
             self.assertEqual(readmap_payload.get("schema"), "aidd.readmap.v1")
             self.assertEqual(writemap_payload.get("schema"), "aidd.writemap.v1")
@@ -86,6 +87,12 @@ class PreflightPrepareTests(unittest.TestCase):
             self.assertEqual(details.get("target_stage"), "implement")
             self.assertTrue((details.get("artifacts") or {}).get("actions_template"))
             self.assertIn("src/feature/**", writemap_payload.get("allowed_paths", []))
+            self.assertIn(f"aidd/reports/memory/{ticket}.semantic.pack.json", entry_paths)
+            self.assertIn(f"aidd/reports/memory/{ticket}.decisions.pack.json", entry_paths)
+            self.assertLess(
+                entry_paths.index(f"aidd/reports/memory/{ticket}.semantic.pack.json"),
+                entry_paths.index(f"aidd/reports/context/{ticket}.pack.md"),
+            )
 
     def test_preflight_prepare_blocks_without_work_item_key(self) -> None:
         with tempfile.TemporaryDirectory(prefix="preflight-prepare-") as tmpdir:

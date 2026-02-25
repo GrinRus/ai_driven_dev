@@ -26,6 +26,10 @@ DEFAULT_ACTION_TYPES = [
     "context_pack_ops.context_pack_update",
 ]
 ALWAYS_ALLOW_REPORTS = ["aidd/reports/**", "aidd/reports/actions/**"]
+MEMORY_OPTIONAL_REFS: Tuple[Tuple[str, str], ...] = (
+    ("aidd/reports/memory/{ticket}.semantic.pack.json", "memory-semantic-pack"),
+    ("aidd/reports/memory/{ticket}.decisions.pack.json", "memory-decisions-pack"),
+)
 
 
 class PreflightBlocked(RuntimeError):
@@ -329,6 +333,33 @@ def _build_readmap(
                 "reason": "review-pack",
             }
         )
+
+    existing_paths = {entry.get("path", "") for entry in required_entries + optional_entries}
+    memory_entries: List[Dict[str, Any]] = []
+    for ref_template, reason in MEMORY_OPTIONAL_REFS:
+        rendered = _render_template(ref_template, context).strip()
+        path, selector = _parse_ref(rendered)
+        if not path or path in existing_paths:
+            continue
+        memory_entries.append(
+            {
+                "ref": rendered,
+                "path": path,
+                "selector": selector,
+                "required": False,
+                "reason": reason,
+            }
+        )
+        existing_paths.add(path)
+
+    if memory_entries:
+        insertion_idx = len(optional_entries)
+        for idx, entry in enumerate(optional_entries):
+            path = str(entry.get("path") or "")
+            if "/reports/context/" in path:
+                insertion_idx = idx
+                break
+        optional_entries[insertion_idx:insertion_idx] = memory_entries
 
     entries = required_entries + optional_entries
     allowed_paths = _dedupe_str([entry["path"] for entry in entries] + ALWAYS_ALLOW_REPORTS)

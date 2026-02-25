@@ -147,7 +147,7 @@ _Rollout policy: Memory v2 — breaking-only, без обратной совме
   **Effort:** S
   **Risk:** Low
 
-- [ ] **W101-7 (P0) Research pipeline hook: run `memory_extract` after RLM readiness** `skills/researcher/runtime/research.py`, `tests/test_research_command.py`:
+- [x] **W101-7 (P0) Research pipeline hook: run `memory_extract` after RLM readiness** `skills/researcher/runtime/research.py`, `tests/test_research_command.py`:
   - после успешной сборки RLM artifacts запускать semantic extraction;
   - фиксировать memory artifacts в event/index paths.
   **AC:** `research.py --auto` генерирует semantic memory pack без ручного шага.
@@ -156,7 +156,7 @@ _Rollout policy: Memory v2 — breaking-only, без обратной совме
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W101-8 (P1) Loop preflight/read policy integration for memory packs** `skills/aidd-loop/runtime/preflight_prepare.py`, `skills/aidd-loop/runtime/output_contract.py`, `hooks/context_gc/pretooluse_guard.py`, `tests/test_preflight_prepare.py`, `tests/test_output_contract.py`:
+- [x] **W101-8 (P1) Loop preflight/read policy integration for memory packs** `skills/aidd-loop/runtime/preflight_prepare.py`, `skills/aidd-loop/runtime/output_contract.py`, `hooks/context_gc/pretooluse_guard.py`, `tests/test_preflight_prepare.py`, `tests/test_output_contract.py`:
   - добавить memory artifacts в optional read chain/readmap для implement/review/qa;
   - разрешить policy-driven reads из `aidd/reports/memory/**`.
   **AC:** loop stages читают memory packs без policy-deny и с корректным read-order diagnostics.
@@ -183,7 +183,7 @@ _Rollout policy: Memory v2 — breaking-only, без обратной совме
   **Effort:** M
   **Risk:** High
 
-- [ ] **W101-11 (P1) Read-policy/templates/index alignment for memory-first retrieval** `skills/aidd-policy/references/read-policy.md`, `skills/aidd-core/templates/context-pack.template.md`, `skills/status/runtime/index_sync.py`, `skills/aidd-core/templates/index.schema.json`, `tests/test_status.py`:
+- [x] **W101-11 (P1) Read-policy/templates/index alignment for memory-first retrieval** `skills/aidd-policy/references/read-policy.md`, `skills/aidd-core/templates/context-pack.template.md`, `skills/status/runtime/index_sync.py`, `skills/aidd-core/templates/index.schema.json`, `tests/test_status.py`:
   - добавить memory packs в canonical read order;
   - отразить memory artifacts в index/report discovery.
   **AC:** policy/templates/status-index не расходятся с Memory v2 contract.

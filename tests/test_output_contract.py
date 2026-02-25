@@ -38,7 +38,8 @@ class OutputContractTests(unittest.TestCase):
                         "Blockers/Handoff: none",
                         "Next actions: none",
                         "AIDD:READ_LOG: aidd/reports/context/DEMO-OUT.pack.md (reason: rolling context); "
-                        "aidd/reports/loops/DEMO-OUT/iteration_id_I1.loop.pack.md (reason: loop pack)",
+                        "aidd/reports/loops/DEMO-OUT/iteration_id_I1.loop.pack.md (reason: loop pack); "
+                        "aidd/reports/memory/DEMO-OUT.semantic.pack.json (reason: memory-semantic-pack)",
                     ]
                 )
                 + "\n",
@@ -68,6 +69,7 @@ class OutputContractTests(unittest.TestCase):
             warnings = payload.get("warnings") or []
             self.assertIn("status_mismatch_stage_result", warnings)
             self.assertIn("read_order_context_before_loop", warnings)
+            self.assertIn("read_order_context_before_memory", warnings)
 
 
 if __name__ == "__main__":

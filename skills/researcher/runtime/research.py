@@ -17,7 +17,7 @@ if str(_PLUGIN_ROOT) not in sys.path:
     sys.path.insert(0, str(_PLUGIN_ROOT))
 
 from aidd_runtime import research_hints as prd_hints
-from aidd_runtime import rlm_finalize, rlm_manifest, rlm_nodes_build, rlm_targets, runtime, tasks_derive
+from aidd_runtime import memory_extract, rlm_finalize, rlm_manifest, rlm_nodes_build, rlm_targets, runtime, tasks_derive
 from aidd_runtime.feature_ids import write_active_state
 from aidd_runtime.rlm_config import load_rlm_settings
 
@@ -395,6 +395,61 @@ def _append_research_handoff(
     return code == 0, ""
 
 
+def _run_memory_extract(*, target: Path, ticket: str) -> dict[str, str]:
+    outcome: dict[str, str] = {
+        "status": "error",
+        "reason_code": "",
+        "semantic_pack": "",
+        "stderr": "",
+    }
+    stdout_buffer = io.StringIO()
+    stderr_buffer = io.StringIO()
+    exit_code = 1
+    try:
+        with redirect_stdout(stdout_buffer), redirect_stderr(stderr_buffer):
+            exit_code = int(memory_extract.main(["--ticket", ticket, "--format", "json"]))
+    except SystemExit as exc:
+        try:
+            exit_code = int(exc.code or 1)
+        except (TypeError, ValueError):
+            exit_code = 1
+    except Exception as exc:
+        outcome["reason_code"] = "memory_extract_failed"
+        outcome["stderr"] = str(exc)
+        return outcome
+
+    stderr_text = stderr_buffer.getvalue().strip()
+    if stderr_text:
+        outcome["stderr"] = stderr_text
+
+    payload: dict[str, object] = {}
+    stdout_text = stdout_buffer.getvalue().strip()
+    if stdout_text:
+        for line in reversed(stdout_text.splitlines()):
+            try:
+                parsed = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(parsed, dict):
+                payload = parsed
+                break
+
+    semantic_rel = str(payload.get("semantic_pack") or "").strip() or f"reports/memory/{ticket}.semantic.pack.json"
+    semantic_path = runtime.resolve_path_for_target(Path(semantic_rel), target)
+    if exit_code == 0 and semantic_path.exists():
+        outcome["status"] = "ok"
+        outcome["semantic_pack"] = runtime.rel_path(semantic_path, target)
+        return outcome
+
+    if exit_code != 0:
+        outcome["reason_code"] = str(payload.get("reason_code") or "").strip() or "memory_extract_failed"
+    elif not semantic_path.exists():
+        outcome["reason_code"] = "memory_extract_missing_artifact"
+    else:
+        outcome["reason_code"] = str(payload.get("reason_code") or "").strip() or "memory_extract_failed"
+    return outcome
+
+
 def _validate_json_file(path: Path, label: str) -> None:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -759,6 +814,29 @@ def run(args: argparse.Namespace) -> int:
 
     _sync_prd_overrides(target, ticket=ticket, overrides=prd_overrides)
 
+    memory_status = "skipped"
+    memory_semantic_pack = ""
+    memory_reason_code = ""
+    if rlm_status == "ready":
+        memory_outcome = _run_memory_extract(target=target, ticket=ticket)
+        memory_status = str(memory_outcome.get("status") or "error")
+        memory_semantic_pack = str(memory_outcome.get("semantic_pack") or "").strip()
+        memory_reason_code = str(memory_outcome.get("reason_code") or "").strip()
+        if memory_status != "ok":
+            stderr_note = str(memory_outcome.get("stderr") or "").strip()
+            reason_label = memory_reason_code or "memory_extract_failed"
+            print(
+                "[aidd] ERROR: failed to generate memory semantic pack "
+                f"(reason_code={reason_label}).",
+                file=sys.stderr,
+            )
+            if stderr_note:
+                print(f"[aidd] ERROR: {stderr_note}", file=sys.stderr)
+            return 2
+        print(f"[aidd] memory semantic pack saved to {memory_semantic_pack}.")
+    else:
+        memory_reason_code = "rlm_not_ready"
+
     handoff_appended = False
     handoff_error = ""
     if rlm_status != "ready":
@@ -786,6 +864,7 @@ def run(args: argparse.Namespace) -> int:
     try:
         from aidd_runtime.reports import events as _events
 
+        report_rel = memory_semantic_pack or runtime.rel_path(rlm_pack_path if pack_exists else worklist_path, target)
         _events.append_event(
             target,
             ticket=ticket,
@@ -802,8 +881,11 @@ def run(args: argparse.Namespace) -> int:
                 "recovery_path": str(finalize_outcome.get("recovery_path") or "") or None,
                 "handoff_appended": handoff_appended,
                 "handoff_error": handoff_error or None,
+                "memory_status": memory_status,
+                "memory_semantic_pack": memory_semantic_pack or None,
+                "memory_reason_code": memory_reason_code or None,
             },
-            report_path=Path(runtime.rel_path(rlm_pack_path if pack_exists else worklist_path, target)),
+            report_path=Path(report_rel),
             source="aidd research",
         )
     except Exception:

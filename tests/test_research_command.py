@@ -607,6 +607,65 @@ class ResearchCommandTest(unittest.TestCase):
             self.assertNotIn("{{rlm_status}}", updated_text)
             self.assertNotIn("{{", updated_text)
 
+    def test_research_command_generates_memory_semantic_pack_when_rlm_ready(self):
+        with tempfile.TemporaryDirectory(prefix="aidd-research-memory-") as tmpdir:
+            workspace = Path(tmpdir) / "workspace"
+            project_root = workspace / "aidd"
+            project_root.mkdir(parents=True, exist_ok=True)
+            subprocess.run(
+                cli_cmd("init"),
+                cwd=workspace,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=cli_env(),
+            )
+
+            prd_path = project_root / "docs" / "prd" / "MEM-1.prd.md"
+            prd_path.parent.mkdir(parents=True, exist_ok=True)
+            prd_path.write_text(
+                "\n".join(
+                    [
+                        "# PRD",
+                        "## AIDD:RESEARCH_HINTS",
+                        "- Paths: src",
+                        "- Keywords: memory",
+                        "",
+                        "Default mode: auto",
+                        "Must not skip validation.",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            src_dir = workspace / "src"
+            src_dir.mkdir(parents=True, exist_ok=True)
+            (src_dir / "demo.py").write_text("print('memory')\n", encoding="utf-8")
+
+            args = research.parse_args(["--ticket", "MEM-1", "--limit", "5"])
+            ready_state = {
+                "status": "ready",
+                "warnings": [],
+                "nodes_ready": True,
+                "links_ok": True,
+                "pack_exists": False,
+                "links_empty": False,
+                "links_empty_reason": "",
+            }
+
+            old_cwd = Path.cwd()
+            os.chdir(workspace)
+            try:
+                with patch("aidd_runtime.research._evaluate_rlm_state", return_value=ready_state):
+                    code = research.run(args)
+            finally:
+                os.chdir(old_cwd)
+
+            self.assertEqual(code, 0)
+            semantic_pack = project_root / "reports" / "memory" / "MEM-1.semantic.pack.json"
+            self.assertTrue(semantic_pack.exists())
+            payload = json.loads(semantic_pack.read_text(encoding="utf-8"))
+            self.assertEqual(payload.get("schema"), "aidd.memory.semantic.v1")
+
 
 
 if __name__ == "__main__":

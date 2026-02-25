@@ -16,7 +16,7 @@ SCHEMAS_SUPPORTED = (SCHEMA_DECISION, SCHEMA_DECISIONS_PACK, SCHEMA_SEMANTIC)
 PACK_VERSION = "v1"
 
 DEFAULT_SEMANTIC_MAX_CHARS = 8000
-DEFAULT_SEMANTIC_MAX_LINES = 180
+DEFAULT_SEMANTIC_MAX_LINES = 320
 DEFAULT_SEMANTIC_MAX_ITEMS = 120
 DEFAULT_SEMANTIC_TRIM_PRIORITY = ("invariants", "constraints", "defaults", "terms", "open_questions")
 
@@ -140,4 +140,3 @@ def dedupe_preserve_order(items: Iterable[str]) -> List[str]:
         seen.add(value)
         output.append(value)
     return output
-

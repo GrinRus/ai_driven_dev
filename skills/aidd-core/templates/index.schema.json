@@ -15,6 +15,7 @@
     "checks"
   ],
   "optional": [
+    "memory",
     "context_pack",
     "events",
     "meta"

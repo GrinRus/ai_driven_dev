@@ -441,6 +441,34 @@ def build_rlm_skill() -> str:
     )
 
 
+def build_memory_skill() -> str:
+    return (
+        dedent(
+            """
+            ---
+            name: aidd-memory
+            description: Shared memory preload skill for semantic/decision artifacts.
+            lang: en
+            model: inherit
+            user-invocable: false
+            ---
+
+            ## Command contracts
+            ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-memory/runtime/memory_extract.py`
+            - When to run: after research readiness to materialize semantic memory pack.
+            - Inputs: ticket context and existing docs/reports artifacts.
+            - Outputs: deterministic semantic memory pack artifact.
+            - Failure mode: validation or budget checks fail.
+            - Next action: reduce noisy sources and rerun extract.
+
+            ## Additional resources
+            - Memory pack runtime: [runtime/memory_pack.py](runtime/memory_pack.py) (when: decision history compaction behavior is unclear; why: keep append-only memory flow deterministic).
+            """
+        ).strip()
+        + "\n"
+    )
+
+
 def build_stage_research_skill() -> str:
     return (
         dedent(
@@ -510,6 +538,7 @@ class PromptLintTests(unittest.TestCase):
         (skills_root / "aidd-observability" / "SKILL.md").parent.mkdir(parents=True, exist_ok=True)
         (skills_root / "aidd-policy" / "SKILL.md").parent.mkdir(parents=True, exist_ok=True)
         (skills_root / "aidd-loop" / "SKILL.md").parent.mkdir(parents=True, exist_ok=True)
+        (skills_root / "aidd-memory" / "SKILL.md").parent.mkdir(parents=True, exist_ok=True)
         (skills_root / "aidd-rlm" / "SKILL.md").parent.mkdir(parents=True, exist_ok=True)
         (skills_root / "aidd-stage-research" / "SKILL.md").parent.mkdir(parents=True, exist_ok=True)
         (skills_root / "aidd-core" / "SKILL.md").write_text(
@@ -529,6 +558,9 @@ class PromptLintTests(unittest.TestCase):
         )
         (skills_root / "aidd-loop" / "SKILL.md").write_text(
             skill_override.get("aidd-loop", build_loop_skill()), encoding="utf-8"
+        )
+        (skills_root / "aidd-memory" / "SKILL.md").write_text(
+            skill_override.get("aidd-memory", build_memory_skill()), encoding="utf-8"
         )
         (skills_root / "aidd-rlm" / "SKILL.md").write_text(
             skill_override.get("aidd-rlm", build_rlm_skill()), encoding="utf-8"
