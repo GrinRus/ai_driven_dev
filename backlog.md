@@ -244,7 +244,7 @@ _Назначение EPIC: закрыть retrieval/tooling/compaction конт
   **Effort:** S
   **Risk:** Low
 
-- [ ] **W101-17 (P0) Shared runtime adapter for ast-index with deterministic fallback** `skills/aidd-core/runtime`, `skills/aidd-core/runtime/runtime.py`:
+- [x] **W101-17 (P0) Shared runtime adapter for ast-index with deterministic fallback** `skills/aidd-core/runtime`, `skills/aidd-core/runtime/runtime.py`:
   - реализовать единый Python adapter: `detect/ensure-index/run-json/normalize`;
   - reason codes: `ast_index_binary_missing`, `ast_index_index_missing`, `ast_index_timeout`, `ast_index_json_invalid`, `ast_index_fallback_rg`.
   **AC:** adapter обеспечивает детерминированные reason codes и fallback path.
@@ -253,7 +253,7 @@ _Назначение EPIC: закрыть retrieval/tooling/compaction конт
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W101-18 (P1) AST evidence pack schema + deterministic artifact writer** `skills/aidd-core/runtime/schemas/aidd`, `skills/aidd-rlm/runtime/reports_pack_parts/core.py`:
+- [x] **W101-18 (P1) AST evidence pack schema + deterministic artifact writer** `skills/aidd-core/runtime/schemas/aidd`, `skills/aidd-rlm/runtime/reports_pack_parts/core.py`:
   - добавить schema/serializer для `aidd/reports/research/<ticket>-ast.pack.json`;
   - enforce budget/trim/sort policy + stable serialization.
   **AC:** AST pack валиден, детерминирован и укладывается в budget.
@@ -262,7 +262,7 @@ _Назначение EPIC: закрыть retrieval/tooling/compaction конт
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W101-19 (P1) Observability/doctor integration for ast-index readiness** `skills/aidd-observability/runtime/doctor.py`, `skills/aidd-observability/runtime/tools_inventory.py`:
+- [x] **W101-19 (P1) Observability/doctor integration for ast-index readiness** `skills/aidd-observability/runtime/doctor.py`, `skills/aidd-observability/runtime/tools_inventory.py`:
   - добавить проверки availability/version/index status;
   - optional mode не фейлит `doctor`.
   **AC:** `doctor` диагностирует ast-index readiness и корректно различает optional/required modes.

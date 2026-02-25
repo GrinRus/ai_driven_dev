@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 from aidd_runtime.resources import DEFAULT_PROJECT_SUBDIR, resolve_project_root
+from aidd_runtime import ast_index
 from aidd_runtime import runtime
 
 
@@ -162,6 +163,41 @@ def main(argv: list[str] | None = None) -> int:
         errors.append(
             "Loop stream observability diagnostics failed: "
             "ensure stream_liveness emits observability_degraded markers and loop_runner_permissions precedence."
+        )
+
+    try:
+        ast_cfg = ast_index.load_ast_index_config(project_root)
+        ast_probe = ast_index.probe_readiness(project_root, ast_cfg)
+    except Exception as exc:
+        ast_cfg = ast_index.AstIndexConfig()
+        ast_probe = {
+            "mode": ast_cfg.mode,
+            "required": ast_cfg.required,
+            "available": False,
+            "index_ready": False,
+            "reason_code": f"ast_index_probe_error:{exc}",
+            "version": "",
+            "binary": ast_cfg.binary,
+        }
+    ast_required = bool(ast_probe.get("required"))
+    ast_available = bool(ast_probe.get("available"))
+    ast_index_ready = bool(ast_probe.get("index_ready"))
+    ast_reason = str(ast_probe.get("reason_code") or "").strip() or "ok"
+    ast_version = str(ast_probe.get("version") or "").strip()
+    ast_detail = (
+        f"mode={ast_probe.get('mode')} required={ast_required} "
+        f"available={ast_available} index_ready={ast_index_ready} "
+        f"binary={ast_probe.get('binary')} reason={ast_reason}"
+    )
+    if ast_version:
+        ast_detail += f" version={ast_version}"
+
+    ast_ok = (ast_available and ast_index_ready) or (not ast_required)
+    rows.append(("ast-index readiness", ast_ok, ast_detail))
+    if ast_required and not (ast_available and ast_index_ready):
+        errors.append(
+            "ast-index is required by config but not ready. Install/index ast-index "
+            "or change aidd/config/conventions.json + aidd/config/gates.json to optional mode."
         )
 
     print("AIDD Doctor")

@@ -17,6 +17,7 @@ SCHEMA_FILES: Dict[str, str] = {
     "aidd.memory.semantic.v1": "aidd.memory.semantic.v1.json",
     "aidd.memory.decision.v1": "aidd.memory.decision.v1.json",
     "aidd.memory.decisions.pack.v1": "aidd.memory.decisions.pack.v1.json",
+    "aidd.ast.pack.v1": "aidd.ast.pack.v1.json",
 }
 
 

@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from aidd_runtime import tools_inventory
 
@@ -44,11 +45,31 @@ class ToolsInventoryTests(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            payload = tools_inventory._build_payload(root)
+            with mock.patch.object(
+                tools_inventory.ast_index_runtime,
+                "probe_readiness",
+                return_value={
+                    "mode": "auto",
+                    "required": False,
+                    "available": False,
+                    "index_ready": False,
+                    "reason_code": "ast_index_binary_missing",
+                    "fallback_reason_code": "ast_index_fallback_rg",
+                    "binary": "ast-index",
+                    "binary_path": "",
+                    "version": "",
+                },
+            ):
+                payload = tools_inventory._build_payload(root)
             self.assertEqual(payload.get("schema"), "aidd.tools_inventory.v3")
             self.assertIn("skills", payload.get("scan_dirs", []))
             self.assertIn("AGENTS.md", payload.get("scan_dirs", []))
             self.assertIn("hooks", payload.get("scan_dirs", []))
+            external_tools = payload.get("external_tools")
+            self.assertIsInstance(external_tools, dict)
+            ast_probe = (external_tools or {}).get("ast_index")
+            self.assertIsInstance(ast_probe, dict)
+            self.assertEqual(ast_probe.get("reason_code"), "ast_index_binary_missing")
 
             entries = {entry["path"]: entry for entry in payload.get("entrypoints", [])}
 
