@@ -3,8 +3,8 @@ name: spec-interview
 description: Collects missing spec inputs and synchronizes answers into `spec.yaml`. Use when review-spec leaves unresolved specification fields.
 argument-hint: $1 [note...]
 lang: ru
-prompt_version: 1.0.14
-source_version: 1.0.14
+prompt_version: 1.0.15
+source_version: 1.0.15
 allowed-tools:
   - Read
   - Edit
@@ -28,7 +28,7 @@ Follow `feature-dev-aidd:aidd-core`.
 ## Steps
 1. Set active stage `spec-interview` and active feature.
 2. Run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/spec-interview/runtime/spec_interview.py --ticket <ticket>`.
-3. Run subagent `feature-dev-aidd:spec-interview-writer`.
+3. Run subagent `spec-interview-writer`.
 4. Use `AskUserQuestionTool` to gather missing spec details; update `aidd/docs/spec/<ticket>.spec.yaml`.
 5. If answers arrive, sync them into the spec and `AIDD:OPEN_QUESTIONS`/`AIDD:DECISIONS` as needed.
 6. Return the output contract and next step `/feature-dev-aidd:tasks-new <ticket>`.

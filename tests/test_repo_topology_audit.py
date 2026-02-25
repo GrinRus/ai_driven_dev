@@ -63,7 +63,7 @@ name: plan-new
 user-invocable: true
 ---
 
-Run subagent `feature-dev-aidd:planner`, then run subagent `feature-dev-aidd:validator`.
+Run subagent `planner`, then run subagent `validator`.
 Run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan-new/runtime/research_check.py --ticket <ticket>`.
 """,
         )
@@ -76,7 +76,7 @@ name: spec-interview
 user-invocable: true
 ---
 
-Run subagent `feature-dev-aidd:spec-interview-writer`.
+Run subagent `spec-interview-writer`.
 Run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/spec-interview/runtime/spec_interview.py --ticket <ticket>`.
 """,
         )

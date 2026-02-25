@@ -3,8 +3,8 @@ name: review-spec
 description: Reviews plan and PRD, then gates readiness for implementation. Use when plan and PRD artifacts are ready for spec approval.
 argument-hint: $1 [note...]
 lang: ru
-prompt_version: 1.0.23
-source_version: 1.0.23
+prompt_version: 1.0.24
+source_version: 1.0.24
 allowed-tools:
   - Read
   - Edit
@@ -30,7 +30,7 @@ Follow `feature-dev-aidd:aidd-core`.
 2. Run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review-spec/runtime/prd_review_cli.py --ticket <ticket>`.
 3. Gate PRD readiness with `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/prd_check.py`; block on failure.
 4. Use the existing rolling context pack as review input; do not invoke standalone context-pack builder scripts from this stage.
-5. Run subagent `feature-dev-aidd:plan-reviewer`, then run subagent `feature-dev-aidd:prd-reviewer`.
+5. Run subagent `plan-reviewer`, then run subagent `prd-reviewer`.
 6. Persist PRD review report with `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review-spec/runtime/prd_review_cli.py --ticket <ticket> --report aidd/reports/prd/<ticket>.json`.
 7. Review-stage RLM policy: if RLM links are empty, the runtime performs bounded auto-heal (`rlm_links_build`, then finalize probe) and returns WARN attribution with evidence instead of terminal block when review can continue.
 8. Return the output contract with canonical next action: `/feature-dev-aidd:tasks-new <ticket>` when READY, or `/feature-dev-aidd:spec-interview <ticket>` when BLOCKED by missing/unresolved spec inputs.

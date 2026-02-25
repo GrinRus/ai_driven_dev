@@ -64,6 +64,10 @@ _LEGACY_STAGE_ALIAS_TO_CANONICAL = {
     "/feature-dev-aidd:tasklist-refiner": "/feature-dev-aidd:tasks-new",
     "/feature-dev-aidd:implementer": "/feature-dev-aidd:implement",
     "/feature-dev-aidd:reviewer": "/feature-dev-aidd:review",
+    "feature-dev-aidd:planner": "feature-dev-aidd:plan-new",
+    "feature-dev-aidd:tasklist-refiner": "feature-dev-aidd:tasks-new",
+    "feature-dev-aidd:implementer": "feature-dev-aidd:implement",
+    "feature-dev-aidd:reviewer": "feature-dev-aidd:review",
 }
 _SCOPE_STALE_HINT_RE = re.compile(
     r"\b(?:scope_fallback_stale_ignored|scope_shape_invalid)=([A-Za-z0-9_.:-]+)\b",
@@ -436,7 +440,8 @@ def _sanitize_next_action_aliases(next_action: str) -> str:
     value = str(next_action or "").strip()
     if not value:
         return ""
-    for legacy_alias, canonical_alias in _LEGACY_STAGE_ALIAS_TO_CANONICAL.items():
+    for legacy_alias in sorted(_LEGACY_STAGE_ALIAS_TO_CANONICAL, key=len, reverse=True):
+        canonical_alias = _LEGACY_STAGE_ALIAS_TO_CANONICAL[legacy_alias]
         value = re.sub(re.escape(legacy_alias), canonical_alias, value, flags=re.IGNORECASE)
     return value.strip()
 
