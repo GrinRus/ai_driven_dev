@@ -30,6 +30,24 @@ def parse_args(argv: List[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def _safe_int(value: object) -> int:
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _load_links_stats(project_root: Path, ticket: str) -> dict[str, object]:
+    path = project_root / "reports" / "research" / f"{ticket}-rlm.links.stats.json"
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
 def main(argv: List[str] | None = None) -> int:
     args = parse_args(argv)
     _, project_root = runtime.require_workflow_root()
@@ -112,12 +130,23 @@ def main(argv: List[str] | None = None) -> int:
         ticket,
     ]
     reports_pack.main(pack_args)
+    links_stats = _load_links_stats(project_root, ticket)
+    links_total = _safe_int(links_stats.get("links_total"))
+    links_empty = links_total == 0 if links_stats else (links_path.exists() and links_path.stat().st_size == 0)
+    empty_reason = str(links_stats.get("empty_reason") or "").strip() if links_stats else ""
+    reason_code = "rlm_links_empty_warn" if links_empty else ""
+    next_action = (
+        f"python3 ${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-rlm/runtime/rlm_links_build.py --ticket {ticket}"
+        if links_empty
+        else ""
+    )
     payload.update(
         {
             "status": "done",
-            "reason_code": "",
-            "next_action": "",
+            "reason_code": reason_code,
+            "next_action": next_action,
             "recovery_path": payload.get("recovery_path") or "finalize",
+            "empty_reason": (empty_reason or "no_matches") if links_empty else "",
         }
     )
     if args.emit_json:

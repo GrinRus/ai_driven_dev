@@ -1272,3 +1272,22 @@ def test_documents_are_not_blocked(tmp_path):
 
     result = run_hook(tmp_path, "gate-workflow.sh", DOC_PAYLOAD)
     assert result.returncode == 0, result.stderr
+
+
+def test_loop_preflight_missing_does_not_block_docs_only_when_stage_active(tmp_path):
+    write_active_state(tmp_path, ticket="demo-checkout", stage="implement", work_item="iteration_id=I1")
+
+    result = run_hook(tmp_path, "gate-workflow.sh", DOC_PAYLOAD)
+    assert result.returncode == 0, result.stderr
+    combined = result.stdout + result.stderr
+    assert "reason_code=preflight_missing" not in combined
+
+
+def test_loop_preflight_missing_blocks_src_changes_when_stage_active(tmp_path):
+    write_active_state(tmp_path, ticket="demo-checkout", stage="implement", work_item="iteration_id=I1")
+    write_file(tmp_path, "src/main/kotlin/App.kt", "class App\n")
+
+    result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    assert result.returncode == 2
+    combined = result.stdout + result.stderr
+    assert "reason_code=preflight_missing" in combined

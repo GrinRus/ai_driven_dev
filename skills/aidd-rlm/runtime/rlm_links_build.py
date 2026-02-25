@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Optional, Tuple
 
 from aidd_runtime import rlm_targets, runtime
+from aidd_runtime.rlm_links_empty_reason import resolve_empty_reason
 from aidd_runtime.rlm_config import (
     base_root_for_label,
     file_id_for_path,
@@ -171,6 +172,7 @@ def _apply_worklist_scope(
         return target_files, keyword_hits, {
             "target_files_scope": "targets",
             "target_files_scope_total": len(target_files),
+            "target_files_scope_input_total": len(target_files),
         }
 
     filtered_targets = _filter_paths_by_prefix(target_files, scope_paths) if scope_paths else list(target_files)
@@ -179,6 +181,8 @@ def _apply_worklist_scope(
     scope_stats: Dict[str, object] = {
         "target_files_scope": "worklist",
         "target_files_scope_total": len(filtered_targets),
+        "target_files_scope_input_total": len(target_files),
+        "target_files_scope_filtered_out": max(0, len(target_files) - len(filtered_targets)),
         "worklist_scope_paths": len(scope_paths),
         "worklist_scope_keywords": len(scope_keywords),
     }
@@ -775,6 +779,7 @@ def main(argv: List[str] | None = None) -> int:
         scope_stats = {
             "target_files_scope": "targets",
             "target_files_scope_total": len(target_files),
+            "target_files_scope_input_total": len(target_files),
         }
     if target_files and link_target_threshold and len(target_files) >= link_target_threshold and keyword_hits:
         target_files = keyword_hits
@@ -863,6 +868,14 @@ def main(argv: List[str] | None = None) -> int:
         **scope_stats,
         **link_stats,
     }
+    empty_reason = resolve_empty_reason(
+        links_total=len(links),
+        target_files_total=target_files_total,
+        scope_stats=scope_stats,
+        link_stats=link_stats,
+    )
+    if empty_reason:
+        stats_payload["empty_reason"] = empty_reason
     if "symbols_source" not in stats_payload:
         symbols_source = key_calls_source
         if type_refs_mode == "only":

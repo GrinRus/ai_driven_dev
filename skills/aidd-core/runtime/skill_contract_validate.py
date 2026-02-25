@@ -29,6 +29,7 @@ REQUIRED_TOP_LEVEL = (
 CANONICAL_READMAP_MD = "aidd/reports/context/{ticket}/{scope_key}.readmap.md"
 CANONICAL_STAGE_RESULT_ENTRYPOINT = "skills/aidd-flow-state/runtime/stage_result.py"
 FORBIDDEN_LOOP_STAGE_RESULT_ENTRYPOINT = "skills/aidd-loop/runtime/stage_result.py"
+FORBIDDEN_LOOP_PREFLIGHT_ENTRYPOINT = "skills/aidd-loop/runtime/preflight_prepare.py"
 CANONICAL_PREFLIGHT_FILES = (
     "aidd/reports/context/{ticket}/{scope_key}.readmap.json",
     "aidd/reports/context/{ticket}/{scope_key}.readmap.md",
@@ -231,6 +232,11 @@ def validate_contract_data(payload: dict[str, Any], *, contract_path: Path | Non
         if FORBIDDEN_LOOP_STAGE_RESULT_ENTRYPOINT in entrypoints:
             errors.append(
                 f"entrypoints must not include non-canonical stage-result entrypoint: {FORBIDDEN_LOOP_STAGE_RESULT_ENTRYPOINT}"
+            )
+        if FORBIDDEN_LOOP_PREFLIGHT_ENTRYPOINT in entrypoints:
+            errors.append(
+                "entrypoints must not include manual preflight runtime entrypoint: "
+                f"{FORBIDDEN_LOOP_PREFLIGHT_ENTRYPOINT}"
             )
 
         required_paths = set(_collect_ref_paths((reads or {}).get("required") if isinstance(reads, dict) else []))

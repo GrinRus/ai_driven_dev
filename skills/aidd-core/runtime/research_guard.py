@@ -448,13 +448,17 @@ def _validate_rlm_evidence(
     links_exists = rlm_links_path.exists()
     links_rows = _count_jsonl_rows(rlm_links_path) if links_exists else 0
     links_total: Optional[int] = None
+    links_empty_reason = ""
     links_stats = _load_rlm_links_stats(rlm_links_stats_path)
     if isinstance(links_stats, dict):
         try:
             links_total = int(links_stats.get("links_total") or 0)
         except (TypeError, ValueError):
             links_total = None
+        links_empty_reason = str(links_stats.get("empty_reason") or "").strip()
     links_empty = (links_total == 0) if links_total is not None else (links_rows == 0)
+    if links_empty and not links_empty_reason:
+        links_empty_reason = "no_matches"
 
     pack_exists = rlm_pack_path.exists()
     pack_payload = _load_pack_payload(rlm_pack_path) if pack_exists else None
@@ -487,9 +491,10 @@ def _validate_rlm_evidence(
                 f"python3 ${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-rlm/runtime/rlm_nodes_build.py --bootstrap --ticket {ticket}",
             )
         if links_warn:
+            detail = f"rlm links empty (empty_reason={links_empty_reason})" if links_empty_reason else "rlm links empty"
             _raise_block(
                 "rlm_links_empty_warn",
-                "rlm links empty",
+                detail,
                 _rlm_links_cmd_hint(ticket),
             )
         if settings.rlm_require_pack and not pack_exists:

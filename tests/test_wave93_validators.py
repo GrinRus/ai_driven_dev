@@ -182,6 +182,18 @@ class Wave93SchemaAndValidatorTests(unittest.TestCase):
             errors,
         )
 
+    def test_loop_stage_contract_rejects_manual_preflight_entrypoint(self) -> None:
+        path = REPO_ROOT / "skills" / "qa" / "CONTRACT.yaml"
+        payload = skill_contract_validate.load_contract(path)
+        entrypoints = list(payload.get("entrypoints", []))
+        entrypoints.append("skills/aidd-loop/runtime/preflight_prepare.py")
+        payload["entrypoints"] = entrypoints
+        errors = skill_contract_validate.validate_contract_data(payload, contract_path=path)
+        self.assertTrue(
+            any("manual preflight runtime entrypoint" in err for err in errors),
+            errors,
+        )
+
     def test_actions_schema_files_are_json(self) -> None:
         for schema in ("aidd.actions.v0", "aidd.actions.v1"):
             path = aidd_schemas.schema_path(schema)

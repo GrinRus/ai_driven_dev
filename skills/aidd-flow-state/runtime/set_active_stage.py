@@ -19,20 +19,35 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Persist the active workflow stage in docs/.active.json.",
     )
-    parser.add_argument("stage", help="Stage name to persist.")
+    parser.add_argument("stage", nargs="?", help="Stage name to persist.")
+    parser.add_argument(
+        "--stage",
+        dest="stage_alias",
+        help="Compatibility alias for stage value (canonical input is positional).",
+    )
     parser.add_argument(
         "--allow-custom",
         action="store_true",
         help="Allow arbitrary stage values (skip validation).",
     )
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    positional = str(args.stage or "").strip()
+    alias = str(args.stage_alias or "").strip()
+    if positional and alias and positional != alias:
+        parser.error(f"conflicting stage values: positional='{positional}' --stage='{alias}'")
+    resolved = positional or alias
+    if not resolved:
+        parser.error("stage is required (positional or --stage)")
+    setattr(args, "resolved_stage", resolved)
+    return args
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     root = resolve_aidd_root(Path.cwd())
-    stage = _normalize_stage(args.stage)
-    if not args.allow_custom and not stage_lexicon.is_known_stage(args.stage, include_aliases=True):
+    stage_input = str(getattr(args, "resolved_stage", "") or "")
+    stage = _normalize_stage(stage_input)
+    if not args.allow_custom and not stage_lexicon.is_known_stage(stage_input, include_aliases=True):
         valid = ", ".join(stage_lexicon.supported_stage_values(include_aliases=True))
         print(f"[stage] invalid stage '{stage}'. Allowed: {valid}.")
         return 2
