@@ -47,8 +47,8 @@ ROOT_DOC_FILES = {
     "CHANGELOG.md",
     "CONTRIBUTING.md",
     "backlog.md",
-    "aidd_test_flow_prompt_ralph_script.txt",
-    "aidd_test_flow_prompt_ralph_script_full.txt",
+    "dev/prompts/ralph/aidd_test_flow_prompt_ralph_script.txt",
+    "dev/prompts/ralph/aidd_test_flow_prompt_ralph_script_full.txt",
 }
 
 REACHABILITY_EDGE_TYPES = {
@@ -424,7 +424,11 @@ def _build_revision_payload(root: Path, *, generated_at: Optional[str] = None) -
         }
 
     # Hooks wiring + hook scripts.
-    hook_scripts = sorted(path.relative_to(root).as_posix() for path in root.glob("hooks/*.sh"))
+    hook_scripts = sorted(
+        path.relative_to(root).as_posix()
+        for path in root.glob("hooks/*")
+        if path.is_file() and path.suffix in {".py", ".sh"}
+    )
     for rel in hook_scripts:
         add_node(f"hook_sh:{rel}", "hook_sh", path=rel)
     hooks_json_path = root / "hooks" / "hooks.json"
@@ -444,7 +448,10 @@ def _build_revision_payload(root: Path, *, generated_at: Optional[str] = None) -
                         if not isinstance(hook, dict):
                             continue
                         command = str(hook.get("command") or "")
-                        for match in re.finditer(r"\$\{CLAUDE_PLUGIN_ROOT\}/(hooks/[A-Za-z0-9_.-]+\.sh)", command):
+                        for match in re.finditer(
+                            r"\$\{CLAUDE_PLUGIN_ROOT\}/(hooks/[A-Za-z0-9_.-]+\.(?:py|sh))",
+                            command,
+                        ):
                             hook_rel = _normalize_rel(match.group(1))
                             hook_id = f"hook_sh:{hook_rel}"
                             add_node(hook_id, "hook_sh", path=hook_rel)
@@ -686,7 +693,7 @@ def _build_revision_payload(root: Path, *, generated_at: Optional[str] = None) -
         "summary": "No immediate destructive cleanup; all entries require validation before merge.",
         "actions": actions,
         "validation_commands": [
-            "python3 tests/repo_tools/repo_topology_audit.py --repo-root . --output-json dev/reports/revision/repo-revision.graph.json --output-md dev/reports/revision/repo-revision.md --output-cleanup dev/reports/revision/repo-cleanup-plan.json",
+            "python3 tests/repo_tools/repo_topology_audit.py --repo-root . --output-json aidd/.cache/revision/repo-revision.graph.json --output-md aidd/.cache/revision/repo-revision.md --output-cleanup aidd/.cache/revision/repo-cleanup-plan.json",
             "tests/repo_tools/ci-lint.sh",
             "tests/repo_tools/smoke-workflow.sh",
         ],
@@ -1000,17 +1007,17 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     parser.add_argument("--repo-root", default=".", help="Repository root path.")
     parser.add_argument(
         "--output-json",
-        default="dev/reports/revision/repo-revision.graph.json",
+        default="aidd/.cache/revision/repo-revision.graph.json",
         help="Output JSON graph path.",
     )
     parser.add_argument(
         "--output-md",
-        default="dev/reports/revision/repo-revision.md",
+        default="aidd/.cache/revision/repo-revision.md",
         help="Output markdown report path.",
     )
     parser.add_argument(
         "--output-cleanup",
-        default="dev/reports/revision/repo-cleanup-plan.json",
+        default="aidd/.cache/revision/repo-cleanup-plan.json",
         help="Output cleanup-plan JSON path.",
     )
     return parser.parse_args(argv)

@@ -19,6 +19,10 @@ if [[ -d tools ]] && find tools -maxdepth 1 -type f -name '*.sh' | grep -q .; th
   err "tools/*.sh must be removed after tools-free shell cutover"
 fi
 
+if find hooks -maxdepth 1 -type f -name '*.sh' | grep -q .; then
+  err "hooks/*.sh runtime entrypoints are forbidden; use hooks/*.py"
+fi
+
 # Canonical shared loop runtime entrypoints must exist (python-only command surface).
 for entrypoint in \
   skills/aidd-loop/runtime/loop_step.py \

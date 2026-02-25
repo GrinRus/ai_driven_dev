@@ -50,7 +50,7 @@ jobs:
             unset QA_AGENT_DIFF_BASE
           fi
           export CLAUDE_PLUGIN_ROOT="${GITHUB_WORKSPACE}"
-          "${GITHUB_WORKSPACE}/hooks/gate-qa.sh" --payload '{}'
+          "${GITHUB_WORKSPACE}/hooks/gate_qa.py" --payload '{}'
 
   smoke-workflow:
     runs-on: ubuntu-latest
@@ -83,6 +83,17 @@ jobs:
       - name: Skip smoke workflow (no runtime changes)
         if: steps.runtime_changes.outputs.runtime != 'true'
         run: echo "No runtime changes; skipping smoke"
+
+  dist-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate dist manifest
+        run: python3 tests/repo_tools/dist_manifest_check.py --root .
 
   dependency-review:
     if: ${{ github.event_name == 'pull_request' }}

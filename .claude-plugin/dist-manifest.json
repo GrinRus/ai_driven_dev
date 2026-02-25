@@ -1,0 +1,15 @@
+{
+  "schema": "aidd.dist_manifest.v1",
+  "include_globs": [
+    "agents/**",
+    "skills/**",
+    "hooks/**",
+    ".claude-plugin/**",
+    "templates/aidd/**"
+  ],
+  "exclude_globs": [
+    "**/__pycache__/**",
+    "**/*.pyc",
+    "**/.DS_Store"
+  ]
+}

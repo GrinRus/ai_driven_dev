@@ -112,44 +112,44 @@ Full document reads remain fallback-only with explicit reason in `AIDD:READ_LOG`
 ## 7. Integration points in current codebase
 
 ### 7.1 Config/bootstrap
-1. Update `/Users/griogrii_riabov/grigorii_projects/ai_driven_dev/templates/aidd/config/conventions.json`
+1. Update `templates/aidd/config/conventions.json`
 - add `memory` section: limits, enabled flags, read order hints.
-1. Update `/Users/griogrii_riabov/grigorii_projects/ai_driven_dev/templates/aidd/config/gates.json`
+1. Update `templates/aidd/config/gates.json`
 - add soft gate `memory.require_decisions_pack` for `plan/review/qa` (after rollout).
-1. Update `/Users/griogrii_riabov/grigorii_projects/ai_driven_dev/skills/aidd-init/runtime/init.py`
+1. Update `skills/aidd-init/runtime/init.py`
 - seed `reports/memory/.gitkeep` and optional template placeholders.
 
 ### 7.2 Hook/context layer
-1. Update `/Users/griogrii_riabov/grigorii_projects/ai_driven_dev/hooks/context_gc/working_set_builder.py`
+1. Update `hooks/context_gc/working_set_builder.py`
 - include tiny excerpt from semantic/decisions packs (strict char cap).
-1. Update `/Users/griogrii_riabov/grigorii_projects/ai_driven_dev/hooks/context_gc/pretooluse_guard.py`
+1. Update `hooks/context_gc/pretooluse_guard.py`
 - allow read access to `aidd/reports/memory/**` in loop read policy defaults.
 
 ### 7.3 Stage orchestration
-1. Update `/Users/griogrii_riabov/grigorii_projects/ai_driven_dev/skills/researcher/runtime/research.py`
+1. Update `skills/researcher/runtime/research.py`
 - after RLM readiness, trigger `memory_extract.py`.
-1. Update `/Users/griogrii_riabov/grigorii_projects/ai_driven_dev/skills/aidd-loop/runtime/preflight_prepare.py`
+1. Update `skills/aidd-loop/runtime/preflight_prepare.py`
 - include semantic/decisions pack in generated readmap optional entries.
-1. Update `/Users/griogrii_riabov/grigorii_projects/ai_driven_dev/skills/aidd-loop/runtime/output_contract.py`
+1. Update `skills/aidd-loop/runtime/output_contract.py`
 - optional check: `AIDD:READ_LOG` includes memory pack for review/qa when enabled.
 
 ### 7.4 DocOps/actions
-1. Extend `/Users/griogrii_riabov/grigorii_projects/ai_driven_dev/skills/aidd-docio/runtime/actions_apply.py`
+1. Extend `skills/aidd-docio/runtime/actions_apply.py`
 - optional action type: `memory_ops.decision_append`.
 1. Update contracts:
-- `/Users/griogrii_riabov/grigorii_projects/ai_driven_dev/skills/implement/CONTRACT.yaml`
-- `/Users/griogrii_riabov/grigorii_projects/ai_driven_dev/skills/review/CONTRACT.yaml`
-- `/Users/griogrii_riabov/grigorii_projects/ai_driven_dev/skills/qa/CONTRACT.yaml`
+- `skills/implement/CONTRACT.yaml`
+- `skills/review/CONTRACT.yaml`
+- `skills/qa/CONTRACT.yaml`
 
 Add optional memory read entries and (later) required checks behind flag.
 
 ### 7.5 Prompt/skills policy
-1. Update `/Users/griogrii_riabov/grigorii_projects/ai_driven_dev/skills/aidd-policy/references/read-policy.md`
+1. Update `skills/aidd-policy/references/read-policy.md`
 - include memory packs in recommended order.
-1. Update `/Users/griogrii_riabov/grigorii_projects/ai_driven_dev/skills/aidd-core/templates/context-pack.template.md`
+1. Update `skills/aidd-core/templates/context-pack.template.md`
 - add `memory_semantic` and `memory_decisions` links in `artefact_links`.
 1. Add new shared skill:
-- `/Users/griogrii_riabov/grigorii_projects/ai_driven_dev/skills/aidd-memory/SKILL.md`
+- `skills/aidd-memory/SKILL.md`
 
 ## 8. Rollout plan
 
@@ -196,8 +196,8 @@ Acceptance:
 - loop preflight includes memory artifacts
 - actions_apply decision append path
 1. Repo tooling:
-- run `/Users/griogrii_riabov/grigorii_projects/ai_driven_dev/tests/repo_tools/ci-lint.sh`
-- run `/Users/griogrii_riabov/grigorii_projects/ai_driven_dev/tests/repo_tools/smoke-workflow.sh`
+- run `tests/repo_tools/ci-lint.sh`
+- run `tests/repo_tools/smoke-workflow.sh`
 
 ## 10. Risks and mitigations
 1. Risk: duplicate or contradictory decisions.

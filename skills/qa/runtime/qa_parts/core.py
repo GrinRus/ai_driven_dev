@@ -24,7 +24,7 @@ from aidd_runtime.feature_ids import write_active_state
 
 def _default_qa_test_command() -> list[list[str]]:
     plugin_root = runtime.require_plugin_root()
-    return [[sys.executable, str(plugin_root / "hooks" / "format-and-test.sh")]]
+    return [[sys.executable, str(plugin_root / "hooks" / "format_and_test.py")]]
 
 
 def _resolve_qa_scope_context(target: Path, ticket: str) -> tuple[str, str]:

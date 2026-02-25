@@ -52,6 +52,8 @@ def _iter_runtime_paths(repo_root: Path) -> list[Path]:
 
 
 def _is_cli_entrypoint(text: str) -> bool:
+    if "CLI_ADAPTER_LIBRARY = True" in text:
+        return False
     if MAIN_GUARD_RE.search(text):
         return True
     return "exec(compile(" in text and "_CORE_PATH" in text

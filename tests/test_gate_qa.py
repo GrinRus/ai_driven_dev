@@ -28,7 +28,7 @@ def test_blocks_when_report_missing(tmp_path):
 
     result = run_hook(
         tmp_path,
-        "gate-qa.sh",
+        "gate_qa.py",
         SRC_PAYLOAD,
         extra_env={"CLAUDE_SKIP_TASKLIST_PROGRESS": "1"},
     )
@@ -56,7 +56,7 @@ def test_allows_when_report_present(tmp_path):
 
     result = run_hook(
         tmp_path,
-        "gate-qa.sh",
+        "gate_qa.py",
         SRC_PAYLOAD,
         extra_env={"CLAUDE_SKIP_TASKLIST_PROGRESS": "1"},
     )
@@ -83,7 +83,7 @@ def test_allows_when_pack_present(tmp_path):
 
     result = run_hook(
         tmp_path,
-        "gate-qa.sh",
+        "gate_qa.py",
         SRC_PAYLOAD,
         extra_env={"CLAUDE_SKIP_TASKLIST_PROGRESS": "1"},
     )
@@ -110,7 +110,7 @@ def test_blocks_when_report_status_blocked_even_if_command_succeeds(tmp_path):
 
     result = run_hook(
         tmp_path,
-        "gate-qa.sh",
+        "gate_qa.py",
         SRC_PAYLOAD,
         extra_env={"CLAUDE_SKIP_TASKLIST_PROGRESS": "1"},
     )
@@ -138,7 +138,7 @@ def test_warn_report_status_keeps_success_exit(tmp_path):
 
     result = run_hook(
         tmp_path,
-        "gate-qa.sh",
+        "gate_qa.py",
         SRC_PAYLOAD,
         extra_env={"CLAUDE_SKIP_TASKLIST_PROGRESS": "1"},
     )
@@ -169,7 +169,7 @@ def test_handoff_blocks_when_tasklist_missing(tmp_path):
         json.dumps({"tests_summary": "pass", "tests_executed": [], "findings": []}) + "\n",
     )
 
-    result = run_hook(tmp_path, "gate-qa.sh", SRC_PAYLOAD)
+    result = run_hook(tmp_path, "gate_qa.py", SRC_PAYLOAD)
 
     assert result.returncode == 2
     combined = (result.stdout + result.stderr).lower()
@@ -199,7 +199,7 @@ def test_handoff_warns_when_configured(tmp_path):
         json.dumps({"tests_summary": "pass", "tests_executed": [], "findings": []}) + "\n",
     )
 
-    result = run_hook(tmp_path, "gate-qa.sh", SRC_PAYLOAD)
+    result = run_hook(tmp_path, "gate_qa.py", SRC_PAYLOAD)
 
     assert result.returncode == 0, result.stderr
     combined = (result.stdout + result.stderr).lower()
@@ -223,7 +223,7 @@ def test_skip_env_allows(tmp_path):
     write_file(tmp_path, "src/main/App.kt", "class App")
     result = run_hook(
         tmp_path,
-        "gate-qa.sh",
+        "gate_qa.py",
         SRC_PAYLOAD,
         extra_env={
             "CLAUDE_SKIP_QA": "1",
@@ -249,7 +249,7 @@ def test_skips_when_not_qa_and_no_report_change(tmp_path):
     write_active_stage(tmp_path, "review")
     write_file(tmp_path, "src/main/App.kt", "class App")
 
-    result = run_hook(tmp_path, "gate-qa.sh", SRC_PAYLOAD)
+    result = run_hook(tmp_path, "gate_qa.py", SRC_PAYLOAD)
 
     assert result.returncode == 0, result.stderr
     assert "Запуск QA-агента" not in (result.stdout + result.stderr)
@@ -272,7 +272,7 @@ def test_runs_on_report_change_without_qa_stage(tmp_path):
     write_file(tmp_path, "reports/qa/qa-report-change.json", "{}\n")
 
     payload = '{"tool_input":{"file_path":"reports/qa/qa-report-change.json"}}'
-    result = run_hook(tmp_path, "gate-qa.sh", payload)
+    result = run_hook(tmp_path, "gate_qa.py", payload)
 
     assert result.returncode == 0, result.stderr
     assert "Запуск QA-агента" in (result.stdout + result.stderr)
@@ -368,7 +368,7 @@ def test_debounce_stamp_written_only_on_success(tmp_path):
 
     result = run_hook(
         tmp_path,
-        "gate-qa.sh",
+        "gate_qa.py",
         SRC_PAYLOAD,
         extra_env={"CLAUDE_SKIP_TASKLIST_PROGRESS": "1"},
     )
@@ -387,7 +387,7 @@ def test_plugin_hooks_include_qa_gate():
         for entry in stop_hooks + sub_stop_hooks
         for hook in entry.get("hooks", [])
     ]
-    qa_hook = next((hook for hook in commands if "gate-qa.sh" in hook.get("command", "")), None)
+    qa_hook = next((hook for hook in commands if "gate_qa.py" in hook.get("command", "")), None)
     assert qa_hook is not None, "gate-qa hook not registered in Stop/SubagentStop"
     assert qa_hook.get("timeout") == 60, "gate-qa expected timeout=60s"
 
@@ -406,7 +406,7 @@ def test_gate_qa_requires_plugin_root(tmp_path):
     write_file(project_root, "reports/qa/demo.json", '{"status": "READY"}\n')
 
     env = {"CLAUDE_PLUGIN_ROOT": ""}
-    result = run_hook(tmp_path, "gate-qa.sh", SRC_PAYLOAD, extra_env=env)
+    result = run_hook(tmp_path, "gate_qa.py", SRC_PAYLOAD, extra_env=env)
     assert result.returncode == 2
     assert "CLAUDE_PLUGIN_ROOT is required" in result.stderr
 
@@ -432,7 +432,7 @@ class GateQaEventTests(unittest.TestCase):
             write_file(tmp_path, "reports/qa/qa-ok.json", "{}\n")
 
             env = {"CLAUDE_SKIP_TASKLIST_PROGRESS": "1"}
-            result = run_hook(tmp_path, "gate-qa.sh", SRC_PAYLOAD, extra_env=env)
+            result = run_hook(tmp_path, "gate_qa.py", SRC_PAYLOAD, extra_env=env)
 
             self.assertEqual(result.returncode, 0, result.stderr)
             events_path = tmp_path / "aidd" / "reports" / "events" / "qa-ok.jsonl"

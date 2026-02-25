@@ -35,7 +35,7 @@ class ToolsInventoryTests(unittest.TestCase):
                 encoding="utf-8",
             )
             (root / "agents" / "reviewer.md").write_text("Use artifacts only.\n", encoding="utf-8")
-            (root / "hooks" / "gate-workflow.sh").write_text(
+            (root / "hooks" / "gate_workflow.py").write_text(
                 "#!/usr/bin/env python3\nprint('ok')\n",
                 encoding="utf-8",
             )
@@ -68,11 +68,11 @@ class ToolsInventoryTests(unittest.TestCase):
             self.assertEqual(init_entry.get("runtime_classification"), "python_entrypoint")
             self.assertFalse(init_entry.get("migration_deferred", False))
 
-            hook_entry = entries.get("hooks/gate-workflow.sh")
+            hook_entry = entries.get("hooks/gate_workflow.py")
             self.assertIsNotNone(hook_entry)
             self.assertEqual(hook_entry.get("classification"), "hook_entrypoint")
             self.assertEqual(hook_entry.get("runtime_classification"), "python_entrypoint")
-            self.assertEqual(hook_entry.get("python_owner_path"), "hooks/gate-workflow.sh")
+            self.assertEqual(hook_entry.get("python_owner_path"), "hooks/gate_workflow.py")
 
 
 if __name__ == "__main__":
