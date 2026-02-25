@@ -1658,6 +1658,143 @@ class RlmLinksBuildTests(unittest.TestCase):
             self.assertEqual(stats.get("target_files_total"), 1)
             self.assertEqual(stats.get("target_files_scope_total"), 1)
 
+    def test_links_build_emits_empty_reason_no_targets(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="rlm-links-empty-targets-") as tmpdir:
+            workspace = Path(tmpdir)
+            project_root = ensure_project_root(workspace)
+            ticket = "RLM-EMPTY-TARGETS"
+            write_active_feature(project_root, ticket)
+
+            (workspace / "src").mkdir(parents=True, exist_ok=True)
+            (workspace / "src" / "a.py").write_text("Foo()\n", encoding="utf-8")
+
+            nodes_path = project_root / "reports" / "research" / f"{ticket}-rlm.nodes.jsonl"
+            nodes_path.parent.mkdir(parents=True, exist_ok=True)
+            nodes_path.write_text(
+                json.dumps(
+                    {
+                        "schema": "aidd.rlm_node.v2",
+                        "schema_version": "v2",
+                        "node_kind": "file",
+                        "file_id": "file-a",
+                        "id": "file-a",
+                        "path": "src/a.py",
+                        "rev_sha": "rev-a",
+                        "lang": "py",
+                        "prompt_version": "v1",
+                        "summary": "",
+                        "public_symbols": [],
+                        "type_refs": [],
+                        "key_calls": ["Foo"],
+                        "framework_roles": [],
+                        "test_hooks": [],
+                        "risks": [],
+                        "verification": "passed",
+                        "missing_tokens": [],
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            write_json(
+                workspace,
+                f"reports/research/{ticket}-rlm-targets.json",
+                {
+                    "ticket": ticket,
+                    "paths_base": "workspace",
+                    "files": [],
+                    "keyword_hits": [],
+                },
+            )
+
+            old_cwd = Path.cwd()
+            os.chdir(workspace)
+            try:
+                rlm_links_build.main(["--ticket", ticket])
+            finally:
+                os.chdir(old_cwd)
+
+            stats_path = project_root / "reports" / "research" / f"{ticket}-rlm.links.stats.json"
+            stats = json.loads(stats_path.read_text(encoding="utf-8"))
+            self.assertEqual(stats.get("links_total"), 0)
+            self.assertEqual(stats.get("empty_reason"), "no_targets")
+
+    def test_links_build_emits_empty_reason_filtered_all(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="rlm-links-empty-filtered-") as tmpdir:
+            workspace = Path(tmpdir)
+            project_root = ensure_project_root(workspace)
+            ticket = "RLM-EMPTY-FILTERED"
+            write_active_feature(project_root, ticket)
+
+            (workspace / "other").mkdir(parents=True, exist_ok=True)
+            (workspace / "other" / "a.py").write_text("Foo()\n", encoding="utf-8")
+
+            nodes_path = project_root / "reports" / "research" / f"{ticket}-rlm.nodes.jsonl"
+            nodes_path.parent.mkdir(parents=True, exist_ok=True)
+            nodes_path.write_text(
+                json.dumps(
+                    {
+                        "schema": "aidd.rlm_node.v2",
+                        "schema_version": "v2",
+                        "node_kind": "file",
+                        "file_id": "file-a",
+                        "id": "file-a",
+                        "path": "other/a.py",
+                        "rev_sha": "rev-a",
+                        "lang": "py",
+                        "prompt_version": "v1",
+                        "summary": "",
+                        "public_symbols": [],
+                        "type_refs": [],
+                        "key_calls": ["Foo"],
+                        "framework_roles": [],
+                        "test_hooks": [],
+                        "risks": [],
+                        "verification": "passed",
+                        "missing_tokens": [],
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            write_json(
+                workspace,
+                f"reports/research/{ticket}-rlm-targets.json",
+                {
+                    "ticket": ticket,
+                    "paths_base": "workspace",
+                    "files": ["other/a.py"],
+                    "keyword_hits": ["other/a.py"],
+                },
+            )
+            write_json(
+                workspace,
+                f"reports/research/{ticket}-rlm.worklist.pack.json",
+                {
+                    "type": "rlm-worklist",
+                    "worklist_scope": {
+                        "paths": ["src"],
+                        "keywords": [],
+                        "counts": {"entries_selected": 1},
+                    },
+                },
+            )
+
+            old_cwd = Path.cwd()
+            os.chdir(workspace)
+            try:
+                rlm_links_build.main(["--ticket", ticket])
+            finally:
+                os.chdir(old_cwd)
+
+            stats_path = project_root / "reports" / "research" / f"{ticket}-rlm.links.stats.json"
+            stats = json.loads(stats_path.read_text(encoding="utf-8"))
+            self.assertEqual(stats.get("links_total"), 0)
+            self.assertEqual(stats.get("empty_reason"), "filtered_all")
+            self.assertEqual(stats.get("target_files_scope"), "worklist")
+            self.assertEqual(stats.get("target_files_scope_input_total"), 1)
+            self.assertEqual(stats.get("target_files_scope_total"), 0)
+
 
 if __name__ == "__main__":
     unittest.main()

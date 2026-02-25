@@ -29,6 +29,23 @@ class SetActiveStageTests(unittest.TestCase):
             payload = json.loads((project_root / "docs" / ".active.json").read_text(encoding="utf-8"))
             self.assertEqual(payload.get("stage"), "spec-interview")
 
+    def test_stage_alias_flag_is_accepted(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            project_root = ensure_project_root(root)
+            write_active_feature(root, "DEMO-1")
+
+            current = Path.cwd()
+            try:
+                os.chdir(project_root)
+                code = set_active_stage.main(["--stage", "implement"])
+            finally:
+                os.chdir(current)
+
+            self.assertEqual(code, 0)
+            payload = json.loads((project_root / "docs" / ".active.json").read_text(encoding="utf-8"))
+            self.assertEqual(payload.get("stage"), "implement")
+
     def test_context_map_validator_accepts_legacy_aliases(self) -> None:
         readmap = {
             "schema": "aidd.readmap.v1",
@@ -61,6 +78,11 @@ class SetActiveStageTests(unittest.TestCase):
     def test_cli_rejects_non_contract_named_flags(self) -> None:
         with self.assertRaises(SystemExit) as exc:
             set_active_stage.parse_args(["--ticket", "DEMO-1", "--stage", "implement"])
+        self.assertEqual(int(exc.exception.code), 2)
+
+    def test_cli_rejects_conflicting_positional_and_stage_flag(self) -> None:
+        with self.assertRaises(SystemExit) as exc:
+            set_active_stage.parse_args(["implement", "--stage", "review"])
         self.assertEqual(int(exc.exception.code), 2)
 
 

@@ -289,6 +289,7 @@ class ResearchCheckTests(unittest.TestCase):
             os.chdir(old_cwd)
 
         self.assertIn("rlm_links_empty_warn", str(excinfo.exception))
+        self.assertIn("empty_reason=", str(excinfo.exception))
         self.assertIn("rlm_links_build.py --ticket", str(excinfo.exception))
 
     def test_research_check_blocks_ready_missing_nodes(self) -> None:

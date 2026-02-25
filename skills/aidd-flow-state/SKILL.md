@@ -25,7 +25,7 @@ user-invocable: false
 ## Command contracts
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_stage.py`
 - When to run: at stage entry before stage-local orchestration begins.
-- Inputs: stage identifier (`--stage`) and optional ticket/feature context.
+- Inputs: stage identifier (canonical positional argument; compatibility alias `--stage` is accepted) and optional ticket/feature context.
 - Outputs: normalized active-stage state in workspace metadata.
 - Failure mode: non-zero exit when stage value is invalid or active workspace metadata is unreadable.
 - Next action: fix stage/context input and rerun stage activation.

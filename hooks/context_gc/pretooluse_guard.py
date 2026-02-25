@@ -154,6 +154,10 @@ _STAGE_RESULT_SUFFIXES = (
     "/stage.review.result.json",
     "/stage.qa.result.json",
 )
+_MANUAL_PREFLIGHT_RE = re.compile(
+    r"\bpython(?:3)?\b[^\n\r]*\bskills/aidd-loop/runtime/preflight_prepare\.py\b",
+    flags=re.IGNORECASE,
+)
 
 
 def _sanitize_scope_key(value: str) -> str:
@@ -412,6 +416,43 @@ def _deny_or_warn(strict: bool, *, reason: str, system_message: str) -> Dict[str
     return {"decision": "allow", "reason": reason, "system_message": system_message}
 
 
+def _canonical_stage_rerun_hint(stage: str, ticket: str) -> str:
+    normalized_stage = stage_lexicon.resolve_stage_name(stage)
+    normalized_ticket = str(ticket or "").strip()
+    if stage_lexicon.is_loop_stage(normalized_stage):
+        if normalized_ticket:
+            return f"/feature-dev-aidd:{normalized_stage} {normalized_ticket}"
+        return f"/feature-dev-aidd:{normalized_stage} <ticket>"
+    if normalized_ticket:
+        return f"/feature-dev-aidd:status {normalized_ticket}"
+    return "/feature-dev-aidd:status <ticket>"
+
+
+def _manual_preflight_bash_decision(
+    *,
+    command: str,
+    project_dir: Path,
+    aidd_root: Optional[Path],
+) -> Optional[Dict[str, str]]:
+    if not _MANUAL_PREFLIGHT_RE.search(command):
+        return None
+
+    state = _policy_state(project_dir, aidd_root)
+    stage = str(state.get("stage") or "").strip()
+    ticket = str(state.get("ticket") or "").strip()
+    hint = _canonical_stage_rerun_hint(stage, ticket)
+    strict_mode = resolve_hooks_mode() == "strict"
+    return _deny_or_warn(
+        strict_mode,
+        reason="Loop stage policy: manual stage-chain preflight invocation is forbidden.",
+        system_message=(
+            "Loop stage policy: direct `python3 .../skills/aidd-loop/runtime/preflight_prepare.py` "
+            "invocation is forbidden. Re-run canonical stage command "
+            f"`{hint}`; stage-chain will regenerate preflight artifacts automatically."
+        ),
+    )
+
+
 def _docops_only_violation(candidates: list[str], state: Dict[str, Any]) -> bool:
     docops_only = state.get("docops_only") or []
     if not isinstance(docops_only, list) or not docops_only:
@@ -624,6 +665,19 @@ def _should_rate_limit(
 def handle_bash(project_dir: Path, aidd_root: Optional[Path], cfg: Dict[str, Any], tool_input: Dict[str, Any]) -> None:
     cmd = tool_input.get("command")
     if not isinstance(cmd, str) or not cmd.strip():
+        return
+
+    manual_preflight_decision = _manual_preflight_bash_decision(
+        command=cmd,
+        project_dir=project_dir,
+        aidd_root=aidd_root,
+    )
+    if manual_preflight_decision:
+        pretooluse_decision(
+            permission_decision=manual_preflight_decision["decision"],
+            reason=manual_preflight_decision["reason"],
+            system_message=manual_preflight_decision["system_message"],
+        )
         return
 
     injection_message = _prompt_injection_guard_message(

@@ -267,6 +267,7 @@ def _evaluate_rlm_state(
     nodes_ready = _jsonl_nonempty(nodes_path)
     links_ok = _jsonl_nonempty(links_path)
     links_total: int | None = None
+    links_empty_reason = ""
     if links_stats_path.exists():
         try:
             stats_payload = json.loads(links_stats_path.read_text(encoding="utf-8"))
@@ -277,7 +278,10 @@ def _evaluate_rlm_state(
                 links_total = int(stats_payload.get("links_total") or 0)
             except (TypeError, ValueError):
                 links_total = None
+            links_empty_reason = str(stats_payload.get("empty_reason") or "").strip()
     links_empty = links_total == 0 if links_total is not None else not links_ok
+    if links_empty and not links_empty_reason:
+        links_empty_reason = "no_matches"
     pack_exists = rlm_pack_path.exists()
     status = "pending"
     warnings: list[str] = []
@@ -285,6 +289,8 @@ def _evaluate_rlm_state(
         if require_links and links_empty:
             status = "warn"
             warnings.append("rlm_links_empty_warn")
+            if links_empty_reason:
+                warnings.append(f"rlm_links_empty_reason={links_empty_reason}")
         else:
             status = "ready"
     return {
@@ -294,6 +300,7 @@ def _evaluate_rlm_state(
         "links_ok": links_ok,
         "links_empty": links_empty,
         "links_total": links_total,
+        "links_empty_reason": links_empty_reason,
         "pack_exists": pack_exists,
         "nodes_path": nodes_path,
         "links_path": links_path,
@@ -312,6 +319,7 @@ def _attempt_auto_finalize(
         "reason_code": "",
         "next_action": "",
         "recovery_path": "",
+        "empty_reason": "",
         "details": "",
     }
     cmd = ["--ticket", ticket, "--bootstrap-if-missing", "--emit-json"]
@@ -346,6 +354,9 @@ def _attempt_auto_finalize(
     outcome["bootstrap_attempted"] = bool(payload.get("bootstrap_attempted"))
     outcome["finalize_attempted"] = bool(payload.get("finalize_attempted"))
     outcome["recovery_path"] = str(payload.get("recovery_path") or "").strip()
+    outcome["reason_code"] = str(payload.get("reason_code") or "").strip()
+    outcome["next_action"] = str(payload.get("next_action") or "").strip()
+    outcome["empty_reason"] = str(payload.get("empty_reason") or "").strip()
     if exit_code == 0 and str(payload.get("status") or "").strip().lower() in {"done", "ready", "ok"}:
         outcome["status"] = "ready"
         return outcome
@@ -625,6 +636,7 @@ def run(args: argparse.Namespace) -> int:
     links_ok = bool(state["links_ok"])
     pack_exists = bool(state["pack_exists"])
     links_empty = bool(state["links_empty"])
+    links_empty_reason = str(state.get("links_empty_reason") or "").strip()
 
     if args.targets_only:
         runtime.maybe_sync_index(target, ticket, feature_context.slug_hint, reason="research-targets")
@@ -654,12 +666,19 @@ def run(args: argparse.Namespace) -> int:
             links_ok = bool(state["links_ok"])
             pack_exists = bool(state["pack_exists"])
             links_empty = bool(state["links_empty"])
+            links_empty_reason = str(state.get("links_empty_reason") or "").strip()
             if rlm_status == "ready":
                 print("[aidd] INFO: rlm finalize auto-recovery succeeded.", file=sys.stderr)
         else:
             reason_code = str(finalize_outcome.get("reason_code") or "").strip()
             if reason_code and reason_code not in rlm_warnings:
                 rlm_warnings.append(reason_code)
+            empty_reason = str(finalize_outcome.get("empty_reason") or "").strip()
+            if empty_reason:
+                links_empty_reason = empty_reason
+                reason_marker = f"rlm_links_empty_reason={empty_reason}"
+                if reason_marker not in rlm_warnings:
+                    rlm_warnings.append(reason_marker)
 
     pending_reason_code = ""
     pending_next_action = ""
@@ -667,7 +686,12 @@ def run(args: argparse.Namespace) -> int:
     if rlm_status != "ready":
         finalized_reason = str(finalize_outcome.get("reason_code") or "").strip()
         finalized_next = str(finalize_outcome.get("next_action") or "").strip()
-        if finalized_reason:
+        if links_empty and require_links and not finalized_reason:
+            pending_reason_code = "rlm_links_empty_warn"
+            pending_next_action = (
+                f"python3 ${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-rlm/runtime/rlm_links_build.py --ticket {ticket}"
+            )
+        elif finalized_reason:
             pending_reason_code = finalized_reason
             pending_next_action = finalized_next or _rlm_finalize_handoff_cmd(ticket)
         elif not nodes_ready and not links_ok and not pack_exists:
@@ -684,6 +708,8 @@ def run(args: argparse.Namespace) -> int:
             pending_next_action = _rlm_finalize_handoff_cmd(ticket)
         if pending_reason_code == "baseline_pending":
             baseline_marker = "Контекст пуст: требуется baseline после автоматического запуска."
+        elif links_empty and links_empty_reason:
+            baseline_marker = f"links_empty_reason={links_empty_reason}"
 
     if not args.no_template:
         template_overrides = {
