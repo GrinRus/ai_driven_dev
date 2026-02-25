@@ -334,7 +334,7 @@ _Назначение EPIC: закрыть retrieval/tooling/compaction конт
   **Effort:** S
   **Risk:** Low
 
-- [ ] **W101-27 (P1) Unified JIT chunk router (`chunk_query`) across markdown/RLM/log/text** `skills/aidd-docio/runtime/chunk_query.py`, `skills/aidd-policy/references/read-policy.md`, `skills/aidd-core/templates/context-pack.template.md`:
+- [x] **W101-27 (P1) Unified JIT chunk router (`chunk_query`) across markdown/RLM/log/text** `skills/aidd-docio/runtime/chunk_query.py`, `skills/aidd-policy/references/read-policy.md`, `skills/aidd-core/templates/context-pack.template.md`:
   - добавить единый runtime API `chunk_query` с backend routing (`md_slice`, `rlm_slice`, generic file-chunk/log-chunk);
   - поддержать базовые JIT примитивы `peek/slice/search/split/get_chunk` в едином контракте CLI;
   - материализовать результат в `aidd/reports/context/<ticket>-chunk-<hash>.pack.json`.
@@ -354,7 +354,7 @@ _Назначение EPIC: закрыть retrieval/tooling/compaction конт
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W101-29 (P2) Policy guard modularization (`pretooluse_guard` split)** `hooks/context_gc/pretooluse_guard.py`, `hooks/context_gc`:
+- [x] **W101-29 (P2) Policy guard modularization (`pretooluse_guard` split)** `hooks/context_gc/pretooluse_guard.py`, `hooks/context_gc`:
   - декомпозировать `pretooluse_guard` на модули (`rw_policy`, `bash_guard`, `prompt_injection`, `rate_limit`);
   - сохранить поведение policy decisions (`allow/ask/deny`) и reason-code semantics;
   - снизить complexity hotspot без изменения публичного workflow контракта.

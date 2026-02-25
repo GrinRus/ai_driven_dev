@@ -615,6 +615,7 @@ def cli_cmd(*args: str) -> list[str]:
         docio_runtime_map = {
             "actions-apply": "actions_apply.py",
             "actions-validate": "actions_validate.py",
+            "chunk-query": "chunk_query.py",
             "context-expand": "context_expand.py",
             "context-map-validate": "context_map_validate.py",
             "md-patch": "md_patch.py",
