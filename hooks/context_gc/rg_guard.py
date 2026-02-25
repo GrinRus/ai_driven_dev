@@ -95,6 +95,13 @@ def _autoslice_hint(ticket: str, stage: str, scope_key: str) -> str:
     )
 
 
+def _stage_rerun_hint(ticket: str, stage: str) -> str:
+    normalized = stage_lexicon.resolve_stage_name(stage)
+    if normalized in {"implement", "review", "qa"}:
+        return f"/feature-dev-aidd:{normalized} {ticket}"
+    return f"/feature-dev-aidd:status {ticket}"
+
+
 def _record_rg_metrics(aidd_root: Path, *, ticket: str, rg_without_slice: bool) -> None:
     if not ticket:
         return
@@ -140,6 +147,20 @@ def rg_fallback_decision(
     }
     if mode == "off" or stage not in enforce_stages or rg_policy == "free":
         return None
+    readmap_exists = bool(state.get("readmap_exists"))
+    if stage_lexicon.is_loop_stage(stage) and not readmap_exists:
+        _record_rg_metrics(aidd_root, ticket=ticket, rg_without_slice=True)
+        decision = "ask"
+        if mode == "hard" or resolve_hooks_mode() == "strict":
+            decision = "deny"
+        return {
+            "decision": decision,
+            "reason": "Context GC: rg requires preflight readmap first (reason_code=readmap_missing).",
+            "system_message": (
+                "Context GC: `rg` is blocked because readmap for current loop scope is missing. "
+                f"Re-run canonical stage command `{_stage_rerun_hint(ticket, stage)}` to regenerate preflight artifacts."
+            ),
+        }
 
     manifest_path = memory_common.memory_slices_manifest_path(aidd_root, ticket, stage, scope_key)
     manifest_rel = memory_common.rel_path(manifest_path, aidd_root)

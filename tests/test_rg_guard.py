@@ -61,6 +61,52 @@ def _write_maps(root: Path, ticket: str, scope_key: str, work_item_key: str) -> 
 
 
 class RgGuardTests(unittest.TestCase):
+    def test_strict_denies_rg_when_loop_readmap_missing(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="rg-guard-readmap-missing-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "RG-GUARD-0"
+            scope_key = "iteration_id_I1"
+            work_item_key = "iteration_id=I1"
+            write_active_state(root, ticket=ticket, stage="implement", work_item=work_item_key)
+            write_json(
+                root,
+                "config/gates.json",
+                {
+                    "memory": {
+                        "slice_enforcement": "warn",
+                        "enforce_stages": ["implement"],
+                        "rg_policy": "controlled_fallback",
+                        "max_slice_age_minutes": 240,
+                    }
+                },
+            )
+            write_json(
+                root,
+                f"reports/context/{ticket}-memory-slices.implement.{scope_key}.pack.json",
+                {
+                    "schema": "aidd.memory.slices.manifest.v1",
+                    "schema_version": "aidd.memory.slices.manifest.v1",
+                    "ticket": ticket,
+                    "stage": "implement",
+                    "scope_key": scope_key,
+                    "generated_at": "2099-01-01T00:00:00Z",
+                    "updated_at": "2099-01-01T00:00:00Z",
+                    "slices": {"cols": ["query", "slice_pack", "latest_alias", "hits"], "rows": []},
+                },
+            )
+            payload = {
+                "hook_event_name": "PreToolUse",
+                "tool_name": "Bash",
+                "tool_input": {"command": "rg TODO src"},
+            }
+            result = _run_pretool(root, payload, hooks_mode="strict")
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            data = json.loads(result.stdout)
+            hook_output = data.get("hookSpecificOutput", {})
+            self.assertEqual(hook_output.get("permissionDecision"), "deny")
+            reason = str(hook_output.get("permissionDecisionReason") or "")
+            self.assertIn("readmap_missing", reason)
+
     def test_strict_denies_rg_without_manifest(self) -> None:
         with tempfile.TemporaryDirectory(prefix="rg-guard-deny-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))

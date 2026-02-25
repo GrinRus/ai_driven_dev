@@ -460,7 +460,7 @@ def parse_args(argv: List[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--work-item-key", help="Optional work item key override.")
     parser.add_argument("--log", dest="log_path", required=True, help="Path to command output log.")
     parser.add_argument("--stage-result", help="Optional stage_result path override.")
-    parser.add_argument("--max-read-items", type=int, default=4, help="Max entries allowed in AIDD:READ_LOG.")
+    parser.add_argument("--max-read-items", type=int, default=8, help="Max entries allowed in AIDD:READ_LOG.")
     parser.add_argument("--format", choices=("json", "text"), default="json")
     return parser.parse_args(argv)
 

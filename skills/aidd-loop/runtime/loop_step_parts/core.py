@@ -2292,7 +2292,7 @@ def main(argv: list[str] | None = None) -> int:
             work_item_key=next_work_item_key,
             log_path=log_path,
             stage_result_path=result_path,
-            max_read_items=3,
+            max_read_items=8,
         )
         output_contract_status = str(report.get("status") or "")
         output_contract_warnings = [

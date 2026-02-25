@@ -423,8 +423,6 @@ class OutputContractTests(unittest.TestCase):
                     scope_key,
                     "--log",
                     str(log_path),
-                    "--max-read-items",
-                    "8",
                     "--format",
                     "json",
                 ),
