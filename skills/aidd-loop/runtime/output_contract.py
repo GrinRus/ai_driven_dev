@@ -220,6 +220,18 @@ def _manifest_age_minutes(path: Path) -> Optional[float]:
     return max(0.0, delta.total_seconds() / 60.0)
 
 
+def _manifest_is_valid(path: Path) -> bool:
+    if not path.exists():
+        return False
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return False
+    if not isinstance(payload, dict):
+        return False
+    return str(payload.get("schema") or "").strip() == "aidd.memory.slices.manifest.v1"
+
+
 def _find_index(entries: List[Dict[str, str]], predicate) -> int:
     for idx, entry in enumerate(entries):
         if predicate(entry):
@@ -299,8 +311,8 @@ def check_output_contract(
         ),
     )
     memory_manifest_path = runtime.resolve_path_for_target(Path(memory_manifest_expected), target)
-    memory_manifest_exists = memory_manifest_path.exists()
-    memory_manifest_age = _manifest_age_minutes(memory_manifest_path)
+    memory_manifest_exists = _manifest_is_valid(memory_manifest_path)
+    memory_manifest_age = _manifest_age_minutes(memory_manifest_path) if memory_manifest_exists else None
     try:
         memory_max_age = int(memory_gate.get("max_slice_age_minutes") or 240)
     except (TypeError, ValueError):

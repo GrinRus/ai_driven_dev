@@ -88,6 +88,18 @@ def _manifest_age_minutes(path: Path) -> Optional[float]:
     return max(0.0, (dt.datetime.now(dt.timezone.utc) - ts).total_seconds() / 60.0)
 
 
+def _manifest_is_valid(path: Path) -> bool:
+    if not path.exists():
+        return False
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return False
+    if not isinstance(payload, dict):
+        return False
+    return str(payload.get("schema") or "").strip() == "aidd.memory.slices.manifest.v1"
+
+
 def _autoslice_hint(ticket: str, stage: str, scope_key: str) -> str:
     return (
         "python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-memory/runtime/memory_autoslice.py "
@@ -164,9 +176,10 @@ def rg_fallback_decision(
 
     manifest_path = memory_common.memory_slices_manifest_path(aidd_root, ticket, stage, scope_key)
     manifest_rel = memory_common.rel_path(manifest_path, aidd_root)
-    manifest_age = _manifest_age_minutes(manifest_path)
+    manifest_valid = _manifest_is_valid(manifest_path)
+    manifest_age = _manifest_age_minutes(manifest_path) if manifest_valid else None
     max_age = int(gate.get("max_slice_age_minutes") or 240)
-    manifest_fresh = manifest_path.exists() and (manifest_age is None or manifest_age <= max_age)
+    manifest_fresh = manifest_valid and (manifest_age is None or manifest_age <= max_age)
 
     if manifest_fresh:
         _record_rg_metrics(aidd_root, ticket=ticket, rg_without_slice=False)
@@ -186,7 +199,9 @@ def rg_fallback_decision(
     if rg_policy == "deny" or mode == "hard" or resolve_hooks_mode() == "strict":
         decision = "deny"
     stale_note = ""
-    if manifest_age is not None and manifest_age > max_age:
+    if manifest_path.exists() and not manifest_valid:
+        stale_note = " Manifest is invalid."
+    elif manifest_age is not None and manifest_age > max_age:
         stale_note = f" Stale manifest age={manifest_age:.1f}m max={max_age}m."
     elif not manifest_path.exists():
         stale_note = " Manifest is missing."

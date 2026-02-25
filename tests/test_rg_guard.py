@@ -140,6 +140,43 @@ class RgGuardTests(unittest.TestCase):
             reason = str(hook_output.get("permissionDecisionReason") or "")
             self.assertIn("rg_without_slice", reason)
 
+    def test_strict_denies_rg_with_invalid_manifest(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="rg-guard-invalid-manifest-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "RG-GUARD-1A"
+            scope_key = "iteration_id_I1"
+            work_item_key = "iteration_id=I1"
+            write_active_state(root, ticket=ticket, stage="implement", work_item=work_item_key)
+            _write_maps(root, ticket, scope_key, work_item_key)
+            write_json(
+                root,
+                "config/gates.json",
+                {
+                    "memory": {
+                        "slice_enforcement": "warn",
+                        "enforce_stages": ["implement"],
+                        "rg_policy": "controlled_fallback",
+                        "max_slice_age_minutes": 240,
+                    }
+                },
+            )
+            invalid_manifest = root / "reports" / "context" / f"{ticket}-memory-slices.implement.{scope_key}.pack.json"
+            invalid_manifest.parent.mkdir(parents=True, exist_ok=True)
+            invalid_manifest.write_text("{\"schema\":\"invalid\"}\n", encoding="utf-8")
+
+            payload = {
+                "hook_event_name": "PreToolUse",
+                "tool_name": "Bash",
+                "tool_input": {"command": "rg TODO src"},
+            }
+            result = _run_pretool(root, payload, hooks_mode="strict")
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            data = json.loads(result.stdout)
+            hook_output = data.get("hookSpecificOutput", {})
+            self.assertEqual(hook_output.get("permissionDecision"), "deny")
+            reason = str(hook_output.get("permissionDecisionReason") or "")
+            self.assertIn("rg_without_slice", reason)
+
     def test_fast_asks_rg_without_manifest(self) -> None:
         with tempfile.TemporaryDirectory(prefix="rg-guard-ask-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))

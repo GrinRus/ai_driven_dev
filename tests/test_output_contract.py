@@ -349,6 +349,86 @@ class OutputContractTests(unittest.TestCase):
             self.assertEqual(payload.get("reason_code"), "memory_slice_manifest_missing")
             self.assertIn("memory_autoslice.py", str(payload.get("next_action") or ""))
 
+    def test_output_contract_blocks_when_memory_slice_manifest_invalid_in_hard_mode(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="output-contract-memory-invalid-hard-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ensure_gates_config(
+                root,
+                {
+                    "memory": {
+                        "slice_enforcement": "hard",
+                        "enforce_stages": ["implement"],
+                        "max_slice_age_minutes": 240,
+                    }
+                },
+            )
+            ticket = "DEMO-MEM-INVALID"
+            scope_key = "iteration_id_I1"
+            write_active_state(root, ticket=ticket, stage="implement", work_item="iteration_id=I1")
+            stage_result = {
+                "schema": "aidd.stage_result.v1",
+                "ticket": ticket,
+                "stage": "implement",
+                "scope_key": scope_key,
+                "work_item_key": "iteration_id=I1",
+                "result": "continue",
+                "updated_at": "2024-01-02T00:00:00Z",
+            }
+            write_file(
+                root,
+                f"reports/loops/{ticket}/{scope_key}/stage.implement.result.json",
+                json.dumps(stage_result),
+            )
+            actions_log = root / "reports" / "actions" / ticket / scope_key / "implement.actions.json"
+            actions_log.parent.mkdir(parents=True, exist_ok=True)
+            actions_log.write_text("[]\n", encoding="utf-8")
+            invalid_manifest_path = root / "reports" / "context" / f"{ticket}-memory-slices.implement.{scope_key}.pack.json"
+            invalid_manifest_path.parent.mkdir(parents=True, exist_ok=True)
+            invalid_manifest_path.write_text("{\"schema\":\"invalid\"}\n", encoding="utf-8")
+
+            log_path = root / "reports" / "loops" / ticket / "cli.implement.mem-invalid-hard.log"
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            log_path.write_text(
+                "\n".join(
+                    [
+                        "Status: WARN",
+                        "Work item key: iteration_id=I1",
+                        "Artifacts updated: src/demo.py",
+                        "Tests: skipped reason_code=manual_skip",
+                        "Blockers/Handoff: none",
+                        "Next actions: none",
+                        f"AIDD:ACTIONS_LOG: {actions_log.relative_to(root).as_posix()}",
+                        "AIDD:READ_LOG: "
+                        f"aidd/reports/loops/{ticket}/{scope_key}.loop.pack.md (reason: loop pack); "
+                        f"aidd/reports/context/{ticket}-memory-slices.implement.{scope_key}.pack.json (reason: memory-slice-manifest); "
+                        f"aidd/reports/context/{ticket}.pack.md (reason: rolling context)",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                cli_cmd(
+                    "output-contract",
+                    "--ticket",
+                    ticket,
+                    "--stage",
+                    "implement",
+                    "--log",
+                    str(log_path),
+                    "--format",
+                    "json",
+                ),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertEqual(payload.get("reason_code"), "memory_slice_manifest_missing")
+
     def test_output_contract_qa_allows_slice_first_read_order(self) -> None:
         with tempfile.TemporaryDirectory(prefix="output-contract-qa-slice-first-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
