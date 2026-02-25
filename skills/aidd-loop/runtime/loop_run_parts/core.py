@@ -64,10 +64,6 @@ _LEGACY_STAGE_ALIAS_TO_CANONICAL = {
     "/feature-dev-aidd:tasklist-refiner": "/feature-dev-aidd:tasks-new",
     "/feature-dev-aidd:implementer": "/feature-dev-aidd:implement",
     "/feature-dev-aidd:reviewer": "/feature-dev-aidd:review",
-    "feature-dev-aidd:planner": "feature-dev-aidd:plan-new",
-    "feature-dev-aidd:tasklist-refiner": "feature-dev-aidd:tasks-new",
-    "feature-dev-aidd:implementer": "feature-dev-aidd:implement",
-    "feature-dev-aidd:reviewer": "feature-dev-aidd:review",
 }
 _SCOPE_STALE_HINT_RE = re.compile(
     r"\b(?:scope_fallback_stale_ignored|scope_shape_invalid)=([A-Za-z0-9_.:-]+)\b",
@@ -542,7 +538,8 @@ def _expand_next_action_command(next_action: str, plugin_root: Path) -> tuple[li
         return [], expanded
     if not tokens:
         return [], expanded
-    if tokens[0].startswith("/feature-dev-aidd:"):
+    first = str(tokens[0] or "").strip().lower()
+    if first.startswith("/feature-dev-aidd:") or first.startswith("feature-dev-aidd:"):
         return [], expanded
     if any(token in {";", "&&", "||", "|"} for token in tokens):
         return [], expanded
