@@ -146,6 +146,40 @@ run_claude_stream_renderer() {
   fi
 }
 
+run_opencode_stream_renderer() {
+  if [[ ! -f "tests/repo_tools/opencode-stream-render" ]]; then
+    warn "tests/repo_tools/opencode-stream-render missing; skipping"
+    return
+  fi
+  log "running opencode stream renderer checks"
+  if ! bash tests/repo_tools/opencode-stream-render; then
+    err "opencode stream renderer checks failed"
+    STATUS=1
+  fi
+}
+
+run_opencode_plugin_checks() {
+  if [[ ! -f "platform/opencode-plugin/package.json" ]]; then
+    warn "platform/opencode-plugin/package.json missing; skipping OpenCode plugin checks"
+    return
+  fi
+  if ! command -v npm >/dev/null 2>&1; then
+    err "npm is required for OpenCode plugin checks"
+    STATUS=1
+    return
+  fi
+  log "running opencode plugin build/test checks"
+  (
+    cd platform/opencode-plugin
+    npm install --no-audit --no-fund --no-package-lock
+    npm run build
+    npm run test
+  ) || {
+    err "opencode plugin checks failed"
+    STATUS=1
+  }
+}
+
 run_tool_result_id_check() {
   if [[ ! -f "tests/repo_tools/tool-result-id" ]]; then
     warn "tests/repo_tools/tool-result-id missing; skipping"
@@ -510,6 +544,8 @@ run_prompt_regression
 run_loop_regression
 run_output_contract_regression
 run_claude_stream_renderer
+run_opencode_stream_renderer
+run_opencode_plugin_checks
 run_tool_result_id_check
 run_skill_scripts_guard
 run_bash_runtime_guard

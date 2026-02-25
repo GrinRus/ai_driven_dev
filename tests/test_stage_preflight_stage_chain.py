@@ -10,13 +10,25 @@ from tests.helpers import REPO_ROOT, cli_env, ensure_project_root, write_active_
 
 class StagePreflightStageChainTests(unittest.TestCase):
     def test_resolve_runner_normalizes_assignment_prefix_token(self) -> None:
-        tokens, _raw, notices = loop_step_stage_chain.resolve_runner(
+        tokens, _raw, notices, platform = loop_step_stage_chain.resolve_runner(
             "AIDD_LOOP_RUNNER=claude --dangerously-skip-permissions",
             REPO_ROOT,
         )
         self.assertTrue(tokens)
         self.assertEqual(tokens[0], "claude")
         self.assertIn("normalized", notices)
+        self.assertEqual(platform, "claude")
+
+    def test_build_command_opencode_uses_feature_namespace(self) -> None:
+        command = loop_step_stage_chain.build_command(
+            "implement",
+            "DEMO-1",
+            "AIDD:ANSWERS Q1=A",
+            runner_platform="opencode",
+        )
+        self.assertEqual(command[:3], ["run", "--format", "json"])
+        self.assertEqual(command[3], "--command")
+        self.assertIn("feature-dev-aidd:implement DEMO-1", command[4])
 
     def _run_preflight(self, stage: str) -> None:
         with tempfile.TemporaryDirectory(prefix=f"preflight-{stage}-") as tmpdir:

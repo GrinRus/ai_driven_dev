@@ -620,10 +620,14 @@ def validate_review_pack(
     )
 
 
-def resolve_runner(args_runner: str | None, plugin_root: Path) -> Tuple[List[str], str, str]:
+def resolve_runner(
+    args_runner: str | None,
+    plugin_root: Path,
+    runner_platform: str | None = None,
+) -> Tuple[List[str], str, str, str]:
     from aidd_runtime import loop_step_stage_chain as _stage_chain
 
-    return _stage_chain.resolve_runner(args_runner, plugin_root)
+    return _stage_chain.resolve_runner(args_runner, plugin_root, runner_platform=runner_platform)
 
 
 def is_skill_first(plugin_root: Path) -> bool:
@@ -782,10 +786,10 @@ def _validate_stage_chain_contract(
     )
 
 
-def build_command(stage: str, ticket: str, answers: str = "") -> List[str]:
+def build_command(stage: str, ticket: str, answers: str = "", runner_platform: str = "claude") -> List[str]:
     from aidd_runtime import loop_step_stage_chain as _stage_chain
 
-    return _stage_chain.build_command(stage, ticket, answers)
+    return _stage_chain.build_command(stage, ticket, answers, runner_platform=runner_platform)
 
 
 def run_command(
@@ -810,6 +814,7 @@ def run_stream_command(
     output_stream: TextIO,
     header_lines: Optional[List[str]] = None,
     env: Optional[Dict[str, str]] = None,
+    runner_platform: str = "claude",
 ) -> int:
     from aidd_runtime import loop_step_stage_chain as _stage_chain
 
@@ -823,6 +828,7 @@ def run_stream_command(
         output_stream=output_stream,
         header_lines=header_lines,
         env=env,
+        runner_platform=runner_platform,
     )
 
 
@@ -900,6 +906,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Execute a single loop step (implement/review).")
     parser.add_argument("--ticket", help="Ticket identifier (defaults to docs/.active.json).")
     parser.add_argument("--runner", help="Runner command override (default: claude).")
+    parser.add_argument(
+        "--runner-platform",
+        choices=("auto", "claude", "opencode"),
+        help="Runner platform selector (auto|claude|opencode).",
+    )
     parser.add_argument("--format", choices=("json", "yaml"), help="Emit structured output to stdout.")
     parser.add_argument(
         "--from-qa",
@@ -940,8 +951,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    runner_hint = str(args.runner or os.environ.get("AIDD_LOOP_RUNNER") or "claude").strip() or "claude"
+    runner_platform_hint = str(
+        args.runner_platform or os.environ.get("AIDD_LOOP_RUNNER_PLATFORM") or "auto"
+    ).strip().lower()
+    default_runner_hint = "opencode" if runner_platform_hint == "opencode" else "claude"
+    runner_hint = str(args.runner or os.environ.get("AIDD_LOOP_RUNNER") or default_runner_hint).strip() or "claude"
     os.environ["AIDD_LOOP_RUNNER_HINT"] = runner_hint
+    os.environ["AIDD_LOOP_RUNNER_PLATFORM_HINT"] = runner_platform_hint or "auto"
     if str(args.runner or "").strip():
         os.environ["AIDD_LOOP_RUNNER_SOURCE_HINT"] = "cli_arg"
     elif str(os.environ.get("AIDD_LOOP_RUNNER") or "").strip():
@@ -1446,7 +1462,12 @@ def main(argv: list[str] | None = None) -> int:
             repair_scope_key=repair_scope_key,
             cli_log_path=cli_log_path,
         )
-    runner_tokens, runner_raw, runner_notice = resolve_runner(args.runner, plugin_root)
+    runner_tokens, runner_raw, runner_notice, runner_platform = resolve_runner(
+        args.runner,
+        plugin_root,
+        runner_platform=getattr(args, "runner_platform", None),
+    )
+    os.environ["AIDD_LOOP_RUNNER_PLATFORM_HINT"] = runner_platform
     if next_stage in {"implement", "review"}:
         staged_work_item = str(runtime.read_active_work_item(target) or "").strip()
         if not runtime.is_iteration_work_item_key(staged_work_item):
@@ -1602,9 +1623,9 @@ def main(argv: list[str] | None = None) -> int:
         retry_attempt: int = 0,
     ) -> Tuple[int, List[str], Path, str, str, Optional[Path], Optional[Path], float, float]:
         command = list(runner_tokens)
-        if stream_mode:
+        if stream_mode and runner_platform == "claude":
             command.extend(["--output-format", "stream-json", "--include-partial-messages", "--verbose"])
-        command.extend(build_command(next_stage, ticket, compact_answers))
+        command.extend(build_command(next_stage, ticket, compact_answers, runner_platform=runner_platform))
         effective = " ".join(command)
         run_stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d-%H%M%S")
         retry_suffix = f".retry{retry_attempt}" if retry_attempt else ""
@@ -1642,6 +1663,7 @@ def main(argv: list[str] | None = None) -> int:
                 output_stream=sys.stderr,
                 header_lines=header_lines,
                 env=command_env,
+                runner_platform=runner_platform,
             )
         else:
             returncode = run_command(command, workspace_root, current_log_path, env=command_env)
@@ -2432,6 +2454,7 @@ def emit_result(
     question_questions_path: str = "",
     question_answers_path: str = "",
     runner_source: str = "",
+    runner_platform: str = "",
     drift_tripwire_hit: bool = False,
 ) -> int:
     status_value = status if status in {"blocked", "continue", "done"} else "blocked"
@@ -2457,6 +2480,12 @@ def emit_result(
         runner_source_value = (
             str(os.environ.get("AIDD_LOOP_RUNNER_SOURCE_HINT") or "").strip()
             or "unknown"
+        )
+    runner_platform_value = str(runner_platform or "").strip().lower()
+    if not runner_platform_value:
+        runner_platform_value = (
+            str(os.environ.get("AIDD_LOOP_RUNNER_PLATFORM_HINT") or "").strip().lower()
+            or "auto"
         )
 
     cli_log_value = str(cli_log_path) if cli_log_path else ""
@@ -2495,6 +2524,7 @@ def emit_result(
         "runner": runner_value,
         "runner_effective": runner_effective_value,
         "runner_source": runner_source_value,
+        "runner_platform": runner_platform_value,
         "runner_notice": runner_notice,
         "repair_reason_code": repair_reason_code,
         "repair_scope_key": repair_scope_key,

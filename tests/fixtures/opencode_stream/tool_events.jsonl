@@ -1,0 +1,3 @@
+{"type":"tool.execute.before","payload":{"tool_name":"Bash","args":{"command":"echo hi"}}}
+{"type":"text","text":"done"}
+{"type":"tool.execute.after","payload":{"tool_name":"Bash","status":"ok","exit_code":0}}

@@ -70,6 +70,7 @@ User‑гайд для workspace находится в `skills/aidd-core/templat
 
 ## Минимальные зависимости
 - `python3`, `rg`, `git` обязательны.
+- Для OpenCode plugin checks: `node` + `npm` (CI required с Wave 102).
 - Для `tests/repo_tools/ci-lint.sh`: `shellcheck`, `markdownlint`, `yamllint` (иначе warn/skip).
 
 ## Локальный запуск entrypoints
@@ -161,6 +162,7 @@ Agent‑first правило: сначала читаем артефакты (`a
 - `AIDD_TEST_PROFILE`, `AIDD_TEST_PROFILE_DEFAULT`, `AIDD_TEST_TASKS`, `AIDD_TEST_FILTERS`, `AIDD_TEST_FORCE`
 - `AIDD_TEST_LOG`, `AIDD_TEST_LOG_TAIL_LINES`, `AIDD_TEST_CHECKPOINT`
 - `AIDD_HOOKS_MODE` (`fast` по умолчанию, `strict` для полного набора стоп‑хуков)
+- `AIDD_LOOP_RUNNER_PLATFORM` (`auto|claude|opencode`, CLI override: `--runner-platform`)
 
 ## Prompt versioning
 - Semver: `MAJOR.MINOR.PATCH`.

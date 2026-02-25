@@ -15,6 +15,13 @@
 - Runtime facades for `loop_step`, `loop_run`, `loop_pack`, `tasklist_check`, `tasks_derive`, `reports_pack`, and `qa` now load split implementations from `runtime/*_parts/core.py`.
 
 ### New Features
+- OpenCode dual-runtime support (Phase 1 parity): `loop_step`/`loop_run` now support `--runner-platform auto|claude|opencode` and `AIDD_LOOP_RUNNER_PLATFORM`.
+- OpenCode stage invocation contract: when platform is `opencode`, loop runtime builds `opencode run --format json --command "feature-dev-aidd:<stage> <ticket> ..."`.
+- New OpenCode stream renderer `skills/aidd-loop/runtime/opencode_stream_render.py` with fixture-based repo checks (`tests/repo_tools/opencode-stream-render`).
+- New OpenCode bridge runtime: `hooks/opencode_bridge.py` + TypeScript plugin package `platform/opencode-plugin` for bridge-to-Python hook integration with strict hard-block behavior.
+- `aidd-init` now bootstraps OpenCode workspace assets: `.opencode.json` and `.opencode/{commands,agents}` generated from canonical SoT (`skills/*/SKILL.md`, `agents/*.md`).
+- OpenCode bridge path resolution now supports `AIDD_PLUGIN_ROOT` env alias and fail-fast diagnostics when `hooks/opencode_bridge.py` cannot be resolved.
+- `aidd-init` now writes both `opencode.json` and `.opencode.json` (compat) in workspace bootstrap.
 - `${CLAUDE_PLUGIN_ROOT}/tools/doctor.sh` for environment/path diagnostics and workspace checks.
 - Test profiles `fast/targeted/full/none` via `aidd/.cache/test-policy.env` and `AIDD_TEST_*` flags for `format-and-test.sh`.
 - Dedupe cache `aidd/.cache/format-and-test.last.json` to avoid repeating test runs when diff/profile are unchanged.

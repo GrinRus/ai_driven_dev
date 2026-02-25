@@ -6,7 +6,7 @@ import os
 import shutil
 import sys
 from pathlib import Path
-from typing import List
+from typing import Dict, List, Tuple
 
 _PLUGIN_ROOT = Path(__file__).resolve().parents[3]
 os.environ.setdefault("CLAUDE_PLUGIN_ROOT", str(_PLUGIN_ROOT))
@@ -76,6 +76,106 @@ def _copy_seed_files(plugin_root: Path, project_root: Path, *, force: bool) -> l
     return copied
 
 
+def _load_plugin_manifest(plugin_root: Path) -> Dict[str, object]:
+    manifest_path = plugin_root / ".claude-plugin" / "plugin.json"
+    if not manifest_path.exists():
+        return {}
+    try:
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _normalize_manifest_path(value: str) -> str:
+    text = str(value or "").strip()
+    if text.startswith("./"):
+        text = text[2:]
+    return text.strip()
+
+
+def _resolve_skill_markdown(plugin_root: Path, rel: str) -> Tuple[str, Path] | None:
+    normalized = _normalize_manifest_path(rel)
+    if not normalized:
+        return None
+    source = plugin_root / normalized
+    if source.is_dir():
+        source = source / "SKILL.md"
+    if not source.exists() or not source.is_file():
+        return None
+    command_name = source.parent.name
+    return command_name, source
+
+
+def _resolve_agent_markdown(plugin_root: Path, rel: str) -> Tuple[str, Path] | None:
+    normalized = _normalize_manifest_path(rel)
+    if not normalized:
+        return None
+    source = plugin_root / normalized
+    if not source.exists() or not source.is_file():
+        return None
+    return source.stem, source
+
+
+def _copy_opencode_assets(
+    *,
+    plugin_root: Path,
+    workspace_root: Path,
+    force: bool,
+) -> list[Path]:
+    manifest = _load_plugin_manifest(plugin_root)
+    copied: list[Path] = []
+    opencode_root = workspace_root / ".opencode"
+    commands_dir = opencode_root / "commands"
+    agents_dir = opencode_root / "agents"
+    commands_dir.mkdir(parents=True, exist_ok=True)
+    agents_dir.mkdir(parents=True, exist_ok=True)
+
+    raw_skills = manifest.get("skills") if isinstance(manifest.get("skills"), list) else []
+    for entry in raw_skills:
+        resolved = _resolve_skill_markdown(plugin_root, str(entry))
+        if not resolved:
+            continue
+        name, source = resolved
+        target = commands_dir / f"{name}.md"
+        if target.exists() and not force:
+            continue
+        target.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
+        copied.append(target)
+
+    raw_agents = manifest.get("agents") if isinstance(manifest.get("agents"), list) else []
+    for entry in raw_agents:
+        resolved = _resolve_agent_markdown(plugin_root, str(entry))
+        if not resolved:
+            continue
+        name, source = resolved
+        target = agents_dir / f"{name}.md"
+        if target.exists() and not force:
+            continue
+        target.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
+        copied.append(target)
+
+    config_path = workspace_root / ".opencode.json"
+    config_path_compat = workspace_root / "opencode.json"
+    plugin_entry = plugin_root / "platform" / "opencode-plugin" / "dist" / "index.js"
+    config_payload = {
+        "plugin": [str(plugin_entry)],
+    }
+    config_text = json.dumps(config_payload, indent=2, ensure_ascii=False) + "\n"
+    if not config_path.exists() or force:
+        config_path.write_text(config_text, encoding="utf-8")
+        copied.append(config_path)
+    if not config_path_compat.exists() or force:
+        config_path_compat.write_text(config_text, encoding="utf-8")
+        copied.append(config_path_compat)
+    if not plugin_entry.exists():
+        print(
+            f"[aidd:init] WARN: OpenCode bridge plugin is not built yet: {plugin_entry}. "
+            "Run `cd platform/opencode-plugin && npm install --no-audit --no-fund --no-package-lock && npm run build`."
+        )
+    return copied
+
+
 def _write_test_settings(workspace_root: Path, *, force: bool) -> None:
     from aidd_runtime.test_settings_defaults import detect_build_tools, test_settings_payload
 
@@ -137,7 +237,8 @@ def run_init(target: Path, extra_args: List[str] | None = None) -> None:
     project_root.mkdir(parents=True, exist_ok=True)
     copied = _copy_tree(templates_root, project_root, force=force)
     seeded = _copy_seed_files(plugin_root, project_root, force=force)
-    total_copied = len(copied) + len(seeded)
+    opencode_assets = _copy_opencode_assets(plugin_root=plugin_root, workspace_root=workspace_root, force=force)
+    total_copied = len(copied) + len(seeded) + len(opencode_assets)
     if total_copied:
         print(f"[aidd:init] copied {total_copied} files into {project_root}")
     else:

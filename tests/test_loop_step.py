@@ -83,6 +83,41 @@ class LoopStepTests(unittest.TestCase):
             cli_logs = list((root / "reports" / "loops" / "DEMO-1").glob("cli.loop-step.*.log"))
             self.assertTrue(cli_logs, "cli.loop-step log should be written")
 
+    def test_loop_step_uses_opencode_command_shape_with_runner_platform(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            write_active_state(root, work_item="iteration_id=I1")
+            stage_result = {
+                "schema": "aidd.stage_result.v1",
+                "ticket": "DEMO-OPENCODE",
+                "stage": "implement",
+                "scope_key": "iteration_id_I1",
+                "result": "continue",
+                "updated_at": "2024-01-02T00:00:00Z",
+            }
+            write_file(
+                root,
+                "reports/loops/DEMO-OPENCODE/iteration_id_I1/stage.implement.result.json",
+                json.dumps(stage_result),
+            )
+            log_path = root / "runner.log"
+            result = self.run_loop_step(
+                root,
+                "DEMO-OPENCODE",
+                log_path,
+                None,
+                "--runner-platform",
+                "opencode",
+                "--format",
+                "json",
+            )
+            self.assertEqual(result.returncode, 10, msg=result.stderr)
+            log_text = log_path.read_text(encoding="utf-8")
+            self.assertIn("run --format json --command feature-dev-aidd:implement DEMO-OPENCODE", log_text)
+            self.assertNotIn("-p /feature-dev-aidd:implement", log_text)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("runner_platform"), "opencode")
+
     def test_loop_step_user_approval_required_blocks_same_stage(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
@@ -1339,7 +1374,10 @@ class LoopStepTests(unittest.TestCase):
                 os.chdir(root.parent)
                 with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
                     with patch("aidd_runtime.loop_step.validate_command_available", return_value=(True, "", "")):
-                        with patch("aidd_runtime.loop_step.resolve_runner", return_value=(["fake-runner"], "fake-runner", "")):
+                        with patch(
+                            "aidd_runtime.loop_step.resolve_runner",
+                            return_value=(["fake-runner"], "fake-runner", "", "claude"),
+                        ):
                             with patch("aidd_runtime.loop_step.should_run_stage_chain", return_value=True):
                                 with patch(
                                     "aidd_runtime.loop_step.run_stage_chain",
@@ -1392,7 +1430,10 @@ class LoopStepTests(unittest.TestCase):
                 os.chdir(root.parent)
                 with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
                     with patch("aidd_runtime.loop_step.validate_command_available", return_value=(True, "", "")):
-                        with patch("aidd_runtime.loop_step.resolve_runner", return_value=(["fake-runner"], "fake-runner", "")):
+                        with patch(
+                            "aidd_runtime.loop_step.resolve_runner",
+                            return_value=(["fake-runner"], "fake-runner", "", "claude"),
+                        ):
                             with patch("aidd_runtime.loop_step.should_run_stage_chain", return_value=True):
                                 with patch(
                                     "aidd_runtime.loop_step.run_stage_chain",
@@ -1715,7 +1756,12 @@ class LoopStepTests(unittest.TestCase):
                 ):
                     with patch(
                         "aidd_runtime.loop_step.resolve_runner",
-                        return_value=(["claude"], "claude", "runner missing --dangerously-skip-permissions support"),
+                        return_value=(
+                            ["claude"],
+                            "claude",
+                            "runner missing --dangerously-skip-permissions support",
+                            "claude",
+                        ),
                     ):
                         with redirect_stdout(captured):
                             code = loop_step_module.main(
@@ -1794,7 +1840,10 @@ class LoopStepTests(unittest.TestCase):
                 os.chdir(root.parent)
                 with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
                     with patch("aidd_runtime.loop_step.validate_command_available", return_value=(True, "", "")):
-                        with patch("aidd_runtime.loop_step.resolve_runner", return_value=(["fake-runner"], "fake-runner", "")):
+                        with patch(
+                            "aidd_runtime.loop_step.resolve_runner",
+                            return_value=(["fake-runner"], "fake-runner", "", "claude"),
+                        ):
                             with patch("aidd_runtime.loop_step.should_run_stage_chain", return_value=False):
                                 with patch("aidd_runtime.loop_step.run_command", side_effect=_fake_run_command):
                                     with patch("aidd_runtime.loop_step.load_stage_result", side_effect=load_results):
@@ -1851,7 +1900,10 @@ class LoopStepTests(unittest.TestCase):
                 os.chdir(root.parent)
                 with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
                     with patch("aidd_runtime.loop_step.validate_command_available", return_value=(True, "", "")):
-                        with patch("aidd_runtime.loop_step.resolve_runner", return_value=(["fake-runner"], "fake-runner", "")):
+                        with patch(
+                            "aidd_runtime.loop_step.resolve_runner",
+                            return_value=(["fake-runner"], "fake-runner", "", "claude"),
+                        ):
                             with patch("aidd_runtime.loop_step.should_run_stage_chain", return_value=False):
                                 with patch("aidd_runtime.loop_step.run_command", side_effect=_fake_run_command):
                                     with patch("aidd_runtime.loop_step.load_stage_result", side_effect=load_results):

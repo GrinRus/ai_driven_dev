@@ -1220,6 +1220,9 @@ then
     cd "$PLUGIN_ROOT"
     env CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" PYTHONPATH="$PLUGIN_ROOT${PYTHONPATH:+:$PYTHONPATH}" \
       python3 -m pytest -q \
+        tests/test_loop_step.py::LoopStepTests::test_loop_step_uses_opencode_command_shape_with_runner_platform \
+        tests/test_stage_preflight_stage_chain.py::StagePreflightStageChainTests::test_build_command_opencode_uses_feature_namespace \
+        tests/test_opencode_bridge.py::OpenCodeBridgeTests::test_pretooluse_updated_input_passthrough \
         tests/test_loop_step.py::LoopStepTests::test_loop_step_tst001_fixture_stale_stage_missing_stage_result \
         tests/test_loop_run.py::LoopRunTests::test_loop_run_tst001_rca_fixture_reason_precedence_strict \
         tests/test_loop_run.py::LoopRunTests::test_loop_run_tst001_rca_fixture_reason_precedence_ralph \

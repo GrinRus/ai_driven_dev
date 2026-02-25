@@ -63,6 +63,8 @@ _SCOPE_STALE_HINT_RE = re.compile(
     r"\b(?:scope_fallback_stale_ignored|scope_shape_invalid)=([A-Za-z0-9_.:-]+)\b",
     re.IGNORECASE,
 )
+_RUNNER_PLATFORM_VALUES = {"auto", "claude", "opencode"}
+_OPENCODE_COMMANDS = {"opencode", "opencode.exe"}
 DEFAULT_LOOP_STEP_TIMEOUT_SECONDS = 900
 DEFAULT_SILENT_STALL_SECONDS = 1200
 DEFAULT_STAGE_BUDGET_SECONDS = 3600
@@ -182,6 +184,21 @@ def resolve_runner_label(raw: str | None) -> str:
     if os.environ.get("CI"):
         return "ci"
     return "local"
+
+
+def resolve_runner_platform(raw: str | None, runner_cmd: str | None = None) -> str:
+    requested = str(raw or os.environ.get("AIDD_LOOP_RUNNER_PLATFORM") or "auto").strip().lower()
+    if requested not in _RUNNER_PLATFORM_VALUES:
+        requested = "auto"
+    if requested != "auto":
+        return requested
+    candidate = str(runner_cmd or os.environ.get("AIDD_LOOP_RUNNER") or "claude").strip() or "claude"
+    try:
+        tokens = shlex.split(candidate)
+    except ValueError:
+        tokens = [candidate]
+    runner_name = Path(tokens[0]).name.lower() if tokens else "claude"
+    return "opencode" if runner_name in _OPENCODE_COMMANDS else "claude"
 
 
 def resolve_stream_mode(raw: str | None) -> str:
@@ -668,6 +685,7 @@ def run_loop_step(
     target: Path,
     ticket: str,
     runner: str | None,
+    runner_platform: str | None,
     *,
     from_qa: str | None,
     work_item_key: str | None,
@@ -689,6 +707,8 @@ def run_loop_step(
     ]
     if runner:
         cmd.extend(["--runner", runner])
+    if runner_platform:
+        cmd.extend(["--runner-platform", runner_platform])
     if from_qa:
         cmd.extend(["--from-qa", from_qa])
     if work_item_key:
@@ -844,6 +864,11 @@ def parse_args(argv: List[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--max-iterations", type=int, default=10, help="Maximum number of loop iterations.")
     parser.add_argument("--sleep-seconds", type=float, default=0.0, help="Sleep between iterations.")
     parser.add_argument("--runner", help="Runner command override.")
+    parser.add_argument(
+        "--runner-platform",
+        choices=("auto", "claude", "opencode"),
+        help="Runner platform selector (auto|claude|opencode).",
+    )
     parser.add_argument("--runner-label", help="Runner label for logs (claude_cli|ci|local).")
     parser.add_argument("--format", choices=("json", "yaml"), help="Emit structured output to stdout.")
     parser.add_argument(
@@ -984,6 +1009,11 @@ def main(argv: List[str] | None = None) -> int:
     stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d-%H%M%S")
     cli_log_path = target / "reports" / "loops" / ticket / f"cli.loop-run.{stamp}.log"
     runner_label = resolve_runner_label(args.runner_label)
+    runner_platform = resolve_runner_platform(getattr(args, "runner_platform", None), args.runner)
+    default_runner_cmd = (
+        str(args.runner or os.environ.get("AIDD_LOOP_RUNNER") or ("opencode" if runner_platform == "opencode" else "claude")).strip()
+        or "claude"
+    )
     stream_mode = resolve_stream_mode(getattr(args, "stream", None))
     step_timeout_seconds = _resolve_step_timeout_seconds(getattr(args, "step_timeout_seconds", None))
     silent_stall_seconds = _resolve_silent_stall_seconds(getattr(args, "silent_stall_seconds", None))
@@ -1009,6 +1039,7 @@ def main(argv: List[str] | None = None) -> int:
         cli_log_path,
         (
             f"{utc_timestamp()} event=start ticket={ticket} max_iterations={max_iterations} runner={runner_label} "
+            f"runner_platform={runner_platform} "
             f"blocked_policy={blocked_policy} recoverable_retry_budget={recoverable_retry_budget} "
             f"research_gate={research_gate_mode} step_timeout_seconds={step_timeout_seconds} "
             f"silent_stall_seconds={silent_stall_seconds}"
@@ -1281,7 +1312,8 @@ def main(argv: List[str] | None = None) -> int:
                 "recoverable_blocked": False,
                 "retry_attempt": recoverable_retry_attempt,
                 "recoverable_retry_budget": recoverable_retry_budget,
-                "runner_cmd": str(args.runner or os.environ.get("AIDD_LOOP_RUNNER") or "claude").strip() or "claude",
+                "runner_cmd": default_runner_cmd,
+                "runner_platform": runner_platform,
                 "stage": active_stage_for_budget,
                 "stage_budget_seconds": stage_budget_seconds,
                 "stage_budget_remaining_seconds": 0,
@@ -1329,6 +1361,7 @@ def main(argv: List[str] | None = None) -> int:
             target,
             ticket,
             args.runner,
+            runner_platform,
             from_qa=args.from_qa,
             work_item_key=args.work_item_key,
             select_qa_handoff=args.select_qa_handoff,
@@ -1490,7 +1523,8 @@ def main(argv: List[str] | None = None) -> int:
         )
         runner_effective = step_payload.get("runner_effective") or ""
         if not str(runner_effective).strip():
-            runner_effective = str(args.runner or os.environ.get("AIDD_LOOP_RUNNER") or "claude").strip() or "claude"
+            runner_effective = default_runner_cmd
+        runner_platform_effective = str(step_payload.get("runner_platform") or runner_platform).strip().lower() or "auto"
         step_stream_log = step_payload.get("stream_log_path") or ""
         step_stream_jsonl = step_payload.get("stream_jsonl_path") or ""
         budget_exhausted = _truthy_flag(step_payload.get("budget_exhausted"))

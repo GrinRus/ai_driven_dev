@@ -29,6 +29,11 @@ jobs:
           sudo apt-get install -y shellcheck yamllint ripgrep python3-pytest
           npm install -g markdownlint-cli
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
       - name: Run ci-lint script
         run: tests/repo_tools/ci-lint.sh
 
@@ -73,6 +78,7 @@ jobs:
               - 'hooks/**'
               - 'tools/**'
               - 'agents/**'
+              - 'platform/**'
               - 'templates/aidd/**'
               - '.claude-plugin/**'
 

@@ -55,6 +55,29 @@ class InitAiddTests(unittest.TestCase):
 
         conventions = (project_root / "config/conventions.json").read_text(encoding="utf-8")
         self.assertIn('"mode": "ticket-prefix"', conventions)
+        self.assertTrue((workdir / ".opencode.json").exists(), ".opencode.json should be created")
+        self.assertTrue((workdir / "opencode.json").exists(), "opencode.json should be created")
+        self.assertTrue((workdir / ".opencode" / "commands" / "implement.md").exists())
+        self.assertTrue((workdir / ".opencode" / "agents" / "analyst.md").exists())
+
+    def test_opencode_assets_are_idempotent_without_force(self):
+        workdir = self.make_tempdir()
+        self.run_script(workdir)
+        command_path = workdir / ".opencode" / "commands" / "implement.md"
+        command_path.write_text("custom-opencode-command", encoding="utf-8")
+
+        self.run_script(workdir)
+        self.assertEqual(command_path.read_text(encoding="utf-8"), "custom-opencode-command")
+
+    def test_opencode_assets_are_overwritten_with_force(self):
+        workdir = self.make_tempdir()
+        self.run_script(workdir)
+        command_path = workdir / ".opencode" / "commands" / "implement.md"
+        command_path.write_text("custom-opencode-command", encoding="utf-8")
+
+        self.run_script(workdir, "--force")
+        source = (REPO_ROOT / "skills" / "implement" / "SKILL.md").read_text(encoding="utf-8")
+        self.assertEqual(command_path.read_text(encoding="utf-8"), source)
 
     def test_idempotent_run_does_not_overwrite(self):
         workdir = self.make_tempdir()
