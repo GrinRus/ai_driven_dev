@@ -135,6 +135,50 @@
       "aidd/.cache"
     ]
   },
+  "memory": {
+    "enabled": true,
+    "mode": "v2",
+    "read_order": [
+      "rlm_pack",
+      "memory_semantic_pack",
+      "memory_decisions_pack",
+      "context_pack"
+    ],
+    "semantic": {
+      "max_chars": 6000,
+      "max_items": 120,
+      "trim_priority": [
+        "invariants",
+        "constraints",
+        "defaults",
+        "terms",
+        "open_questions"
+      ]
+    },
+    "decisions": {
+      "max_chars": 6000,
+      "max_active": 50,
+      "max_history": 150
+    },
+    "slice_budget": {
+      "max_hits": 20,
+      "max_chars": 3000
+    }
+  },
+  "ast_index": {
+    "mode": "auto",
+    "required": false,
+    "binary": "ast-index",
+    "timeout_s": 8,
+    "auto_ensure_index": true,
+    "fallback": "rg",
+    "max_results": 200,
+    "pack_budget": {
+      "max_chars": 9000,
+      "max_items": 120,
+      "enforce": false
+    }
+  },
   "researcher": {
     "defaults": {
       "paths": [

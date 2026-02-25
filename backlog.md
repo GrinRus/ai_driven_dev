@@ -91,7 +91,7 @@ _Rollout policy: Memory v2 — breaking-only, без обратной совме
 
 ### EPIC M1 — Canonical memory artifacts and runtime API
 
-- [ ] **W101-1 (P0) Create `aidd-memory` shared skill and canonical runtime surface** `skills/aidd-memory/SKILL.md`, `skills/aidd-memory/runtime/{memory_extract.py,decision_append.py,memory_pack.py,memory_slice.py,memory_verify.py}`, `.claude-plugin/plugin.json`, `tests/repo_tools/entrypoints-bundle.txt`:
+- [x] **W101-1 (P0) Create `aidd-memory` shared skill and canonical runtime surface** `skills/aidd-memory/SKILL.md`, `skills/aidd-memory/runtime/{memory_extract.py,decision_append.py,memory_pack.py,memory_slice.py,memory_verify.py}`, `.claude-plugin/plugin.json`, `tests/repo_tools/entrypoints-bundle.txt`:
   - завести owner skill `aidd-memory` и canonical Python entrypoints;
   - подключить skill metadata в plugin inventory.
   **AC:** в inventory присутствует shared skill `aidd-memory` с canonical runtime API.
@@ -138,7 +138,7 @@ _Rollout policy: Memory v2 — breaking-only, без обратной совме
 
 ### EPIC M2 — Integration into existing flow (research -> loop -> docops)
 
-- [ ] **W101-6 (P0) Bootstrap/config wiring for memory layer** `templates/aidd/config/conventions.json`, `templates/aidd/config/gates.json`, `skills/aidd-init/runtime/init.py`, `templates/aidd/reports/memory/.gitkeep`:
+- [x] **W101-6 (P0) Bootstrap/config wiring for memory layer** `templates/aidd/config/conventions.json`, `templates/aidd/config/gates.json`, `skills/aidd-init/runtime/init.py`, `templates/aidd/reports/memory/.gitkeep`:
   - добавить memory knobs (enable/budgets/read order hints);
   - сидировать `aidd/reports/memory/` при init.
   **AC:** новые workspace получают memory config + directories из коробки.
@@ -234,7 +234,7 @@ _Rollout policy: Memory v2 — breaking-only, без обратной совме
 
 _Назначение EPIC: закрыть retrieval/tooling/compaction контур для code evidence в context engineering сценарии, сохраняя optional зависимость и deterministic fallback на `rg`._
 
-- [ ] **W101-16 (P0) Optional ast-index config contract + bootstrap defaults** `templates/aidd/config/conventions.json`, `templates/aidd/config/gates.json`, `skills/aidd-init/runtime/init.py`:
+- [x] **W101-16 (P0) Optional ast-index config contract + bootstrap defaults** `templates/aidd/config/conventions.json`, `templates/aidd/config/gates.json`, `skills/aidd-init/runtime/init.py`:
   - добавить `ast_index` section в bootstrap/config контракт;
   - default режим: optional + fallback (`mode=auto`, `required=false`);
   - отсутствие binary не должно hard-block'ить flow в optional режиме.

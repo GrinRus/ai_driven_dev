@@ -158,6 +158,23 @@
       "java"
     ]
   },
+  "memory": {
+    "enabled": true,
+    "mode": "soft",
+    "stages": [
+      "plan",
+      "review",
+      "qa"
+    ],
+    "require_semantic_pack": false,
+    "require_decisions_pack": false
+  },
+  "ast_index": {
+    "mode": "auto",
+    "required": false,
+    "allow_fallback_rg": true,
+    "warn_on_fallback": true
+  },
   "analyst": {
     "enabled": true,
     "branches": [

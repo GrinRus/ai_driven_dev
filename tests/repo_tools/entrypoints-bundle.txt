@@ -128,6 +128,15 @@
     {
       "disable_model_invocation": "",
       "lang": "en",
+      "name": "aidd-memory",
+      "path": "skills/aidd-memory/SKILL.md",
+      "prompt_version": "",
+      "source_version": "",
+      "user_invocable": "false"
+    },
+    {
+      "disable_model_invocation": "",
+      "lang": "en",
       "name": "aidd-observability",
       "path": "skills/aidd-observability/SKILL.md",
       "prompt_version": "",
