@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import shlex
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -67,6 +68,36 @@ def _parse_timestamp(raw: object) -> Optional[dt.datetime]:
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=dt.timezone.utc)
     return parsed.astimezone(dt.timezone.utc)
+
+
+def _is_safe_rg_command(command: str) -> bool:
+    text = str(command or "").strip()
+    if not text:
+        return False
+    # Prevent shell-chain/redirect bypass for rg allow-path.
+    for marker in (";", "&&", "||", ">", "<", "`", "$(", "\n"):
+        if marker in text:
+            return False
+    try:
+        tokens = shlex.split(text)
+    except ValueError:
+        return False
+    if not tokens:
+        return False
+    idx = 0
+    while idx < len(tokens) and "=" in tokens[idx] and not tokens[idx].startswith("-"):
+        idx += 1
+    if idx >= len(tokens):
+        return False
+    if tokens[idx] == "command" and idx + 1 < len(tokens):
+        idx += 1
+    binary = tokens[idx]
+    if binary != "rg" and not binary.endswith("/rg"):
+        return False
+    tail_tokens = tokens[idx + 1 :]
+    if any(token == "tee" or token.endswith("/tee") for token in tail_tokens):
+        return False
+    return True
 
 
 def _manifest_age_minutes(path: Path) -> Optional[float]:
@@ -137,6 +168,19 @@ def rg_fallback_decision(
     command = str(tool_input.get("command") or "").strip()
     if not command or not is_rg_command(command):
         return None
+    if not _is_safe_rg_command(command):
+        decision = "ask"
+        # Complex shell command should be explicitly approved, especially in strict/hard modes.
+        if resolve_hooks_mode() == "strict":
+            decision = "deny"
+        return {
+            "decision": decision,
+            "reason": "Context GC: complex rg shell command requires review (reason_code=rg_complex_command).",
+            "system_message": (
+                "Context GC: `rg` command includes shell chaining/redirects or `tee`. "
+                "Run a simple `rg ...` command first, then execute follow-up steps separately."
+            ),
+        }
 
     state = policy_state(project_dir, aidd_root)
     if not state:
