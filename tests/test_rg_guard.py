@@ -61,6 +61,39 @@ def _write_maps(root: Path, ticket: str, scope_key: str, work_item_key: str) -> 
 
 
 class RgGuardTests(unittest.TestCase):
+    def test_strict_denies_shell_chain_with_rg_no_space_pipe(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="rg-guard-chain-no-space-pipe-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "RG-GUARD-CHAIN-NOSPACE"
+            scope_key = "iteration_id_I1"
+            work_item_key = "iteration_id=I1"
+            write_active_state(root, ticket=ticket, stage="implement", work_item=work_item_key)
+            _write_maps(root, ticket, scope_key, work_item_key)
+            write_json(
+                root,
+                "config/gates.json",
+                {
+                    "memory": {
+                        "slice_enforcement": "warn",
+                        "enforce_stages": ["implement"],
+                        "rg_policy": "controlled_fallback",
+                        "max_slice_age_minutes": 240,
+                    }
+                },
+            )
+            payload = {
+                "hook_event_name": "PreToolUse",
+                "tool_name": "Bash",
+                "tool_input": {"command": "echo foo|rg TODO src"},
+            }
+            result = _run_pretool(root, payload, hooks_mode="strict")
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            data = json.loads(result.stdout)
+            hook_output = data.get("hookSpecificOutput", {})
+            self.assertEqual(hook_output.get("permissionDecision"), "deny")
+            reason = str(hook_output.get("permissionDecisionReason") or "")
+            self.assertIn("rg_complex_command", reason)
+
     def test_strict_denies_shell_chain_with_rg_not_first(self) -> None:
         with tempfile.TemporaryDirectory(prefix="rg-guard-chain-not-first-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))

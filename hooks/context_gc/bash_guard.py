@@ -129,6 +129,43 @@ def _resolve_command_binary(command: str) -> str:
     return Path(tokens[idx]).name.lower()
 
 
+def _contains_unquoted_shell_operator(command: str) -> bool:
+    text = str(command or "")
+    if not text:
+        return False
+    in_single = False
+    in_double = False
+    escaped = False
+    idx = 0
+    operators = ("&&", "||", "|&", ">>", "<<", ";", "|", ">", "<")
+    while idx < len(text):
+        ch = text[idx]
+        if escaped:
+            escaped = False
+            idx += 1
+            continue
+        if ch == "\\" and not in_single:
+            escaped = True
+            idx += 1
+            continue
+        if ch == "'" and not in_double:
+            in_single = not in_single
+            idx += 1
+            continue
+        if ch == '"' and not in_single:
+            in_double = not in_double
+            idx += 1
+            continue
+        if not in_single and not in_double:
+            if ch == "\n":
+                return True
+            for op in operators:
+                if text.startswith(op, idx):
+                    return True
+        idx += 1
+    return False
+
+
 def is_rg_command(command: str) -> bool:
     text = str(command or "").strip()
     if not text:
@@ -142,6 +179,8 @@ def is_rg_command(command: str) -> bool:
         # Fall back to regex only when shell parsing fails.
         return bool(_RG_COMMAND_RE.search(text))
     # For shell-chains like `... | rg ...`, route to rg guard.
+    if _contains_unquoted_shell_operator(text):
+        return bool(_RG_COMMAND_RE.search(text))
     if any(token in _SHELL_OPERATOR_TOKENS for token in tokens):
         return bool(_RG_COMMAND_RE.search(text))
     return False
