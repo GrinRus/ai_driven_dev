@@ -160,6 +160,61 @@ class MemoryAutosliceTests(unittest.TestCase):
             self.assertEqual(payload.get("status"), "blocked")
             self.assertEqual(payload.get("reason_code"), "memory_slice_missing")
 
+    def test_memory_autoslice_normalizes_stage_alias_in_enforce_stages(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="memory-autoslice-alias-") as tmpdir:
+            workspace = Path(tmpdir)
+            project_root = ensure_project_root(workspace)
+            ticket = "MEM-AUTO-ALIAS"
+            write_active_state(project_root, ticket=ticket, stage="review-spec")
+
+            write_json(
+                project_root,
+                "config/conventions.json",
+                {
+                    "memory": {
+                        "slice_policy": {
+                            "mode": "hard",
+                            "enforce_stages": ["review_spec"],
+                        }
+                    }
+                },
+            )
+            write_json(
+                project_root,
+                "config/gates.json",
+                {
+                    "memory": {
+                        "slice_enforcement": "hard",
+                        "enforce_stages": ["review_spec"],
+                    }
+                },
+            )
+
+            stdout = io.StringIO()
+            old_cwd = Path.cwd()
+            os.chdir(workspace)
+            try:
+                with contextlib.redirect_stdout(stdout):
+                    rc = memory_autoslice.main(
+                        [
+                            "--ticket",
+                            ticket,
+                            "--stage",
+                            "review-spec",
+                            "--scope-key",
+                            ticket,
+                            "--format",
+                            "json",
+                        ]
+                    )
+            finally:
+                os.chdir(old_cwd)
+
+            self.assertEqual(rc, 2)
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertEqual(payload.get("reason_code"), "memory_slice_missing")
+
 
 if __name__ == "__main__":
     unittest.main()

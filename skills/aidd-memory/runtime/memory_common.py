@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List
 
 from aidd_runtime import runtime
+from aidd_runtime import stage_lexicon
 from aidd_runtime.rlm_config import load_conventions
 
 SCHEMA_SEMANTIC = "aidd.memory.semantic.v1"
@@ -133,7 +134,14 @@ def slice_policy(settings: Dict[str, Any]) -> Dict[str, Any]:
     rg_policy = raw_rg_policy if raw_rg_policy in {"free", "controlled_fallback", "deny"} else DEFAULT_RG_POLICY
     raw_stages = policy.get("enforce_stages")
     if isinstance(raw_stages, list):
-        enforce_stages = [str(item).strip().lower() for item in raw_stages if str(item).strip()]
+        enforce_stages: List[str] = []
+        seen_stages: set[str] = set()
+        for item in raw_stages:
+            stage = stage_lexicon.resolve_stage_name(str(item).strip())
+            if not stage or stage in seen_stages:
+                continue
+            seen_stages.add(stage)
+            enforce_stages.append(stage)
     else:
         enforce_stages = list(DEFAULT_SLICE_ENFORCE_STAGES)
     raw_stage_queries = policy.get("stage_queries")
@@ -143,7 +151,7 @@ def slice_policy(settings: Dict[str, Any]) -> Dict[str, Any]:
     }
     if isinstance(raw_stage_queries, dict):
         for key, values in raw_stage_queries.items():
-            stage = str(key).strip().lower()
+            stage = stage_lexicon.resolve_stage_name(str(key).strip())
             if not stage:
                 continue
             if isinstance(values, list):

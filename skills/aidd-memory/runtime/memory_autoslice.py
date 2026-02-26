@@ -16,13 +16,11 @@ from aidd_runtime import io_utils
 from aidd_runtime import memory_common as common
 from aidd_runtime import memory_slice
 from aidd_runtime import runtime
+from aidd_runtime import stage_lexicon
 
 
 def _normalize_stage(value: str) -> str:
-    stage = str(value or "").strip().lower()
-    if stage == "review_spec":
-        stage = "review-spec"
-    return stage
+    return stage_lexicon.resolve_stage_name(str(value or "").strip())
 
 
 def _parse_queries(raw: List[str], *, stage: str, policy: Dict[str, Any]) -> List[str]:
@@ -58,7 +56,14 @@ def _policy_with_gate_overrides(project_root: Path, base_policy: Dict[str, Any])
         merged["mode"] = raw_mode
     raw_stages = memory_cfg.get("enforce_stages")
     if isinstance(raw_stages, list):
-        stages = [str(item).strip().lower() for item in raw_stages if str(item).strip()]
+        stages = []
+        seen: set[str] = set()
+        for item in raw_stages:
+            stage = stage_lexicon.resolve_stage_name(str(item).strip())
+            if not stage or stage in seen:
+                continue
+            seen.add(stage)
+            stages.append(stage)
         if stages:
             merged["enforce_stages"] = stages
     raw_age = memory_cfg.get("max_slice_age_minutes")
@@ -220,9 +225,13 @@ def main(argv: List[str] | None = None) -> int:
         policy = _policy_with_gate_overrides(project_root, common.slice_policy(settings))
         mode = str(policy.get("mode") or "warn").strip().lower()
         enforce_stages = {
-            str(item).strip().lower()
-            for item in (policy.get("enforce_stages") or [])
-            if str(item).strip()
+            stage
+            for stage in (
+                stage_lexicon.resolve_stage_name(str(item).strip())
+                for item in (policy.get("enforce_stages") or [])
+                if str(item).strip()
+            )
+            if stage
         }
 
         queries = _parse_queries(args.queries, stage=stage, policy=policy)
