@@ -61,6 +61,83 @@ def _write_maps(root: Path, ticket: str, scope_key: str, work_item_key: str) -> 
 
 
 class RgGuardTests(unittest.TestCase):
+    def test_ignores_non_rg_command_with_rg_word(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="rg-guard-non-rg-word-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "RG-GUARD-NON-RG"
+            scope_key = "iteration_id_I1"
+            work_item_key = "iteration_id=I1"
+            write_active_state(root, ticket=ticket, stage="implement", work_item=work_item_key)
+            _write_maps(root, ticket, scope_key, work_item_key)
+            write_json(
+                root,
+                "config/gates.json",
+                {
+                    "memory": {
+                        "slice_enforcement": "warn",
+                        "enforce_stages": ["implement"],
+                        "rg_policy": "controlled_fallback",
+                        "max_slice_age_minutes": 240,
+                    }
+                },
+            )
+            payload = {
+                "hook_event_name": "PreToolUse",
+                "tool_name": "Bash",
+                "tool_input": {"command": "echo rg TODO src"},
+            }
+            result = _run_pretool(root, payload, hooks_mode="strict")
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            self.assertEqual(result.stdout.strip(), "")
+            self.assertEqual(result.stderr.strip(), "")
+
+    def test_allows_env_wrapped_rg_with_fresh_manifest(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="rg-guard-env-wrapper-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "RG-GUARD-ENV"
+            scope_key = "iteration_id_I1"
+            work_item_key = "iteration_id=I1"
+            write_active_state(root, ticket=ticket, stage="implement", work_item=work_item_key)
+            _write_maps(root, ticket, scope_key, work_item_key)
+            write_json(
+                root,
+                "config/gates.json",
+                {
+                    "memory": {
+                        "slice_enforcement": "warn",
+                        "enforce_stages": ["implement"],
+                        "rg_policy": "controlled_fallback",
+                        "max_slice_age_minutes": 240,
+                    }
+                },
+            )
+            write_json(
+                root,
+                f"reports/context/{ticket}-memory-slices.implement.{scope_key}.pack.json",
+                {
+                    "schema": "aidd.memory.slices.manifest.v1",
+                    "schema_version": "aidd.memory.slices.manifest.v1",
+                    "ticket": ticket,
+                    "stage": "implement",
+                    "scope_key": scope_key,
+                    "generated_at": "2099-01-01T00:00:00Z",
+                    "updated_at": "2099-01-01T00:00:00Z",
+                    "slices": {"cols": ["query", "slice_pack", "latest_alias", "hits"], "rows": []},
+                },
+            )
+            payload = {
+                "hook_event_name": "PreToolUse",
+                "tool_name": "Bash",
+                "tool_input": {"command": "env FOO=1 rg TODO src"},
+            }
+            result = _run_pretool(root, payload, hooks_mode="strict")
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            data = json.loads(result.stdout)
+            hook_output = data.get("hookSpecificOutput", {})
+            self.assertEqual(hook_output.get("permissionDecision"), "allow")
+            reason = str(hook_output.get("permissionDecisionReason") or "")
+            self.assertIn("ast_index_fallback_rg", reason)
+
     def test_strict_denies_piped_rg_shell_command(self) -> None:
         with tempfile.TemporaryDirectory(prefix="rg-guard-piped-command-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))

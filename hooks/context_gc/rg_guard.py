@@ -83,20 +83,38 @@ def _is_safe_rg_command(command: str) -> bool:
         return False
     if not tokens:
         return False
-    idx = 0
-    while idx < len(tokens) and "=" in tokens[idx] and not tokens[idx].startswith("-"):
-        idx += 1
-    if idx >= len(tokens):
+    idx = _resolve_command_binary_index(tokens)
+    if idx < 0:
         return False
-    if tokens[idx] == "command" and idx + 1 < len(tokens):
-        idx += 1
-    binary = tokens[idx]
+    binary = Path(tokens[idx]).name
     if binary != "rg" and not binary.endswith("/rg"):
         return False
     tail_tokens = tokens[idx + 1 :]
-    if any(token == "tee" or token.endswith("/tee") for token in tail_tokens):
+    if any(Path(token).name == "tee" for token in tail_tokens):
         return False
     return True
+
+
+def _resolve_command_binary_index(tokens: list[str]) -> int:
+    if not tokens:
+        return -1
+    idx = 0
+    # Prefix assignments: VAR=value rg ...
+    while idx < len(tokens) and "=" in tokens[idx] and not tokens[idx].startswith("-"):
+        idx += 1
+    # env wrapper: env VAR=value rg ...
+    if idx < len(tokens) and Path(tokens[idx]).name.lower() == "env":
+        idx += 1
+        while idx < len(tokens) and tokens[idx].startswith("-"):
+            idx += 1
+        while idx < len(tokens) and "=" in tokens[idx] and not tokens[idx].startswith("-"):
+            idx += 1
+    # command wrapper: command rg ...
+    if idx < len(tokens) and Path(tokens[idx]).name.lower() == "command":
+        idx += 1
+    if idx >= len(tokens):
+        return -1
+    return idx
 
 
 def _contains_shell_control_operator(command: str) -> bool:

@@ -89,7 +89,39 @@ def command_targets_aidd(command: str) -> bool:
     return any(token in lowered for token in ("aidd/", "docs/", "reports/", "config/", ".cache/"))
 
 
+def _resolve_command_binary(command: str) -> str:
+    text = str(command or "").strip()
+    if not text:
+        return ""
+    try:
+        tokens = shlex.split(text)
+    except ValueError:
+        return ""
+    if not tokens:
+        return ""
+    idx = 0
+    # Prefix assignments: VAR=value rg ...
+    while idx < len(tokens) and "=" in tokens[idx] and not tokens[idx].startswith("-"):
+        idx += 1
+    # env wrapper: env VAR=value rg ...
+    if idx < len(tokens) and Path(tokens[idx]).name.lower() == "env":
+        idx += 1
+        while idx < len(tokens) and tokens[idx].startswith("-"):
+            idx += 1
+        while idx < len(tokens) and "=" in tokens[idx] and not tokens[idx].startswith("-"):
+            idx += 1
+    # command wrapper: command rg ...
+    if idx < len(tokens) and Path(tokens[idx]).name.lower() == "command":
+        idx += 1
+    if idx >= len(tokens):
+        return ""
+    return Path(tokens[idx]).name.lower()
+
+
 def is_rg_command(command: str) -> bool:
+    binary = _resolve_command_binary(command)
+    if binary:
+        return binary == "rg"
     return bool(_RG_COMMAND_RE.search(str(command or "")))
 
 
