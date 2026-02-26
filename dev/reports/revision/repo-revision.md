@@ -1,14 +1,14 @@
 # Repository Revision Report
 
 schema: `aidd.repo_revision.v1`
-generated_at: `2026-02-24T11:14:09Z`
+generated_at: `2026-02-25T08:16:30Z`
 
 ## Executive summary
 
-- Total nodes: **357**
-- Total edges: **935**
+- Total nodes: **365**
+- Total edges: **893**
 - User-invocable commands: **11**
-- Reachable runtimes from command chain: **90**
+- Reachable runtimes from command chain: **89**
 - Detached agents: **0**
 
 Key findings:
@@ -39,7 +39,7 @@ Key findings:
 
 ### `/feature-dev-aidd:implement`
 - Skill: `skills/implement/SKILL.md`
-- Runtime refs: 13
+- Runtime refs: 12
   - `skills/aidd-core/runtime/diff_boundary_check.py`
   - `skills/aidd-docio/runtime/actions_apply.py`
   - `skills/aidd-flow-state/runtime/prd_check.py`
@@ -50,7 +50,6 @@ Key findings:
   - `skills/aidd-flow-state/runtime/status_summary.py`
   - `skills/aidd-flow-state/runtime/tasklist_check.py`
   - `skills/aidd-loop/runtime/loop_pack.py`
-  - `skills/aidd-loop/runtime/preflight_prepare.py`
   - `skills/aidd-rlm/runtime/rlm_slice.py`
   - `skills/implement/runtime/implement_run.py`
 - Subagents: `implementer`
@@ -75,7 +74,7 @@ Key findings:
 
 ### `/feature-dev-aidd:qa`
 - Skill: `skills/qa/SKILL.md`
-- Runtime refs: 12
+- Runtime refs: 11
   - `skills/aidd-docio/runtime/actions_apply.py`
   - `skills/aidd-flow-state/runtime/progress_cli.py`
   - `skills/aidd-flow-state/runtime/set_active_feature.py`
@@ -84,7 +83,6 @@ Key findings:
   - `skills/aidd-flow-state/runtime/status_summary.py`
   - `skills/aidd-flow-state/runtime/tasklist_check.py`
   - `skills/aidd-flow-state/runtime/tasks_derive.py`
-  - `skills/aidd-loop/runtime/preflight_prepare.py`
   - `skills/aidd-rlm/runtime/rlm_slice.py`
   - `skills/qa/runtime/qa.py`
   - `skills/qa/runtime/qa_run.py`
@@ -109,7 +107,7 @@ Key findings:
 
 ### `/feature-dev-aidd:review`
 - Skill: `skills/review/SKILL.md`
-- Runtime refs: 16
+- Runtime refs: 15
   - `skills/aidd-core/runtime/diff_boundary_check.py`
   - `skills/aidd-docio/runtime/actions_apply.py`
   - `skills/aidd-flow-state/runtime/progress_cli.py`
@@ -120,7 +118,6 @@ Key findings:
   - `skills/aidd-flow-state/runtime/tasklist_check.py`
   - `skills/aidd-flow-state/runtime/tasks_derive.py`
   - `skills/aidd-loop/runtime/loop_pack.py`
-  - `skills/aidd-loop/runtime/preflight_prepare.py`
   - `skills/aidd-rlm/runtime/rlm_slice.py`
   - `skills/review/runtime/review_pack.py`
   - `skills/review/runtime/review_report.py`
@@ -203,7 +200,7 @@ Key findings:
 ### `aidd-loop`
 - Skill path: `skills/aidd-loop/SKILL.md`
 - Preloaded by agents: `implementer`, `qa`, `reviewer`
-- Direct command runtime refs: `implement`, `qa`, `review`
+- Direct command runtime refs: `implement`, `review`
 
 ### `aidd-observability`
 - Skill path: `skills/aidd-observability/SKILL.md`
@@ -256,11 +253,11 @@ Validation commands:
 - Edge types:
   - `agent_preload_skill`: 35
   - `command_subagent`: 11
-  - `doc_ref_runtime`: 332
+  - `doc_ref_runtime`: 292
   - `hook_event_to_hook`: 16
   - `hook_ref_runtime`: 5
   - `runtime_dynamic_load`: 7
-  - `runtime_import`: 241
-  - `skill_runtime_ref`: 114
+  - `runtime_import`: 235
+  - `skill_runtime_ref`: 111
   - `skill_template_ref`: 10
-  - `test_ref_runtime`: 164
+  - `test_ref_runtime`: 171

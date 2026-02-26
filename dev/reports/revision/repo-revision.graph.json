@@ -64,7 +64,7 @@
         }
       ],
       "command": "implement",
-      "edge_count": 14,
+      "edge_count": 13,
       "reachable": 1,
       "runtime_refs": [
         "skills/aidd-core/runtime/diff_boundary_check.py",
@@ -77,7 +77,6 @@
         "skills/aidd-flow-state/runtime/status_summary.py",
         "skills/aidd-flow-state/runtime/tasklist_check.py",
         "skills/aidd-loop/runtime/loop_pack.py",
-        "skills/aidd-loop/runtime/preflight_prepare.py",
         "skills/aidd-rlm/runtime/rlm_slice.py",
         "skills/implement/runtime/implement_run.py"
       ],
@@ -140,7 +139,7 @@
         }
       ],
       "command": "qa",
-      "edge_count": 13,
+      "edge_count": 12,
       "reachable": 1,
       "runtime_refs": [
         "skills/aidd-docio/runtime/actions_apply.py",
@@ -151,7 +150,6 @@
         "skills/aidd-flow-state/runtime/status_summary.py",
         "skills/aidd-flow-state/runtime/tasklist_check.py",
         "skills/aidd-flow-state/runtime/tasks_derive.py",
-        "skills/aidd-loop/runtime/preflight_prepare.py",
         "skills/aidd-rlm/runtime/rlm_slice.py",
         "skills/qa/runtime/qa.py",
         "skills/qa/runtime/qa_run.py"
@@ -207,7 +205,7 @@
         }
       ],
       "command": "review",
-      "edge_count": 17,
+      "edge_count": 16,
       "reachable": 1,
       "runtime_refs": [
         "skills/aidd-core/runtime/diff_boundary_check.py",
@@ -220,7 +218,6 @@
         "skills/aidd-flow-state/runtime/tasklist_check.py",
         "skills/aidd-flow-state/runtime/tasks_derive.py",
         "skills/aidd-loop/runtime/loop_pack.py",
-        "skills/aidd-loop/runtime/preflight_prepare.py",
         "skills/aidd-rlm/runtime/rlm_slice.py",
         "skills/review/runtime/review_pack.py",
         "skills/review/runtime/review_report.py",
@@ -934,87 +931,12 @@
     },
     {
       "source": "doc:backlog.md",
-      "target": "runtime_py:skills/aidd-core/runtime/context_map_validate.py",
-      "type": "doc_ref_runtime"
-    },
-    {
-      "source": "doc:backlog.md",
       "target": "runtime_py:skills/aidd-core/runtime/gate_workflow.py",
       "type": "doc_ref_runtime"
     },
     {
       "source": "doc:backlog.md",
-      "target": "runtime_py:skills/aidd-core/runtime/launcher.py",
-      "type": "doc_ref_runtime"
-    },
-    {
-      "source": "doc:backlog.md",
-      "target": "runtime_py:skills/aidd-core/runtime/plan_review_gate.py",
-      "type": "doc_ref_runtime"
-    },
-    {
-      "source": "doc:backlog.md",
-      "target": "runtime_py:skills/aidd-core/runtime/reports/loader.py",
-      "type": "doc_ref_runtime"
-    },
-    {
-      "source": "doc:backlog.md",
-      "target": "runtime_py:skills/aidd-core/runtime/research_check.py",
-      "type": "doc_ref_runtime"
-    },
-    {
-      "source": "doc:backlog.md",
       "target": "runtime_py:skills/aidd-core/runtime/research_guard.py",
-      "type": "doc_ref_runtime"
-    },
-    {
-      "source": "doc:backlog.md",
-      "target": "runtime_py:skills/aidd-core/runtime/research_hints.py",
-      "type": "doc_ref_runtime"
-    },
-    {
-      "source": "doc:backlog.md",
-      "target": "runtime_py:skills/aidd-core/runtime/researcher_context.py",
-      "type": "doc_ref_runtime"
-    },
-    {
-      "source": "doc:backlog.md",
-      "target": "runtime_py:skills/aidd-core/runtime/researcher_context_pack.py",
-      "type": "doc_ref_runtime"
-    },
-    {
-      "source": "doc:backlog.md",
-      "target": "runtime_py:skills/aidd-core/runtime/rlm_manifest.py",
-      "type": "doc_ref_runtime"
-    },
-    {
-      "source": "doc:backlog.md",
-      "target": "runtime_py:skills/aidd-core/runtime/rlm_targets.py",
-      "type": "doc_ref_runtime"
-    },
-    {
-      "source": "doc:backlog.md",
-      "target": "runtime_py:skills/aidd-core/runtime/runtime.py",
-      "type": "doc_ref_runtime"
-    },
-    {
-      "source": "doc:backlog.md",
-      "target": "runtime_py:skills/aidd-core/runtime/set_active_stage.py",
-      "type": "doc_ref_runtime"
-    },
-    {
-      "source": "doc:backlog.md",
-      "target": "runtime_py:skills/aidd-core/runtime/stage_actions_run.py",
-      "type": "doc_ref_runtime"
-    },
-    {
-      "source": "doc:backlog.md",
-      "target": "runtime_py:skills/aidd-core/runtime/tasklist_parser.py",
-      "type": "doc_ref_runtime"
-    },
-    {
-      "source": "doc:backlog.md",
-      "target": "runtime_py:skills/aidd-core/runtime/tools_inventory.py",
       "type": "doc_ref_runtime"
     },
     {
@@ -1029,62 +951,7 @@
     },
     {
       "source": "doc:backlog.md",
-      "target": "runtime_py:skills/aidd-flow-state/runtime/set_active_stage.py",
-      "type": "doc_ref_runtime"
-    },
-    {
-      "source": "doc:backlog.md",
-      "target": "runtime_py:skills/aidd-flow-state/runtime/stage_result.py",
-      "type": "doc_ref_runtime"
-    },
-    {
-      "source": "doc:backlog.md",
-      "target": "runtime_py:skills/aidd-flow-state/runtime/status_summary.py",
-      "type": "doc_ref_runtime"
-    },
-    {
-      "source": "doc:backlog.md",
-      "target": "runtime_py:skills/aidd-flow-state/runtime/tasklist_check.py",
-      "type": "doc_ref_runtime"
-    },
-    {
-      "source": "doc:backlog.md",
-      "target": "runtime_py:skills/aidd-flow-state/runtime/tasklist_validate.py",
-      "type": "doc_ref_runtime"
-    },
-    {
-      "source": "doc:backlog.md",
-      "target": "runtime_py:skills/aidd-flow-state/runtime/tasks_derive.py",
-      "type": "doc_ref_runtime"
-    },
-    {
-      "source": "doc:backlog.md",
       "target": "runtime_py:skills/aidd-init/runtime/init.py",
-      "type": "doc_ref_runtime"
-    },
-    {
-      "source": "doc:backlog.md",
-      "target": "runtime_py:skills/aidd-loop/runtime/loop_run.py",
-      "type": "doc_ref_runtime"
-    },
-    {
-      "source": "doc:backlog.md",
-      "target": "runtime_py:skills/aidd-loop/runtime/loop_step.py",
-      "type": "doc_ref_runtime"
-    },
-    {
-      "source": "doc:backlog.md",
-      "target": "runtime_py:skills/aidd-loop/runtime/loop_step_policy.py",
-      "type": "doc_ref_runtime"
-    },
-    {
-      "source": "doc:backlog.md",
-      "target": "runtime_py:skills/aidd-loop/runtime/loop_step_stage_result.py",
-      "type": "doc_ref_runtime"
-    },
-    {
-      "source": "doc:backlog.md",
-      "target": "runtime_py:skills/aidd-loop/runtime/loop_step_wrappers.py",
       "type": "doc_ref_runtime"
     },
     {
@@ -1095,11 +962,6 @@
     {
       "source": "doc:backlog.md",
       "target": "runtime_py:skills/aidd-loop/runtime/preflight_prepare.py",
-      "type": "doc_ref_runtime"
-    },
-    {
-      "source": "doc:backlog.md",
-      "target": "runtime_py:skills/aidd-loop/runtime/preflight_result_validate.py",
       "type": "doc_ref_runtime"
     },
     {
@@ -1129,77 +991,12 @@
     },
     {
       "source": "doc:backlog.md",
-      "target": "runtime_py:skills/aidd-observability/runtime/doctor.py",
-      "type": "doc_ref_runtime"
-    },
-    {
-      "source": "doc:backlog.md",
-      "target": "runtime_py:skills/aidd-rlm/runtime/reports_pack.py",
-      "type": "doc_ref_runtime"
-    },
-    {
-      "source": "doc:backlog.md",
-      "target": "runtime_py:skills/aidd-rlm/runtime/rlm_finalize.py",
-      "type": "doc_ref_runtime"
-    },
-    {
-      "source": "doc:backlog.md",
-      "target": "runtime_py:skills/aidd-rlm/runtime/rlm_links_build.py",
-      "type": "doc_ref_runtime"
-    },
-    {
-      "source": "doc:backlog.md",
-      "target": "runtime_py:skills/aidd-rlm/runtime/rlm_nodes_build.py",
-      "type": "doc_ref_runtime"
-    },
-    {
-      "source": "doc:backlog.md",
-      "target": "runtime_py:skills/idea-new/runtime/analyst_check.py",
-      "type": "doc_ref_runtime"
-    },
-    {
-      "source": "doc:backlog.md",
-      "target": "runtime_py:skills/plan-new/runtime/research_check.py",
-      "type": "doc_ref_runtime"
-    },
-    {
-      "source": "doc:backlog.md",
-      "target": "runtime_py:skills/qa/runtime/qa.py",
-      "type": "doc_ref_runtime"
-    },
-    {
-      "source": "doc:backlog.md",
       "target": "runtime_py:skills/researcher/runtime/research.py",
       "type": "doc_ref_runtime"
     },
     {
       "source": "doc:backlog.md",
-      "target": "runtime_py:skills/review-spec/runtime/prd_review.py",
-      "type": "doc_ref_runtime"
-    },
-    {
-      "source": "doc:backlog.md",
-      "target": "runtime_py:skills/review-spec/runtime/prd_review_cli.py",
-      "type": "doc_ref_runtime"
-    },
-    {
-      "source": "doc:backlog.md",
-      "target": "runtime_py:skills/spec-interview/runtime/spec_interview.py",
-      "type": "doc_ref_runtime"
-    },
-    {
-      "source": "doc:backlog.md",
       "target": "runtime_py:skills/status/runtime/index_sync.py",
-      "type": "doc_ref_runtime"
-    },
-    {
-      "source": "doc:backlog.md",
-      "target": "runtime_py:skills/status/runtime/status.py",
-      "type": "doc_ref_runtime"
-    },
-    {
-      "source": "doc:backlog.md",
-      "target": "runtime_py:skills/tasks-new/runtime/tasks_new.py",
       "type": "doc_ref_runtime"
     },
     {
@@ -2495,62 +2292,6 @@
       },
       "source": "runtime_py:skills/aidd-core/runtime/feature_ids.py",
       "target": "runtime_py:skills/aidd-core/runtime/resources.py",
-      "type": "runtime_import"
-    },
-    {
-      "meta": {
-        "module": "aidd_runtime.analyst_guard"
-      },
-      "source": "runtime_py:skills/aidd-core/runtime/gate_workflow.py",
-      "target": "runtime_py:skills/aidd-core/runtime/analyst_guard.py",
-      "type": "runtime_import"
-    },
-    {
-      "meta": {
-        "module": "aidd_runtime.plan_review_gate"
-      },
-      "source": "runtime_py:skills/aidd-core/runtime/gate_workflow.py",
-      "target": "runtime_py:skills/aidd-core/runtime/plan_review_gate.py",
-      "type": "runtime_import"
-    },
-    {
-      "meta": {
-        "module": "aidd_runtime.prd_review_gate"
-      },
-      "source": "runtime_py:skills/aidd-core/runtime/gate_workflow.py",
-      "target": "runtime_py:skills/aidd-core/runtime/prd_review_gate.py",
-      "type": "runtime_import"
-    },
-    {
-      "meta": {
-        "module": "aidd_runtime.research_guard"
-      },
-      "source": "runtime_py:skills/aidd-core/runtime/gate_workflow.py",
-      "target": "runtime_py:skills/aidd-core/runtime/research_guard.py",
-      "type": "runtime_import"
-    },
-    {
-      "meta": {
-        "module": "aidd_runtime.runtime"
-      },
-      "source": "runtime_py:skills/aidd-core/runtime/gate_workflow.py",
-      "target": "runtime_py:skills/aidd-core/runtime/runtime.py",
-      "type": "runtime_import"
-    },
-    {
-      "meta": {
-        "module": "aidd_runtime.progress"
-      },
-      "source": "runtime_py:skills/aidd-core/runtime/gate_workflow.py",
-      "target": "runtime_py:skills/aidd-flow-state/runtime/progress.py",
-      "type": "runtime_import"
-    },
-    {
-      "meta": {
-        "module": "aidd_runtime.tasklist_check"
-      },
-      "source": "runtime_py:skills/aidd-core/runtime/gate_workflow.py",
-      "target": "runtime_py:skills/aidd-flow-state/runtime/tasklist_check.py",
       "type": "runtime_import"
     },
     {
@@ -3891,6 +3632,14 @@
     },
     {
       "meta": {
+        "module": "aidd_runtime.rlm_links_empty_reason"
+      },
+      "source": "runtime_py:skills/aidd-rlm/runtime/rlm_links_build.py",
+      "target": "runtime_py:skills/aidd-rlm/runtime/rlm_links_empty_reason.py",
+      "type": "runtime_import"
+    },
+    {
+      "meta": {
         "module": "aidd_runtime.rlm_config"
       },
       "source": "runtime_py:skills/aidd-rlm/runtime/rlm_nodes_build.py",
@@ -4430,11 +4179,6 @@
     },
     {
       "source": "command_skill:implement",
-      "target": "runtime_py:skills/aidd-loop/runtime/preflight_prepare.py",
-      "type": "skill_runtime_ref"
-    },
-    {
-      "source": "command_skill:implement",
       "target": "runtime_py:skills/aidd-rlm/runtime/rlm_slice.py",
       "type": "skill_runtime_ref"
     },
@@ -4506,11 +4250,6 @@
     {
       "source": "command_skill:qa",
       "target": "runtime_py:skills/aidd-flow-state/runtime/tasks_derive.py",
-      "type": "skill_runtime_ref"
-    },
-    {
-      "source": "command_skill:qa",
-      "target": "runtime_py:skills/aidd-loop/runtime/preflight_prepare.py",
       "type": "skill_runtime_ref"
     },
     {
@@ -4601,11 +4340,6 @@
     {
       "source": "command_skill:review",
       "target": "runtime_py:skills/aidd-loop/runtime/loop_pack.py",
-      "type": "skill_runtime_ref"
-    },
-    {
-      "source": "command_skill:review",
-      "target": "runtime_py:skills/aidd-loop/runtime/preflight_prepare.py",
       "type": "skill_runtime_ref"
     },
     {
@@ -5544,6 +5278,31 @@
       "type": "test_ref_runtime"
     },
     {
+      "source": "doc:tests/test_cli_adapter_guard.py",
+      "target": "runtime_py:skills/demo/runtime/boolean_optional.py",
+      "type": "test_ref_runtime"
+    },
+    {
+      "source": "doc:tests/test_cli_adapter_guard.py",
+      "target": "runtime_py:skills/demo/runtime/ghost.py",
+      "type": "test_ref_runtime"
+    },
+    {
+      "source": "doc:tests/test_cli_adapter_guard.py",
+      "target": "runtime_py:skills/demo/runtime/ok.py",
+      "type": "test_ref_runtime"
+    },
+    {
+      "source": "doc:tests/test_cli_adapter_guard.py",
+      "target": "runtime_py:skills/demo/runtime/stale.py",
+      "type": "test_ref_runtime"
+    },
+    {
+      "source": "doc:tests/test_cli_adapter_guard.py",
+      "target": "runtime_py:skills/demo/runtime/subcommands.py",
+      "type": "test_ref_runtime"
+    },
+    {
       "source": "doc:tests/test_deferred_core_api_contract.py",
       "target": "runtime_py:skills/aidd-docio/runtime/actions_apply.py",
       "type": "test_ref_runtime"
@@ -5566,6 +5325,11 @@
     {
       "source": "doc:tests/test_deferred_core_api_contract.py",
       "target": "runtime_py:skills/researcher/runtime/research.py",
+      "type": "test_ref_runtime"
+    },
+    {
+      "source": "doc:tests/test_hook_rw_policy.py",
+      "target": "runtime_py:skills/aidd-loop/runtime/preflight_prepare.py",
       "type": "test_ref_runtime"
     },
     {
@@ -5790,13 +5554,18 @@
     },
     {
       "source": "doc:tests/test_wave93_validators.py",
+      "target": "runtime_py:skills/aidd-loop/runtime/preflight_prepare.py",
+      "type": "test_ref_runtime"
+    },
+    {
+      "source": "doc:tests/test_wave93_validators.py",
       "target": "runtime_py:skills/aidd-loop/runtime/stage_result.py",
       "type": "test_ref_runtime"
     }
   ],
   "meta": {
-    "generated_at": "2026-02-24T11:14:09Z",
-    "repo_root": "/Users/griogrii_riabov/.codex/worktrees/a610/ai_driven_dev",
+    "generated_at": "2026-02-25T08:16:30Z",
+    "repo_root": "/Users/griogrii_riabov/grigorii_projects/ai_driven_dev",
     "sources": {
       "agents_glob": "agents/*.md",
       "hooks_wiring": "hooks/hooks.json",
@@ -5810,27 +5579,27 @@
     "agent_count": 11,
     "command_skill_count": 11,
     "detached_agent_paths": [],
-    "doc_count": 167,
+    "doc_count": 169,
     "edge_types": {
       "agent_preload_skill": 35,
       "command_subagent": 11,
-      "doc_ref_runtime": 332,
+      "doc_ref_runtime": 292,
       "hook_event_to_hook": 16,
       "hook_ref_runtime": 5,
       "runtime_dynamic_load": 7,
-      "runtime_import": 241,
-      "skill_runtime_ref": 114,
+      "runtime_import": 235,
+      "skill_runtime_ref": 111,
       "skill_template_ref": 10,
-      "test_ref_runtime": 164
+      "test_ref_runtime": 171
     },
     "hook_count": 10,
-    "reachable_node_count": 117,
-    "reachable_runtime_count": 90,
-    "runtime_count": 140,
+    "reachable_node_count": 116,
+    "reachable_runtime_count": 89,
+    "runtime_count": 146,
     "shared_skill_count": 8,
     "template_count": 10,
-    "total_edges": 935,
-    "total_nodes": 357
+    "total_edges": 893,
+    "total_nodes": 365
   },
   "nodes": [
     {
@@ -6278,6 +6047,12 @@
     },
     {
       "doc_kind": "test",
+      "id": "doc:tests/repo_tools/cli-adapter-guard.py",
+      "path": "tests/repo_tools/cli-adapter-guard.py",
+      "type": "doc"
+    },
+    {
+      "doc_kind": "test",
       "id": "doc:tests/repo_tools/entrypoints-bundle.txt",
       "path": "tests/repo_tools/entrypoints-bundle.txt",
       "type": "doc"
@@ -6418,6 +6193,12 @@
       "doc_kind": "test",
       "id": "doc:tests/test_bootstrap_e2e.py",
       "path": "tests/test_bootstrap_e2e.py",
+      "type": "doc"
+    },
+    {
+      "doc_kind": "test",
+      "id": "doc:tests/test_cli_adapter_guard.py",
+      "path": "tests/test_cli_adapter_guard.py",
       "type": "doc"
     },
     {
@@ -7089,7 +6870,7 @@
       "type": "runtime_py"
     },
     {
-      "exists": 1,
+      "exists": 0,
       "id": "runtime_py:skills/aidd-core/runtime/gate_workflow.py",
       "path": "skills/aidd-core/runtime/gate_workflow.py",
       "type": "runtime_py"
@@ -7702,6 +7483,12 @@
     },
     {
       "exists": 1,
+      "id": "runtime_py:skills/aidd-rlm/runtime/rlm_links_empty_reason.py",
+      "path": "skills/aidd-rlm/runtime/rlm_links_empty_reason.py",
+      "type": "runtime_py"
+    },
+    {
+      "exists": 1,
       "id": "runtime_py:skills/aidd-rlm/runtime/rlm_nodes_build.py",
       "path": "skills/aidd-rlm/runtime/rlm_nodes_build.py",
       "type": "runtime_py"
@@ -7716,6 +7503,36 @@
       "exists": 1,
       "id": "runtime_py:skills/aidd-rlm/runtime/rlm_verify.py",
       "path": "skills/aidd-rlm/runtime/rlm_verify.py",
+      "type": "runtime_py"
+    },
+    {
+      "exists": 0,
+      "id": "runtime_py:skills/demo/runtime/boolean_optional.py",
+      "path": "skills/demo/runtime/boolean_optional.py",
+      "type": "runtime_py"
+    },
+    {
+      "exists": 0,
+      "id": "runtime_py:skills/demo/runtime/ghost.py",
+      "path": "skills/demo/runtime/ghost.py",
+      "type": "runtime_py"
+    },
+    {
+      "exists": 0,
+      "id": "runtime_py:skills/demo/runtime/ok.py",
+      "path": "skills/demo/runtime/ok.py",
+      "type": "runtime_py"
+    },
+    {
+      "exists": 0,
+      "id": "runtime_py:skills/demo/runtime/stale.py",
+      "path": "skills/demo/runtime/stale.py",
+      "type": "runtime_py"
+    },
+    {
+      "exists": 0,
+      "id": "runtime_py:skills/demo/runtime/subcommands.py",
+      "path": "skills/demo/runtime/subcommands.py",
       "type": "runtime_py"
     },
     {
@@ -8030,7 +7847,6 @@
     {
       "direct_command_runtime_refs": [
         "implement",
-        "qa",
         "review"
       ],
       "preloaded_by_agents": [
