@@ -177,6 +177,27 @@ class DiffBoundaryCheckTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
             self.assertIn("OUT_OF_SCOPE src/disallowed/new.py", result.stdout)
 
+    def test_diff_boundary_ignores_aidd_audit_paths(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="boundary-check-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            git_init(root)
+            git_config_user(root)
+            write_active_state(root, ticket="DEMO-AUDIT", work_item="iteration_id=I1")
+            write_loop_pack(root, "DEMO-AUDIT", "iteration_id_I1", ["src/allowed/**"], [])
+
+            write_file(root, ".aidd_audit/DEMO-AUDIT/20260226T000000Z/01.log", "audit evidence\n")
+
+            result = subprocess.run(
+                cli_cmd("diff-boundary-check", "--ticket", "DEMO-AUDIT"),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            self.assertIn("OK", result.stdout)
+            self.assertNotIn("OUT_OF_SCOPE", result.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

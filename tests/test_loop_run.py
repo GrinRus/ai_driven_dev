@@ -43,6 +43,15 @@ class LoopRunTests(unittest.TestCase):
         self.assertEqual(tokens, [])
         self.assertIn("feature-dev-aidd:planner", expanded)
 
+    def test_loop_run_extract_next_action_sanitizes_non_canonical_loop_pack_path(self) -> None:
+        message = (
+            "BLOCK: pending. Next action: "
+            "`python3 /tmp/plugin/skills/aidd-flow-state/runtime/loop_pack.py --ticket DEMO-1`."
+        )
+        value = loop_run_module._extract_next_action(message)  # type: ignore[attr-defined]
+        self.assertIn("/skills/aidd-loop/runtime/loop_pack.py", value)
+        self.assertNotIn("/skills/aidd-flow-state/runtime/loop_pack.py", value)
+
     def _seed_stage_chain_baseline(self, root: Path, ticket: str) -> None:
         write_active_state(root, ticket=ticket)
         if not (root / "docs" / "tasklist" / f"{ticket}.md").exists():

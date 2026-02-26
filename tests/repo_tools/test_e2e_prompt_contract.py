@@ -161,6 +161,13 @@ class E2EPromptContractTests(unittest.TestCase):
         self.assertIn("watchdog_terminated", text)
         self.assertIn("result_count` в summary отсутствует", text)
 
+    def test_full_prompt_has_diff_boundary_ephemeral_guard_for_step7(self) -> None:
+        text = _read(AUDIT_PROMPT_FULL)
+        self.assertIn("R17.5", text)
+        self.assertIn("diff_boundary_violation", text)
+        self.assertIn(".aidd_audit/**", text)
+        self.assertIn("diff_boundary_ephemeral_misclassified", text)
+
     def test_prompts_define_conservative_severity_profile(self) -> None:
         for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
             text = _read(prompt)

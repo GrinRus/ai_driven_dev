@@ -146,6 +146,10 @@ LOOP_STAGE_FORBIDDEN_ALLOWED_TOOL_SNIPPETS = (
     "skills/review/runtime/preflight_prepare.py",
     "skills/qa/runtime/preflight_prepare.py",
 )
+NON_CANONICAL_LOOP_PACK_RUNTIME_RE = re.compile(
+    r"skills/aidd-flow-state/runtime/loop_pack\.py",
+    re.IGNORECASE,
+)
 PRELOADED_SKILLS = {
     "aidd-core",
     "aidd-docio",
@@ -1097,6 +1101,13 @@ def lint_skills(root: Path) -> Tuple[List[str], List[str]]:
             context = _as_string(info.front_matter.get("context"))
             agent = _as_string(info.front_matter.get("agent"))
             skill_tools = _normalize_tool_list(info.front_matter.get("allowed-tools"))
+            if NON_CANONICAL_LOOP_PACK_RUNTIME_RE.search(info.body) or any(
+                NON_CANONICAL_LOOP_PACK_RUNTIME_RE.search(item) for item in skill_tools
+            ):
+                errors.append(
+                    f"{info.path}: loop pack runtime path must be canonical "
+                    "`skills/aidd-loop/runtime/loop_pack.py`, not `skills/aidd-flow-state/runtime/loop_pack.py`"
+                )
             if path.parent.name in {"implement", "review", "qa"}:
                 for forbidden_tool in LOOP_STAGE_FORBIDDEN_ALLOWED_TOOL_SNIPPETS:
                     if any(forbidden_tool in item for item in skill_tools):

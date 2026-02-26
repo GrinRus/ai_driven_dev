@@ -504,6 +504,56 @@ class LoopStepTests(unittest.TestCase):
             self.assertEqual(payload.get("reason_code"), "diff_boundary_violation")
             self.assertIn("out_of_scope", str(payload.get("reason") or ""))
 
+    def test_loop_step_diff_boundary_ignores_aidd_audit_in_mixed_diff(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-wrap-diff-boundary-mixed-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-DIFF-BOUNDARY-MIXED"
+            scope_key = "iteration_id_I1"
+            work_item_key = "iteration_id=I1"
+            write_active_state(root, ticket=ticket, work_item=work_item_key)
+            write_tasklist_ready(root, ticket)
+            write_file(root, f"docs/prd/{ticket}.prd.md", "Status: READY\n")
+            write_file(
+                root,
+                f"reports/loops/{ticket}/{scope_key}/stage.implement.result.json",
+                json.dumps(
+                    {
+                        "schema": "aidd.stage_result.v1",
+                        "ticket": ticket,
+                        "stage": "implement",
+                        "scope_key": scope_key,
+                        "work_item_key": work_item_key,
+                        "result": "continue",
+                        "updated_at": "2024-01-02T00:00:00Z",
+                    }
+                ),
+            )
+            subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+            subprocess.run(["git", "config", "user.name", "Loop Step Test"], cwd=root, check=True)
+            subprocess.run(["git", "config", "user.email", "loop-step@test"], cwd=root, check=True)
+            subprocess.run(["git", "add", "."], cwd=root, check=True)
+            subprocess.run(["git", "commit", "-qm", "baseline"], cwd=root, check=True)
+
+            write_file(root, "src/disallowed/real_out_of_scope.txt", "x\n")
+            for idx in range(0, 8):
+                write_file(root, f".aidd_audit/{ticket}/20260226T000000Z/{idx}.log", "audit\n")
+
+            log_path = root / "runner.log"
+            result = self.run_loop_step(
+                root,
+                ticket,
+                log_path,
+                {
+                    "AIDD_DIFF_BOUNDARY_MAX_OUT_OF_SCOPE": "3",
+                },
+                "--format",
+                "json",
+            )
+            self.assertNotEqual(result.returncode, 127, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertNotEqual(payload.get("reason_code"), "diff_boundary_violation")
+            self.assertNotIn(".aidd_audit/", str(payload.get("reason") or ""))
+
     def test_loop_step_runs_review_when_stage_implement(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))

@@ -65,6 +65,16 @@ _LEGACY_STAGE_ALIAS_TO_CANONICAL = {
     "/feature-dev-aidd:implementer": "/feature-dev-aidd:implement",
     "/feature-dev-aidd:reviewer": "/feature-dev-aidd:review",
 }
+_NON_CANONICAL_LOOP_PACK_PATH_REPLACEMENTS = (
+    (
+        re.compile(r"(?i)\bskills/aidd-flow-state/runtime/loop_pack\.py\b"),
+        "skills/aidd-loop/runtime/loop_pack.py",
+    ),
+    (
+        re.compile(r"(?i)/skills/aidd-flow-state/runtime/loop_pack\.py"),
+        "/skills/aidd-loop/runtime/loop_pack.py",
+    ),
+)
 _SCOPE_STALE_HINT_RE = re.compile(
     r"\b(?:scope_fallback_stale_ignored|scope_shape_invalid)=([A-Za-z0-9_.:-]+)\b",
     re.IGNORECASE,
@@ -439,6 +449,8 @@ def _sanitize_next_action_aliases(next_action: str) -> str:
     for legacy_alias in sorted(_LEGACY_STAGE_ALIAS_TO_CANONICAL, key=len, reverse=True):
         canonical_alias = _LEGACY_STAGE_ALIAS_TO_CANONICAL[legacy_alias]
         value = re.sub(re.escape(legacy_alias), canonical_alias, value, flags=re.IGNORECASE)
+    for pattern, replacement in _NON_CANONICAL_LOOP_PACK_PATH_REPLACEMENTS:
+        value = pattern.sub(replacement, value)
     return value.strip()
 
 

@@ -1091,6 +1091,23 @@ class PromptLintTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("non-canonical stage-result path", result.stderr)
 
+    def test_loop_stage_skill_non_canonical_loop_pack_runtime_path_fails(self) -> None:
+        bad_skill = build_stage_skill("review").replace(
+            "## Additional resources",
+            (
+                "## Runtime hints\n"
+                "- Не использовать python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/loop_pack.py.\n\n"
+                "## Additional resources"
+            ),
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, skill_override={"review": bad_skill})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("loop pack runtime path must be canonical", result.stderr)
+
     def test_loop_stage_skill_missing_runtime_path_blocker_code_fails(self) -> None:
         bad_skill = build_stage_skill("qa").replace("runtime_path_missing_or_drift", "runtime_path_unknown", 1)
         with tempfile.TemporaryDirectory() as tmp:
