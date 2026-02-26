@@ -239,6 +239,19 @@ def _find_index(entries: List[Dict[str, str]], predicate) -> int:
     return -1
 
 
+def _matches_expected_read_path(target: Path, *, raw_path: str, expected_rel: str) -> bool:
+    candidate = str(raw_path or "").strip().replace("\\", "/")
+    if not candidate:
+        return False
+    if candidate == expected_rel:
+        return True
+    try:
+        resolved = runtime.resolve_path_for_target(Path(candidate), target)
+        return runtime.rel_path(resolved, target) == expected_rel
+    except Exception:
+        return False
+
+
 def _expected_status(
     target: Path,
     *,
@@ -301,13 +314,12 @@ def check_output_contract(
     }
     memory_enforced = memory_policy_mode != "off" and stage in memory_enforce_stages
     memory_manifest_expected = _memory_manifest_rel_path(target, ticket, stage, scope_key)
-    manifest_filename = Path(memory_manifest_expected).name
     memory_manifest_idx = _find_index(
         read_entries,
-        lambda item: (
-            str(item.get("path") or "").strip().replace("\\", "/") == memory_manifest_expected
-            or str(item.get("path") or "").strip().replace("\\", "/").endswith(f"/{manifest_filename}")
-            or str(item.get("path") or "").strip().replace("\\", "/").endswith(manifest_filename)
+        lambda item: _matches_expected_read_path(
+            target,
+            raw_path=str(item.get("path") or ""),
+            expected_rel=memory_manifest_expected,
         ),
     )
     memory_manifest_path = runtime.resolve_path_for_target(Path(memory_manifest_expected), target)

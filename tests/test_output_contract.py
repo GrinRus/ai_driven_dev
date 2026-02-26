@@ -429,6 +429,111 @@ class OutputContractTests(unittest.TestCase):
             self.assertEqual(payload.get("status"), "blocked")
             self.assertEqual(payload.get("reason_code"), "memory_slice_manifest_missing")
 
+    def test_output_contract_requires_exact_manifest_path_in_read_log(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="output-contract-memory-manifest-path-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ensure_gates_config(
+                root,
+                {
+                    "memory": {
+                        "slice_enforcement": "hard",
+                        "enforce_stages": ["implement"],
+                        "max_slice_age_minutes": 240,
+                    }
+                },
+            )
+            ticket = "DEMO-MEM-PATH"
+            scope_key = "iteration_id_I1"
+            write_active_state(root, ticket=ticket, stage="implement", work_item="iteration_id=I1")
+            stage_result = {
+                "schema": "aidd.stage_result.v1",
+                "ticket": ticket,
+                "stage": "implement",
+                "scope_key": scope_key,
+                "work_item_key": "iteration_id=I1",
+                "result": "continue",
+                "updated_at": "2024-01-02T00:00:00Z",
+            }
+            write_file(
+                root,
+                f"reports/loops/{ticket}/{scope_key}/stage.implement.result.json",
+                json.dumps(stage_result),
+            )
+            actions_log = root / "reports" / "actions" / ticket / scope_key / "implement.actions.json"
+            actions_log.parent.mkdir(parents=True, exist_ok=True)
+            actions_log.write_text("[]\n", encoding="utf-8")
+
+            expected_manifest_rel = f"aidd/reports/context/{ticket}-memory-slices.implement.{scope_key}.pack.json"
+            expected_manifest = root / "reports" / "context" / f"{ticket}-memory-slices.implement.{scope_key}.pack.json"
+            expected_manifest.parent.mkdir(parents=True, exist_ok=True)
+            expected_manifest.write_text(
+                json.dumps(
+                    {
+                        "schema": "aidd.memory.slices.manifest.v1",
+                        "schema_version": "aidd.memory.slices.manifest.v1",
+                        "ticket": ticket,
+                        "stage": "implement",
+                        "scope_key": scope_key,
+                        "generated_at": "2099-01-01T00:00:00Z",
+                        "updated_at": "2099-01-01T00:00:00Z",
+                        "slices": {"cols": ["query", "slice_pack", "latest_alias", "hits"], "rows": []},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            wrong_manifest_rel = f"aidd/reports/context/archive/{ticket}-memory-slices.implement.{scope_key}.pack.json"
+            wrong_manifest = root / "reports" / "context" / "archive" / f"{ticket}-memory-slices.implement.{scope_key}.pack.json"
+            wrong_manifest.parent.mkdir(parents=True, exist_ok=True)
+            wrong_manifest.write_text(expected_manifest.read_text(encoding="utf-8"), encoding="utf-8")
+
+            log_path = root / "reports" / "loops" / ticket / "cli.implement.mem-path.log"
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            log_path.write_text(
+                "\n".join(
+                    [
+                        "Status: WARN",
+                        "Work item key: iteration_id=I1",
+                        "Artifacts updated: src/demo.py",
+                        "Tests: skipped reason_code=manual_skip",
+                        "Blockers/Handoff: none",
+                        "Next actions: none",
+                        f"AIDD:ACTIONS_LOG: {actions_log.relative_to(root).as_posix()}",
+                        "AIDD:READ_LOG: "
+                        f"aidd/reports/loops/{ticket}/{scope_key}.loop.pack.md (reason: loop pack); "
+                        f"{wrong_manifest_rel} (reason: memory-slice-manifest); "
+                        f"aidd/reports/context/{ticket}.pack.md (reason: rolling context)",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            result = subprocess.run(
+                cli_cmd(
+                    "output-contract",
+                    "--ticket",
+                    ticket,
+                    "--stage",
+                    "implement",
+                    "--log",
+                    str(log_path),
+                    "--format",
+                    "json",
+                ),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertEqual(payload.get("reason_code"), "memory_slice_missing")
+            warnings = payload.get("warnings") or []
+            self.assertIn("memory_slice_missing", warnings)
+            self.assertNotIn("memory_slice_manifest_missing", warnings)
+            self.assertEqual(payload.get("memory_slice_manifest_expected"), expected_manifest_rel)
+
     def test_output_contract_qa_allows_slice_first_read_order(self) -> None:
         with tempfile.TemporaryDirectory(prefix="output-contract-qa-slice-first-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
