@@ -2,8 +2,9 @@
 """Lightweight PRD review helper for Claude workflow.
 
 The script inspects docs/prd/<ticket>.prd.md, looks for the dedicated
-`## PRD Review` section, checks status/action items and surfaces obvious
-placeholders (TODO/TBD/<...>) that must be resolved before development.
+`## PRD Review` section (including numbered `## <N>. PRD Review` variants),
+checks status/action items and surfaces obvious placeholders (TODO/TBD/<...>)
+that must be resolved before development.
 
 It produces a structured JSON report that can be stored in aidd/reports/prd/
 and optionally prints a concise human-readable summary.
@@ -23,6 +24,11 @@ from typing import Iterable, List, Optional
 
 from aidd_runtime import id_utils
 from aidd_runtime.feature_ids import resolve_aidd_root, resolve_identifiers
+from aidd_runtime.prd_review_section import (
+    extract_prd_review_section,
+    is_markdown_h2,
+    is_prd_review_header,
+)
 
 
 def detect_project_root(target: Optional[Path] = None) -> Path:
@@ -36,7 +42,13 @@ STATUS_ALIASES = {
     "ready-for-implementation": "ready",
 }
 PLACEHOLDER_PATTERN = re.compile(r"<[^>]+>")
-REVIEW_SECTION_HEADER = "## PRD Review"
+TODO_TBD_PATTERN = re.compile(r"\b(?:TODO|TBD)\b", re.IGNORECASE)
+HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
+NARRATIVE_TBD_PLACEHOLDER_RE = re.compile(
+    r"\bcontain(?:s)?\s+tbd\s+placeholders\b",
+    re.IGNORECASE,
+)
+OPEN_ACTION_ITEM_RE = re.compile(r"^- \[\s\]", re.IGNORECASE)
 
 
 def _normalize_output_path(root: Path, path: Path) -> Path:
@@ -150,6 +162,11 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         action="store_true",
         help="Remove JSON report after writing pack sidecar.",
     )
+    parser.add_argument(
+        "--require-ready",
+        action="store_true",
+        help="Return non-zero when recommended_status is not ready.",
+    )
     return parser.parse_args(argv)
 
 
@@ -177,33 +194,30 @@ def locate_prd(root: Path, ticket: str, explicit: Optional[Path]) -> Path:
 
 def extract_review_section(content: str) -> tuple[str, List[str]]:
     """Return status string and action items from the PRD Review section."""
-    lines = content.splitlines()
-    status = DEFAULT_STATUS
-    action_items: List[str] = []
-    inside_section = False
-
-    for line in lines:
-        if line.strip().startswith("## "):
-            inside_section = line.strip() == REVIEW_SECTION_HEADER
-            continue
-        if not inside_section:
-            continue
-
-        stripped = line.strip()
-        if stripped.lower().startswith("status:"):
-            raw_status = stripped.split(":", 1)[1].strip()
-            status = _normalize_review_status(raw_status)
-        elif stripped.startswith("- ["):
-            action_items.append(stripped)
+    _, status, action_items = extract_prd_review_section(
+        content,
+        normalize_status=_normalize_review_status,
+    )
+    if not status:
+        status = DEFAULT_STATUS
     return status, action_items
 
 
 def collect_placeholders(content: str) -> Iterable[str]:
-    for line in content.splitlines():
+    sanitized = HTML_COMMENT_RE.sub(" ", content)
+    inside_review_section = False
+    for line in sanitized.splitlines():
+        if is_markdown_h2(line):
+            inside_review_section = is_prd_review_header(line)
+            continue
+        if inside_review_section:
+            continue
         trimmed = line.strip()
         if not trimmed:
             continue
-        if "TODO" in trimmed or "TBD" in trimmed:
+        if NARRATIVE_TBD_PLACEHOLDER_RE.search(trimmed):
+            continue
+        if TODO_TBD_PATTERN.search(trimmed):
             yield trimmed
             continue
         if PLACEHOLDER_PATTERN.search(trimmed):
@@ -218,6 +232,7 @@ def analyse_prd(slug: str, prd_path: Path, *, ticket: Optional[str] = None) -> R
 
     status, action_items = extract_review_section(content)
     findings: List[Finding] = []
+    open_action_items = [item for item in action_items if OPEN_ACTION_ITEM_RE.match(item)]
 
     placeholder_hits = list(collect_placeholders(content))
     for item in placeholder_hits:
@@ -229,7 +244,7 @@ def analyse_prd(slug: str, prd_path: Path, *, ticket: Optional[str] = None) -> R
             )
         )
 
-    if status not in APPROVED_STATUSES and not placeholder_hits and not action_items:
+    if status not in APPROVED_STATUSES and not placeholder_hits and not open_action_items:
         findings.append(
             Finding(
                 severity="minor",
@@ -247,13 +262,14 @@ def analyse_prd(slug: str, prd_path: Path, *, ticket: Optional[str] = None) -> R
             )
         )
 
-    recomputed_status = status
-    if status in BLOCKING_TOKENS:
+    has_critical_findings = any(item.severity == "critical" for item in findings)
+    has_major_findings = any(item.severity == "major" for item in findings)
+    if status in BLOCKING_TOKENS or has_critical_findings:
         recomputed_status = "blocked"
-    elif action_items:
+    elif has_major_findings or open_action_items or status not in APPROVED_STATUSES:
         recomputed_status = "pending"
-    elif status not in APPROVED_STATUSES:
-        recomputed_status = status or DEFAULT_STATUS
+    else:
+        recomputed_status = "ready"
 
     generated_at = (
         dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
@@ -372,6 +388,13 @@ def run(args: argparse.Namespace) -> int:
             output_path.unlink()
         except OSError:
             pass
+    if getattr(args, "require_ready", False) and report.recommended_status != "ready":
+        print(
+            "[prd-review] ERROR: report is not ready "
+            f"(reason_code=review_not_ready, recommended_status={report.recommended_status})",
+            file=sys.stderr,
+        )
+        return 2
     return 0
 
 

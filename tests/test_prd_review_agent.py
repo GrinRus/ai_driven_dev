@@ -168,6 +168,22 @@ class PRDReviewAgentTests(unittest.TestCase):
         self.assertEqual(report.status, "ready")
         self.assertEqual(report.recommended_status, "ready")
 
+    def test_analyse_prd_accepts_numbered_review_header(self):
+        prd = self.write_prd(
+            dedent(
+                """\
+                # Demo
+
+                ## 11. PRD Review
+                Status: READY
+                """
+            ),
+        )
+
+        report = prd_review_agent.analyse_prd("demo-feature", prd)
+        self.assertEqual(report.status, "ready")
+        self.assertEqual(report.recommended_status, "ready")
+
     def test_analyse_prd_detects_placeholders(self):
         prd = self.write_prd(
             dedent(
@@ -188,6 +204,48 @@ class PRDReviewAgentTests(unittest.TestCase):
         self.assertTrue(any(f.severity == "major" for f in report.findings))
         self.assertTrue(all(f.id for f in report.findings))
         self.assertEqual(report.recommended_status, "pending")
+
+    def test_analyse_prd_ignores_html_comments_and_review_narrative_tbd(self):
+        prd = self.write_prd(
+            dedent(
+                """\
+                # Demo
+
+                <!-- TODO: remove after migration -->
+                This paragraph contains TBD placeholders only as explanatory narrative.
+
+                ## PRD Review
+                Status: READY
+                - [x] review done
+                - note: contains TBD placeholders in historical snippets
+                """
+            ),
+        )
+
+        report = prd_review_agent.analyse_prd("demo-feature", prd)
+
+        self.assertEqual(report.status, "ready")
+        self.assertEqual(report.recommended_status, "ready")
+        self.assertFalse(any(f.severity == "major" for f in report.findings))
+
+    def test_analyse_prd_sets_pending_when_major_findings_exist_even_if_status_ready(self):
+        prd = self.write_prd(
+            dedent(
+                """\
+                # Demo
+
+                TODO: finalize non-review section content
+
+                ## PRD Review
+                Status: READY
+                """
+            ),
+        )
+
+        report = prd_review_agent.analyse_prd("demo-feature", prd)
+        self.assertEqual(report.status, "ready")
+        self.assertEqual(report.recommended_status, "pending")
+        self.assertTrue(any(f.severity == "major" for f in report.findings))
 
     def test_analyse_prd_blocks_on_blocked_status(self):
         prd = self.write_prd(

@@ -231,6 +231,18 @@ def main(argv: Optional[list[str]] = None) -> int:
                     file=sys.stderr,
                 )
                 return 2
+            if bool(getattr(args, "require_ready", False)):
+                recommended_status = str(
+                    payload.get("recommended_status") or payload.get("status") or ""
+                ).strip().lower()
+                if recommended_status != "ready":
+                    print(
+                        "[prd-review] ERROR: ready-path requires READY report "
+                        "(reason_code=review_not_ready, "
+                        f"recommended_status={recommended_status or '-'})",
+                        file=sys.stderr,
+                    )
+                    return 2
             if review_research_warn:
                 _persist_review_research_warning(
                     target=target,

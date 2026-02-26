@@ -609,12 +609,13 @@ assert_gate_exit 2 "draft PRD"
 log "analyst answers questions and marks PRD READY"
 python3 - "$TICKET" <<'PY'
 from pathlib import Path
+import re
 import sys
 
 ticket = sys.argv[1]
 prd_path = Path("docs/prd") / f"{ticket}.prd.md"
 content = prd_path.read_text(encoding="utf-8")
-if "## PRD Review" not in content:
+if not re.search(r"^##\s+(?:\d+\.\s+)?PRD Review\s*$", content, re.MULTILINE):
     content += "\n## PRD Review\nStatus: PENDING\n"
 if "Вопрос 1:" in content and "TBD" in content:
     content = content.replace("Ответ 1: TBD", "Ответ 1: Покрываем стандартный happy-path и ошибку оплаты.", 1)
@@ -729,12 +730,13 @@ assert_gate_exit 2 "pending PRD review"
 log "mark PRD review as READY"
 python3 - "$TICKET" <<'PY'
 from pathlib import Path
+import re
 import sys
 
 ticket = sys.argv[1]
 path = Path("docs/prd") / f"{ticket}.prd.md"
 content = path.read_text(encoding="utf-8")
-if "## PRD Review" not in content:
+if not re.search(r"^##\s+(?:\d+\.\s+)?PRD Review\s*$", content, re.MULTILINE):
     raise SystemExit("PRD Review section missing in smoke scenario")
 if "Status: READY" not in content:
     if "Status: PENDING" in content:

@@ -13,7 +13,12 @@ PRD_PATH = "docs/prd/demo-checkout.prd.md"
 DOC_PATH = "docs/plan/demo-checkout.md"
 
 
-def make_prd(status: str, action_items: str = "", dialog_status: str = "READY") -> str:
+def make_prd(
+    status: str,
+    action_items: str = "",
+    dialog_status: str = "READY",
+    review_header: str = "## PRD Review",
+) -> str:
     body = dedent(
         f"""\
         # PRD
@@ -24,7 +29,7 @@ def make_prd(status: str, action_items: str = "", dialog_status: str = "READY") 
         Вопрос 1: Что уточнить?
         Ответ 1: Ответ получен.
 
-        ## PRD Review
+        {review_header}
         Status: {status}
         {action_items}
         """
@@ -133,6 +138,23 @@ def test_allows_when_review_approved(tmp_path):
     assert status == 0, output
 
 
+def test_allows_numbered_prd_review_header(tmp_path):
+    setup_base(tmp_path)
+    write_file(
+        tmp_path,
+        "docs/prd/demo-checkout.prd.md",
+        make_prd("READY", review_header="## 11. PRD Review"),
+    )
+    write_json(
+        tmp_path,
+        "reports/prd/demo-checkout.json",
+        {"ticket": "demo-checkout", "status": "ready", "findings": []},
+    )
+
+    status, output = run_prd_gate(tmp_path, SRC_PATH)
+    assert status == 0, output
+
+
 def test_allows_ready_for_implementation_alias(tmp_path):
     setup_base(tmp_path)
     write_file(tmp_path, "docs/prd/demo-checkout.prd.md", make_prd("READY_FOR_IMPLEMENTATION"))
@@ -208,6 +230,25 @@ def test_blocks_on_report_status_mismatch(tmp_path):
         tmp_path,
         "reports/prd/demo-checkout.json",
         {"ticket": "demo-checkout", "status": "pending", "findings": []},
+    )
+
+    status, output = run_prd_gate(tmp_path, SRC_PATH)
+    assert status == 1
+    assert "не совпадает" in output
+
+
+def test_blocks_on_recommended_status_mismatch(tmp_path):
+    setup_base(tmp_path)
+    write_file(tmp_path, "docs/prd/demo-checkout.prd.md", make_prd("READY"))
+    write_json(
+        tmp_path,
+        "reports/prd/demo-checkout.json",
+        {
+            "ticket": "demo-checkout",
+            "status": "ready",
+            "recommended_status": "pending",
+            "findings": [],
+        },
     )
 
     status, output = run_prd_gate(tmp_path, SRC_PATH)

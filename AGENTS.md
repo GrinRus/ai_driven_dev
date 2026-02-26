@@ -179,10 +179,11 @@ Agent‑first правило: сначала читаем артефакты (`a
   - RLM nodes/links: `aidd/reports/research/<ticket>-rlm.nodes.jsonl`, `*-rlm.links.jsonl`
   - RLM pack: `aidd/reports/research/<ticket>-rlm.pack.json`
   - QA: `aidd/reports/qa/<ticket>.json` + pack
-  - PRD review: `aidd/reports/prd/<ticket>.json` + pack
+  - PRD review gate artifact: `aidd/reports/prd/<ticket>.json` + pack
   - Reviewer marker: `aidd/reports/reviewer/<ticket>/<scope_key>.json`
   - Tests log: `aidd/reports/tests/<ticket>/<scope_key>.jsonl`
 - Pack‑only: читаем `*.pack.json` как источник; JSON хранится как raw‑артефакт и не используется для чтения.
+- Для PRD readiness/recovery source-of-truth — структурный report payload (`status`/`recommended_status`), narrative вывод stage считается вспомогательным.
 - Header (минимум): `schema`, `pack_version`, `type`, `kind`, `ticket`, `slug|slug_hint`, `generated_at`, `status`, `summary` (если есть), `tests_summary` (QA), `source_path`.
 - Determinism: стабильная сериализация, stable‑truncation, стабильные `id`.
 - Columnar формат: `cols` + `rows`.

@@ -100,6 +100,56 @@ class PrdReviewCliTests(unittest.TestCase):
             self.assertEqual(rc, 2)
             heal_mock.assert_not_called()
 
+    def test_require_ready_fails_when_report_not_ready(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="prd-review-cli-") as tmpdir:
+            workspace = Path(tmpdir)
+            project_root = ensure_project_root(workspace)
+            ticket = "DEMO-REQUIRE-READY-FAIL"
+            report_path = project_root / "reports" / "prd" / f"{ticket}.json"
+            report_path.parent.mkdir(parents=True, exist_ok=True)
+            report_path.write_text(
+                json.dumps({"status": "ready", "recommended_status": "pending"}) + "\n",
+                encoding="utf-8",
+            )
+            context = types.SimpleNamespace(resolved_ticket=ticket, slug_hint=ticket)
+
+            with (
+                patch.object(self.mod, "validate_research", return_value=object()),
+                patch.object(self.mod.prd_review, "run", return_value=0),
+                patch.object(self.mod.runtime, "require_workflow_root", return_value=(workspace, project_root)),
+                patch.object(self.mod.runtime, "resolve_feature_context", return_value=context),
+                patch.object(self.mod.runtime, "maybe_sync_index") as sync_mock,
+            ):
+                rc = self.mod.main(["--ticket", ticket, "--require-ready"])
+
+            self.assertEqual(rc, 2)
+            sync_mock.assert_not_called()
+
+    def test_require_ready_passes_when_report_ready(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="prd-review-cli-") as tmpdir:
+            workspace = Path(tmpdir)
+            project_root = ensure_project_root(workspace)
+            ticket = "DEMO-REQUIRE-READY-PASS"
+            report_path = project_root / "reports" / "prd" / f"{ticket}.json"
+            report_path.parent.mkdir(parents=True, exist_ok=True)
+            report_path.write_text(
+                json.dumps({"status": "ready", "recommended_status": "ready"}) + "\n",
+                encoding="utf-8",
+            )
+            context = types.SimpleNamespace(resolved_ticket=ticket, slug_hint=ticket)
+
+            with (
+                patch.object(self.mod, "validate_research", return_value=object()),
+                patch.object(self.mod.prd_review, "run", return_value=0),
+                patch.object(self.mod.runtime, "require_workflow_root", return_value=(workspace, project_root)),
+                patch.object(self.mod.runtime, "resolve_feature_context", return_value=context),
+                patch.object(self.mod.runtime, "maybe_sync_index") as sync_mock,
+            ):
+                rc = self.mod.main(["--ticket", ticket, "--require-ready"])
+
+            self.assertEqual(rc, 0)
+            sync_mock.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()
