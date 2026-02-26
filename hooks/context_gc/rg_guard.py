@@ -159,6 +159,16 @@ def rg_fallback_decision(
     }
     if mode == "off" or stage not in enforce_stages or rg_policy == "free":
         return None
+    if rg_policy == "deny":
+        _record_rg_metrics(aidd_root, ticket=ticket, rg_without_slice=False)
+        return {
+            "decision": "deny",
+            "reason": "Context GC: rg is disabled by memory policy (reason_code=rg_policy_deny).",
+            "system_message": (
+                "Context GC: `rg` fallback is disabled (`memory.rg_policy=deny`). "
+                "Use memory/pack/slice artifacts or switch policy to `controlled_fallback`."
+            ),
+        }
     readmap_exists = bool(state.get("readmap_exists"))
     if stage_lexicon.is_loop_stage(stage) and not readmap_exists:
         _record_rg_metrics(aidd_root, ticket=ticket, rg_without_slice=True)
