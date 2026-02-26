@@ -86,8 +86,8 @@ def _is_safe_rg_command(command: str) -> bool:
     idx = _resolve_command_binary_index(tokens)
     if idx < 0:
         return False
-    binary = Path(tokens[idx]).name
-    if binary != "rg" and not binary.endswith("/rg"):
+    binary = Path(tokens[idx]).name.lower()
+    if binary not in {"rg", "rg.exe"}:
         return False
     tail_tokens = tokens[idx + 1 :]
     if any(Path(token).name == "tee" for token in tail_tokens):
@@ -112,6 +112,16 @@ def _resolve_command_binary_index(tokens: list[str]) -> int:
     # command wrapper: command rg ...
     if idx < len(tokens) and Path(tokens[idx]).name.lower() == "command":
         idx += 1
+        while idx < len(tokens) and tokens[idx].startswith("-"):
+            if tokens[idx] == "--":
+                idx += 1
+                break
+            option = tokens[idx]
+            option_chars = option[1:] if option.startswith("-") else ""
+            if "v" in option_chars or "V" in option_chars:
+                # `command -v/-V ...` only queries command path/version.
+                return -1
+            idx += 1
     if idx >= len(tokens):
         return -1
     return idx

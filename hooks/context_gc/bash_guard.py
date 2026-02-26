@@ -11,6 +11,7 @@ from hooks.context_gc.rate_limit import resolve_log_dir, should_rate_limit
 from hooks.hooklib import pretooluse_decision
 
 _RG_COMMAND_RE = re.compile(r"(?<![A-Za-z0-9_./-])rg(?:\s|$)")
+_SHELL_OPERATOR_TOKENS = {";", "&&", "||", "|", "|&", ">", ">>", "<", "<<"}
 
 
 def _wrap_with_log_and_tail(log_dir: Path, tail_lines: int, original_cmd: str) -> str:
@@ -113,16 +114,37 @@ def _resolve_command_binary(command: str) -> str:
     # command wrapper: command rg ...
     if idx < len(tokens) and Path(tokens[idx]).name.lower() == "command":
         idx += 1
+        while idx < len(tokens) and tokens[idx].startswith("-"):
+            if tokens[idx] == "--":
+                idx += 1
+                break
+            option = tokens[idx]
+            option_chars = option[1:] if option.startswith("-") else ""
+            if "v" in option_chars or "V" in option_chars:
+                # `command -v/-V ...` is lookup mode, not command execution.
+                return ""
+            idx += 1
     if idx >= len(tokens):
         return ""
     return Path(tokens[idx]).name.lower()
 
 
 def is_rg_command(command: str) -> bool:
-    binary = _resolve_command_binary(command)
-    if binary:
-        return binary == "rg"
-    return bool(_RG_COMMAND_RE.search(str(command or "")))
+    text = str(command or "").strip()
+    if not text:
+        return False
+    binary = _resolve_command_binary(text)
+    if binary in {"rg", "rg.exe"}:
+        return True
+    try:
+        tokens = shlex.split(text)
+    except ValueError:
+        # Fall back to regex only when shell parsing fails.
+        return bool(_RG_COMMAND_RE.search(text))
+    # For shell-chains like `... | rg ...`, route to rg guard.
+    if any(token in _SHELL_OPERATOR_TOKENS for token in tokens):
+        return bool(_RG_COMMAND_RE.search(text))
+    return False
 
 
 def handle_bash(project_dir: Path, aidd_root: Optional[Path], cfg: Dict[str, Any], tool_input: Dict[str, Any]) -> None:
