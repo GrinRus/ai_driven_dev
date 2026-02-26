@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional
 
 from aidd_runtime import runtime
+from aidd_runtime.prd_review_section import extract_prd_review_section
 
 SCHEMA = "aidd.ticket.v1"
 EVENTS_LIMIT = 5
@@ -117,21 +118,11 @@ def _read_prd_review_status(root: Path, ticket: str) -> str:
     if not prd_path.exists():
         return ""
     try:
-        lines = prd_path.read_text(encoding="utf-8").splitlines()
+        content = prd_path.read_text(encoding="utf-8")
     except OSError:
         return ""
-    inside = False
-    for raw in lines:
-        stripped = raw.strip()
-        if stripped.startswith("## "):
-            inside = stripped == "## PRD Review"
-            continue
-        if not inside:
-            continue
-        lower = stripped.lower()
-        if lower.startswith("status:"):
-            return stripped.split(":", 1)[1].strip().lower()
-    return ""
+    _, status, _ = extract_prd_review_section(content, normalize_status=lambda value: value.strip().lower())
+    return status
 
 
 def _collect_events(root: Path, ticket: str, limit: int = EVENTS_LIMIT) -> List[Dict[str, object]]:

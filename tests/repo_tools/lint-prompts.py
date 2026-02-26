@@ -100,6 +100,7 @@ NO_FORK_FORBIDDEN_PHRASES = (
     "(fork)",
     "delegate to subagent",
 )
+RUN_SUBAGENT_NAMESPACE_RE = re.compile(r"run subagent `([^`]+)`", re.IGNORECASE)
 LEGACY_STAGE_ALIAS_TO_CANONICAL = {
     "/feature-dev-aidd:planner": "/feature-dev-aidd:plan-new",
     "/feature-dev-aidd:tasklist-refiner": "/feature-dev-aidd:tasks-new",
@@ -115,11 +116,7 @@ CONTEXT_PACK_REFRESH_WITHOUT_AGENT_RE = re.compile(
     r"context_pack\.py[^\n]{0,260}--refresh(?![^\n]{0,260}--agent)",
     re.IGNORECASE,
 )
-LOOP_MANUAL_PREFLIGHT_BAN_RE = re.compile(
-    r"(?:(?:manual|direct|вручн|прям).{0,220}preflight.{0,220}(?:forbidden|do not|запрещ|не\s+запуск)"
-    r"|(?:forbidden|do not|запрещ|не\s+запуск).{0,220}(?:manual|direct|вручн|прям).{0,220}preflight)",
-    re.IGNORECASE | re.DOTALL,
-)
+LOOP_INTERNAL_PREFLIGHT_SCRIPT_RE = re.compile(r"preflight_prepare\.py", re.IGNORECASE)
 LOOP_MANUAL_STAGE_RESULT_BAN_RE = re.compile(
     r"(?:(?:не\s+пис|не\s+создав|запрещено|do not (?:write|create)|forbidden).{0,260}"
     r"stage\.[a-z0-9_.-]*result\.json"
@@ -129,7 +126,6 @@ LOOP_MANUAL_STAGE_RESULT_BAN_RE = re.compile(
 LOOP_CANONICAL_STAGE_RESULT_PATH = "${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py"
 LOOP_NON_CANONICAL_STAGE_RESULT_PATH = "skills/aidd-loop/runtime/stage_result.py"
 LOOP_POLICY_MARKERS = {
-    "manual_preflight_forbidden": "[AIDD_LOOP_POLICY:MANUAL_PREFLIGHT_FORBIDDEN]",
     "manual_stage_result_forbidden": "[AIDD_LOOP_POLICY:MANUAL_STAGE_RESULT_FORBIDDEN]",
     "canonical_stage_result_path": "[AIDD_LOOP_POLICY:CANONICAL_STAGE_RESULT_PATH]",
     "non_canonical_stage_result_forbidden": "[AIDD_LOOP_POLICY:NON_CANONICAL_STAGE_RESULT_FORBIDDEN]",
@@ -149,6 +145,10 @@ LOOP_STAGE_FORBIDDEN_ALLOWED_TOOL_SNIPPETS = (
     "skills/implement/runtime/preflight_prepare.py",
     "skills/review/runtime/preflight_prepare.py",
     "skills/qa/runtime/preflight_prepare.py",
+)
+NON_CANONICAL_LOOP_PACK_RUNTIME_RE = re.compile(
+    r"skills/aidd-flow-state/runtime/loop_pack\.py",
+    re.IGNORECASE,
 )
 PRELOADED_SKILLS = {
     "aidd-core",
@@ -189,8 +189,6 @@ AGENT_SELF_STAGE_COMMAND_MAP: Dict[str, str] = {
 }
 AGENT_STAGE_COMMAND_REF_RE = re.compile(r"/feature-dev-aidd:([a-z0-9-]+)", re.IGNORECASE)
 AGENT_LOOP_PATH_LEVEL_POLICY_RE = (
-    re.compile(r"skills/aidd-loop/runtime/preflight_prepare\.py", re.IGNORECASE),
-    re.compile(r"skills/(?:implement|review|qa)/runtime/preflight(?:_[a-z0-9]+)?\.py", re.IGNORECASE),
     re.compile(r"stage\.(?:implement|review|qa)\.result\.json", re.IGNORECASE),
 )
 AGENT_RLM_PRELOAD_ROLES = {
@@ -1062,9 +1060,10 @@ def lint_skills(root: Path) -> Tuple[List[str], List[str]]:
                         f"{info.path}: loop stage guidance must define runtime path failure trigger "
                         f"`can't open file .../skills/.../runtime/...`"
                     )
-                if not LOOP_MANUAL_PREFLIGHT_BAN_RE.search(info.body):
-                    errors.append(
-                        f"{info.path}: missing explicit policy that manual/direct preflight runtime invocation is forbidden"
+                if LOOP_INTERNAL_PREFLIGHT_SCRIPT_RE.search(info.body):
+                    warnings.append(
+                        f"{info.path}: loop stage guidance mentions internal preflight script names; "
+                        "treated as telemetry-only (no hard-fail by mention)"
                     )
                 if not LOOP_MANUAL_STAGE_RESULT_BAN_RE.search(info.body):
                     errors.append(
@@ -1102,6 +1101,13 @@ def lint_skills(root: Path) -> Tuple[List[str], List[str]]:
             context = _as_string(info.front_matter.get("context"))
             agent = _as_string(info.front_matter.get("agent"))
             skill_tools = _normalize_tool_list(info.front_matter.get("allowed-tools"))
+            if NON_CANONICAL_LOOP_PACK_RUNTIME_RE.search(info.body) or any(
+                NON_CANONICAL_LOOP_PACK_RUNTIME_RE.search(item) for item in skill_tools
+            ):
+                errors.append(
+                    f"{info.path}: loop pack runtime path must be canonical "
+                    "`skills/aidd-loop/runtime/loop_pack.py`, not `skills/aidd-flow-state/runtime/loop_pack.py`"
+                )
             if path.parent.name in {"implement", "review", "qa"}:
                 for forbidden_tool in LOOP_STAGE_FORBIDDEN_ALLOWED_TOOL_SNIPPETS:
                     if any(forbidden_tool in item for item in skill_tools):
@@ -1218,6 +1224,13 @@ def lint_skills(root: Path) -> Tuple[List[str], List[str]]:
                         f"{info.path}: stage must contain exactly {expected_subagents} `Run subagent` step(s) "
                         f"(found {subagent_mentions})"
                     )
+                for match in RUN_SUBAGENT_NAMESPACE_RE.finditer(info.body):
+                    token = str(match.group(1) or "").strip()
+                    if token and not token.startswith("feature-dev-aidd:"):
+                        errors.append(
+                            f"{info.path}: stage subagent ref `{token}` must use namespaced form "
+                            "`feature-dev-aidd:<agent>`"
+                        )
                 body_lc = info.body.lower()
                 forbidden_phrases = [phrase for phrase in NO_FORK_FORBIDDEN_PHRASES if phrase in body_lc]
                 if forbidden_phrases:

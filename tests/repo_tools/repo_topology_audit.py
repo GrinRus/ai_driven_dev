@@ -30,7 +30,7 @@ RUNTIME_REF_RE = re.compile(
 SKILL_RUNTIME_CALL_RE = re.compile(
     r"(?:python3\s+)?(?:\"|')?\$\{CLAUDE_PLUGIN_ROOT\}/(skills/[A-Za-z0-9_.-]+/runtime/[A-Za-z0-9_./-]+\.py)"
 )
-SUBAGENT_RE = re.compile(r"subagent `feature-dev-aidd:([a-z0-9-]+)`", re.IGNORECASE)
+SUBAGENT_RE = re.compile(r"subagent `(?:feature-dev-aidd:)?([a-z0-9-]+)`", re.IGNORECASE)
 FEATURE_SKILL_RE = re.compile(r"^feature-dev-aidd:([a-z0-9-]+)$", re.IGNORECASE)
 WITH_NAME_CORE_RE = re.compile(
     r"with_name\((?:\"|')([A-Za-z0-9_.-]+)(?:\"|')\)\s*/\s*(?:\"|')([A-Za-z0-9_.-]+)(?:\"|')"

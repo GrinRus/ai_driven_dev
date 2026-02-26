@@ -337,7 +337,7 @@ class HookReadWritePolicyTests(unittest.TestCase):
             self.assertEqual(decision, "allow")
             self.assertIn("stage.*.result.json", data.get("systemMessage", ""))
 
-    def test_strict_denies_manual_preflight_prepare_bash_command(self) -> None:
+    def test_strict_allows_manual_preflight_prepare_bash_command_with_telemetry(self) -> None:
         with tempfile.TemporaryDirectory(prefix="hook-rw-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             ticket = "DEMO-RW"
@@ -357,11 +357,11 @@ class HookReadWritePolicyTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, msg=result.stderr)
             data = json.loads(result.stdout)
             decision = data.get("hookSpecificOutput", {}).get("permissionDecision")
-            self.assertEqual(decision, "deny")
-            self.assertIn("manual", data.get("hookSpecificOutput", {}).get("permissionDecisionReason", "").lower())
+            self.assertEqual(decision, "allow")
+            self.assertIn("telemetry", data.get("hookSpecificOutput", {}).get("permissionDecisionReason", "").lower())
             self.assertIn("/feature-dev-aidd:implement", data.get("systemMessage", ""))
 
-    def test_fast_warns_on_manual_preflight_prepare_bash_command(self) -> None:
+    def test_fast_allows_manual_preflight_prepare_bash_command_with_telemetry(self) -> None:
         with tempfile.TemporaryDirectory(prefix="hook-rw-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             ticket = "DEMO-RW"
@@ -382,10 +382,10 @@ class HookReadWritePolicyTests(unittest.TestCase):
             data = json.loads(result.stdout)
             decision = data.get("hookSpecificOutput", {}).get("permissionDecision")
             self.assertEqual(decision, "allow")
-            self.assertIn("forbidden", data.get("systemMessage", "").lower())
+            self.assertIn("telemetry", data.get("systemMessage", "").lower())
             self.assertIn("/feature-dev-aidd:qa", data.get("systemMessage", ""))
 
-    def test_strict_denies_manual_preflight_prepare_bash_command_in_light_mode(self) -> None:
+    def test_strict_allows_manual_preflight_prepare_bash_command_in_light_mode(self) -> None:
         with tempfile.TemporaryDirectory(prefix="hook-rw-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             ticket = "DEMO-RW"
@@ -405,11 +405,11 @@ class HookReadWritePolicyTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, msg=result.stderr)
             data = json.loads(result.stdout)
             decision = data.get("hookSpecificOutput", {}).get("permissionDecision")
-            self.assertEqual(decision, "deny")
-            self.assertIn("forbidden", data.get("systemMessage", "").lower())
+            self.assertEqual(decision, "allow")
+            self.assertIn("telemetry", data.get("systemMessage", "").lower())
             self.assertIn("/feature-dev-aidd:review", data.get("systemMessage", ""))
 
-    def test_fast_warns_on_manual_preflight_prepare_bash_command_in_off_mode(self) -> None:
+    def test_fast_allows_manual_preflight_prepare_bash_command_in_off_mode(self) -> None:
         with tempfile.TemporaryDirectory(prefix="hook-rw-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             ticket = "DEMO-RW"
@@ -430,7 +430,7 @@ class HookReadWritePolicyTests(unittest.TestCase):
             data = json.loads(result.stdout)
             decision = data.get("hookSpecificOutput", {}).get("permissionDecision")
             self.assertEqual(decision, "allow")
-            self.assertIn("forbidden", data.get("systemMessage", "").lower())
+            self.assertIn("telemetry", data.get("systemMessage", "").lower())
             self.assertIn("/feature-dev-aidd:implement", data.get("systemMessage", ""))
 
     def test_strict_planning_stage_denies_write_outside_writemap(self) -> None:

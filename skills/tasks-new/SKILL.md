@@ -3,8 +3,8 @@ name: tasks-new
 description: Derives or refines tasklist items from PRD, plan, and spec artifacts. Use when tasklist stage prepares implementation-ready work items.
 argument-hint: $1 [note...]
 lang: ru
-prompt_version: 1.1.22
-source_version: 1.1.22
+prompt_version: 1.1.23
+source_version: 1.1.23
 allowed-tools:
   - Read
   - Edit

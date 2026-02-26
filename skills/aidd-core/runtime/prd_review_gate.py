@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Shared PRD review gate logic for Claude workflow hooks.
 
-The script checks that `docs/prd/<ticket>.prd.md` contains a `## PRD Review`
-section with a READY status and no unresolved action items. Review runs after
-plan review and blocks implementation until ready. Behaviour is
-configured through `config/gates.json` (see the `prd_review` section).
+The script checks that `docs/prd/<ticket>.prd.md` contains a PRD Review section
+(`## PRD Review` or `## <N>. PRD Review`) with a READY status and no unresolved
+action items. Review runs after plan review and blocks implementation until
+ready. Behaviour is configured through `config/gates.json`
+(see the `prd_review` section).
 
 Exit codes:
     0 — gate passed or skipped (disabled / branch excluded / direct PRD edit).
@@ -15,11 +16,13 @@ from __future__ import annotations
 
 import argparse
 import json
+from fnmatch import fnmatch
 from pathlib import Path
 from typing import Iterable, List, Set
 
 from aidd_runtime import gates
 from aidd_runtime.feature_ids import resolve_aidd_root
+from aidd_runtime.prd_review_section import extract_prd_review_section
 
 DEFAULT_APPROVED = {"ready"}
 DEFAULT_BLOCKING = {"blocked"}
@@ -42,7 +45,6 @@ DEFAULT_CODE_PREFIXES = (
     "modules/",
     "cmd/",
 )
-REVIEW_HEADER = "## PRD Review"
 DIALOG_HEADER = "## Диалог analyst"
 
 
@@ -138,25 +140,7 @@ def _is_code_path(path: str, prefixes: Iterable[str], globs: Iterable[str]) -> b
 
 
 def parse_review_section(content: str) -> tuple[bool, str, List[str]]:
-    inside = False
-    found = False
-    status = ""
-    action_items: List[str] = []
-    for raw in content.splitlines():
-        stripped = raw.strip()
-        if stripped.startswith("## "):
-            inside = stripped == REVIEW_HEADER
-            if inside:
-                found = True
-            continue
-        if not inside:
-            continue
-        lower = stripped.lower()
-        if lower.startswith("status:"):
-            status = normalize_review_status(stripped.split(":", 1)[1].strip())
-        elif stripped.startswith("- ["):
-            action_items.append(stripped)
-    return found, status, action_items
+    return extract_prd_review_section(content, normalize_status=normalize_review_status)
 
 
 def normalize_review_status(value: str) -> str:
@@ -353,9 +337,11 @@ def run_gate(args: argparse.Namespace) -> int:
     report_status = ""
     if report_data is not None:
         if isinstance(report_data, dict):
-            report_status = normalize_review_status(str(report_data.get("status") or "").strip())
+            report_status = normalize_review_status(
+                str(report_data.get("recommended_status") or "").strip()
+            )
             if not report_status:
-                report_status = normalize_review_status(str(report_data.get("recommended_status") or "").strip())
+                report_status = normalize_review_status(str(report_data.get("status") or "").strip())
         if report_status and status and report_status != status:
             print(format_message("status_mismatch", ticket, slug_hint, status, report_status))
             return 1

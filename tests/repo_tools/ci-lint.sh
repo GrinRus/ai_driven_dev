@@ -39,6 +39,22 @@ run_prompt_lint() {
   fi
 }
 
+run_e2e_prompt_build_guard() {
+  if ! command -v python3 >/dev/null 2>&1; then
+    warn "python3 not found; skipping e2e prompt build guard"
+    return
+  fi
+  if [[ ! -f "tests/repo_tools/build_e2e_prompts.py" ]]; then
+    warn "tests/repo_tools/build_e2e_prompts.py missing; skipping e2e prompt build guard"
+    return
+  fi
+  log "running e2e prompt build guard"
+  if ! python3 tests/repo_tools/build_e2e_prompts.py --check; then
+    err "e2e prompt outputs are out of date; run tests/repo_tools/build_e2e_prompts.py"
+    STATUS=1
+  fi
+}
+
 run_prompt_version_check() {
   if ! command -v python3 >/dev/null 2>&1; then
     warn "python3 not found; skipping prompt-version dry-run"
@@ -502,6 +518,7 @@ run_python_tests() {
 
 cd "$ROOT_DIR"
 
+run_e2e_prompt_build_guard
 run_prompt_lint
 run_prompt_version_check
 run_prompt_sync_guard

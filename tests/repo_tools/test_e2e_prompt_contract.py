@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import re
+import subprocess
+import sys
 import unittest
 from pathlib import Path
 
@@ -8,6 +10,8 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 AUDIT_PROMPT_FULL = REPO_ROOT / "aidd_test_flow_prompt_ralph_script_full.txt"
 AUDIT_PROMPT_SMOKE = REPO_ROOT / "aidd_test_flow_prompt_ralph_script.txt"
+PROMPT_BUILDER = REPO_ROOT / "tests" / "repo_tools" / "build_e2e_prompts.py"
+PROMPT_FRAGMENTS_DIR = REPO_ROOT / "tests" / "repo_tools" / "e2e_prompt"
 RESEARCHER_AGENT = REPO_ROOT / "agents" / "researcher.md"
 RESEARCHER_SKILL = REPO_ROOT / "skills" / "researcher" / "SKILL.md"
 
@@ -69,6 +73,26 @@ def _body(path: Path) -> str:
 
 
 class E2EPromptContractTests(unittest.TestCase):
+    def test_prompt_builder_and_fragments_exist(self) -> None:
+        self.assertTrue(PROMPT_BUILDER.exists(), msg=f"missing prompt builder: {PROMPT_BUILDER}")
+        for rel in ("base_contract.md", "profile_full.md", "profile_smoke.md", "must_read_manifest.md"):
+            path = PROMPT_FRAGMENTS_DIR / rel
+            self.assertTrue(path.exists(), msg=f"missing prompt fragment: {path}")
+
+    def test_prompt_builder_outputs_are_up_to_date(self) -> None:
+        result = subprocess.run(
+            [sys.executable, str(PROMPT_BUILDER), "--check"],
+            cwd=str(REPO_ROOT),
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(
+            result.returncode,
+            0,
+            msg=f"builder check failed\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}",
+        )
+
     def test_prompts_do_not_contain_wave_readiness_markers(self) -> None:
         for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
             text = _read(prompt)
@@ -92,7 +116,12 @@ class E2EPromptContractTests(unittest.TestCase):
         self.assertIn("retry-триггер разрешён только по текущему stage-return", text)
         self.assertIn("question retry для шага 6 запрещён", text)
         self.assertIn("prompt-flow drift (non-canonical stage orchestration)", text)
-        self.assertIn("manual preflight/debug path", text)
+        self.assertNotIn("manual preflight/debug path", text)
+
+    def test_prompts_include_plan_new_success_warn_retry_trigger(self) -> None:
+        for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
+            text = _read(prompt)
+            self.assertIn("для `idea-new` и `plan-new` retry-триггер", text, msg=f"{prompt}: missing plan parity")
 
     def test_prompt_policy_uses_stage_return_only_signal_extraction(self) -> None:
         for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
@@ -132,6 +161,13 @@ class E2EPromptContractTests(unittest.TestCase):
         self.assertIn("watchdog_terminated", text)
         self.assertIn("result_count` в summary отсутствует", text)
 
+    def test_full_prompt_has_diff_boundary_ephemeral_guard_for_step7(self) -> None:
+        text = _read(AUDIT_PROMPT_FULL)
+        self.assertIn("R17.5", text)
+        self.assertIn("diff_boundary_violation", text)
+        self.assertIn(".aidd_audit/**", text)
+        self.assertIn("diff_boundary_ephemeral_misclassified", text)
+
     def test_prompts_define_conservative_severity_profile(self) -> None:
         for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
             text = _read(prompt)
@@ -147,6 +183,22 @@ class E2EPromptContractTests(unittest.TestCase):
         self.assertIn("prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready", text)
         self.assertIn("NOT VERIFIED (readiness_gate_failed)", text)
         self.assertIn("NOT VERIFIED (upstream_readiness_gate_failed)", text)
+
+    def test_prompts_require_review_spec_report_alignment(self) -> None:
+        for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
+            text = _read(prompt)
+            self.assertIn("review_spec_report_mismatch", text, msg=f"{prompt}: missing report mismatch classification")
+            self.assertIn("05_review_spec_report_check_run<N>.txt", text, msg=f"{prompt}: missing review-spec report check artifact")
+            self.assertIn("prd_findings_sync_needed", text, msg=f"{prompt}: missing PRD findings sync marker")
+            self.assertIn("plan_findings_sync_needed", text, msg=f"{prompt}: missing plan findings sync marker")
+
+    def test_prompts_require_findings_sync_cycle(self) -> None:
+        for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
+            text = _read(prompt)
+            self.assertIn("AIDD:SYNC_FROM_REVIEW", text, msg=f"{prompt}: missing findings sync payload contract")
+            self.assertIn("05_prd_findings_sync_request.txt", text, msg=f"{prompt}: missing PRD sync request artifact")
+            self.assertIn("05_plan_findings_sync_request.txt", text, msg=f"{prompt}: missing plan sync request artifact")
+            self.assertIn("NOT VERIFIED (findings_sync_not_converged)", text, msg=f"{prompt}: missing non-converged sync classification")
 
     def test_full_prompt_requires_answer_normalization_and_compact_retry_payload(self) -> None:
         text = _read(AUDIT_PROMPT_FULL)
@@ -250,14 +302,33 @@ class E2EPromptContractTests(unittest.TestCase):
         self.assertIn("NOT VERIFIED (upstream_seed_stage_failed)", text)
         self.assertIn("NOT VERIFIED (upstream_loop_stage_failed)", text)
 
-    def test_prompts_enforce_runtime_drift_fail_fast_and_manual_stage_chain_preflight_forbidden(self) -> None:
+    def test_full_prompt_has_plan_question_closure_and_anti_cascade(self) -> None:
+        text = _read(AUDIT_PROMPT_FULL)
+        self.assertIn("#### 5.3.1 Plan question-closure", text)
+        self.assertIn("05_plan_new_questions_raw.txt", text)
+        self.assertIn("05_plan_new_questions_normalized.txt", text)
+        self.assertIn("05_plan_new_answers.txt", text)
+        self.assertIn("05_plan_head.txt", text)
+        self.assertIn("NOT VERIFIED (plan_qna_unresolved)", text)
+        self.assertIn("NOT VERIFIED (upstream_plan_qna_unresolved)", text)
+
+    def test_smoke_prompt_has_plan_question_closure_and_anti_cascade(self) -> None:
+        text = _read(AUDIT_PROMPT_SMOKE)
+        self.assertIn("#### 5.3a Plan question-closure", text)
+        self.assertIn("05_plan_new_questions_raw.txt", text)
+        self.assertIn("05_plan_new_questions_normalized.txt", text)
+        self.assertIn("05_plan_new_answers.txt", text)
+        self.assertIn("NOT VERIFIED (plan_qna_unresolved)", text)
+        self.assertIn("NOT VERIFIED (upstream_plan_qna_unresolved)", text)
+
+    def test_prompts_enforce_runtime_drift_fail_fast_without_manual_stage_chain_preflight_guard(self) -> None:
         full_text = _read(AUDIT_PROMPT_FULL)
         smoke_text = _read(AUDIT_PROMPT_SMOKE)
         self.assertIn("runtime_path_missing_or_drift", full_text)
         self.assertIn("immediate `blocked`", full_text)
-        self.assertIn("manual_stage_chain_preflight_forbidden", full_text)
+        self.assertNotIn("manual_stage_chain_preflight_forbidden", full_text)
         self.assertIn("runtime_path_missing_or_drift", smoke_text)
-        self.assertIn("manual_stage_chain_preflight_forbidden", smoke_text)
+        self.assertNotIn("manual_stage_chain_preflight_forbidden", smoke_text)
 
     def test_full_prompt_requires_ralph_recoverable_probe_for_research_gate(self) -> None:
         text = _read(AUDIT_PROMPT_FULL)
@@ -282,8 +353,7 @@ class E2EPromptContractTests(unittest.TestCase):
             body_lower = _body(skill_path).lower()
             frontmatter_lower = _front_matter(skill_path).lower()
             stage = skill_path.parent.name
-            self.assertIn("forbidden", lower)
-            self.assertRegex(lower, r"(manual|direct|вручн|прям).{0,220}preflight")
+            self.assertIn("internal preflight", lower)
             self.assertRegex(lower, r"stage\." + re.escape(stage) + r"\.result\.json")
             self.assertIn("stage-chain", lower)
             self.assertIn("actions_apply.py", lower)

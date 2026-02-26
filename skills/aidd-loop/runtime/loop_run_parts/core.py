@@ -59,6 +59,22 @@ _MARKER_NOISE_PLACEHOLDERS = ("<title>", "<ticket>", "<scope_key>", "<commit/pr|
 _MARKER_INLINE_PATH_RE = re.compile(r"(?P<path>(?:aidd|docs|reports)/[^\s,;]+)", re.IGNORECASE)
 _REASON_CODE_RE = re.compile(r"\breason_code=([a-z0-9_:-]+)\b", re.IGNORECASE)
 _NEXT_ACTION_RE = re.compile(r"Next action:\s*`([^`]+)`", re.IGNORECASE)
+_LEGACY_STAGE_ALIAS_TO_CANONICAL = {
+    "/feature-dev-aidd:planner": "/feature-dev-aidd:plan-new",
+    "/feature-dev-aidd:tasklist-refiner": "/feature-dev-aidd:tasks-new",
+    "/feature-dev-aidd:implementer": "/feature-dev-aidd:implement",
+    "/feature-dev-aidd:reviewer": "/feature-dev-aidd:review",
+}
+_NON_CANONICAL_LOOP_PACK_PATH_REPLACEMENTS = (
+    (
+        re.compile(r"(?i)\bskills/aidd-flow-state/runtime/loop_pack\.py\b"),
+        "skills/aidd-loop/runtime/loop_pack.py",
+    ),
+    (
+        re.compile(r"(?i)/skills/aidd-flow-state/runtime/loop_pack\.py"),
+        "/skills/aidd-loop/runtime/loop_pack.py",
+    ),
+)
 _SCOPE_STALE_HINT_RE = re.compile(
     r"\b(?:scope_fallback_stale_ignored|scope_shape_invalid)=([A-Za-z0-9_.:-]+)\b",
     re.IGNORECASE,
@@ -422,7 +438,20 @@ def _extract_next_action(text: str) -> str:
     match = _NEXT_ACTION_RE.search(str(text or ""))
     if not match:
         return ""
-    return str(match.group(1) or "").strip()
+    raw = str(match.group(1) or "").strip()
+    return _sanitize_next_action_aliases(raw)
+
+
+def _sanitize_next_action_aliases(next_action: str) -> str:
+    value = str(next_action or "").strip()
+    if not value:
+        return ""
+    for legacy_alias in sorted(_LEGACY_STAGE_ALIAS_TO_CANONICAL, key=len, reverse=True):
+        canonical_alias = _LEGACY_STAGE_ALIAS_TO_CANONICAL[legacy_alias]
+        value = re.sub(re.escape(legacy_alias), canonical_alias, value, flags=re.IGNORECASE)
+    for pattern, replacement in _NON_CANONICAL_LOOP_PACK_PATH_REPLACEMENTS:
+        value = pattern.sub(replacement, value)
+    return value.strip()
 
 
 def _extract_scope_drift_hint(reason: str, diagnostics: str) -> str:
@@ -506,7 +535,7 @@ def _resolve_research_probe_timeout_seconds() -> int:
 
 
 def _expand_next_action_command(next_action: str, plugin_root: Path) -> tuple[list[str], str]:
-    raw = str(next_action or "").strip()
+    raw = _sanitize_next_action_aliases(next_action)
     if not raw:
         return [], ""
     expanded = raw
@@ -520,6 +549,9 @@ def _expand_next_action_command(next_action: str, plugin_root: Path) -> tuple[li
     except ValueError:
         return [], expanded
     if not tokens:
+        return [], expanded
+    first = str(tokens[0] or "").strip().lower()
+    if first.startswith("/feature-dev-aidd:") or first.startswith("feature-dev-aidd:"):
         return [], expanded
     if any(token in {";", "&&", "||", "|"} for token in tokens):
         return [], expanded

@@ -712,6 +712,9 @@ def run(args: argparse.Namespace) -> int:
             baseline_marker = f"links_empty_reason={links_empty_reason}"
 
     if not args.no_template:
+        auto_recovery_attempted = bool(
+            finalize_outcome.get("bootstrap_attempted") or finalize_outcome.get("finalize_attempted")
+        )
         template_overrides = {
             "{{doc_status}}": _doc_status_from_rlm(rlm_status),
             "{{prd_overrides}}": overrides_block,
@@ -736,6 +739,7 @@ def run(args: argparse.Namespace) -> int:
             "{{rlm_pending_reason}}": pending_reason_code or "none",
             "{{rlm_next_action}}": pending_next_action or "none",
             "{{rlm_baseline_marker}}": baseline_marker,
+            "{{rlm_auto_recovery_attempted}}": "yes" if auto_recovery_attempted else "no",
             "{{rlm_bootstrap_attempted}}": "yes" if finalize_outcome.get("bootstrap_attempted") else "no",
             "{{rlm_finalize_attempted}}": "yes" if finalize_outcome.get("finalize_attempted") else "no",
             "{{rlm_recovery_path}}": str(finalize_outcome.get("recovery_path") or "none"),

@@ -3,8 +3,8 @@ name: plan-new
 description: Drafts implementation plan from ready PRD and research artifacts. Use when PRD and research gates pass and plan stage should start.
 argument-hint: $1 [note...]
 lang: ru
-prompt_version: 1.1.15
-source_version: 1.1.15
+prompt_version: 1.1.16
+source_version: 1.1.16
 allowed-tools:
   - Read
   - Edit

@@ -69,6 +69,7 @@ class ResearchCheckSummary:
     path_count: Optional[int] = None
     age_days: Optional[int] = None
     skipped_reason: Optional[str] = None
+    warnings: list[str] | None = None
 
 
 def _research_cmd_hint(ticket: str) -> str:
@@ -391,7 +392,10 @@ def _validate_rlm_evidence(
     settings: ResearchSettings,
     doc_status: Optional[str] = None,
     expected_stage: Optional[str] = None,
-) -> None:
+    allow_review_links_empty_warn: bool = False,
+    auto_recovery_attempted: bool = False,
+) -> list[str]:
+    warnings: list[str] = []
     rlm_targets_path = root / "reports" / "research" / f"{ticket}-rlm-targets.json"
     rlm_manifest_path = root / "reports" / "research" / f"{ticket}-rlm-manifest.json"
     rlm_worklist_path = _find_pack_variant(root, f"{ticket}-rlm.worklist") or (
@@ -427,7 +431,7 @@ def _validate_rlm_evidence(
         rlm_targets = {}
 
     if not _should_require_rlm(root, settings=settings, rlm_targets=rlm_targets if isinstance(rlm_targets, dict) else {}):
-        return
+        return warnings
 
     worklist_status = None
     worklist_entries = None
@@ -484,6 +488,7 @@ def _validate_rlm_evidence(
     links_warn = settings.rlm_require_links and links_empty
 
     if ready_required:
+        links_warn_tolerated = False
         if settings.rlm_require_nodes and (not nodes_exists or nodes_total == 0):
             _raise_block(
                 "rlm_nodes_missing",
@@ -492,11 +497,21 @@ def _validate_rlm_evidence(
             )
         if links_warn:
             detail = f"rlm links empty (empty_reason={links_empty_reason})" if links_empty_reason else "rlm links empty"
-            _raise_block(
-                "rlm_links_empty_warn",
-                detail,
-                _rlm_links_cmd_hint(ticket),
-            )
+            if stage == "review" and allow_review_links_empty_warn:
+                links_warn_tolerated = True
+                warnings.append("rlm_links_empty_warn_non_blocking")
+                print(
+                    "[aidd] WARN: review-stage links_empty accepted after bounded auto-recovery "
+                    f"(reason_code=rlm_links_empty_warn, auto_recovery_attempted={'yes' if auto_recovery_attempted else 'no'}). "
+                    f"Hint: `{_rlm_links_cmd_hint(ticket)}`.",
+                    file=sys.stderr,
+                )
+            else:
+                _raise_block(
+                    "rlm_links_empty_warn",
+                    detail,
+                    _rlm_links_cmd_hint(ticket),
+                )
         if settings.rlm_require_pack and not pack_exists:
             _raise_block(
                 "rlm_pack_missing",
@@ -504,23 +519,27 @@ def _validate_rlm_evidence(
                 _rlm_finalize_cmd_hint(ticket),
             )
         if rlm_status != "ready":
+            if links_warn_tolerated and rlm_status == "warn":
+                return warnings
             _raise_block(
                 "rlm_status_pending",
                 "rlm_status=pending — требуется rlm_status=ready с nodes/links/pack для текущей стадии",
                 _rlm_finalize_cmd_hint(ticket),
             )
-        return
+        return warnings
 
     if rlm_status == "warn":
+        warnings.append("rlm_links_empty_warn")
         print(
             "[aidd] WARN: rlm links empty (reason_code=rlm_links_empty_warn). "
             f"Hint: выполните `{_rlm_links_cmd_hint(ticket)}`.",
             file=sys.stderr,
         )
-        return
+        return warnings
 
     if stage in {"research", "implement"}:
         if not nodes_exists or links_empty or not pack_exists:
+            warnings.append("rlm_status_not_ready")
             print(
                 f"[aidd] WARN: rlm_status={rlm_status} for stage={stage}; nodes/links/pack ещё не полностью собраны.",
                 file=sys.stderr,
@@ -528,11 +547,13 @@ def _validate_rlm_evidence(
         if worklist_entries:
             threshold = max(1, int(worklist_entries * 0.5))
             if nodes_total < threshold:
+                warnings.append("rlm_pack_partial")
                 print(
                     "[aidd] WARN: rlm pack partial — "
                     f"nodes_total={nodes_total} worklist_entries={worklist_entries}.",
                     file=sys.stderr,
                 )
+    return warnings
 
 
 def validate_research(
@@ -542,6 +563,8 @@ def validate_research(
     settings: ResearchSettings,
     branch: Optional[str] = None,
     expected_stage: Optional[str] = None,
+    allow_review_links_empty_warn: bool = False,
+    auto_recovery_attempted: bool = False,
 ) -> ResearchCheckSummary:
     if not settings.enabled:
         return ResearchCheckSummary(status=None, skipped_reason="disabled")
@@ -657,15 +680,17 @@ def validate_research(
                 f"BLOCK: RLM targets превысили лимит свежести ({age_days} дней) → обновите {_research_cmd_hint(ticket)}."
             )
 
-    _validate_rlm_evidence(
+    warnings = _validate_rlm_evidence(
         root,
         ticket,
         settings=settings,
         doc_status=status,
         expected_stage=stage or None,
+        allow_review_links_empty_warn=allow_review_links_empty_warn,
+        auto_recovery_attempted=auto_recovery_attempted,
     )
 
-    return ResearchCheckSummary(status=status, path_count=path_count, age_days=age_days)
+    return ResearchCheckSummary(status=status, path_count=path_count, age_days=age_days, warnings=warnings or None)
 
 
 def _build_parser() -> argparse.ArgumentParser:

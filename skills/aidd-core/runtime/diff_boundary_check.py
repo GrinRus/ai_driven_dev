@@ -7,6 +7,7 @@ import argparse
 import fnmatch
 import hashlib
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -15,7 +16,7 @@ from typing import Iterable, List, Tuple
 from aidd_runtime import cache_helpers
 from aidd_runtime import runtime
 
-IGNORE_PREFIXES = ("aidd/", ".claude/", ".cursor/")
+IGNORE_PREFIXES = ("aidd/", ".aidd_audit/", ".claude/", ".cursor/")
 IGNORE_FILES = {"AGENTS.md", ".github/copilot-instructions.md"}
 AIDD_ROOT_PREFIXES = ("docs/", "reports/", "config/", ".cache/")
 STATUS_OK = "OK"
@@ -26,15 +27,20 @@ CACHE_FILENAME = "diff-boundary.hash"
 
 
 def normalize_path(path: str) -> str:
-    normalized = path.replace("\\", "/")
-    if normalized.startswith("./"):
+    normalized = str(path or "").strip().replace("\\", "/")
+    normalized = re.sub(r"/+", "/", normalized)
+    while normalized.startswith("./"):
         normalized = normalized[2:]
+    if normalized == ".":
+        normalized = ""
     return normalized
 
 
 def is_ignored(path: str, *, aidd_root: bool) -> bool:
     normalized = normalize_path(path)
     if normalized in IGNORE_FILES:
+        return True
+    if normalized == ".aidd_audit":
         return True
     if any(normalized.startswith(prefix) for prefix in IGNORE_PREFIXES):
         return True

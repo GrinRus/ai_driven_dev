@@ -130,7 +130,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate entrypoints bundle from plugin manifest.")
     parser.add_argument(
         "--root",
-        default=Path(__file__).resolve().parents[1],
+        default=Path(__file__).resolve().parents[2],
         type=Path,
         help="Repository root containing .claude-plugin/plugin.json",
     )

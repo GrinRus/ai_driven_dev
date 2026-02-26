@@ -161,9 +161,9 @@ def build_stage_skill(stage: str, *, lang: str = "ru") -> str:
     lines.append("")
     lines.append("## Steps")
     if stage in {"implement", "review", "qa"}:
-        lines.append("1. Stage-chain-only policy: execute only via canonical stage-chain. [AIDD_LOOP_POLICY:MANUAL_PREFLIGHT_FORBIDDEN]")
+        lines.append("1. Stage-chain-only policy: execute only via canonical stage-chain.")
         lines.append(
-            "2. Manual/direct preflight runtime invocation is forbidden for operators; stage-chain owns preflight."
+            "2. Internal preflight/postflight are orchestration details; operators run only canonical stage runtime entrypoint."
         )
         lines.append(
             f"3. Manual write/create of `stage.{stage}.result.json` is forbidden; stage-chain/postflight writes it. [AIDD_LOOP_POLICY:MANUAL_STAGE_RESULT_FORBIDDEN]"
@@ -180,7 +180,7 @@ def build_stage_skill(stage: str, *, lang: str = "ru") -> str:
         lines.append(f"7. Run subagent `feature-dev-aidd:{STAGE_SUBAGENT[stage]}`.")
         lines.append(f"8. Fill actions.json: create `aidd/reports/actions/<ticket>/<scope_key>/{stage}.actions.json`.")
         lines.append(
-            "9. Canonical stage-chain: preflight -> stage runtime -> actions_apply.py/postflight -> python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py. [AIDD_LOOP_POLICY:CANONICAL_STAGE_RESULT_PATH]"
+            "9. Canonical stage-chain: internal preflight -> stage runtime -> actions_apply.py/postflight -> python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py. [AIDD_LOOP_POLICY:CANONICAL_STAGE_RESULT_PATH]"
         )
         lines.append(
             "10. Non-canonical stage-result path under `skills/aidd-loop/runtime/` is forbidden. [AIDD_LOOP_POLICY:NON_CANONICAL_STAGE_RESULT_FORBIDDEN]"
@@ -979,15 +979,13 @@ class PromptLintTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("must not call stage/shared script internals directly", result.stderr)
 
-    def test_loop_agent_manual_preflight_path_in_body_fails(self) -> None:
+    def test_loop_agent_manual_preflight_path_in_body_is_telemetry_only(self) -> None:
         bad_agent = build_agent("implementer") + "\nНе используй skills/aidd-loop/runtime/preflight_prepare.py напрямую.\n"
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self.write_prompts(root, agent_override={"implementer": bad_agent})
             result = self.run_lint(root)
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn("loop agent must not duplicate stage path-level orchestration policy", result.stderr)
-            self.assertIn("preflight_prepare.py", result.stderr)
+            self.assertEqual(result.returncode, 0, msg=f"stdout: {result.stdout}\nstderr: {result.stderr}")
 
     def test_loop_agent_manual_stage_result_path_in_body_fails(self) -> None:
         bad_agent = build_agent("qa") + "\nНе создавай stage.qa.result.json вручную.\n"
@@ -1093,6 +1091,23 @@ class PromptLintTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("non-canonical stage-result path", result.stderr)
 
+    def test_loop_stage_skill_non_canonical_loop_pack_runtime_path_fails(self) -> None:
+        bad_skill = build_stage_skill("review").replace(
+            "## Additional resources",
+            (
+                "## Runtime hints\n"
+                "- Не использовать python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/loop_pack.py.\n\n"
+                "## Additional resources"
+            ),
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, skill_override={"review": bad_skill})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("loop pack runtime path must be canonical", result.stderr)
+
     def test_loop_stage_skill_missing_runtime_path_blocker_code_fails(self) -> None:
         bad_skill = build_stage_skill("qa").replace("runtime_path_missing_or_drift", "runtime_path_unknown", 1)
         with tempfile.TemporaryDirectory() as tmp:
@@ -1102,9 +1117,22 @@ class PromptLintTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("runtime_path_missing_or_drift", result.stderr)
 
+    def test_loop_stage_skill_internal_preflight_script_mention_warns_only(self) -> None:
+        bad_skill = build_stage_skill("review").replace(
+            "internal preflight",
+            "preflight_prepare.py",
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, skill_override={"review": bad_skill})
+            result = self.run_lint(root)
+            self.assertEqual(result.returncode, 0, msg=f"stdout: {result.stdout}\nstderr: {result.stderr}")
+            self.assertIn("telemetry-only", result.stderr)
+
     def test_loop_stage_skill_missing_semantic_marker_fails(self) -> None:
         bad_skill = build_stage_skill("review").replace(
-            "[AIDD_LOOP_POLICY:MANUAL_PREFLIGHT_FORBIDDEN]",
+            "[AIDD_LOOP_POLICY:MANUAL_STAGE_RESULT_FORBIDDEN]",
             "",
             1,
         )

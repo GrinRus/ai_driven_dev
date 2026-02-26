@@ -20,6 +20,22 @@ _APPROVAL_ALLOW_VALUES = {"1", "true", "yes", "on"}
 _CLAUDE_COMMANDS = {"claude", "claude.exe"}
 _DIFF_BOUNDARY_OUT_OF_SCOPE_RE = re.compile(r"^OUT_OF_SCOPE\s+(.+)$", re.MULTILINE)
 _DIFF_BOUNDARY_FORBIDDEN_RE = re.compile(r"^FORBIDDEN\s+(.+)$", re.MULTILINE)
+_DIFF_BOUNDARY_EPHEMERAL_PREFIXES = (".aidd_audit/",)
+
+
+def _normalize_boundary_path(path: str) -> str:
+    normalized = str(path or "").strip().replace("\\", "/")
+    normalized = re.sub(r"/+", "/", normalized)
+    while normalized.startswith("./"):
+        normalized = normalized[2:]
+    return normalized
+
+
+def _is_ephemeral_boundary_path(path: str) -> bool:
+    normalized = _normalize_boundary_path(path)
+    if normalized == ".aidd_audit":
+        return True
+    return any(normalized.startswith(prefix) for prefix in _DIFF_BOUNDARY_EPHEMERAL_PREFIXES)
 
 
 def runner_supports_flag(command: str, flag: str) -> bool:
@@ -259,7 +275,9 @@ def _resolve_stage_paths(target: Path, ticket: str, scope_key: str, stage: str) 
 
 def _diff_boundary_violation_reason(stdout: str, stderr: str) -> tuple[str, str]:
     merged = "\n".join(part for part in (stdout or "", stderr or "") if part).strip()
-    out_of_scope = [item.strip() for item in _DIFF_BOUNDARY_OUT_OF_SCOPE_RE.findall(merged)]
+    raw_out_of_scope = [item.strip() for item in _DIFF_BOUNDARY_OUT_OF_SCOPE_RE.findall(merged)]
+    ignored_ephemeral = [item for item in raw_out_of_scope if _is_ephemeral_boundary_path(item)]
+    out_of_scope = [item for item in raw_out_of_scope if not _is_ephemeral_boundary_path(item)]
     forbidden = [item.strip() for item in _DIFF_BOUNDARY_FORBIDDEN_RE.findall(merged)]
     threshold_raw = str(os.environ.get("AIDD_DIFF_BOUNDARY_MAX_OUT_OF_SCOPE") or "25").strip()
     try:
@@ -270,13 +288,13 @@ def _diff_boundary_violation_reason(stdout: str, stderr: str) -> tuple[str, str]
         sample = ", ".join(forbidden[:3])
         return "diff_boundary_violation", (
             f"diff boundary violation: forbidden_paths={len(forbidden)} "
-            f"out_of_scope={len(out_of_scope)} sample={sample}"
+            f"out_of_scope={len(out_of_scope)} ignored_ephemeral_paths={len(ignored_ephemeral)} sample={sample}"
         )
     if len(out_of_scope) > threshold:
         sample = ", ".join(out_of_scope[:3])
         return "diff_boundary_violation", (
             f"diff boundary violation: out_of_scope={len(out_of_scope)} "
-            f"threshold={threshold} sample={sample}"
+            f"threshold={threshold} ignored_ephemeral_paths={len(ignored_ephemeral)} sample={sample}"
         )
     return "", ""
 
