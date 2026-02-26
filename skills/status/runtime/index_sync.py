@@ -94,6 +94,9 @@ def _collect_reports(root: Path, ticket: str) -> List[str]:
     candidates.append(root / "reports" / "prd" / f"{ticket}.pack.json")
     candidates.append(root / "reports" / "qa" / f"{ticket}.pack.json")
     candidates.append(root / "reports" / "context" / f"{ticket}.pack.md")
+    candidates.append(root / "reports" / "memory" / f"{ticket}.semantic.pack.json")
+    candidates.append(root / "reports" / "memory" / f"{ticket}.decisions.pack.json")
+    candidates.append(root / "reports" / "memory" / f"{ticket}.decisions.jsonl")
 
     reviewer_dir = root / "reports" / "reviewer" / ticket
     if reviewer_dir.exists():
@@ -110,6 +113,20 @@ def _collect_reports(root: Path, ticket: str) -> List[str]:
         if path.exists():
             reports.append(_rel_path(root, path))
     return reports
+
+
+def _collect_memory(root: Path, ticket: str) -> Dict[str, str]:
+    payload: Dict[str, str] = {}
+    semantic_pack = root / "reports" / "memory" / f"{ticket}.semantic.pack.json"
+    decisions_pack = root / "reports" / "memory" / f"{ticket}.decisions.pack.json"
+    decisions_log = root / "reports" / "memory" / f"{ticket}.decisions.jsonl"
+    if semantic_pack.exists():
+        payload["semantic_pack"] = _rel_path(root, semantic_pack)
+    if decisions_pack.exists():
+        payload["decisions_pack"] = _rel_path(root, decisions_pack)
+    if decisions_log.exists():
+        payload["decisions_log"] = _rel_path(root, decisions_log)
+    return payload
 
 
 def _read_prd_review_status(root: Path, ticket: str) -> str:
@@ -260,6 +277,7 @@ def build_index(root: Path, ticket: str, slug: str) -> Dict[str, object]:
         "open_questions": open_questions,
         "risks_top5": risks_top5,
         "checks": _collect_checks(root, ticket),
+        "memory": _collect_memory(root, ticket),
         "context_pack": context_pack,
         "events": _collect_events(root, ticket),
     }

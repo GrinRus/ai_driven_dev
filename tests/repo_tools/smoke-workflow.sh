@@ -61,6 +61,18 @@ run_cli() {
       entrypoint="$PLUGIN_ROOT/skills/researcher/runtime/research.py"
       mode="python"
       ;;
+    memory-extract|decision-append|memory-pack|memory-slice|memory-verify)
+      local memory_runtime=""
+      case "$cmd" in
+        memory-extract) memory_runtime="memory_extract.py" ;;
+        decision-append) memory_runtime="decision_append.py" ;;
+        memory-pack) memory_runtime="memory_pack.py" ;;
+        memory-slice) memory_runtime="memory_slice.py" ;;
+        memory-verify) memory_runtime="memory_verify.py" ;;
+      esac
+      entrypoint="$PLUGIN_ROOT/skills/aidd-memory/runtime/${memory_runtime}"
+      mode="python"
+      ;;
     reports-pack|rlm-nodes-build|rlm-links-build|rlm-jsonl-compact|rlm-finalize|rlm-verify)
       local rlm_runtime=""
       case "$cmd" in
@@ -314,6 +326,17 @@ rlm = data.get("rlm") or {}
 rlm["required_for_langs"] = []
 data["rlm"] = rlm
 gates_path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+
+conventions_path = root / "config" / "conventions.json"
+conventions = json.loads(conventions_path.read_text(encoding="utf-8"))
+memory = conventions.get("memory") or {}
+semantic = memory.get("semantic") or {}
+# Keep smoke profile stable when extra evidence sources slightly increase extracted semantic payload size.
+semantic["max_chars"] = max(int(semantic.get("max_chars", 6000) or 6000), 8000)
+semantic["max_lines"] = max(int(semantic.get("max_lines", 320) or 320), 400)
+memory["semantic"] = semantic
+conventions["memory"] = memory
+conventions_path.write_text(json.dumps(conventions, indent=2, ensure_ascii=False), encoding="utf-8")
 PY
 
 log "validate plugin hooks wiring"
@@ -602,6 +625,33 @@ PY
 
 log "research-check must pass"
 run_cli research-check --ticket "$TICKET" --expected-stage plan >/dev/null
+
+log "build and verify semantic memory pack"
+run_cli memory-extract --ticket "$TICKET" >/dev/null
+[[ -f "$WORKDIR/reports/memory/${TICKET}.semantic.pack.json" ]] || {
+  echo "[smoke] memory-extract did not create semantic memory pack" >&2
+  exit 1
+}
+run_cli memory-verify --input "reports/memory/${TICKET}.semantic.pack.json" --quiet >/dev/null
+
+log "exercise memory decision lifecycle"
+run_cli decision-append \
+  --ticket "$TICKET" \
+  --topic "Checkout idempotency" \
+  --decision "Use request-id dedupe for checkout writes." \
+  --alternatives "retry-without-dedupe,at-least-once-only" \
+  --rationale "Prevents duplicate charge side-effects." >/dev/null
+run_cli memory-pack --ticket "$TICKET" >/dev/null
+[[ -f "$WORKDIR/reports/memory/${TICKET}.decisions.pack.json" ]] || {
+  echo "[smoke] memory-pack did not create decisions pack" >&2
+  exit 1
+}
+run_cli memory-verify --input "reports/memory/${TICKET}.decisions.pack.json" --quiet >/dev/null
+run_cli memory-slice --ticket "$TICKET" --query "checkout|idempotency|dedupe" >/dev/null
+[[ -f "$WORKDIR/reports/context/${TICKET}-memory-slice.latest.pack.json" ]] || {
+  echo "[smoke] memory-slice did not create latest slice artifact" >&2
+  exit 1
+}
 
 log "expect block while PRD draft / research handoff pending"
 assert_gate_exit 2 "draft PRD"
@@ -1227,6 +1277,28 @@ then
   )
 else
   log "pytest module not available; skipping loop RCA regression guard"
+fi
+
+log "ast-index smoke profile (stubbed binary, no mandatory external dependency)"
+if python3 - <<'PY' >/dev/null 2>&1
+import importlib.util
+import sys
+sys.exit(0 if importlib.util.find_spec("pytest") else 1)
+PY
+then
+  (
+    cd "$PLUGIN_ROOT"
+    env CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" PYTHONPATH="$PLUGIN_ROOT${PYTHONPATH:+:$PYTHONPATH}" \
+      python3 -m pytest -q \
+        tests/test_ast_index_research_integration.py::AstIndexResearchIntegrationTests::test_research_auto_mode_off_skips_ast_pack \
+        tests/test_ast_index_research_integration.py::AstIndexResearchIntegrationTests::test_research_auto_writes_ast_pack_with_stub_binary \
+        tests/test_ast_index_research_integration.py::AstIndexResearchIntegrationTests::test_research_auto_falls_back_to_rg_when_binary_missing \
+        tests/test_ast_index_research_integration.py::AstIndexResearchIntegrationTests::test_research_auto_falls_back_when_index_missing \
+        tests/test_ast_index_research_integration.py::AstIndexResearchIntegrationTests::test_research_blocks_when_ast_required_and_binary_missing \
+        tests/test_ast_index_research_integration.py::AstIndexResearchIntegrationTests::test_research_blocks_when_ast_required_and_index_missing
+  )
+else
+  log "pytest module not available; skipping ast-index smoke profile"
 fi
 
 log "smoke scenario passed"

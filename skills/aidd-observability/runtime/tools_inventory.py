@@ -31,6 +31,7 @@ if __package__ in {None, ""}:
         sys.path.insert(0, str(_ROOT_FOR_SYS_PATH))
 
 from aidd_runtime import runtime
+from aidd_runtime import ast_index as ast_index_runtime
 from aidd_runtime.io_utils import utc_timestamp
 
 
@@ -354,12 +355,29 @@ def _build_payload(repo_root: Path) -> Dict[str, object]:
                 "consumer_types": sorted(grouped.keys()),
             }
         )
+    ast_cfg = ast_index_runtime.load_ast_index_config(repo_root)
+    ast_probe = ast_index_runtime.probe_readiness(repo_root, ast_cfg)
+    external_tools = {
+        "ast_index": {
+            "mode": ast_probe.get("mode"),
+            "required": bool(ast_probe.get("required")),
+            "available": bool(ast_probe.get("available")),
+            "index_ready": bool(ast_probe.get("index_ready")),
+            "reason_code": str(ast_probe.get("reason_code") or ""),
+            "fallback_reason_code": str(ast_probe.get("fallback_reason_code") or ""),
+            "binary": str(ast_probe.get("binary") or ast_cfg.binary),
+            "binary_path": str(ast_probe.get("binary_path") or ""),
+            "version": str(ast_probe.get("version") or ""),
+        }
+    }
+
     return {
         "schema": "aidd.tools_inventory.v3",
         "generated_at": utc_timestamp(),
         "repo_root": repo_root.as_posix(),
         "scan_dirs": list(SCAN_PATHS),
         "entrypoints": items,
+        "external_tools": external_tools,
     }
 
 
@@ -367,6 +385,21 @@ def _render_md(payload: Dict[str, object]) -> str:
     lines = ["# Tools Inventory", ""]
     lines.append(f"generated_at: {payload.get('generated_at', '')}")
     lines.append("")
+    external_tools = payload.get("external_tools") if isinstance(payload.get("external_tools"), dict) else {}
+    ast_probe = external_tools.get("ast_index") if isinstance(external_tools, dict) else None
+    if isinstance(ast_probe, dict):
+        lines.append("## External tools")
+        lines.append(
+            "- ast-index: "
+            f"mode={ast_probe.get('mode')} required={ast_probe.get('required')} "
+            f"available={ast_probe.get('available')} index_ready={ast_probe.get('index_ready')} "
+            f"reason={ast_probe.get('reason_code') or 'ok'}"
+        )
+        if ast_probe.get("version"):
+            lines.append(f"- ast-index version: {ast_probe.get('version')}")
+        if ast_probe.get("binary_path"):
+            lines.append(f"- ast-index binary_path: {ast_probe.get('binary_path')}")
+        lines.append("")
     for entry in payload.get("entrypoints", []):
         path = str(entry.get("path", ""))
         consumers = entry.get("consumers", []) or []

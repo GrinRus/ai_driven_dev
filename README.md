@@ -23,6 +23,7 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 - Research обязателен перед планированием: `research-check` требует статус `reviewed`.
 - Гейты PRD/Plan Review/QA и безопасные хуки (stage-aware).
 - Rolling context pack (pack-first): `aidd/reports/context/<ticket>.pack.md`.
+- Memory v2 (breaking-only): `semantic.pack` + `decisions.pack` как внешний контекст, decision writes через validated actions.
 - Hooks mode: по умолчанию `AIDD_HOOKS_MODE=fast`, строгий режим — `AIDD_HOOKS_MODE=strict`.
 - Автоформат + тест‑политика по стадиям: `implement` — без тестов, `review` — targeted, `qa` — full.
 - Loop mode implement↔review: loop pack/review pack, diff boundary guard, loop-step/loop-run.
@@ -103,6 +104,12 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 | `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-init/runtime/init.py` | Создать `./aidd` из шаблонов (без перезаписи) |
 | `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-observability/runtime/doctor.py` | Диагностика окружения, путей и наличия `aidd/` |
 | `python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py --ticket <ticket>` | Сгенерировать RLM-only research артефакты |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-memory/runtime/memory_extract.py --ticket <ticket>` | Сформировать semantic memory pack |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-memory/runtime/decision_append.py --ticket <ticket> --topic "<topic>" --decision "<decision>"` | Добавить запись в append-only decisions log |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-memory/runtime/memory_pack.py --ticket <ticket>` | Пересобрать decisions pack |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-memory/runtime/memory_slice.py --ticket <ticket> --query "<token>"` | Получить targeted memory slice pack |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-memory/runtime/memory_autoslice.py --ticket <ticket> --stage <stage> --scope-key <scope_key> --format json` | Сформировать stage-aware manifest (`memory-slices.<stage>.<scope_key>.pack.json`) |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-memory/runtime/memory_verify.py --input <artifact.json-or-jsonl>` | Проверить memory schema + budgets |
 | `python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan-new/runtime/research_check.py --ticket <ticket>` | Проверить статус Research `reviewed` |
 | `python3 ${CLAUDE_PLUGIN_ROOT}/skills/idea-new/runtime/analyst_check.py --ticket <ticket>` | Проверить PRD `READY` и синхронизацию вопросов/ответов |
 | `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/progress_cli.py --source <stage> --ticket <ticket>` | Подтвердить прогресс tasklist |
@@ -176,6 +183,80 @@ RLM artifacts (pack-first):
 - Pack summary: `aidd/reports/research/<ticket>-rlm.pack.json`.
 - Slice-инструмент: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_slice.py --ticket <ticket> --query "<token>" [--paths path1,path2] [--lang kt,java]`.
 - Бюджет RLM pack: `config/conventions.json` → `rlm.pack_budget` (`max_chars`, `max_lines`, top-N limits).
+
+## Memory v2 + slice enforcement (breaking-only)
+
+Memory v2 включён по умолчанию в Wave 101 как **breaking-only** контракт:
+- без backfill legacy memory state;
+- без fallback на старые memory-артефакты;
+- source of truth: `aidd/reports/memory/<ticket>.semantic.pack.json`, `aidd/reports/memory/<ticket>.decisions.pack.json`.
+
+Wave 102 добавляет stage-aware lightweight memory контур:
+- `aidd/reports/memory/<ticket>.decisions.jsonl` (append-only log);
+- `aidd/reports/context/<ticket>-memory-slices.<stage>.<scope_key>.pack.json` (manifest);
+- `aidd/reports/context/<ticket>-memory-slice-<hash>.pack.json` + alias `...memory-slice.<stage>.<scope_key>.latest.pack.json`.
+
+Рекомендуемый read order (pack-first):
+1. `aidd/reports/research/<ticket>-rlm.pack.json`
+1. `aidd/reports/research/<ticket>-ast.pack.json` (optional)
+1. `aidd/reports/memory/<ticket>.semantic.pack.json`
+1. `aidd/reports/memory/<ticket>.decisions.pack.json`
+1. `aidd/reports/context/<ticket>-memory-slices.<stage>.<scope_key>.pack.json`
+1. specific chunk/slice artifacts (`*-memory-slice-*.pack.json`, `rlm_slice`, `chunk_query`)
+1. `aidd/reports/context/<ticket>.pack.md` и full-read fallback (только при обосновании)
+
+Decision writes только через validated path (`memory_ops.decision_append`), а не прямым редактированием JSONL.
+После `memory_ops.decision_append` runtime пересобирает `decisions.pack` в том же execution; stale-window закрывается reason-code `memory_decisions_pack_stale`.
+
+`rg` policy:
+1. default `memory.slice_enforcement=warn`, `memory.rg_policy=controlled_fallback`;
+1. `rg` разрешён только после попытки чтения свежего memory slice manifest (иначе `rg_without_slice`, `ask/deny` по mode);
+1. hard rollout переключается через `aidd/config/gates.json` после KPI готовности.
+
+Диагностика/telemetry:
+- `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-observability/runtime/doctor.py` проверяет rollout readiness (`memory.rollout_hardening`);
+- KPI artifact: `aidd/reports/observability/<ticket>.context-quality.json` (`memory_slice_reads`, `rg_invocations`, `rg_without_slice_rate`, `decisions_pack_stale_events`);
+- rollout thresholds хранятся в `aidd/config/gates.json` → `memory.rollout_hardening`.
+
+## AST Index (optional + fallback)
+
+AST retrieval в Wave 101 работает как optional dependency:
+- минимальные обязательные зависимости не меняются: `python3`, `rg`, `git`;
+- `ast-index` подключается опционально через `aidd/config/conventions.json` + `aidd/config/gates.json`.
+
+Режимы:
+1. `off`: AST path отключён.
+1. `auto` (default): сначала `ast-index`, при деградации — детерминированный fallback на `rg` с reason codes.
+1. `required`: отсутствие готовности `ast-index` или провал threshold policy блокирует stage (`BLOCKED`) с `next_action`.
+
+Канонический AST artifact:
+- `aidd/reports/research/<ticket>-ast.pack.json`
+
+Нормализованные fallback reason codes:
+- `ast_index_binary_missing`
+- `ast_index_index_missing`
+- `ast_index_timeout`
+- `ast_index_json_invalid`
+- `ast_index_fallback_rg`
+
+Диагностика и rollout gate:
+- `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-observability/runtime/doctor.py` проверяет:
+  - `ast-index readiness` (optional/required semantics),
+  - `ast-index wave-2 rollout` (пороговый gate для расширения scope на `implement/review/qa`).
+- Пороговый контракт задаётся в `aidd/config/gates.json` → `ast_index.rollout_wave2`:
+  - `decision_mode`: `advisory|hard`
+  - `thresholds`: `quality_min`, `latency_p95_ms_max`, `fallback_rate_max`
+  - `metrics_artifact`: `aidd/reports/observability/ast-index.rollout.json`
+
+Пример metrics artifact:
+
+```json
+{
+  "quality_score": 0.82,
+  "latency_p95_ms": 1800,
+  "fallback_rate": 0.21
+}
+```
 
 ## Loop mode (implement↔review)
 

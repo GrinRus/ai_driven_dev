@@ -46,6 +46,7 @@ class InitAiddTests(unittest.TestCase):
             "docs/loops/template.loop-pack.md",
             "reports/prd/.gitkeep",
             "reports/loops/.gitkeep",
+            "reports/memory/.gitkeep",
             "reports/context/template.context-pack.md",
             "AGENTS.md",
         ]
@@ -53,8 +54,13 @@ class InitAiddTests(unittest.TestCase):
             with self.subTest(path=rel):
                 self.assertTrue((project_root / rel).exists(), f"{rel} should exist after install")
 
-        conventions = (project_root / "config/conventions.json").read_text(encoding="utf-8")
-        self.assertIn('"mode": "ticket-prefix"', conventions)
+        conventions = json.loads((project_root / "config/conventions.json").read_text(encoding="utf-8"))
+        gates = json.loads((project_root / "config/gates.json").read_text(encoding="utf-8"))
+        self.assertEqual(conventions["commit"]["mode"], "ticket-prefix")
+        self.assertIn("memory", conventions)
+        self.assertIn("ast_index", conventions)
+        self.assertIn("memory", gates)
+        self.assertIn("ast_index", gates)
 
     def test_idempotent_run_does_not_overwrite(self):
         workdir = self.make_tempdir()

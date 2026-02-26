@@ -4,15 +4,19 @@
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import os
 import subprocess
 import sys
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Tuple
 
 from aidd_runtime import actions_validate
 from aidd_runtime import context_map_validate
+from aidd_runtime import memory_autoslice
+from aidd_runtime import memory_common
 from aidd_runtime import preflight_result_validate
 from aidd_runtime import runtime
 from aidd_runtime import skill_contract_validate
@@ -24,8 +28,13 @@ DEFAULT_ACTION_TYPES = [
     "tasklist_ops.append_progress_log",
     "tasklist_ops.next3_recompute",
     "context_pack_ops.context_pack_update",
+    "memory_ops.decision_append",
 ]
 ALWAYS_ALLOW_REPORTS = ["aidd/reports/**", "aidd/reports/actions/**"]
+MEMORY_OPTIONAL_REFS: Tuple[Tuple[str, str], ...] = (
+    ("aidd/reports/memory/{ticket}.semantic.pack.json", "memory-semantic-pack"),
+    ("aidd/reports/memory/{ticket}.decisions.pack.json", "memory-decisions-pack"),
+)
 
 
 class PreflightBlocked(RuntimeError):
@@ -254,6 +263,85 @@ def _run_loop_pack(target: Path, *, ticket: str, stage: str, work_item_key: str)
     return payload
 
 
+def _run_memory_autoslice(
+    target: Path,
+    *,
+    ticket: str,
+    stage: str,
+    scope_key: str,
+) -> Dict[str, Any]:
+    outcome: Dict[str, Any] = {
+        "status": "error",
+        "reason_code": "",
+        "manifest_pack": "",
+        "queries_ok": 0,
+        "queries_total": 0,
+        "stderr": "",
+    }
+    stdout_buffer = io.StringIO()
+    stderr_buffer = io.StringIO()
+    exit_code = 1
+    try:
+        with redirect_stdout(stdout_buffer), redirect_stderr(stderr_buffer):
+            exit_code = int(
+                memory_autoslice.main(
+                    [
+                        "--ticket",
+                        ticket,
+                        "--stage",
+                        stage,
+                        "--scope-key",
+                        scope_key,
+                        "--format",
+                        "json",
+                    ]
+                )
+            )
+    except SystemExit as exc:
+        try:
+            exit_code = int(exc.code or 1)
+        except (TypeError, ValueError):
+            exit_code = 1
+    except Exception as exc:  # pragma: no cover - defensive
+        outcome["reason_code"] = "memory_autoslice_failed"
+        outcome["stderr"] = str(exc)
+        return outcome
+
+    stderr_text = stderr_buffer.getvalue().strip()
+    if stderr_text:
+        outcome["stderr"] = stderr_text
+
+    payload: Dict[str, Any] = {}
+    stdout_text = stdout_buffer.getvalue().strip()
+    if stdout_text:
+        try:
+            parsed = json.loads(stdout_text)
+        except json.JSONDecodeError:
+            parsed = None
+        if isinstance(parsed, dict):
+            payload = parsed
+        else:
+            for line in reversed(stdout_text.splitlines()):
+                try:
+                    parsed_line = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(parsed_line, dict):
+                    payload = parsed_line
+                    break
+    status = str(payload.get("status") or "").strip().lower()
+    outcome["status"] = status or ("ok" if exit_code == 0 else "error")
+    outcome["reason_code"] = str(payload.get("reason_code") or "").strip()
+    outcome["manifest_pack"] = str(payload.get("manifest_pack") or "").strip()
+    outcome["queries_ok"] = int(payload.get("queries_ok") or 0)
+    outcome["queries_total"] = int(payload.get("queries_total") or 0)
+    if exit_code != 0 and outcome["status"] not in {"warn", "blocked"}:
+        outcome["status"] = "error"
+        if not outcome["reason_code"]:
+            outcome["reason_code"] = "memory_autoslice_failed"
+    return outcome
+
+
 def _allowed_artifact_paths(target: Path, context: Dict[str, str]) -> Dict[str, List[Path]]:
     ticket = context["ticket"]
     scope_key = context["scope_key"]
@@ -329,6 +417,45 @@ def _build_readmap(
                 "reason": "review-pack",
             }
         )
+
+    existing_paths = {entry.get("path", "") for entry in required_entries + optional_entries}
+    memory_entries: List[Dict[str, Any]] = []
+    for ref_template, reason in MEMORY_OPTIONAL_REFS:
+        rendered = _render_template(ref_template, context).strip()
+        path, selector = _parse_ref(rendered)
+        if not path or path in existing_paths:
+            continue
+        memory_entries.append(
+            {
+                "ref": rendered,
+                "path": path,
+                "selector": selector,
+                "required": False,
+                "reason": reason,
+            }
+        )
+        existing_paths.add(path)
+    memory_slice_manifest_rel = str(context.get("memory_slice_manifest") or "").strip()
+    if memory_slice_manifest_rel and memory_slice_manifest_rel not in existing_paths:
+        memory_entries.append(
+            {
+                "ref": memory_slice_manifest_rel,
+                "path": memory_slice_manifest_rel,
+                "selector": "",
+                "required": False,
+                "reason": "memory-slice-manifest",
+            }
+        )
+        existing_paths.add(memory_slice_manifest_rel)
+
+    if memory_entries:
+        insertion_idx = len(optional_entries)
+        for idx, entry in enumerate(optional_entries):
+            path = str(entry.get("path") or "")
+            if "/reports/context/" in path:
+                insertion_idx = idx
+                break
+        optional_entries[insertion_idx:insertion_idx] = memory_entries
 
     entries = required_entries + optional_entries
     allowed_paths = _dedupe_str([entry["path"] for entry in entries] + ALWAYS_ALLOW_REPORTS)
@@ -566,6 +693,44 @@ def main(argv: List[str] | None = None) -> int:
             artifacts["review_pack"] = review_pack_rel
 
         loop_allowed_paths = _read_loop_allowed_paths(loop_pack_path)
+        autoslice = _run_memory_autoslice(
+            target,
+            ticket=context["ticket"],
+            stage=context["stage"],
+            scope_key=context["scope_key"],
+        )
+        autoslice_status = str(autoslice.get("status") or "error")
+        autoslice_reason_code = str(autoslice.get("reason_code") or "").strip()
+        memory_slice_manifest = str(autoslice.get("manifest_pack") or "").strip()
+        if not memory_slice_manifest:
+            manifest_path = memory_common.memory_slices_manifest_path(
+                target,
+                context["ticket"],
+                context["stage"],
+                context["scope_key"],
+            )
+            if manifest_path.exists():
+                memory_slice_manifest = runtime.rel_path(manifest_path, target)
+        if autoslice_status == "blocked":
+            raise PreflightBlocked(
+                autoslice_reason_code or "memory_slice_missing",
+                "memory autoslice is required for current preflight scope",
+            )
+        if autoslice_status == "warn":
+            print(
+                "[preflight-prepare] WARN: memory autoslice degraded "
+                f"(reason_code={autoslice_reason_code or 'memory_slice_missing_warn'})",
+                file=sys.stderr,
+            )
+        elif autoslice_status != "ok":
+            print(
+                "[preflight-prepare] WARN: memory autoslice failed "
+                f"(reason_code={autoslice_reason_code or 'memory_autoslice_failed'})",
+                file=sys.stderr,
+            )
+        if memory_slice_manifest:
+            context["memory_slice_manifest"] = memory_slice_manifest
+            artifacts["memory_slice_manifest"] = memory_slice_manifest
 
         readmap = _build_readmap(
             contract=contract,

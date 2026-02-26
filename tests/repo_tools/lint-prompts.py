@@ -154,6 +154,7 @@ PRELOADED_SKILLS = {
     "aidd-core",
     "aidd-docio",
     "aidd-flow-state",
+    "aidd-memory",
     "aidd-observability",
     "aidd-loop",
     "aidd-rlm",
@@ -162,6 +163,7 @@ PRELOADED_SKILLS = {
 }
 SHARED_STAGE_SCRIPT_OWNERS = {
     "aidd-core",
+    "aidd-memory",
     "aidd-loop",
     "aidd-rlm",
     "aidd-policy",
@@ -217,6 +219,10 @@ SHARED_CRITICAL_CONTRACT_REFS_ANY = {
     "aidd-core": ("skills/aidd-core/runtime/skill_contract_validate.py",),
     "aidd-docio": ("skills/aidd-docio/runtime/md_slice.py", "skills/aidd-docio/runtime/actions_apply.py"),
     "aidd-flow-state": ("skills/aidd-flow-state/runtime/set_active_stage.py", "skills/aidd-flow-state/runtime/stage_result.py"),
+    "aidd-memory": (
+        "skills/aidd-memory/runtime/memory_extract.py",
+        "skills/aidd-memory/runtime/memory_pack.py",
+    ),
     "aidd-observability": (
         "skills/aidd-observability/runtime/doctor.py",
         "skills/aidd-observability/runtime/tools_inventory.py",

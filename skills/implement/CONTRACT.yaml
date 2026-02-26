@@ -36,7 +36,8 @@
       "aidd/reports/actions/{ticket}/{scope_key}/**",
       "aidd/reports/logs/implement/{ticket}/{scope_key}/**",
       "aidd/reports/context/{ticket}/{scope_key}.*",
-      "aidd/reports/loops/{ticket}/{scope_key}/stage.preflight.result.json"
+      "aidd/reports/loops/{ticket}/{scope_key}/stage.preflight.result.json",
+      "aidd/reports/memory/{ticket}.decisions.jsonl"
     ],
     "blocks": [
       "aidd/docs/tasklist/{ticket}.md#AIDD:ITERATIONS_FULL",
@@ -86,7 +87,8 @@
       "tasklist_ops.set_iteration_done",
       "tasklist_ops.append_progress_log",
       "tasklist_ops.next3_recompute",
-      "context_pack_ops.context_pack_update"
+      "context_pack_ops.context_pack_update",
+      "memory_ops.decision_append"
     ]
   }
 }

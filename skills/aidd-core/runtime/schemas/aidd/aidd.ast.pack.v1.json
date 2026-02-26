@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "aidd.ast.pack.v1",
+  "schema": "aidd.schema.v1",
+  "schema_version": "aidd.ast.pack.v1",
+  "title": "AIDD AST Pack v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "schema_version",
+    "pack_version",
+    "type",
+    "kind",
+    "ticket",
+    "slug_hint",
+    "generated_at",
+    "source_path",
+    "engine",
+    "matches",
+    "stats"
+  ],
+  "properties": {
+    "schema": {
+      "const": "aidd.ast.pack.v1"
+    },
+    "schema_version": {
+      "const": "aidd.ast.pack.v1"
+    },
+    "pack_version": {
+      "type": "string"
+    },
+    "type": {
+      "const": "ast-evidence"
+    },
+    "kind": {
+      "const": "pack"
+    },
+    "ticket": {
+      "type": "string"
+    },
+    "slug_hint": {
+      "type": "string"
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "source_path": {
+      "type": "string"
+    },
+    "engine": {
+      "type": "string"
+    },
+    "query": {
+      "type": "string"
+    },
+    "matches": {
+      "type": "object"
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "stats": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": true
+}

@@ -63,8 +63,8 @@
           "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/tasks_derive.py *)"
         ],
         "model": "inherit",
-        "prompt_version": "1.2.33",
-        "source_version": "1.2.33",
+        "prompt_version": "1.2.34",
+        "source_version": "1.2.34",
         "lang": "ru",
         "argument-hint": "$1 [note...] [--paths path1,path2] [--keywords kw1,kw2] [--note text]",
         "name": "researcher"
@@ -89,8 +89,8 @@
           "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_slice.py *)"
         ],
         "model": "inherit",
-        "prompt_version": "1.1.15",
-        "source_version": "1.1.15",
+        "prompt_version": "1.1.16",
+        "source_version": "1.1.16",
         "lang": "ru",
         "argument-hint": "$1 [note...]",
         "name": "plan-new"
@@ -116,8 +116,8 @@
           "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_feature.py *)"
         ],
         "model": "inherit",
-        "prompt_version": "1.0.22",
-        "source_version": "1.0.22",
+        "prompt_version": "1.0.23",
+        "source_version": "1.0.23",
         "lang": "ru",
         "argument-hint": "$1 [note...]",
         "name": "review-spec"

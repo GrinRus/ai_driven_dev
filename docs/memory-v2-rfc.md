@@ -1,14 +1,14 @@
 # RFC: Memory v2 for AIDD (pack-first semantic memory)
 
-Status: Draft (Active; Wave 101 source)  
+Status: Implemented (Wave 101; breaking-only rollout)  
 Owner: feature-dev-aidd  
-Updated: 2026-02-13
+Updated: 2026-02-25
 
 ## 1. Problem statement
 
 AIDD already uses external artifacts (`aidd/reports/**`, `aidd/docs/**`) and pack-first reading, but memory is fragmented across stage docs and reports. On large tasks, consistency depends on manually traversing multiple files.
 
-Goal of Memory v2: add a small, deterministic semantic memory layer and a decision log layer, both file-based and script-managed, without breaking current RLM/loop contracts.
+Goal of Memory v2: add a small, deterministic semantic memory layer and a decision log layer, both file-based and script-managed, while keeping RLM/loop contracts intact and intentionally dropping legacy memory compatibility.
 
 ## 2. Goals and non-goals
 
@@ -151,39 +151,16 @@ Add optional memory read entries and (later) required checks behind flag.
 1. Add new shared skill:
 - `/Users/griogrii_riabov/grigorii_projects/ai_driven_dev/skills/aidd-memory/SKILL.md`
 
-## 8. Rollout plan
+## 8. Rollout policy (implemented)
 
-### Wave 1 (non-breaking, opt-in)
-
-Scope:
-- add runtime tools
-- generate memory artifacts only
-- no hard gates
-
-Acceptance:
-- artifacts generated for active ticket
-- schema validation passes
-- no regressions in `ci-lint` and `smoke-workflow`
-
-### Wave 2 (read integration)
-
-Scope:
-- include memory in read policy and readmaps
-- enrich working set snippet
-
-Acceptance:
-- `AIDD:READ_LOG` often starts from packs (rlm + memory)
-- no loop policy violations
-
-### Wave 3 (soft-to-hard gates)
-
-Scope:
-- soft gate for missing decisions pack in `plan/review/qa`
-- optional hard gate by config flag after soak period
-
-Acceptance:
-- stage readiness reflects memory completeness
-- false-block rate below agreed threshold
+Memory v2 принят как breaking-only контракт в Wave 101:
+1. Legacy memory backfill не поддерживается.
+1. Legacy memory artifacts не участвуют в runtime/gates/read-order.
+1. Canonical runtime path:
+   - `research --auto` генерирует `semantic.pack`;
+   - decision writes идут через `memory_ops.decision_append`;
+   - `memory_pack.py` собирает `decisions.pack`.
+1. Gate policy поддерживает soft/hard readiness для `plan/review/qa`.
 
 ## 9. Testing strategy
 1. Unit tests:

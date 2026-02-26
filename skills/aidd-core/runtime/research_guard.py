@@ -40,6 +40,15 @@ RESEARCH_TEMPLATE_MARKERS = (
     "{{rlm_warnings}}",
     "{{rlm_nodes_path}}",
     "{{rlm_links_path}}",
+    "{{ast_mode}}",
+    "{{ast_required}}",
+    "{{ast_status}}",
+    "{{ast_query}}",
+    "{{ast_pack_path}}",
+    "{{ast_matches}}",
+    "{{ast_reason_code}}",
+    "{{ast_fallback_reason}}",
+    "{{ast_next_action}}",
 )
 STATUS_LINE_RE = re.compile(r"^\*{0,2}\s*status\s*\*{0,2}\s*:\s*(.+)$", re.IGNORECASE)
 LIST_ITEM_RE = re.compile(r"^(?:[-+*])\s+")
@@ -61,6 +70,11 @@ class ResearchSettings:
     rlm_require_pack: bool = True
     rlm_require_nodes: bool = True
     rlm_require_links: bool = True
+    memory_enabled: bool = True
+    memory_mode: str = "soft"
+    memory_stages: list[str] | None = None
+    memory_require_semantic_pack: bool = False
+    memory_require_decisions_pack: bool = False
 
 
 @dataclass
@@ -81,6 +95,14 @@ def _rlm_links_cmd_hint(ticket: str) -> str:
 
 def _rlm_finalize_cmd_hint(ticket: str) -> str:
     return f"python3 ${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-rlm/runtime/rlm_finalize.py --ticket {ticket}"
+
+
+def _memory_extract_cmd_hint(ticket: str) -> str:
+    return f"python3 ${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-memory/runtime/memory_extract.py --ticket {ticket}"
+
+
+def _memory_pack_cmd_hint(ticket: str) -> str:
+    return f"python3 ${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-memory/runtime/memory_pack.py --ticket {ticket}"
 
 
 def _raise_block(reason_code: str, message: str, next_action: str) -> None:
@@ -158,6 +180,25 @@ def load_settings(root: Path) -> ResearchSettings:
             settings.rlm_require_nodes = bool(rlm_cfg.get("require_nodes"))
         if "require_links" in rlm_cfg:
             settings.rlm_require_links = bool(rlm_cfg.get("require_links"))
+
+    memory_cfg = config.get("memory") or {}
+    if isinstance(memory_cfg, dict):
+        if "enabled" in memory_cfg:
+            settings.memory_enabled = bool(memory_cfg.get("enabled"))
+        raw_mode = str(memory_cfg.get("mode") or settings.memory_mode).strip().lower()
+        settings.memory_mode = "hard" if raw_mode == "hard" else "soft"
+        raw_stages = memory_cfg.get("stages")
+        if isinstance(raw_stages, list):
+            normalized_stages = [
+                str(item).strip().lower()
+                for item in raw_stages
+                if isinstance(item, str) and str(item).strip()
+            ]
+            settings.memory_stages = normalized_stages or None
+        if "require_semantic_pack" in memory_cfg:
+            settings.memory_require_semantic_pack = bool(memory_cfg.get("require_semantic_pack"))
+        if "require_decisions_pack" in memory_cfg:
+            settings.memory_require_decisions_pack = bool(memory_cfg.get("require_decisions_pack"))
 
     return settings
 
@@ -535,6 +576,88 @@ def _validate_rlm_evidence(
                 )
 
 
+def _memory_stage_enabled(stage: str, settings: ResearchSettings) -> bool:
+    normalized_stage = str(stage or "").strip().lower()
+    if not normalized_stage:
+        return False
+    target_stages = settings.memory_stages or ["plan", "review", "qa"]
+    normalized_targets = {str(item).strip().lower() for item in target_stages if str(item).strip()}
+    return normalized_stage in normalized_targets
+
+
+def _validate_memory_pack_file(path: Path) -> tuple[bool, str]:
+    if not path.exists():
+        return False, "missing"
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return False, "invalid_json"
+    if not isinstance(payload, dict):
+        return False, "invalid_payload"
+    return True, ""
+
+
+def _warn_memory(reason_code: str, message: str, next_action: str) -> None:
+    print(
+        f"[aidd] WARN: {message} (reason_code={reason_code}). Hint: выполните `{next_action}`.",
+        file=sys.stderr,
+    )
+
+
+def _validate_memory_evidence(
+    root: Path,
+    ticket: str,
+    *,
+    settings: ResearchSettings,
+    stage: str,
+) -> None:
+    if not settings.memory_enabled:
+        return
+    if not _memory_stage_enabled(stage, settings):
+        return
+
+    checks: list[tuple[str, bool, Path, str, str]] = []
+    checks.append(
+        (
+            "semantic",
+            settings.memory_require_semantic_pack,
+            root / "reports" / "memory" / f"{ticket}.semantic.pack.json",
+            _memory_extract_cmd_hint(ticket),
+            "memory_semantic_pack_missing",
+        )
+    )
+    checks.append(
+        (
+            "decisions",
+            settings.memory_require_decisions_pack,
+            root / "reports" / "memory" / f"{ticket}.decisions.pack.json",
+            _memory_pack_cmd_hint(ticket),
+            "memory_decisions_pack_missing",
+        )
+    )
+
+    mode_hard = str(settings.memory_mode or "soft").strip().lower() == "hard"
+    for kind, required, path, next_action, reason_base in checks:
+        if not required:
+            continue
+        ok, failure = _validate_memory_pack_file(path)
+        if ok:
+            continue
+        rel = runtime.rel_path(path, root)
+        if failure == "missing":
+            message = f"для стадии `{stage}` требуется memory {kind} pack, но он отсутствует ({rel})"
+            if mode_hard:
+                _raise_block(reason_base, message, next_action)
+            _warn_memory(f"{reason_base}_warn", message, next_action)
+            continue
+
+        reason_code = f"{reason_base}_invalid"
+        message = f"memory {kind} pack повреждён или невалиден ({rel})"
+        if mode_hard:
+            _raise_block(reason_code, message, next_action)
+        _warn_memory(f"{reason_code}_warn", message, next_action)
+
+
 def validate_research(
     root: Path,
     ticket: str,
@@ -663,6 +786,12 @@ def validate_research(
         settings=settings,
         doc_status=status,
         expected_stage=stage or None,
+    )
+    _validate_memory_evidence(
+        root,
+        ticket,
+        settings=settings,
+        stage=stage,
     )
 
     return ResearchCheckSummary(status=status, path_count=path_count, age_days=age_days)

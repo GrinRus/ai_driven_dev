@@ -1,2 +1,3 @@
 # runtime module waivers for line-count > error threshold
 # format: <workspace-relative path>|<reason>
+skills/researcher/runtime/research.py|W101 AST+memory orchestration; planned split into runtime parts in follow-up wave.

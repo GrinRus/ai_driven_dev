@@ -226,7 +226,10 @@ def resolve_hooks_mode() -> str:
 
 
 def evaluate_output_contract_policy(status: str) -> Tuple[str, str]:
-    if str(status).strip().lower() != "warn":
+    normalized = str(status).strip().lower()
+    if normalized == "blocked":
+        return "blocked", "output_contract_blocked"
+    if normalized != "warn":
         return "", ""
     hooks_mode = resolve_hooks_mode()
     if hooks_mode == "strict":

@@ -135,6 +135,94 @@
       "aidd/.cache"
     ]
   },
+  "memory": {
+    "enabled": true,
+    "mode": "v2",
+    "read_order": [
+      "rlm_pack",
+      "memory_semantic_pack",
+      "memory_decisions_pack",
+      "memory_slice_manifest",
+      "context_pack"
+    ],
+    "semantic": {
+      "max_chars": 6000,
+      "max_items": 120,
+      "trim_priority": [
+        "invariants",
+        "constraints",
+        "defaults",
+        "terms",
+        "open_questions"
+      ]
+    },
+    "decisions": {
+      "max_chars": 6000,
+      "max_active": 50,
+      "max_history": 150
+    },
+    "slice_budget": {
+      "max_hits": 20,
+      "max_chars": 3000
+    },
+    "slice_policy": {
+      "mode": "warn",
+      "enforce_stages": [
+        "research",
+        "plan",
+        "review-spec",
+        "implement",
+        "review",
+        "qa"
+      ],
+      "max_slice_age_minutes": 240,
+      "rg_policy": "controlled_fallback",
+      "manifest_budget": {
+        "max_slices": 6,
+        "max_chars": 12000
+      },
+      "stage_queries": {
+        "research": [
+          "constraint|invariant|default",
+          "open_questions|decision|risk"
+        ],
+        "plan": [
+          "constraint|invariant|fallback|required",
+          "decision|topic|status"
+        ],
+        "review-spec": [
+          "acceptance|constraint|invariant",
+          "decision|topic|conflict"
+        ],
+        "implement": [
+          "decision|topic|active",
+          "constraint|fallback|status"
+        ],
+        "review": [
+          "decision|topic|active",
+          "invariant|constraint|risk"
+        ],
+        "qa": [
+          "decision|topic|active",
+          "constraint|fallback|status"
+        ]
+      }
+    }
+  },
+  "ast_index": {
+    "mode": "auto",
+    "required": false,
+    "binary": "ast-index",
+    "timeout_s": 8,
+    "auto_ensure_index": true,
+    "fallback": "rg",
+    "max_results": 200,
+    "pack_budget": {
+      "max_chars": 9000,
+      "max_items": 120,
+      "enforce": false
+    }
+  },
   "researcher": {
     "defaults": {
       "paths": [

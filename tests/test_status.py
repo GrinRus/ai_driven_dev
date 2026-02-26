@@ -33,6 +33,23 @@ def test_status_refresh_uses_rlm_pack_and_ignores_legacy_research_files():
             )
             + "\n",
         )
+        write_file(
+            project_root,
+            f"reports/memory/{ticket}.semantic.pack.json",
+            json.dumps(
+                {
+                    "schema": "aidd.memory.semantic.v1",
+                    "pack_version": "v1",
+                    "type": "memory-semantic",
+                    "kind": "pack",
+                    "ticket": ticket,
+                    "status": "ok",
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+        )
         # Legacy files may exist in historical workspaces, but must be ignored by status/index surfaces.
         legacy_context_suffix = "-context.json"
         legacy_targets_suffix = "-targets.json"
@@ -49,6 +66,7 @@ def test_status_refresh_uses_rlm_pack_and_ignores_legacy_research_files():
 
         assert result.returncode == 0, result.stderr
         assert f"aidd/reports/research/{ticket}-rlm.pack.json" in result.stdout
+        assert f"aidd/reports/memory/{ticket}.semantic.pack.json" in result.stdout
         assert f"{ticket}{legacy_context_suffix}" not in result.stdout
         assert f"{ticket}{legacy_targets_suffix}" not in result.stdout
 
@@ -57,5 +75,6 @@ def test_status_refresh_uses_rlm_pack_and_ignores_legacy_research_files():
         index_payload = json.loads(index_path.read_text(encoding="utf-8"))
         reports = index_payload.get("reports") or []
         assert f"aidd/reports/research/{ticket}-rlm.pack.json" in reports
+        assert f"aidd/reports/memory/{ticket}.semantic.pack.json" in reports
         assert all(not str(item).endswith(f"{ticket}{legacy_context_suffix}") for item in reports)
         assert all(not str(item).endswith(f"{ticket}{legacy_targets_suffix}") for item in reports)

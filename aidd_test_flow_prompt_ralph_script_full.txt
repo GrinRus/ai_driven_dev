@@ -12,6 +12,10 @@
 - Stage content templates (SoT): `$PLUGIN_DIR/skills/*/templates/*`
 - Workspace bootstrap source: `$PLUGIN_DIR/templates/aidd/**`
 - Runtime workspace memory: `$PROJECT_DIR/aidd/**` (после `aidd-init`)
+- Memory v2 canonical artifacts:
+  - `$PROJECT_DIR/aidd/reports/memory/<ticket>.semantic.pack.json`
+  - `$PROJECT_DIR/aidd/reports/memory/<ticket>.decisions.pack.json`
+- Memory v2 policy: **breaking-only**, без legacy backfill/compat mode.
 - Runtime API (canonical): `$PLUGIN_DIR/skills/*/runtime/*.py`
 - Hooks/platform glue: `$PLUGIN_DIR/hooks/**`
 - `tools/*.sh`: retired (не использовать)
@@ -101,6 +105,8 @@
 - R18.1a: `compact_q_codes` обязателен для retry payload в CLI (`AIDD:ANSWERS Q1=...; Q2=...`), но не как обязательный persisted-формат секции `AIDD:ANSWERS` в PRD/plan/tasklist.
 - R18.2: При `FAIL` readiness gate обязателен `reason_code` из набора `prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready`; шаг 5 классифицируется как `NOT VERIFIED (readiness_gate_failed)` + `prompt-flow gap`.
 - R18.3: При readiness gate `FAIL` шаги `6/7/8` помечаются как `NOT VERIFIED (upstream_readiness_gate_failed)` без запуска stage-команд.
+- R18.4: Для шагов `6/7/8` read chain фиксирован: `rlm.pack -> memory semantic.pack -> memory decisions.pack -> loop/context packs`; full-read допустим только как fallback с явным reason в `AIDD:READ_LOG`.
+- R18.5: Отсутствие legacy memory artifacts не считать дефектом; валидность проверяется только по Memory v2 canonical paths.
 
 ## 5) Политика запуска, ожидания и зависаний
 

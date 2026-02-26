@@ -70,6 +70,7 @@ User‑гайд для workspace находится в `skills/aidd-core/templat
 
 ## Минимальные зависимости
 - `python3`, `rg`, `git` обязательны.
+- `ast-index` опционален: default policy `mode=auto` + deterministic fallback на `rg`; `required` включается только через config gate.
 - Для `tests/repo_tools/ci-lint.sh`: `shellcheck`, `markdownlint`, `yamllint` (иначе warn/skip).
 
 ## Локальный запуск entrypoints
@@ -113,7 +114,7 @@ Loop policy: `OUT_OF_SCOPE|NO_BOUNDARIES_DEFINED` → WARN + handoff, `FORBIDDEN
 
 Ключевые команды:
 - Идея: `/feature-dev-aidd:idea-new <ticket> [note...]` → PRD + `analyst` (`slug_hint` формируется внутри команды из note).
-- Research: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py --ticket <ticket> --auto` → `/feature-dev-aidd:researcher <ticket>` (RLM targets/manifest/worklist + pack).
+- Research: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py --ticket <ticket> --auto` → `/feature-dev-aidd:researcher <ticket>` (RLM targets/manifest/worklist + pack + `memory semantic`).
 - План: `/feature-dev-aidd:plan-new <ticket>`.
 - Review‑spec (plan + PRD): `/feature-dev-aidd:review-spec <ticket>`.
 - Тасклист: `/feature-dev-aidd:tasks-new <ticket>`.
@@ -140,10 +141,28 @@ Agent‑first правило: сначала читаем артефакты (`a
 - Гейты стадий `plan/review/qa` требуют минимальный набор RLM evidence:
   `rlm-targets`, `rlm-manifest`, `rlm.worklist.pack`, `rlm.nodes`, `rlm.links`, `rlm.pack`.
 
+## Memory v2 policy
+- Memory v2 работает как breaking-only контракт: legacy memory backfill не поддерживается.
+- Canonical artifacts:
+  - `aidd/reports/memory/<ticket>.semantic.pack.json`
+  - `aidd/reports/memory/<ticket>.decisions.jsonl`
+  - `aidd/reports/memory/<ticket>.decisions.pack.json`
+- Stage-aware lightweight memory artifacts:
+  - `aidd/reports/context/<ticket>-memory-slices.<stage>.<scope_key>.pack.json`
+  - `aidd/reports/context/<ticket>-memory-slice-<hash>.pack.json`
+  - `aidd/reports/context/<ticket>-memory-slice.<stage>.<scope_key>.latest.pack.json`
+- Decision writes только через validated path (`memory_ops.decision_append`), без прямого редактирования JSONL.
+- После `memory_ops.decision_append` runtime обязан пересобрать `<ticket>.decisions.pack.json` в том же execution.
+
 ## Evidence Read Policy (RLM-first)
 - Primary evidence: `aidd/reports/research/<ticket>-rlm.pack.json` (pack-first summary).
+- Secondary evidence (AST, optional): `aidd/reports/research/<ticket>-ast.pack.json`.
+- Secondary evidence (memory): `aidd/reports/memory/<ticket>.semantic.pack.json`, `aidd/reports/memory/<ticket>.decisions.pack.json`.
+- Stage memory manifest: `aidd/reports/context/<ticket>-memory-slices.<stage>.<scope_key>.pack.json`.
 - Slice on demand: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_slice.py --ticket <ticket> --query "<token>"`.
-- Use raw `rg` only for spot-checks.
+- Slice on demand (memory): `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-memory/runtime/memory_slice.py --ticket <ticket> --query "<token>"`.
+- Stage autoslice: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-memory/runtime/memory_autoslice.py --ticket <ticket> --stage <stage> --scope-key <scope_key> --format json`.
+- Use raw `rg` only as controlled fallback after memory slice manifest attempt (`memory.rg_policy=controlled_fallback`).
 - JSONL‑streams (`*-rlm.nodes.jsonl`, `*-rlm.links.jsonl`) читаются фрагментами, не целиком.
 
 ## Кастомизация (минимум)
@@ -152,9 +171,19 @@ Agent‑first правило: сначала читаем артефакты (`a
   - `prd_review`, `plan_review`, `researcher`, `analyst`
   - `tests_required` (`disabled|soft|hard`), `tests_gate`
   - `deps_allowlist`
+  - `memory` (`slice_enforcement`, `enforce_stages`, `max_slice_age_minutes`, `rg_policy`, `rollout_hardening`)
+  - `ast_index` (`mode`, `required`, `allow_fallback_rg`, `warn_on_fallback`, `rollout_wave2`)
   - `qa.debounce_minutes`
   - `qa.tests.discover` (allow_paths/max_files/max_bytes)
   - `tasklist_progress`
+- Memory hardening rollout (`memory.rollout_hardening`) оценивается через doctor:
+  - `decision_mode=advisory|hard`
+  - thresholds: `memory_slice_coverage_min`, `rg_without_slice_rate_max`, `decisions_pack_stale_events_max`
+  - metrics artifact: `aidd/reports/observability/memory.rollout.json`
+- Wave-2 rollout gate (`ast_index.rollout_wave2`) оценивается через doctor:
+  - `decision_mode=advisory|hard`
+  - thresholds: `quality_min`, `latency_p95_ms_max`, `fallback_rate_max`
+  - metrics artifact: `aidd/reports/observability/ast-index.rollout.json`
 - Важные env:
   - `SKIP_AUTO_TESTS`, `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`
 - Stage-chain orchestration для loop stages обязательна (`preflight -> run -> postflight -> stage_result`), debug bypass не поддерживается.
@@ -178,6 +207,10 @@ Agent‑first правило: сначала читаем артефакты (`a
   - RLM manifest: `aidd/reports/research/<ticket>-rlm-manifest.json`
   - RLM nodes/links: `aidd/reports/research/<ticket>-rlm.nodes.jsonl`, `*-rlm.links.jsonl`
   - RLM pack: `aidd/reports/research/<ticket>-rlm.pack.json`
+  - Memory semantic pack: `aidd/reports/memory/<ticket>.semantic.pack.json`
+  - Memory decision log/pack: `aidd/reports/memory/<ticket>.decisions.jsonl`, `<ticket>.decisions.pack.json`
+  - Memory stage manifest/slices: `aidd/reports/context/<ticket>-memory-slices.<stage>.<scope_key>.pack.json`, `aidd/reports/context/<ticket>-memory-slice-<hash>.pack.json`
+  - Context quality KPI: `aidd/reports/observability/<ticket>.context-quality.json`
   - QA: `aidd/reports/qa/<ticket>.json` + pack
   - PRD review: `aidd/reports/prd/<ticket>.json` + pack
   - Reviewer marker: `aidd/reports/reviewer/<ticket>/<scope_key>.json`

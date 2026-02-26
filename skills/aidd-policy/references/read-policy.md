@@ -1,12 +1,19 @@
 # Read Policy (Pack-First)
 
 1. Start from pack artifacts (`*.pack.json`, `*.pack.md`) and targeted slices.
-2. Use focused evidence reads (`rlm_slice.py`, section markers) before opening full files.
+2. Use focused evidence reads (`rlm_slice.py`, `chunk_query.py`, section markers) before opening full files.
 3. Open full files only if slice evidence is insufficient for the decision.
 4. Keep `AIDD:READ_LOG` short and reference report paths instead of copying large payloads.
 
 Recommended order:
 - `aidd/reports/research/<ticket>-rlm.pack.json`
+- `aidd/reports/research/<ticket>-ast.pack.json` (if exists; optional in `ast_index.mode=auto`)
+- `aidd/reports/memory/<ticket>.semantic.pack.json`
+- `aidd/reports/memory/<ticket>.decisions.pack.json`
+- `aidd/reports/context/<ticket>-memory-slices.<stage>.<scope_key>.pack.json`
+- `aidd/reports/context/<ticket>-memory-slice.<stage>.<scope_key>.latest.pack.json`
 - `aidd/reports/loops/<ticket>/<scope_key>.loop.pack.md`
 - `aidd/reports/context/<ticket>.pack.md`
+- `aidd/reports/context/<ticket>-chunk-*.pack.json` (on-demand JIT chunks via `chunk_query.py`)
 - specific files/slices needed to resolve blockers
+- full read fallback only after slice/manifest attempts with explicit `reason_code`

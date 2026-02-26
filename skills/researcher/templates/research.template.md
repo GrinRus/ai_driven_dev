@@ -14,7 +14,7 @@ Artifacts:
 - Limit: <= 20 lines / <= 1200 chars.
 - Paths discovered: {{paths_discovered}}
 - Invalid paths: {{invalid_paths}}
-- Pack-first: используйте `*-rlm.pack.*` и `rlm-slice`; не вставляйте raw JSONL.
+- Pack-first: используйте `*-rlm.pack.*`, `*-ast.pack.json` и `rlm-slice`; не вставляйте raw JSONL.
 
 ## AIDD:PRD_OVERRIDES
 {{prd_overrides}}
@@ -54,6 +54,17 @@ Artifacts:
 - Auto recovery: bootstrap_attempted={{rlm_bootstrap_attempted}}, finalize_attempted={{rlm_finalize_attempted}}, recovery_path={{rlm_recovery_path}}
 - Slice: python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_slice.py --ticket {{ticket}} --query "<token>"
 - Nodes/links: {{rlm_nodes_path}} / {{rlm_links_path}} (не читать целиком)
+
+## AIDD:AST_EVIDENCE
+- Mode: {{ast_mode}}
+- Required: {{ast_required}}
+- Status: {{ast_status}}
+- Query: {{ast_query}}
+- Pack: {{ast_pack_path}}
+- Matches: {{ast_matches}}
+- Reason: {{ast_reason_code}}
+- Fallback reason: {{ast_fallback_reason}}
+- Next action: {{ast_next_action}}
 
 ## AIDD:TEST_HOOKS
 - {{test_hooks}}

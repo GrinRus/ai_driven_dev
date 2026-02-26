@@ -3,8 +3,8 @@ name: review-spec
 description: Reviews plan and PRD, then gates readiness for implementation. Use when plan and PRD artifacts are ready for spec approval.
 argument-hint: $1 [note...]
 lang: ru
-prompt_version: 1.0.22
-source_version: 1.0.22
+prompt_version: 1.0.23
+source_version: 1.0.23
 allowed-tools:
   - Read
   - Edit
@@ -29,10 +29,11 @@ Follow `feature-dev-aidd:aidd-core`.
 1. Set active stage `review-plan`, then `review-prd`; keep active feature in sync via canonical active-state runtime commands only.
 2. Run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review-spec/runtime/prd_review_cli.py --ticket <ticket>`.
 3. Gate PRD readiness with `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/prd_check.py`; block on failure.
-4. Use the existing rolling context pack as review input; do not invoke standalone context-pack builder scripts from this stage.
-5. Run subagent `feature-dev-aidd:plan-reviewer`, then run subagent `feature-dev-aidd:prd-reviewer`.
-6. Persist PRD review report with `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review-spec/runtime/prd_review_cli.py --ticket <ticket> --report aidd/reports/prd/<ticket>.json`.
-7. Return the output contract with canonical next action: `/feature-dev-aidd:tasks-new <ticket>` when READY, or `/feature-dev-aidd:spec-interview <ticket>` when BLOCKED by missing/unresolved spec inputs.
+4. Use pack/slice-first review order: RLM pack -> optional AST pack -> memory semantic/decisions packs -> stage memory slice manifest (`<ticket>-memory-slices.review-spec.<scope_key>.pack.json`) -> context pack.
+5. `ast-index` evidence is preferred when present; `rg` is controlled fallback and is allowed only after memory slice manifest is available.
+6. Run subagent `feature-dev-aidd:plan-reviewer`, then run subagent `feature-dev-aidd:prd-reviewer`.
+7. Persist PRD review report with `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review-spec/runtime/prd_review_cli.py --ticket <ticket> --report aidd/reports/prd/<ticket>.json`.
+8. Return the output contract with canonical next action: `/feature-dev-aidd:tasks-new <ticket>` when READY, or `/feature-dev-aidd:spec-interview <ticket>` when BLOCKED by missing/unresolved spec inputs.
 
 ## Command contracts
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review-spec/runtime/prd_review_cli.py`

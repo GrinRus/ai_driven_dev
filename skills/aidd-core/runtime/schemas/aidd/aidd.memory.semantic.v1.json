@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "aidd.memory.semantic.v1",
+  "schema": "aidd.schema.v1",
+  "schema_version": "aidd.memory.semantic.v1",
+  "title": "AIDD Memory Semantic Pack v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "schema_version",
+    "pack_version",
+    "type",
+    "kind",
+    "ticket",
+    "slug_hint",
+    "generated_at",
+    "source_path",
+    "terms",
+    "defaults",
+    "constraints",
+    "invariants",
+    "open_questions",
+    "stats"
+  ],
+  "properties": {
+    "schema": {
+      "const": "aidd.memory.semantic.v1"
+    },
+    "schema_version": {
+      "const": "aidd.memory.semantic.v1"
+    },
+    "pack_version": {
+      "type": "string"
+    },
+    "type": {
+      "const": "memory-semantic"
+    },
+    "kind": {
+      "const": "pack"
+    },
+    "ticket": {
+      "type": "string"
+    },
+    "slug_hint": {
+      "type": "string"
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "source_path": {
+      "type": "string"
+    },
+    "terms": {
+      "type": "object"
+    },
+    "defaults": {
+      "type": "object"
+    },
+    "constraints": {
+      "type": "object"
+    },
+    "invariants": {
+      "type": "object"
+    },
+    "open_questions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "stats": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": true
+}
+

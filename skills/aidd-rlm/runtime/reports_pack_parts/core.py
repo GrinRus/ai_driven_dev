@@ -70,6 +70,16 @@ RLM_BUDGET = {
     "max_lines": 240,
 }
 
+AST_LIMITS: Dict[str, int] = {
+    "max_items": 120,
+    "snippet_chars": 240,
+}
+
+AST_BUDGET = {
+    "max_chars": 9000,
+    "max_lines": 220,
+}
+
 _ESSENTIAL_FIELDS = {
     "schema",
     "pack_version",
@@ -733,6 +743,215 @@ def _load_jsonl(path: Path) -> List[Dict[str, Any]]:
     except OSError:
         return []
     return items
+
+
+def _normalize_ast_entry(entry: Dict[str, Any], *, snippet_chars: int) -> Dict[str, Any]:
+    symbol = str(
+        entry.get("symbol")
+        or entry.get("name")
+        or entry.get("title")
+        or entry.get("identifier")
+        or entry.get("id")
+        or ""
+    ).strip()
+    kind = str(entry.get("kind") or entry.get("type") or entry.get("symbol_kind") or "").strip()
+    path = str(
+        entry.get("path")
+        or entry.get("file")
+        or entry.get("file_path")
+        or entry.get("source_path")
+        or entry.get("uri")
+        or ""
+    ).strip()
+    line = int(entry.get("line") or entry.get("line_start") or entry.get("start_line") or 0)
+    column = int(entry.get("column") or entry.get("col") or entry.get("start_column") or 0)
+    try:
+        score = float(entry.get("score") or entry.get("rank") or entry.get("confidence") or 0.0)
+    except (TypeError, ValueError):
+        score = 0.0
+    snippet = str(entry.get("snippet") or entry.get("context") or entry.get("extract") or "").strip()
+    if snippet_chars > 0:
+        snippet = snippet[:snippet_chars]
+    return {
+        "symbol": symbol,
+        "kind": kind,
+        "path": path,
+        "line": max(0, line),
+        "column": max(0, column),
+        "score": score,
+        "snippet": snippet,
+    }
+
+
+def build_ast_pack(
+    entries: Iterable[Dict[str, Any]],
+    *,
+    ticket: str,
+    slug_hint: Optional[str] = None,
+    source_path: Optional[str] = None,
+    query: str = "",
+    limits: Optional[Dict[str, int]] = None,
+    warnings: Optional[List[str]] = None,
+    generated_at: Optional[str] = None,
+) -> Dict[str, Any]:
+    lim = {**AST_LIMITS, **(limits or {})}
+    snippet_chars = int(lim.get("snippet_chars") or AST_LIMITS["snippet_chars"])
+    max_items = int(lim.get("max_items") or AST_LIMITS["max_items"])
+
+    normalized: List[Dict[str, Any]] = []
+    for raw in entries:
+        if not isinstance(raw, dict):
+            continue
+        row = _normalize_ast_entry(raw, snippet_chars=snippet_chars)
+        if not (row["symbol"] or row["path"]):
+            continue
+        normalized.append(row)
+
+    normalized.sort(
+        key=lambda row: (
+            row["path"],
+            int(row["line"]),
+            int(row["column"]),
+            row["symbol"],
+            row["kind"],
+            -float(row["score"]),
+        )
+    )
+
+    total = len(normalized)
+    kept = normalized[: max(0, max_items)]
+    rows = [
+        [
+            item["symbol"],
+            item["kind"],
+            item["path"],
+            int(item["line"]),
+            int(item["column"]),
+            float(item["score"]),
+            item["snippet"],
+        ]
+        for item in kept
+    ]
+    warning_rows = sorted({str(item).strip() for item in (warnings or []) if str(item).strip()})
+    pack: Dict[str, Any] = {
+        "schema": "aidd.ast.pack.v1",
+        "schema_version": "aidd.ast.pack.v1",
+        "pack_version": PACK_VERSION,
+        "type": "ast-evidence",
+        "kind": "pack",
+        "ticket": ticket,
+        "slug_hint": (slug_hint or ticket).strip() or ticket,
+        "generated_at": str(generated_at or "").strip() or _utc_timestamp(),
+        "source_path": source_path or "",
+        "engine": "ast-index",
+        "query": query,
+        "matches": {
+            "cols": ["symbol", "kind", "path", "line", "column", "score", "snippet"],
+            "rows": rows,
+        },
+        "warnings": warning_rows,
+        "stats": {
+            "matches_total": total,
+            "matches_kept": len(rows),
+            "matches_trimmed": max(0, total - len(rows)),
+            "max_items": max_items,
+            "snippet_chars": snippet_chars,
+        },
+    }
+    return pack
+
+
+def _auto_trim_ast_pack(
+    payload: Dict[str, Any],
+    *,
+    max_chars: int,
+    max_lines: int,
+) -> tuple[str, List[str], List[str]]:
+    text = _serialize_pack(payload)
+    errors = check_budget(text, max_chars=max_chars, max_lines=max_lines, label="ast")
+    if not errors:
+        return text, [], []
+
+    trimmed_counts: Dict[str, int] = {}
+    while errors:
+        if _trim_columnar_rows(payload, "matches"):
+            trimmed_counts["matches"] = trimmed_counts.get("matches", 0) + 1
+            text = _serialize_pack(payload)
+            errors = check_budget(text, max_chars=max_chars, max_lines=max_lines, label="ast")
+            continue
+        if _trim_list_field(payload, "warnings"):
+            trimmed_counts["warnings"] = trimmed_counts.get("warnings", 0) + 1
+            text = _serialize_pack(payload)
+            errors = check_budget(text, max_chars=max_chars, max_lines=max_lines, label="ast")
+            continue
+        break
+
+    if trimmed_counts:
+        stats = payload.get("stats")
+        if isinstance(stats, dict):
+            stats["trimmed_fields"] = trimmed_counts
+        text = _serialize_pack(payload)
+        errors = check_budget(text, max_chars=max_chars, max_lines=max_lines, label="ast")
+        if errors and isinstance(stats, dict):
+            stats.pop("trimmed_fields", None)
+            text = _serialize_pack(payload)
+            errors = check_budget(text, max_chars=max_chars, max_lines=max_lines, label="ast")
+
+    trimmed = [f"{name}(-{count})" for name, count in trimmed_counts.items()]
+    stats = payload.get("stats")
+    if isinstance(stats, dict):
+        rows = payload.get("matches", {}).get("rows") if isinstance(payload.get("matches"), dict) else []
+        kept = len(rows) if isinstance(rows, list) else 0
+        total = int(stats.get("matches_total") or kept)
+        stats["matches_kept"] = kept
+        stats["matches_trimmed"] = max(0, total - kept)
+    text = _serialize_pack(payload)
+    errors = check_budget(text, max_chars=max_chars, max_lines=max_lines, label="ast")
+    return text, trimmed, errors
+
+
+def write_ast_pack(
+    entries: Iterable[Dict[str, Any]],
+    *,
+    output: Path,
+    ticket: str,
+    slug_hint: Optional[str] = None,
+    source_path: Optional[str] = None,
+    query: str = "",
+    limits: Optional[Dict[str, int]] = None,
+    warnings: Optional[List[str]] = None,
+    enforce: bool = False,
+) -> Path:
+    lim = {**AST_LIMITS, **(limits or {})}
+    max_chars = int(lim.get("max_chars") or AST_BUDGET["max_chars"])
+    max_lines = int(lim.get("max_lines") or AST_BUDGET["max_lines"])
+    generated_at = ""
+    if output.exists():
+        try:
+            previous_payload = json.loads(output.read_text(encoding="utf-8"))
+        except Exception:
+            previous_payload = {}
+        if isinstance(previous_payload, dict):
+            generated_at = str(previous_payload.get("generated_at") or "").strip()
+    payload = build_ast_pack(
+        entries,
+        ticket=ticket,
+        slug_hint=slug_hint,
+        source_path=source_path,
+        query=query,
+        limits=lim,
+        warnings=warnings,
+        generated_at=generated_at,
+    )
+    text, trimmed, errors = _auto_trim_ast_pack(payload, max_chars=max_chars, max_lines=max_lines)
+    if trimmed:
+        print(f"[pack-trim] ast pack trimmed: {', '.join(trimmed)}", file=sys.stderr)
+    if errors:
+        for error in errors:
+            print(f"[pack-budget] {error}", file=sys.stderr)
+        if enforce or _enforce_budget():
+            raise ValueError("; ".join(errors))
+    return _write_pack_text(text, output.resolve())
 
 
 

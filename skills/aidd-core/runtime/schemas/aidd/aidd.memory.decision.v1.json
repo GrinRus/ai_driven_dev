@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "aidd.memory.decision.v1",
+  "schema": "aidd.schema.v1",
+  "schema_version": "aidd.memory.decision.v1",
+  "title": "AIDD Memory Decision Log Entry v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "schema_version",
+    "ts",
+    "ticket",
+    "scope_key",
+    "stage",
+    "decision_id",
+    "topic",
+    "decision",
+    "alternatives",
+    "rationale",
+    "source_path",
+    "status"
+  ],
+  "properties": {
+    "schema": {
+      "const": "aidd.memory.decision.v1"
+    },
+    "schema_version": {
+      "const": "aidd.memory.decision.v1"
+    },
+    "ts": {
+      "type": "string"
+    },
+    "ticket": {
+      "type": "string"
+    },
+    "scope_key": {
+      "type": "string"
+    },
+    "stage": {
+      "type": "string"
+    },
+    "decision_id": {
+      "type": "string"
+    },
+    "topic": {
+      "type": "string"
+    },
+    "decision": {
+      "type": "string"
+    },
+    "alternatives": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "rationale": {
+      "type": "string"
+    },
+    "source_path": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "superseded",
+        "rejected"
+      ]
+    },
+    "supersedes": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}
+

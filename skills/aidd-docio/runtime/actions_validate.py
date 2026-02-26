@@ -27,6 +27,7 @@ KNOWN_TYPES = {
     "tasklist_ops.append_progress_log",
     "tasklist_ops.next3_recompute",
     "context_pack_ops.context_pack_update",
+    "memory_ops.decision_append",
 }
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
@@ -104,6 +105,40 @@ def _validate_context_pack_params(params: dict, errors: List[str], *, prefix: st
             errors.append(f"{prefix}{key} must be string")
 
 
+def _validate_memory_decision_params(params: dict, errors: List[str], *, prefix: str = "") -> None:
+    allowed_keys = {
+        "decision",
+        "decision_id",
+        "alternatives",
+        "rationale",
+        "source_path",
+        "status",
+        "supersedes",
+        "topic",
+    }
+    unknown = [key for key in params.keys() if key not in allowed_keys]
+    if unknown:
+        errors.append(f"{prefix}unknown memory_decision_append fields: {', '.join(sorted(unknown))}")
+
+    validation_helpers.require_fields(params, ["topic", "decision"], errors, prefix=prefix)
+    for key in ("topic", "decision", "decision_id", "rationale", "source_path", "supersedes"):
+        if key in params and params.get(key) is not None and not _is_str(params.get(key)):
+            errors.append(f"{prefix}{key} must be string")
+
+    alternatives = params.get("alternatives")
+    if alternatives is not None and (
+        not isinstance(alternatives, list) or not all(_is_str(item) for item in alternatives)
+    ):
+        errors.append(f"{prefix}alternatives must be list[str]")
+
+    status = params.get("status")
+    if status is not None:
+        if not _is_str(status):
+            errors.append(f"{prefix}status must be string")
+        elif str(status).strip().lower() not in {"active", "superseded", "rejected"}:
+            errors.append(f"{prefix}status must be one of: active, superseded, rejected")
+
+
 def _validate_action_item(action: dict, errors: List[str], *, prefix: str, allowed_types: set[str]) -> None:
     action_type = action.get("type")
     if not action_type or not _is_str(action_type):
@@ -130,6 +165,8 @@ def _validate_action_item(action: dict, errors: List[str], *, prefix: str, allow
             errors.append(f"{prefix}params must be empty for next3_recompute")
     elif action_type == "context_pack_ops.context_pack_update":
         _validate_context_pack_params(params, errors, prefix=prefix)
+    elif action_type == "memory_ops.decision_append":
+        _validate_memory_decision_params(params, errors, prefix=prefix)
 
 
 def _validate_v0(payload: dict, errors: List[str]) -> None:

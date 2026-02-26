@@ -6,10 +6,11 @@ import io
 import json
 import os
 import re
+import subprocess
 import sys
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Any, Iterable, Optional
 
 _PLUGIN_ROOT = Path(__file__).resolve().parents[3]
 os.environ.setdefault("CLAUDE_PLUGIN_ROOT", str(_PLUGIN_ROOT))
@@ -17,7 +18,19 @@ if str(_PLUGIN_ROOT) not in sys.path:
     sys.path.insert(0, str(_PLUGIN_ROOT))
 
 from aidd_runtime import research_hints as prd_hints
-from aidd_runtime import rlm_finalize, rlm_manifest, rlm_nodes_build, rlm_targets, runtime, tasks_derive
+from aidd_runtime import (
+    ast_index,
+    context_quality,
+    memory_autoslice,
+    memory_extract,
+    reports_pack,
+    rlm_finalize,
+    rlm_manifest,
+    rlm_nodes_build,
+    rlm_targets,
+    runtime,
+    tasks_derive,
+)
 from aidd_runtime.feature_ids import write_active_state
 from aidd_runtime.rlm_config import load_rlm_settings
 
@@ -115,7 +128,7 @@ def _ensure_research_doc(
     updated = current
     updated = _upsert_header_field(updated, "Status", replacements.get("{{doc_status}}", "pending"))
     updated = _upsert_header_field(updated, "Last reviewed", replacements.get("{{date}}", dt.date.today().isoformat()))
-    for heading in ("AIDD:CONTEXT_PACK", "AIDD:PRD_OVERRIDES", "AIDD:RLM_EVIDENCE"):
+    for heading in ("AIDD:CONTEXT_PACK", "AIDD:PRD_OVERRIDES", "AIDD:RLM_EVIDENCE", "AIDD:AST_EVIDENCE"):
         section_body = _extract_section_body(rendered, heading)
         if section_body is None:
             continue
@@ -395,6 +408,372 @@ def _append_research_handoff(
     return code == 0, ""
 
 
+def _run_memory_extract(*, target: Path, ticket: str) -> dict[str, str]:
+    outcome: dict[str, str] = {
+        "status": "error",
+        "reason_code": "",
+        "semantic_pack": "",
+        "stderr": "",
+    }
+    stdout_buffer = io.StringIO()
+    stderr_buffer = io.StringIO()
+    exit_code = 1
+    try:
+        with redirect_stdout(stdout_buffer), redirect_stderr(stderr_buffer):
+            exit_code = int(memory_extract.main(["--ticket", ticket, "--format", "json"]))
+    except SystemExit as exc:
+        try:
+            exit_code = int(exc.code or 1)
+        except (TypeError, ValueError):
+            exit_code = 1
+    except Exception as exc:
+        outcome["reason_code"] = "memory_extract_failed"
+        outcome["stderr"] = str(exc)
+        return outcome
+
+    stderr_text = stderr_buffer.getvalue().strip()
+    if stderr_text:
+        outcome["stderr"] = stderr_text
+
+    payload: dict[str, object] = {}
+    stdout_text = stdout_buffer.getvalue().strip()
+    if stdout_text:
+        try:
+            parsed = json.loads(stdout_text)
+        except json.JSONDecodeError:
+            parsed = None
+        if isinstance(parsed, dict):
+            payload = parsed
+        else:
+            for line in reversed(stdout_text.splitlines()):
+                try:
+                    parsed_line = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(parsed_line, dict):
+                    payload = parsed_line
+                    break
+
+    semantic_rel = str(payload.get("semantic_pack") or "").strip() or f"reports/memory/{ticket}.semantic.pack.json"
+    semantic_path = runtime.resolve_path_for_target(Path(semantic_rel), target)
+    if exit_code == 0 and semantic_path.exists():
+        outcome["status"] = "ok"
+        outcome["semantic_pack"] = runtime.rel_path(semantic_path, target)
+        return outcome
+
+    if exit_code != 0:
+        outcome["reason_code"] = str(payload.get("reason_code") or "").strip() or "memory_extract_failed"
+    elif not semantic_path.exists():
+        outcome["reason_code"] = "memory_extract_missing_artifact"
+    else:
+        outcome["reason_code"] = str(payload.get("reason_code") or "").strip() or "memory_extract_failed"
+    return outcome
+
+
+def _run_memory_autoslice(*, target: Path, ticket: str) -> dict[str, Any]:
+    outcome: dict[str, Any] = {
+        "status": "error",
+        "reason_code": "",
+        "manifest_pack": "",
+        "queries_ok": 0,
+        "queries_total": 0,
+        "stderr": "",
+    }
+    stdout_buffer = io.StringIO()
+    stderr_buffer = io.StringIO()
+    exit_code = 1
+    try:
+        with redirect_stdout(stdout_buffer), redirect_stderr(stderr_buffer):
+            exit_code = int(
+                memory_autoslice.main(
+                    [
+                        "--ticket",
+                        ticket,
+                        "--stage",
+                        "research",
+                        "--scope-key",
+                        runtime.resolve_scope_key("", ticket),
+                        "--format",
+                        "json",
+                    ]
+                )
+            )
+    except SystemExit as exc:
+        try:
+            exit_code = int(exc.code or 1)
+        except (TypeError, ValueError):
+            exit_code = 1
+    except Exception as exc:
+        outcome["reason_code"] = "memory_autoslice_failed"
+        outcome["stderr"] = str(exc)
+        return outcome
+
+    stderr_text = stderr_buffer.getvalue().strip()
+    if stderr_text:
+        outcome["stderr"] = stderr_text
+
+    payload: dict[str, Any] = {}
+    stdout_text = stdout_buffer.getvalue().strip()
+    if stdout_text:
+        try:
+            parsed = json.loads(stdout_text)
+        except json.JSONDecodeError:
+            parsed = None
+        if isinstance(parsed, dict):
+            payload = parsed
+        else:
+            for line in reversed(stdout_text.splitlines()):
+                try:
+                    parsed_line = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(parsed_line, dict):
+                    payload = parsed_line
+                    break
+    status = str(payload.get("status") or "").strip().lower()
+    outcome["status"] = status or ("ok" if exit_code == 0 else "error")
+    outcome["reason_code"] = str(payload.get("reason_code") or "").strip()
+    outcome["manifest_pack"] = str(payload.get("manifest_pack") or "").strip()
+    outcome["queries_ok"] = int(payload.get("queries_ok") or 0)
+    outcome["queries_total"] = int(payload.get("queries_total") or 0)
+    if exit_code != 0 and outcome["status"] not in {"warn", "blocked"}:
+        outcome["status"] = "error"
+        if not outcome["reason_code"]:
+            outcome["reason_code"] = "memory_autoslice_failed"
+    return outcome
+
+
+def _ast_next_action(ticket: str, reason_code: str) -> str:
+    code = str(reason_code or "").strip().lower()
+    if code == ast_index.REASON_BINARY_MISSING:
+        return "Install ast-index and run `ast-index rebuild` in workspace root."
+    if code == ast_index.REASON_INDEX_MISSING:
+        return "Run `ast-index rebuild` in workspace root and rerun research."
+    if code == ast_index.REASON_TIMEOUT:
+        return f"Rerun `python3 ${{CLAUDE_PLUGIN_ROOT}}/skills/researcher/runtime/research.py --ticket {ticket} --auto` after increasing ast_index.timeout_s."
+    if code == ast_index.REASON_JSON_INVALID:
+        return "Update ast-index to a version that supports `--format json` and rerun research."
+    return f"python3 ${{CLAUDE_PLUGIN_ROOT}}/skills/researcher/runtime/research.py --ticket {ticket} --auto"
+
+
+def _ast_query_from_targets(
+    *,
+    ticket: str,
+    slug_hint: str,
+    targets_payload: dict[str, object],
+) -> str:
+    candidates: list[str] = []
+    for key in ("keywords", "keywords_raw"):
+        raw = targets_payload.get(key)
+        if isinstance(raw, list):
+            for item in raw:
+                token = str(item or "").strip()
+                if token:
+                    candidates.append(token)
+    for raw in (slug_hint, ticket):
+        for chunk in re.split(r"[-_:/\s]+", str(raw or "")):
+            token = chunk.strip()
+            if token:
+                candidates.append(token)
+    seen: set[str] = set()
+    for candidate in candidates:
+        normalized = candidate.strip()
+        key = normalized.lower()
+        if len(normalized) < 2 or key in seen:
+            continue
+        seen.add(key)
+        return normalized
+    return ticket.strip() or slug_hint.strip() or "aidd"
+
+
+def _rg_ast_fallback_entries(
+    *,
+    workspace_root: Path,
+    query: str,
+    max_results: int,
+    target_paths: list[str],
+) -> list[dict[str, object]]:
+    if not query.strip():
+        return []
+    scan_paths: list[str] = []
+    for raw in target_paths:
+        token = str(raw or "").strip()
+        if not token:
+            continue
+        candidate = Path(token)
+        if not candidate.is_absolute():
+            candidate = (workspace_root / candidate).resolve()
+        if candidate.exists():
+            scan_paths.append(str(candidate))
+    cmd = [
+        "rg",
+        "--no-heading",
+        "--line-number",
+        "--column",
+        "--color",
+        "never",
+        "--max-count",
+        str(max(1, int(max_results))),
+        query,
+    ]
+    cmd.extend(scan_paths)
+    try:
+        completed = subprocess.run(
+            cmd,
+            cwd=workspace_root,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=8,
+        )
+    except Exception:
+        return []
+    if completed.returncode not in {0, 1}:
+        return []
+    rows: list[dict[str, object]] = []
+    for raw_line in (completed.stdout or "").splitlines():
+        parts = raw_line.split(":", 3)
+        if len(parts) < 4:
+            continue
+        raw_path, raw_line_no, raw_col, snippet = parts
+        try:
+            line_no = max(0, int(raw_line_no))
+        except (TypeError, ValueError):
+            line_no = 0
+        try:
+            column = max(0, int(raw_col))
+        except (TypeError, ValueError):
+            column = 0
+        path_obj = Path(raw_path)
+        if path_obj.is_absolute():
+            try:
+                normalized_path = path_obj.resolve().relative_to(workspace_root.resolve()).as_posix()
+            except ValueError:
+                normalized_path = path_obj.as_posix()
+        else:
+            normalized_path = path_obj.as_posix()
+        rows.append(
+            {
+                "symbol": query,
+                "kind": "rg_match",
+                "path": normalized_path,
+                "line": line_no,
+                "column": column,
+                "score": 0.0,
+                "snippet": snippet.strip(),
+            }
+        )
+        if len(rows) >= max(1, int(max_results)):
+            break
+    rows.sort(
+        key=lambda row: (
+            str(row.get("path") or ""),
+            int(row.get("line") or 0),
+            int(row.get("column") or 0),
+            str(row.get("symbol") or ""),
+        )
+    )
+    return rows
+
+
+def _run_ast_retrieval(
+    *,
+    target: Path,
+    workspace_root: Path,
+    ticket: str,
+    slug_hint: str,
+    targets_payload: dict[str, object],
+    source_path: str,
+    auto_mode: bool,
+) -> dict[str, Any]:
+    cfg = ast_index.load_ast_index_config(target)
+    outcome: dict[str, Any] = {
+        "mode": cfg.mode,
+        "required": bool(cfg.required),
+        "status": "skipped",
+        "query": "",
+        "pack_path": "",
+        "reason_code": "",
+        "fallback_reason_code": "",
+        "next_action": "",
+        "matches": 0,
+        "warnings": [],
+        "fallback_used": False,
+    }
+    if not auto_mode or cfg.mode == "off":
+        return outcome
+
+    query = _ast_query_from_targets(ticket=ticket, slug_hint=slug_hint, targets_payload=targets_payload)
+    outcome["query"] = query
+    output_path = target / "reports" / "research" / f"{ticket}-ast.pack.json"
+    target_paths = [str(item) for item in (targets_payload.get("paths") or []) if str(item).strip()]
+
+    try:
+        result = ast_index.run_json(workspace_root, cfg, ["search", query])
+    except Exception as exc:
+        result = ast_index.AstIndexResult(
+            ok=False,
+            reason_code="ast_index_runtime_error",
+            fallback_reason_code=ast_index.REASON_FALLBACK_RG,
+            stderr=str(exc),
+        )
+
+    if result.ok:
+        entries = result.normalized or []
+        reports_pack.write_ast_pack(
+            entries,
+            output=output_path,
+            ticket=ticket,
+            slug_hint=slug_hint,
+            source_path=source_path,
+            query=query,
+            limits={"max_items": max(1, int(cfg.max_results))},
+            warnings=[],
+        )
+        outcome["status"] = "ok"
+        outcome["pack_path"] = runtime.rel_path(output_path, target)
+        outcome["matches"] = len(entries)
+        return outcome
+
+    reason_code = str(result.reason_code or "ast_index_failed").strip()
+    fallback_reason = str(result.fallback_reason_code or "").strip()
+    warnings = [reason_code] if reason_code else []
+    if fallback_reason:
+        warnings.append(fallback_reason)
+    outcome["reason_code"] = reason_code
+    outcome["fallback_reason_code"] = fallback_reason
+    outcome["warnings"] = warnings
+
+    if cfg.required:
+        outcome["status"] = "blocked"
+        outcome["next_action"] = _ast_next_action(ticket, reason_code)
+        return outcome
+
+    entries: list[dict[str, object]] = []
+    if cfg.allow_fallback_rg and cfg.fallback == "rg":
+        entries = _rg_ast_fallback_entries(
+            workspace_root=workspace_root,
+            query=query,
+            max_results=cfg.max_results,
+            target_paths=target_paths,
+        )
+        outcome["fallback_used"] = True
+    reports_pack.write_ast_pack(
+        entries,
+        output=output_path,
+        ticket=ticket,
+        slug_hint=slug_hint,
+        source_path=source_path,
+        query=query,
+        limits={"max_items": max(1, int(cfg.max_results))},
+        warnings=warnings,
+    )
+    outcome["status"] = "warn"
+    outcome["pack_path"] = runtime.rel_path(output_path, target)
+    outcome["matches"] = len(entries)
+    return outcome
+
+
 def _validate_json_file(path: Path, label: str) -> None:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -520,7 +899,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 def run(args: argparse.Namespace) -> int:
-    _, target = runtime.require_workflow_root()
+    workspace_root, target = runtime.require_workflow_root()
     ticket, feature_context = runtime.require_ticket(
         target,
         ticket=getattr(args, "ticket", None),
@@ -711,6 +1090,43 @@ def run(args: argparse.Namespace) -> int:
         elif links_empty and links_empty_reason:
             baseline_marker = f"links_empty_reason={links_empty_reason}"
 
+    ast_source_rel = runtime.rel_path(rlm_pack_path if pack_exists else worklist_path, target)
+    ast_outcome = _run_ast_retrieval(
+        target=target,
+        workspace_root=workspace_root,
+        ticket=ticket,
+        slug_hint=feature_context.slug_hint or ticket,
+        targets_payload=targets_payload,
+        source_path=ast_source_rel,
+        auto_mode=bool(args.auto),
+    )
+    ast_status = str(ast_outcome.get("status") or "skipped")
+    ast_pack_path = str(ast_outcome.get("pack_path") or "").strip()
+    ast_reason_code = str(ast_outcome.get("reason_code") or "").strip()
+    ast_fallback_reason_code = str(ast_outcome.get("fallback_reason_code") or "").strip()
+    ast_next_action = str(ast_outcome.get("next_action") or "").strip()
+    ast_matches = int(ast_outcome.get("matches") or 0)
+    ast_query = str(ast_outcome.get("query") or "").strip()
+    if ast_pack_path:
+        print(f"[aidd] ast pack saved to {ast_pack_path}.")
+    if ast_status == "warn":
+        reason_label = ast_reason_code or "ast_index_fallback"
+        print(
+            "[aidd] WARN: ast-index degraded to rg fallback "
+            f"(reason_code={reason_label}).",
+            file=sys.stderr,
+        )
+    if ast_status == "blocked":
+        reason_label = ast_reason_code or "ast_index_required"
+        print(
+            "[aidd] ERROR: ast-index required but not ready "
+            f"(reason_code={reason_label}).",
+            file=sys.stderr,
+        )
+        if ast_next_action:
+            print(f"[aidd] ERROR: next_action: `{ast_next_action}`.", file=sys.stderr)
+        return 2
+
     if not args.no_template:
         template_overrides = {
             "{{doc_status}}": _doc_status_from_rlm(rlm_status),
@@ -739,6 +1155,15 @@ def run(args: argparse.Namespace) -> int:
             "{{rlm_bootstrap_attempted}}": "yes" if finalize_outcome.get("bootstrap_attempted") else "no",
             "{{rlm_finalize_attempted}}": "yes" if finalize_outcome.get("finalize_attempted") else "no",
             "{{rlm_recovery_path}}": str(finalize_outcome.get("recovery_path") or "none"),
+            "{{ast_mode}}": str(ast_outcome.get("mode") or "off"),
+            "{{ast_required}}": "yes" if bool(ast_outcome.get("required")) else "no",
+            "{{ast_status}}": ast_status,
+            "{{ast_query}}": ast_query or "none",
+            "{{ast_pack_path}}": ast_pack_path or f"reports/research/{ticket}-ast.pack.json",
+            "{{ast_matches}}": str(ast_matches),
+            "{{ast_reason_code}}": ast_reason_code or "none",
+            "{{ast_fallback_reason}}": ast_fallback_reason_code or "none",
+            "{{ast_next_action}}": ast_next_action or "none",
         }
         doc_path, created = _ensure_research_doc(
             target,
@@ -758,6 +1183,60 @@ def run(args: argparse.Namespace) -> int:
                 print(f"[aidd] research summary already up-to-date at {rel_doc}.")
 
     _sync_prd_overrides(target, ticket=ticket, overrides=prd_overrides)
+
+    memory_status = "skipped"
+    memory_semantic_pack = ""
+    memory_reason_code = ""
+    memory_slice_status = "skipped"
+    memory_slice_reason_code = ""
+    memory_slice_manifest_pack = ""
+    if rlm_status == "ready":
+        memory_outcome = _run_memory_extract(target=target, ticket=ticket)
+        memory_status = str(memory_outcome.get("status") or "error")
+        memory_semantic_pack = str(memory_outcome.get("semantic_pack") or "").strip()
+        memory_reason_code = str(memory_outcome.get("reason_code") or "").strip()
+        if memory_status != "ok":
+            stderr_note = str(memory_outcome.get("stderr") or "").strip()
+            reason_label = memory_reason_code or "memory_extract_failed"
+            print(
+                "[aidd] ERROR: failed to generate memory semantic pack "
+                f"(reason_code={reason_label}).",
+                file=sys.stderr,
+            )
+            if stderr_note:
+                print(f"[aidd] ERROR: {stderr_note}", file=sys.stderr)
+            return 2
+        print(f"[aidd] memory semantic pack saved to {memory_semantic_pack}.")
+        autoslice_outcome = _run_memory_autoslice(target=target, ticket=ticket)
+        memory_slice_status = str(autoslice_outcome.get("status") or "error")
+        memory_slice_reason_code = str(autoslice_outcome.get("reason_code") or "").strip()
+        memory_slice_manifest_pack = str(autoslice_outcome.get("manifest_pack") or "").strip()
+        if memory_slice_status == "blocked":
+            reason_label = memory_slice_reason_code or "memory_slice_missing"
+            print(
+                "[aidd] ERROR: memory autoslice blocked research stage "
+                f"(reason_code={reason_label}).",
+                file=sys.stderr,
+            )
+            return 2
+        if memory_slice_status == "warn":
+            reason_label = memory_slice_reason_code or "memory_slice_missing_warn"
+            print(
+                "[aidd] WARN: memory autoslice degraded "
+                f"(reason_code={reason_label}).",
+                file=sys.stderr,
+            )
+        elif memory_slice_status != "ok":
+            reason_label = memory_slice_reason_code or "memory_autoslice_failed"
+            print(
+                "[aidd] WARN: failed to materialize memory autoslice "
+                f"(reason_code={reason_label}).",
+                file=sys.stderr,
+            )
+        elif memory_slice_manifest_pack:
+            print(f"[aidd] memory slice manifest saved to {memory_slice_manifest_pack}.")
+    else:
+        memory_reason_code = "rlm_not_ready"
 
     handoff_appended = False
     handoff_error = ""
@@ -786,6 +1265,7 @@ def run(args: argparse.Namespace) -> int:
     try:
         from aidd_runtime.reports import events as _events
 
+        report_rel = memory_semantic_pack or ast_pack_path or runtime.rel_path(rlm_pack_path if pack_exists else worklist_path, target)
         _events.append_event(
             target,
             ticket=ticket,
@@ -802,9 +1282,54 @@ def run(args: argparse.Namespace) -> int:
                 "recovery_path": str(finalize_outcome.get("recovery_path") or "") or None,
                 "handoff_appended": handoff_appended,
                 "handoff_error": handoff_error or None,
+                "memory_status": memory_status,
+                "memory_semantic_pack": memory_semantic_pack or None,
+                "memory_reason_code": memory_reason_code or None,
+                "memory_slice_status": memory_slice_status,
+                "memory_slice_reason_code": memory_slice_reason_code or None,
+                "memory_slice_manifest_pack": memory_slice_manifest_pack or None,
+                "ast_mode": str(ast_outcome.get("mode") or ""),
+                "ast_required": bool(ast_outcome.get("required")),
+                "ast_status": ast_status,
+                "ast_pack_path": ast_pack_path or None,
+                "ast_query": ast_query or None,
+                "ast_matches": ast_matches,
+                "ast_reason_code": ast_reason_code or None,
+                "ast_fallback_reason_code": ast_fallback_reason_code or None,
+                "ast_next_action": ast_next_action or None,
+                "ast_fallback_used": bool(ast_outcome.get("fallback_used")),
             },
-            report_path=Path(runtime.rel_path(rlm_pack_path if pack_exists else worklist_path, target)),
+            report_path=Path(report_rel),
             source="aidd research",
+        )
+    except Exception:
+        pass
+
+    research_pack_reads = 0
+    if pack_exists:
+        research_pack_reads += 1
+    elif worklist_path.exists():
+        research_pack_reads += 1
+    if ast_pack_path:
+        research_pack_reads += 1
+    if memory_semantic_pack:
+        research_pack_reads += 1
+    if memory_slice_manifest_pack:
+        research_pack_reads += 1
+
+    try:
+        context_quality.update_from_ast(
+            target,
+            ticket=ticket,
+            ast_mode=str(ast_outcome.get("mode") or ""),
+            ast_status=ast_status,
+            ast_reason_codes=[
+                ast_reason_code,
+                ast_fallback_reason_code,
+            ],
+            ast_fallback_used=bool(ast_outcome.get("fallback_used")),
+            pack_reads=research_pack_reads,
+            full_reads=0,
         )
     except Exception:
         pass
