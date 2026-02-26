@@ -74,10 +74,9 @@ def _is_safe_rg_command(command: str) -> bool:
     text = str(command or "").strip()
     if not text:
         return False
-    # Prevent shell-chain/redirect bypass for rg allow-path.
-    for marker in (";", "&&", "||", ">", "<", "`", "$(", "\n"):
-        if marker in text:
-            return False
+    # Prevent shell-chain/redirect/substitution bypass for rg allow-path.
+    if _contains_shell_control_operator(text):
+        return False
     try:
         tokens = shlex.split(text)
     except ValueError:
@@ -98,6 +97,49 @@ def _is_safe_rg_command(command: str) -> bool:
     if any(token == "tee" or token.endswith("/tee") for token in tail_tokens):
         return False
     return True
+
+
+def _contains_shell_control_operator(command: str) -> bool:
+    text = str(command or "")
+    if not text:
+        return False
+    in_single = False
+    in_double = False
+    escaped = False
+    idx = 0
+    operators = ("&&", "||", "|&", ">>", "<<", ";", "|", ">", "<")
+    while idx < len(text):
+        ch = text[idx]
+        if escaped:
+            escaped = False
+            idx += 1
+            continue
+        if ch == "\\" and not in_single:
+            escaped = True
+            idx += 1
+            continue
+        if ch == "'" and not in_double:
+            in_single = not in_single
+            idx += 1
+            continue
+        if ch == '"' and not in_single:
+            in_double = not in_double
+            idx += 1
+            continue
+        if ch == "\n" and not in_single and not in_double:
+            return True
+        # Command substitution is active outside single quotes (also inside double quotes).
+        if not in_single:
+            if ch == "`":
+                return True
+            if text.startswith("$(", idx):
+                return True
+        if not in_single and not in_double:
+            for op in operators:
+                if text.startswith(op, idx):
+                    return True
+        idx += 1
+    return False
 
 
 def _manifest_age_minutes(path: Path) -> Optional[float]:
