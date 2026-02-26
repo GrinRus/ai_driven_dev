@@ -38,7 +38,8 @@
 - R2: Если `BLOCKED` связан с missing spec (`aidd/docs/spec/<ticket>.spec.yaml`) или unresolved `Q*`:
   - выполнить `/feature-dev-aidd:spec-interview <ticket>` (тот же retry-шаблон),
   - перед повтором stage перепроверить `aidd/docs/prd/<ticket>.prd.md` (`Status:` и unresolved `Q*`);
-  - если PRD остаётся `Status != READY`, классифицировать как `prompt-flow gap (spec_sync_incomplete_prd_not_ready)` и не повторять stage, требующий `PRD READY`.
+  - если PRD остаётся `Status != READY` при `open_questions_count=0`, выполнить findings-sync cycle (`idea-new` и/или `plan-new` с `AIDD:SYNC_FROM_REVIEW ...`) и затем повторить `review-spec`;
+  - если после findings-sync PRD остаётся `Status != READY`, классифицировать как `NOT VERIFIED (findings_sync_not_converged)` + `prompt-flow gap` и не повторять stage, требующий `PRD READY`.
 - R4: Только Python runtime surfaces; shell wrappers не использовать.
 - R5: Все slash stage-команды запускать только из `PROJECT_DIR`.
 - R5.1: В `stream-json` режиме `claude -p` запускать только с `--verbose`.
@@ -53,12 +54,19 @@
 - R11: Stage-level классификацию делать только по текущему stage-return, `init` и top-level result; `WARN/Q*/Question` внутри вложенных артефактов не считать trigger-ом инцидента.
 - R11.1: Для `loop-run` в `text`-режиме top-level result может приходить как JSON event `{"type":"result","schema":"aidd.loop_result.v1",...}`; учитывать его как валидный terminal result.
 - R11.2: Severity profile `conservative`: `ENV_BLOCKER`, `ENV_MISCONFIG`, `contract_mismatch` остаются terminal; parser-noise по stream-path и telemetry-mismatch не являются terminal сами по себе; `result_count=0` трактуется как инцидент только после явной проверки top-level payload.
+- R11.3: Для `review-spec` источником истины по finding/recommended status считать `aidd/reports/prd/<ticket>.json` (или `*.pack.json`); narrative top-level текста использовать только как supplementary telemetry.
 - R12: Перед запуском `plan-new`, `review-spec`, `tasks-new` и шага `8` обязателен readiness gate из `AUDIT_DIR/05_precondition_block.txt`.
 - R12.1: Readiness gate = `PASS` только при одновременном выполнении условий: `prd_status=READY`, `open_questions_count=0`, `answers_format=compact_q_codes|legacy_answer_alias`, `research_status=reviewed|ok`.
 - R12.2: При `FAIL` readiness gate обязателен `reason_code` из набора `prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready`; перед terminal-классификацией обязателен ровно один readiness-recovery цикл:
   - для `prd_not_ready|open_questions_present|answers_format_invalid`: question-closure (`idea-new` и `plan-new` compact retry при валидном trigger) -> `/feature-dev-aidd:spec-interview <ticket>` -> `/feature-dev-aidd:review-spec <ticket>` -> пересчёт `05_precondition_block.txt`;
   - для `research_not_ready`: ровно один canonical researcher recovery/probe -> пересчёт `05_precondition_block.txt`.
 - R12.3: Если после recovery-цикла `readiness_gate` остаётся `FAIL`, шаг 5 классифицируется как `NOT VERIFIED (readiness_gate_failed)` + `prompt-flow gap`; шаг 8 помечается `NOT VERIFIED (upstream_readiness_gate_failed)` без запуска.
+- R12.4: Если `review-spec` narrative расходится с `aidd/reports/prd/<ticket>.json|*.pack.json` по числу/типу findings, фиксировать `prompt-exec issue (review_spec_report_mismatch)` и принимать recovery-решение по report payload.
+- R12.5: Если `review-spec` вернул `WARN|NEEDS_REVISION`, unresolved `Q*` отсутствуют и spec-файл существует, запускать findings-sync cycle:
+  - PRD findings (`aidd/reports/prd/<ticket>.json|*.pack.json`) -> один sync-retry `idea-new` с compact payload `AIDD:SYNC_FROM_REVIEW ...`;
+  - Plan findings (`plan_status=NEEDS_REVISION|WARN` в review payload или plan-review report) -> один sync-retry `plan-new` с compact payload `AIDD:SYNC_FROM_REVIEW ...`;
+  - после sync-retry повторить `/feature-dev-aidd:review-spec <ticket>` и пересчитать `05_precondition_block.txt`.
+- R12.6: Если после findings-sync cycle `readiness_gate` остаётся `FAIL`, классифицировать как `NOT VERIFIED (findings_sync_not_converged)` + `prompt-flow gap` и не запускать downstream stage.
 
 ## 3) Политика запуска и классификация
 
@@ -251,8 +259,18 @@ RLM-only check:
 - Запускать только при `readiness_gate=PASS` (см. 5.2.1).
 - First run: `/feature-dev-aidd:review-spec $TICKET`.
 - При вопросах: retry.
+- После каждого run сохранить `05_review_spec_report_check_run<N>.txt`:
+  - `report_path`, `recommended_status`, `findings_count`, `open_questions_count`, `spec_exists`, `prd_findings_sync_needed`, `plan_findings_sync_needed`, `narrative_vs_report_mismatch`.
 - Если итог `WARN/BLOCKED` из-за unresolved `Q*` или missing spec:
   - выполнить `/feature-dev-aidd:spec-interview $TICKET`;
+  - повторить `/feature-dev-aidd:review-spec $TICKET` один раз.
+- Если `prd_findings_sync_needed=1`, `open_questions_count=0`:
+  - сохранить `05_prd_findings_sync_request.txt`;
+  - выполнить один sync-retry `/feature-dev-aidd:idea-new $TICKET $IDEA_NOTE AIDD:SYNC_FROM_REVIEW ...`;
+  - повторить `/feature-dev-aidd:review-spec $TICKET` один раз.
+- Если `plan_findings_sync_needed=1`, `open_questions_count=0`:
+  - сохранить `05_plan_findings_sync_request.txt`;
+  - выполнить один sync-retry `/feature-dev-aidd:plan-new $TICKET AIDD:SYNC_FROM_REVIEW ...`;
   - повторить `/feature-dev-aidd:review-spec $TICKET` один раз.
 - Если hang/kill — runtime probe:
   - `python3 $PLUGIN_DIR/skills/review-spec/runtime/prd_review_cli.py --ticket $TICKET`
@@ -260,11 +278,16 @@ RLM-only check:
 #### 5.5 tasks-new
 
 - Запускать только при `readiness_gate=PASS` (см. 5.2.1).
+- Перед first run проверить PRD header (`Status:` + unresolved `Q*`):
+  - если `Status != READY` и последний `05_review_spec_report_check_run<N>.txt` показывает `prd_findings_sync_needed=1`, выполнить findings-sync через `idea-new`, затем повторить `review-spec`;
+  - если `Status != READY` и последний `05_review_spec_report_check_run<N>.txt` показывает `plan_findings_sync_needed=1`, выполнить findings-sync через `plan-new`, затем повторить `review-spec`;
+  - если после findings-sync `Status != READY`, классифицировать как `NOT VERIFIED (findings_sync_not_converged)` + `prompt-flow gap` и не запускать `tasks-new`.
 - First run: `/feature-dev-aidd:tasks-new $TICKET`.
 - При вопросах: retry.
 - Если ответ содержит `Missing Spec File` / `aidd/docs/spec/$TICKET.spec.yaml` / unresolved `Q*`:
   - выполнить `/feature-dev-aidd:spec-interview $TICKET`;
-  - перед retry проверить PRD header (`Status:` + unresolved `Q*`); если `Status != READY`, классифицировать как `prompt-flow gap (spec_sync_incomplete_prd_not_ready)` и не выполнять retry;
+  - перед retry проверить PRD header (`Status:` + unresolved `Q*`); если `Status != READY`, сначала выполнить findings-sync cycle (idea-new/plan-new), затем повторно проверить `Status`;
+  - если после findings-sync `Status != READY`, классифицировать как `NOT VERIFIED (findings_sync_not_converged)` + `prompt-flow gap` и не выполнять retry;
   - иначе повторить `/feature-dev-aidd:tasks-new $TICKET` один раз.
 - Если hang/kill — fallback:
   - `python3 $PLUGIN_DIR/skills/tasks-new/runtime/tasks_new.py --ticket $TICKET`

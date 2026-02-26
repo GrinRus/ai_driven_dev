@@ -184,6 +184,22 @@ class E2EPromptContractTests(unittest.TestCase):
         self.assertIn("NOT VERIFIED (readiness_gate_failed)", text)
         self.assertIn("NOT VERIFIED (upstream_readiness_gate_failed)", text)
 
+    def test_prompts_require_review_spec_report_alignment(self) -> None:
+        for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
+            text = _read(prompt)
+            self.assertIn("review_spec_report_mismatch", text, msg=f"{prompt}: missing report mismatch classification")
+            self.assertIn("05_review_spec_report_check_run<N>.txt", text, msg=f"{prompt}: missing review-spec report check artifact")
+            self.assertIn("prd_findings_sync_needed", text, msg=f"{prompt}: missing PRD findings sync marker")
+            self.assertIn("plan_findings_sync_needed", text, msg=f"{prompt}: missing plan findings sync marker")
+
+    def test_prompts_require_findings_sync_cycle(self) -> None:
+        for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
+            text = _read(prompt)
+            self.assertIn("AIDD:SYNC_FROM_REVIEW", text, msg=f"{prompt}: missing findings sync payload contract")
+            self.assertIn("05_prd_findings_sync_request.txt", text, msg=f"{prompt}: missing PRD sync request artifact")
+            self.assertIn("05_plan_findings_sync_request.txt", text, msg=f"{prompt}: missing plan sync request artifact")
+            self.assertIn("NOT VERIFIED (findings_sync_not_converged)", text, msg=f"{prompt}: missing non-converged sync classification")
+
     def test_full_prompt_requires_answer_normalization_and_compact_retry_payload(self) -> None:
         text = _read(AUDIT_PROMPT_FULL)
         self.assertIn("legacy `Answer N:`/`Answer to QN:`", text)

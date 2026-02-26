@@ -87,6 +87,7 @@
 - R15: Если `*_run<N>.summary.txt` содержит `result_count=0` при валидном `init` (plugin/slash_commands/skills присутствуют), классифицировать как `prompt-exec issue (no_top_level_result)` и фиксировать отдельно.
 - R15.1: Если `result_count` в summary отсутствует или пустой (`result_count=`), не трактовать это как `0` автоматически; сначала проверять top-level result/event в run-log, и только при подтверждённом отсутствии результата классифицировать `no_top_level_result`.
 - R15.2: Для `loop-run` в `text`-режиме валидным top-level result считать JSON event `{"type":"result","schema":"aidd.loop_result.v1",...}` (в дополнение к строке summary `[loop-run] status=...`).
+- R15.3: Для `review-spec` источником истины по finding/recommended status считать `aidd/reports/prd/<ticket>.json` (или `*.pack.json`); narrative top-level текста использовать только как supplementary telemetry.
 - R16: Для launcher избегать tokenization drift: не передавать флаги как один неразделённый токен; при первом фейле quoting/tokenization делать ровно один shell-safe retry с явными отдельными аргументами.
 - R17: Early-kill prohibition (strict):
   - не останавливать stage-run до исчерпания budget этапа, если есть liveness (`main log` и/или stream-файлы растут);
@@ -104,6 +105,12 @@
 - R18.2a: Если первичный readiness gate = `FAIL` с `reason_code=prd_not_ready|open_questions_present|answers_format_invalid`, перед terminal-классификацией обязателен ровно один readiness-recovery цикл: закрытие PRD-вопросов (question template + compact `AIDD:ANSWERS` retry для `idea-new`, если trigger валиден) -> `/feature-dev-aidd:spec-interview <ticket>` -> `/feature-dev-aidd:review-spec <ticket>` -> пересчёт `05_precondition_block.txt`.
 - R18.2b: Если `reason_code=research_not_ready`, допускается ровно один canonical researcher recovery/probe с последующим пересчётом `05_precondition_block.txt`.
 - R18.3: При readiness gate `FAIL` после исчерпания recovery-цикла шаги `6/7/8` помечаются как `NOT VERIFIED (upstream_readiness_gate_failed)` без запуска stage-команд.
+- R18.4: Если `review-spec` top-level narrative и `aidd/reports/prd/<ticket>.json|*.pack.json` расходятся по числу/типу findings, фиксировать `prompt-exec issue (review_spec_report_mismatch)` и принимать recovery-решение по report payload.
+- R18.5: Если `review-spec` вернул `WARN|NEEDS_REVISION`, unresolved `Q*` отсутствуют и spec-файл существует, запускать findings-sync cycle:
+  - PRD findings (`aidd/reports/prd/<ticket>.json|*.pack.json`) -> один sync-retry `idea-new` с compact payload `AIDD:SYNC_FROM_REVIEW ...`;
+  - Plan findings (`plan_status=NEEDS_REVISION|WARN` в review payload или plan-review report) -> один sync-retry `plan-new` с compact payload `AIDD:SYNC_FROM_REVIEW ...`;
+  - после sync-retry обязательно повторить `/feature-dev-aidd:review-spec <ticket>` и пересчитать `05_precondition_block.txt`.
+- R18.6: Если после findings-sync cycle `readiness_gate` остаётся `FAIL`, классифицировать как `NOT VERIFIED (findings_sync_not_converged)` + `prompt-flow gap` (без попытки manual stage edits).
 
 ## 5) Политика запуска, ожидания и зависаний
 
@@ -246,7 +253,11 @@
    - сначала пройди `/feature-dev-aidd:spec-interview <ticket>` (тот же retry-шаблон),
    - затем пройди `/feature-dev-aidd:review-spec <ticket>`,
    - затем перед повтором stage обязательно перепроверь `aidd/docs/prd/<ticket>.prd.md` (`Status:` и unresolved `Q*`);
-   - если после `spec-interview + review-spec` PRD остаётся `Status != READY`, классифицируй как `prompt-flow gap (spec_sync_incomplete_prd_not_ready)` и не запускай stage, который требует `PRD READY`.
+   - если после `spec-interview + review-spec` PRD остаётся `Status != READY` и unresolved `Q*` отсутствуют, выполни findings-sync cycle:
+     - PRD findings -> `/feature-dev-aidd:idea-new <ticket> <IDEA_NOTE> AIDD:SYNC_FROM_REVIEW ...`;
+     - Plan findings -> `/feature-dev-aidd:plan-new <ticket> AIDD:SYNC_FROM_REVIEW ...`;
+     - затем повтори `/feature-dev-aidd:review-spec <ticket>` и перепроверь `Status`;
+   - если после findings-sync `Status != READY`, классифицируй как `NOT VERIFIED (findings_sync_not_converged)` + `prompt-flow gap` и не запускай stage, который требует `PRD READY`.
 6. Если stage-return содержит `Unknown skill` или отсутствуют feature-dev-aidd slash commands в `init`:
    - **не** применять question retry-шаблон;
    - классифицировать как `ENV_BLOCKER(plugin_not_loaded)` и остановить аудит.
@@ -577,9 +588,19 @@ Anti-cascade:
 - запускать только при `readiness_gate=PASS` (см. 5.2.1);
 - first run ticket-only;
 - при вопросах: retry;
+- после каждого run сохранять `05_review_spec_report_check_run<N>.txt`:
+  - `report_path`, `recommended_status`, `findings_count`, `open_questions_count`, `spec_exists`, `prd_findings_sync_needed`, `plan_findings_sync_needed`, `narrative_vs_report_mismatch`;
 - если итог review-spec = `WARN/BLOCKED` и в отчёте есть unresolved `Q*` или ссылка на отсутствующий spec:
   - выполнить `/feature-dev-aidd:spec-interview $TICKET` (ticket-only, при вопросах один retry);
   - повторить `/feature-dev-aidd:review-spec $TICKET` один раз;
+- если `05_review_spec_report_check_run<N>.txt` фиксирует `prd_findings_sync_needed=1` и `open_questions_count=0`:
+  - сохранить `05_prd_findings_sync_request.txt` (compact payload на основе findings report);
+  - выполнить ровно один sync-retry `/feature-dev-aidd:idea-new $TICKET $IDEA_NOTE AIDD:SYNC_FROM_REVIEW ...`;
+  - повторить `/feature-dev-aidd:review-spec $TICKET` один раз.
+- если `05_review_spec_report_check_run<N>.txt` фиксирует `plan_findings_sync_needed=1` и `open_questions_count=0`:
+  - сохранить `05_plan_findings_sync_request.txt` (compact payload на основе findings report);
+  - выполнить ровно один sync-retry `/feature-dev-aidd:plan-new $TICKET AIDD:SYNC_FROM_REVIEW ...`;
+  - повторить `/feature-dev-aidd:review-spec $TICKET` один раз.
 - если hang/kill: runtime probe
   - `python3 $PLUGIN_DIR/skills/review-spec/runtime/prd_review_cli.py --ticket $TICKET`
 
@@ -590,15 +611,18 @@ Anti-cascade:
 Сделать:
 - запускать только при `readiness_gate=PASS` (см. 5.2.1);
 - перед первым запуском проверить PRD header (`Status:`): если не `READY` или есть unresolved `Q*`, сначала:
+  - если последний `05_review_spec_report_check_run<N>.txt` показывает `prd_findings_sync_needed=1` и `open_questions_count=0`, сначала выполнить findings-sync через `idea-new` (см. 5.4), затем повторить `review-spec`;
+  - если последний `05_review_spec_report_check_run<N>.txt` показывает `plan_findings_sync_needed=1` и `open_questions_count=0`, сначала выполнить findings-sync через `plan-new` (см. 5.4), затем повторить `review-spec`;
   - выполнить `/feature-dev-aidd:spec-interview $TICKET` (ticket-only, при вопросах один retry),
   - выполнить `/feature-dev-aidd:review-spec $TICKET` (ticket-only, при вопросах один retry),
-  - затем повторно проверить PRD header (`Status:` + unresolved `Q*`); если PRD всё ещё не `READY`, классифицировать как `prompt-flow gap (spec_sync_incomplete_prd_not_ready)`, пометить шаг 5.5 `NOT VERIFIED` и не запускать `tasks-new`.
+  - затем повторно проверить PRD header (`Status:` + unresolved `Q*`); если PRD всё ещё не `READY`, классифицировать как `NOT VERIFIED (findings_sync_not_converged)` + `prompt-flow gap`, пометить шаг 5.5 `NOT VERIFIED` и не запускать `tasks-new`.
 - first run ticket-only;
 - при вопросах: retry;
 - если tasks-new сообщает `Missing Spec File` / `aidd/docs/spec/$TICKET.spec.yaml` / unresolved `Q*`:
   - классифицировать как prompt-flow gap (не code bug на первом проходе);
   - выполнить `/feature-dev-aidd:spec-interview $TICKET` (ticket-only, при вопросах один retry);
-  - перед retry снова проверить PRD header (`Status:` + unresolved `Q*`); если `Status != READY`, классифицировать как `prompt-flow gap (spec_sync_incomplete_prd_not_ready)` и не выполнять retry `tasks-new`;
+  - перед retry снова проверить PRD header (`Status:` + unresolved `Q*`); если `Status != READY`, сначала выполнить findings-sync cycle (idea-new/plan-new по `05_review_spec_report_check_run<N>.txt`), затем повторно проверить `Status`;
+  - если после findings-sync `Status != READY`, классифицировать как `NOT VERIFIED (findings_sync_not_converged)` + `prompt-flow gap` и не выполнять retry `tasks-new`;
   - иначе повторить `/feature-dev-aidd:tasks-new $TICKET` один раз;
 - если `tasks-new` завершился `success|WARN`, но `summary/log` содержит рекомендации manual/non-canonical recovery как primary path:
   - классифицировать как `WARN(prompt_flow_drift_non_canonical_stage_orchestration)`;
@@ -743,6 +767,7 @@ QA integrity checks:
   - plugin init evidence (`plugins`, `slash_commands`, `skills`)
   - canonical stage_result contract
   - stream-aware liveness probe (main log + stream jsonl/log)
+  - review-spec report alignment (`05_review_spec_report_check_run<N>.txt`)
   - blocking_findings semantics (`REVISE` signal + `ralph` recoverable path)
   - `NOT VERIFIED` causes
   - plugin write-safety
