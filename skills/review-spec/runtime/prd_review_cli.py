@@ -123,7 +123,9 @@ def _persist_review_research_warning(
         **evidence,
     }
     report_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-    if report_path.suffix == ".json":
+    # report_path can be either raw <ticket>.json or already-packed <ticket>.pack.json.
+    # Re-packing the latter treats pack payload as raw and can corrupt findings columns.
+    if report_path.suffix == ".json" and not report_path.name.endswith(".pack.json"):
         try:
             reports_pack.write_prd_pack(report_path, root=target)
         except Exception:

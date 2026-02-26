@@ -76,6 +76,48 @@ class PrdReviewCliTests(unittest.TestCase):
             self.assertEqual(research_validation.get("reason_code"), "rlm_links_empty_warn")
             self.assertEqual(research_validation.get("non_blocking"), True)
 
+    def test_persist_research_warning_skips_repack_for_pack_report(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="prd-review-cli-") as tmpdir:
+            workspace = Path(tmpdir)
+            project_root = ensure_project_root(workspace)
+            ticket = "DEMO-PACK-REPORT"
+            report_path = project_root / "reports" / "prd" / f"{ticket}.pack.json"
+            report_path.parent.mkdir(parents=True, exist_ok=True)
+            report_path.write_text(json.dumps({"ticket": ticket, "status": "ready"}) + "\n", encoding="utf-8")
+
+            with patch.object(self.mod.reports_pack, "write_prd_pack") as repack_mock:
+                self.mod._persist_review_research_warning(
+                    target=project_root,
+                    report_path=report_path,
+                    evidence={"non_blocking": True},
+                )
+
+            repack_mock.assert_not_called()
+            updated = json.loads(report_path.read_text(encoding="utf-8"))
+            research_validation = updated.get("research_validation") or {}
+            self.assertEqual(research_validation.get("reason_code"), "rlm_links_empty_warn")
+
+    def test_persist_research_warning_repacks_raw_report(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="prd-review-cli-") as tmpdir:
+            workspace = Path(tmpdir)
+            project_root = ensure_project_root(workspace)
+            ticket = "DEMO-RAW-REPORT"
+            report_path = project_root / "reports" / "prd" / f"{ticket}.json"
+            report_path.parent.mkdir(parents=True, exist_ok=True)
+            report_path.write_text(json.dumps({"ticket": ticket, "status": "ready"}) + "\n", encoding="utf-8")
+
+            with patch.object(self.mod.reports_pack, "write_prd_pack") as repack_mock:
+                self.mod._persist_review_research_warning(
+                    target=project_root,
+                    report_path=report_path,
+                    evidence={"non_blocking": True},
+                )
+
+            repack_mock.assert_called_once_with(report_path, root=project_root)
+            updated = json.loads(report_path.read_text(encoding="utf-8"))
+            research_validation = updated.get("research_validation") or {}
+            self.assertEqual(research_validation.get("reason_code"), "rlm_links_empty_warn")
+
     def test_non_links_research_error_stays_blocking(self) -> None:
         with tempfile.TemporaryDirectory(prefix="prd-review-cli-") as tmpdir:
             workspace = Path(tmpdir)
