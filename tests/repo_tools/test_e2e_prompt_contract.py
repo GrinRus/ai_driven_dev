@@ -180,9 +180,23 @@ class E2EPromptContractTests(unittest.TestCase):
         self.assertIn("05_precondition_block.txt", text)
         self.assertIn("answers_format=compact_q_codes|legacy_answer_alias", text)
         self.assertIn("`compact_q_codes` обязателен для retry payload", text)
-        self.assertIn("prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready", text)
+        self.assertIn(
+            "prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready|research_warn_unscoped",
+            text,
+        )
+        self.assertIn("research_warn_scope=<none|links_empty_non_blocking|invalid>", text)
+        self.assertIn("WARN(readiness_gate_research_scoped)", text)
         self.assertIn("NOT VERIFIED (readiness_gate_failed)", text)
         self.assertIn("NOT VERIFIED (upstream_readiness_gate_failed)", text)
+
+    def test_prompts_define_scoped_research_warn_readiness_policy(self) -> None:
+        for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
+            text = _read(prompt)
+            self.assertIn("research_status=reviewed|ok` или scoped `research_status=warn", text)
+            self.assertIn("research_warn_scope=links_empty_non_blocking", text)
+            self.assertIn("empty_reason=no_symbols|no_matches", text)
+            self.assertIn("reason_code=research_warn_unscoped", text)
+            self.assertIn("WARN(readiness_gate_research_scoped)", text)
 
     def test_prompts_require_review_spec_report_alignment(self) -> None:
         for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):

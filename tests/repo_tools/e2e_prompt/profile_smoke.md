@@ -54,10 +54,12 @@
 - R11.2: Severity profile `conservative`: `ENV_BLOCKER`, `ENV_MISCONFIG`, `contract_mismatch` остаются terminal; parser-noise по stream-path и telemetry-mismatch не являются terminal сами по себе; `result_count=0` трактуется как инцидент только после явной проверки top-level payload.
 - R11.3: Для `review-spec` источником истины по finding/recommended status считать `aidd/reports/prd/<ticket>.json` (или `*.pack.json`); narrative top-level текста использовать только как supplementary telemetry.
 - R12: Перед запуском `plan-new`, `review-spec`, `tasks-new` и шага `8` обязателен readiness gate из `AUDIT_DIR/05_precondition_block.txt`.
-- R12.1: Readiness gate = `PASS` только при одновременном выполнении условий: `prd_status=READY`, `open_questions_count=0`, `answers_format=compact_q_codes|legacy_answer_alias`, `research_status=reviewed|ok`.
-- R12.2: При `FAIL` readiness gate обязателен `reason_code` из набора `prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready`; перед terminal-классификацией обязателен ровно один readiness-recovery цикл:
+- R12.1: Readiness gate = `PASS` только при одновременном выполнении условий: `prd_status=READY`, `open_questions_count=0`, `answers_format=compact_q_codes|legacy_answer_alias`, и (`research_status=reviewed|ok` или scoped `research_status=warn`).
+- R12.1b: Scoped `research_status=warn` допускается только при одновременном выполнении условий: существуют `aidd/reports/research/<ticket>-rlm-targets.json`, `...-rlm-manifest.json`, `...-rlm.pack.json`; `aidd/reports/research/<ticket>-rlm.nodes.jsonl` непустой; `aidd/reports/research/<ticket>-rlm.links.stats.json` содержит `empty_reason=no_symbols|no_matches`; в `05_precondition_block.txt` фиксируется `research_warn_scope=links_empty_non_blocking` (иначе `invalid`).
+- R12.2: При `FAIL` readiness gate обязателен `reason_code` из набора `prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready|research_warn_unscoped`; для `prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready` перед terminal-классификацией обязателен ровно один readiness-recovery цикл:
   - для `prd_not_ready|open_questions_present|answers_format_invalid`: question-closure (`idea-new` и `plan-new` compact retry при валидном trigger) -> `/feature-dev-aidd:spec-interview <ticket>` -> `/feature-dev-aidd:review-spec <ticket>` -> пересчёт `05_precondition_block.txt`;
   - для `research_not_ready`: ровно один canonical researcher recovery/probe -> пересчёт `05_precondition_block.txt`.
+- R12.2a: Если `readiness_gate=PASS` достигнут через scoped `research_status=warn`, фиксировать `WARN(readiness_gate_research_scoped)` и продолжать downstream stages; если scope невалиден — `reason_code=research_warn_unscoped` и terminal FAIL без WARN-relaxation.
 - R12.3: Если после recovery-цикла `readiness_gate` остаётся `FAIL`, шаг 5 классифицируется как `NOT VERIFIED (readiness_gate_failed)` + `prompt-flow gap`; шаг 8 помечается `NOT VERIFIED (upstream_readiness_gate_failed)` без запуска.
 - R12.4: Если `review-spec` narrative расходится с `aidd/reports/prd/<ticket>.json|*.pack.json` по числу/типу findings, фиксировать `prompt-exec issue (review_spec_report_mismatch)` и принимать recovery-решение по report payload.
 - R12.5: Если `review-spec` вернул `WARN|NEEDS_REVISION`, unresolved `Q*` отсутствуют и spec-файл существует, запускать findings-sync cycle:
@@ -223,9 +225,11 @@ RLM-only check:
   - `open_questions_count=<int>`
   - `answers_format=<compact_q_codes|legacy_answer_alias|invalid>`
   - `research_status=<reviewed|ok|pending|warn|invalid>`
+  - `research_warn_scope=<none|links_empty_non_blocking|invalid>`
   - `readiness_gate=<PASS|FAIL>`
-  - `reason_code=<prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready|->`
+  - `reason_code=<prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready|research_warn_unscoped|->`
 - `5.3/5.4/5.5` запускать только при `readiness_gate=PASS`.
+- Если `readiness_gate=PASS` через scoped `research_status=warn` (`research_warn_scope=links_empty_non_blocking`), зафиксировать `WARN(readiness_gate_research_scoped)` и продолжать downstream stages.
 - Если `readiness_gate=FAIL`:
   - выполнить ровно один recovery-цикл по R12.2 и пересчитать `05_precondition_block.txt`;
   - если после recovery `readiness_gate` остаётся `FAIL`, не запускать `5.3/5.4/5.5`, классифицировать шаг 5 как `NOT VERIFIED (readiness_gate_failed)` + `prompt-flow gap`, шаг 8 пометить `NOT VERIFIED (upstream_readiness_gate_failed)` и перейти к шагу 99.

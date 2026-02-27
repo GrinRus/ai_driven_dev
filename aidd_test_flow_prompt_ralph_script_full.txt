@@ -99,11 +99,13 @@
 - R17.4: Severity profile `conservative`: `ENV_BLOCKER`, `ENV_MISCONFIG`, `contract_mismatch` остаются terminal; `stream path` parser-noise (`stream_path_invalid|stream_path_missing`) и telemetry-mismatch не являются terminal сами по себе; `result_count=0` трактуется как инцидент только после явной проверки top-level payload.
 - R17.5: Для шага 7 `diff_boundary_violation` не считается terminal, если `OUT_OF_SCOPE`/sample-path состоят только из `.aidd_audit/**`; это `prompt-exec issue (diff_boundary_ephemeral_misclassified)` и отдельный bug, но не flow terminal blocker.
 - R18: Перед запуском `plan-new`, `review-spec`, `tasks-new` и любого шага `6/7/8` обязателен readiness gate из `AUDIT_DIR/05_precondition_block.txt`.
-- R18.1: Readiness gate = `PASS` только при одновременном выполнении условий: `prd_status=READY`, `open_questions_count=0`, `answers_format=compact_q_codes|legacy_answer_alias`, `research_status=reviewed|ok`.
+- R18.1: Readiness gate = `PASS` только при одновременном выполнении условий: `prd_status=READY`, `open_questions_count=0`, `answers_format=compact_q_codes|legacy_answer_alias`, и (`research_status=reviewed|ok` или scoped `research_status=warn`).
 - R18.1a: `compact_q_codes` обязателен для retry payload в CLI (`AIDD:ANSWERS Q1=...; Q2=...`), но не как обязательный persisted-формат секции `AIDD:ANSWERS` в PRD/plan/tasklist.
-- R18.2: При `FAIL` readiness gate обязателен `reason_code` из набора `prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready`; шаг 5 классифицируется как `NOT VERIFIED (readiness_gate_failed)` + `prompt-flow gap`.
+- R18.1b: Scoped `research_status=warn` допускается только при одновременном выполнении условий: существуют `aidd/reports/research/<ticket>-rlm-targets.json`, `...-rlm-manifest.json`, `...-rlm.pack.json`; `aidd/reports/research/<ticket>-rlm.nodes.jsonl` непустой; `aidd/reports/research/<ticket>-rlm.links.stats.json` содержит `empty_reason=no_symbols|no_matches`; в `05_precondition_block.txt` фиксируется `research_warn_scope=links_empty_non_blocking` (иначе `invalid`).
+- R18.2: При `FAIL` readiness gate обязателен `reason_code` из набора `prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready|research_warn_unscoped`; шаг 5 классифицируется как `NOT VERIFIED (readiness_gate_failed)` + `prompt-flow gap`.
 - R18.2a: Если первичный readiness gate = `FAIL` с `reason_code=prd_not_ready|open_questions_present|answers_format_invalid`, перед terminal-классификацией обязателен ровно один readiness-recovery цикл: закрытие PRD-вопросов (question template + compact `AIDD:ANSWERS` retry для `idea-new`, если trigger валиден) -> `/feature-dev-aidd:spec-interview <ticket>` -> `/feature-dev-aidd:review-spec <ticket>` -> пересчёт `05_precondition_block.txt`.
 - R18.2b: Если `reason_code=research_not_ready`, допускается ровно один canonical researcher recovery/probe с последующим пересчётом `05_precondition_block.txt`.
+- R18.2c: Если `readiness_gate=PASS` достигнут через scoped `research_status=warn`, фиксировать `WARN(readiness_gate_research_scoped)` и продолжать downstream stages; если scope невалиден — `reason_code=research_warn_unscoped` и terminal FAIL без WARN-relaxation.
 - R18.3: При readiness gate `FAIL` после исчерпания recovery-цикла шаги `6/7/8` помечаются как `NOT VERIFIED (upstream_readiness_gate_failed)` без запуска stage-команд.
 - R18.4: Если `review-spec` top-level narrative и `aidd/reports/prd/<ticket>.json|*.pack.json` расходятся по числу/типу findings, фиксировать `prompt-exec issue (review_spec_report_mismatch)` и принимать recovery-решение по report payload.
 - R18.5: Если `review-spec` вернул `WARN|NEEDS_REVISION`, unresolved `Q*` отсутствуют и spec-файл существует, запускать findings-sync cycle:
@@ -384,13 +386,6 @@
 - принудительно очистить workspace до `HEAD`:
   - `git reset --hard HEAD`
   - `git clean -fd`
-- после cleanup каждый прогон стартует с новой ветки от актуального `origin/main`:
-  - `git fetch origin main`
-  - `git checkout main`
-  - `git pull --ff-only origin main`
-  - `AUDIT_BRANCH="audit/${TICKET}/${RUN_TS}"`
-  - `git checkout -b "$AUDIT_BRANCH"`
-  - если любой шаг не удался — `BLOCKER(audit_branch_create_failed)` и stop;
 - создать `AUDIT_DIR` после cleanup (иначе untracked аудит-логи могут исчезнуть);
 - скопировать pre-status в `AUDIT_DIR/00_git_status_before.txt`;
 - сохранить post-status в `AUDIT_DIR/00_git_status_after.txt`;
@@ -402,7 +397,7 @@
 Зачем: зафиксировать режим и окружение. Убедиться, что плагин реально загружается в non-interactive `claude -p`.
 
 Сделать:
-- подтвердить, что текущая ветка = `$AUDIT_BRANCH` (создана на Шаге 0 от `origin/main`);
+- checkout audit branch;
 - сохранить head/branch;
 - определить `AUDIT_MODE`:
   - SKILL_FIRST если есть `skills/aidd-core/SKILL.md` и `skills/implement/SKILL.md`;
@@ -540,9 +535,11 @@ RLM artifacts check (после fallback, если был):
   - `open_questions_count=<int>`
   - `answers_format=<compact_q_codes|legacy_answer_alias|invalid>`
   - `research_status=<reviewed|ok|pending|warn|invalid>`
+  - `research_warn_scope=<none|links_empty_non_blocking|invalid>`
   - `readiness_gate=<PASS|FAIL>`
-  - `reason_code=<prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready|->`
+  - `reason_code=<prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready|research_warn_unscoped|->`
 - запуск `5.3/5.4/5.5` допускается только при `readiness_gate=PASS`.
+- если `readiness_gate=PASS` через scoped `research_status=warn` (`research_warn_scope=links_empty_non_blocking`), зафиксировать `WARN(readiness_gate_research_scoped)` и продолжать downstream stages.
 - если `readiness_gate=FAIL`:
   - в `05_precondition_block.txt` обязательно заполнить конкретный `reason_code`;
   - если `reason_code=prd_not_ready|open_questions_present|answers_format_invalid`, выполнить ровно один readiness-recovery цикл:
@@ -551,6 +548,7 @@ RLM artifacts check (после fallback, если был):
     3) выполнить `/feature-dev-aidd:review-spec $TICKET` (ticket-only, при вопросах один retry);
     4) перепроверить PRD header (`Status:` + unresolved `Q*`) и пересчитать `05_precondition_block.txt`.
   - если `reason_code=research_not_ready`, выполнить ровно один canonical recovery/probe для researcher и пересчитать `05_precondition_block.txt`.
+  - если `reason_code=research_warn_unscoped`, WARN-relaxation не применять; классифицировать шаг 5 как `NOT VERIFIED (readiness_gate_failed)` + `prompt-flow gap` и не запускать `5.3/5.4/5.5`.
   - если после recovery циклa `readiness_gate` всё ещё `FAIL`, шаг 5 классифицировать как `NOT VERIFIED (readiness_gate_failed)` + `prompt-flow gap`;
   - если после recovery циклa `readiness_gate` всё ещё `FAIL`, не запускать `5.3/5.4/5.5`, а шаги `6/7/8` сразу пометить `NOT VERIFIED (upstream_readiness_gate_failed)` и перейти к шагу 99.
 
