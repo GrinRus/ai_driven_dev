@@ -94,6 +94,24 @@ def _bounded_links_auto_heal(ticket: str) -> dict[str, object]:
     }
 
 
+def _bounded_finalize_probe(ticket: str) -> dict[str, object]:
+    finalize_code, finalize_stdout, finalize_stderr = _invoke_runtime(
+        rlm_finalize.main,
+        ["--ticket", ticket, "--emit-json"],
+    )
+    finalize_payload = _parse_last_json_line(finalize_stdout)
+    return {
+        "auto_recovery_attempted": True,
+        "recovery_path": "review_spec_finalize_probe",
+        "finalize_exit_code": finalize_code,
+        "finalize_reason_code": str(finalize_payload.get("reason_code") or "").strip(),
+        "finalize_status": str(finalize_payload.get("status") or "").strip(),
+        "finalize_next_action": str(finalize_payload.get("next_action") or "").strip(),
+        "finalize_empty_reason": str(finalize_payload.get("empty_reason") or "").strip(),
+        "finalize_stderr_tail": "\n".join(str(finalize_stderr).splitlines()[-3:]).strip(),
+    }
+
+
 def _resolve_report_target_path(target: Path, ticket: str, raw: object) -> Path:
     if raw:
         candidate = Path(str(raw))
@@ -117,11 +135,9 @@ def _persist_review_research_warning(
         return
     if not isinstance(payload, dict):
         return
-    payload["research_validation"] = {
-        "status": "warn",
-        "reason_code": "rlm_links_empty_warn",
-        **evidence,
-    }
+    reason_code = str(evidence.get("reason_code") or "rlm_links_empty_warn").strip()
+    status = str(evidence.get("status") or ("warn" if reason_code == "rlm_links_empty_warn" else "recovered")).strip()
+    payload["research_validation"] = {"status": status, "reason_code": reason_code, **evidence}
     report_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     # report_path can be either raw <ticket>.json or already-packed <ticket>.pack.json.
     # Re-packing the latter treats pack payload as raw and can corrupt findings columns.
@@ -153,35 +169,58 @@ def main(argv: Optional[list[str]] = None) -> int:
             )
         except ResearchValidationError as exc:
             message = str(exc)
-            if _extract_reason_code(message) != "rlm_links_empty_warn":
+            reason_code = _extract_reason_code(message)
+            if reason_code not in {"rlm_links_empty_warn", "rlm_status_pending"}:
                 print(message, file=sys.stderr)
                 return 2
-            recovery = _bounded_links_auto_heal(ticket)
+            if reason_code == "rlm_links_empty_warn":
+                recovery = _bounded_links_auto_heal(ticket)
+                allow_links_warn = True
+            else:
+                recovery = _bounded_finalize_probe(ticket)
+                allow_links_warn = False
+            if int(recovery.get("finalize_exit_code") or 0) != 0:
+                print(
+                    "[prd-review] ERROR: research auto-recovery failed "
+                    f"(reason_code={reason_code}, finalize_exit={recovery.get('finalize_exit_code')})",
+                    file=sys.stderr,
+                )
+                return 2
             try:
                 validate_research(
                     target,
                     ticket,
                     settings=research_settings,
                     expected_stage="review",
-                    allow_review_links_empty_warn=True,
+                    allow_review_links_empty_warn=allow_links_warn,
                     auto_recovery_attempted=True,
                 )
             except ResearchValidationError as retry_exc:
                 print(str(retry_exc), file=sys.stderr)
                 return 2
             review_research_warn = {
-                "reason_code": "rlm_links_empty_warn",
-                "non_blocking": True,
+                "reason_code": reason_code,
+                "status": "warn" if reason_code == "rlm_links_empty_warn" else "recovered",
+                "non_blocking": reason_code == "rlm_links_empty_warn",
                 **recovery,
             }
-            print(
-                "[prd-review] WARN: review-spec continues with non-blocking rlm links warning "
-                f"(reason_code=rlm_links_empty_warn, auto_recovery_attempted=1, "
-                f"links_build_exit={recovery.get('links_build_exit_code')}, "
-                f"finalize_exit={recovery.get('finalize_exit_code')}, "
-                f"finalize_reason_code={recovery.get('finalize_reason_code') or '-'})",
-                file=sys.stderr,
-            )
+            if reason_code == "rlm_links_empty_warn":
+                print(
+                    "[prd-review] WARN: review-spec continues with non-blocking rlm links warning "
+                    f"(reason_code=rlm_links_empty_warn, auto_recovery_attempted=1, "
+                    f"links_build_exit={recovery.get('links_build_exit_code')}, "
+                    f"finalize_exit={recovery.get('finalize_exit_code')}, "
+                    f"finalize_reason_code={recovery.get('finalize_reason_code') or '-'})",
+                    file=sys.stderr,
+                )
+            else:
+                print(
+                    "[prd-review] INFO: review-spec recovered pending research status "
+                    f"(reason_code=rlm_status_pending, auto_recovery_attempted=1, "
+                    f"finalize_exit={recovery.get('finalize_exit_code')}, "
+                    f"finalize_reason_code={recovery.get('finalize_reason_code') or '-'})",
+                    file=sys.stderr,
+                )
     pack_only_requested = bool(getattr(args, "pack_only", False) or os.getenv("AIDD_PACK_ONLY", "").strip() == "1")
     raw_report_arg = getattr(args, "report", None)
     explicit_pack_report_arg = False

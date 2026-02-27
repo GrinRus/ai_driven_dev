@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -12,7 +13,17 @@ if str(_PLUGIN_ROOT) not in sys.path:
     sys.path.insert(0, str(_PLUGIN_ROOT))
 
 from aidd_runtime import runtime
+from aidd_runtime import rlm_finalize
 from aidd_runtime.research_guard import ResearchValidationError, load_settings, validate_research
+
+_REASON_CODE_RE = re.compile(r"reason_code=([a-z0-9_:-]+)", re.IGNORECASE)
+
+
+def _extract_reason_code(message: str) -> str:
+    match = _REASON_CODE_RE.search(str(message or ""))
+    if not match:
+        return ""
+    return str(match.group(1) or "").strip().lower()
 
 
 def _enforce_minimum_rlm_artifacts(target: Path, ticket: str) -> None:
@@ -87,7 +98,34 @@ def main(argv: list[str] | None = None) -> int:
             expected_stage=args.expected_stage,
         )
     except ResearchValidationError as exc:
-        raise RuntimeError(str(exc)) from exc
+        reason_code = _extract_reason_code(str(exc))
+        if reason_code != "rlm_status_pending":
+            raise RuntimeError(str(exc)) from exc
+        finalize_exit_code = rlm_finalize.main(["--ticket", ticket, "--emit-json"])
+        if finalize_exit_code != 0:
+            raise RuntimeError(
+                f"{exc}\n[aidd] ERROR: reason_code=rlm_status_pending_finalize_failed "
+                f"(exit_code={finalize_exit_code})"
+            ) from exc
+        try:
+            summary = validate_research(
+                target,
+                ticket,
+                settings=settings,
+                branch=args.branch,
+                expected_stage=args.expected_stage,
+            )
+        except ResearchValidationError as retry_exc:
+            raise RuntimeError(
+                f"{exc}\n[aidd] INFO: auto_recovery_attempted=1 "
+                "(recovery_path=research_finalize_probe)\n"
+                f"{retry_exc}"
+            ) from retry_exc
+        print(
+            "[aidd] WARN: research gate auto-recovery applied "
+            "(reason_code=rlm_status_pending, recovery_path=research_finalize_probe).",
+            file=sys.stderr,
+        )
 
     if summary.status is None:
         if summary.skipped_reason:

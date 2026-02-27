@@ -5,6 +5,7 @@ import json
 import shutil
 import sys
 from pathlib import Path
+from typing import Any
 
 from aidd_runtime import actions_validate
 from aidd_runtime import launcher
@@ -16,6 +17,22 @@ _ALLOWED_ACTION_TYPES = [
     "tasklist_ops.next3_recompute",
     "context_pack_ops.context_pack_update",
 ]
+_CONTRACT_MISMATCH_REASON_CODE = "contract_mismatch_actions_shape"
+_ACTION_PARAM_KEYS = (
+    "date",
+    "source",
+    "item_id",
+    "kind",
+    "hash",
+    "msg",
+    "link",
+    "read_log",
+    "read_next",
+    "artefact_links",
+    "what_to_do",
+    "user_note",
+    "generated_at",
+)
 
 
 def build_parser(*, default_stage: str, description: str) -> argparse.ArgumentParser:
@@ -61,6 +78,91 @@ def _write_default_actions(path: Path, *, stage: str, ticket: str, scope_key: st
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def _canonicalize_actions_payload_once(path: Path, *, context: launcher.LaunchContext) -> tuple[bool, str]:
+    try:
+        payload: Any = json.loads(path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        return False, f"read_error:{exc}"
+    except json.JSONDecodeError as exc:
+        return False, f"invalid_json:{exc}"
+    if not isinstance(payload, dict):
+        return False, "payload_not_object"
+
+    changed = False
+
+    if not payload.get("schema_version") and isinstance(payload.get("schema"), str):
+        payload["schema_version"] = str(payload.get("schema") or "")
+        changed = True
+    if payload.get("schema_version") != "aidd.actions.v1":
+        payload["schema_version"] = "aidd.actions.v1"
+        changed = True
+
+    expected = {
+        "stage": context.stage,
+        "ticket": context.ticket,
+        "scope_key": context.scope_key,
+        "work_item_key": context.work_item_key,
+    }
+    for key, expected_value in expected.items():
+        if str(payload.get(key) or "") != expected_value:
+            payload[key] = expected_value
+            changed = True
+
+    allowed_action_types = payload.get("allowed_action_types")
+    if not isinstance(allowed_action_types, list) or not all(isinstance(item, str) for item in allowed_action_types):
+        payload["allowed_action_types"] = list(_ALLOWED_ACTION_TYPES)
+        changed = True
+    else:
+        normalized_allowed: list[str] = []
+        for item in allowed_action_types:
+            text = str(item or "")
+            if text in _ALLOWED_ACTION_TYPES and text not in normalized_allowed:
+                normalized_allowed.append(text)
+        if not normalized_allowed:
+            normalized_allowed = list(_ALLOWED_ACTION_TYPES)
+        if normalized_allowed != allowed_action_types:
+            payload["allowed_action_types"] = normalized_allowed
+            changed = True
+
+    actions = payload.get("actions")
+    if not isinstance(actions, list):
+        payload["actions"] = []
+        actions = []
+        changed = True
+
+    normalized_actions: list[Any] = []
+    for raw_action in actions:
+        if not isinstance(raw_action, dict):
+            normalized_actions.append(raw_action)
+            continue
+        action = dict(raw_action)
+        if "type" not in action and isinstance(action.get("action"), str):
+            action["type"] = str(action.pop("action") or "")
+            changed = True
+        params = action.get("params")
+        if not isinstance(params, dict):
+            normalized_params: dict[str, Any] = {}
+            for key in _ACTION_PARAM_KEYS:
+                if key in action:
+                    normalized_params[key] = action.pop(key)
+                    changed = True
+            action["params"] = normalized_params
+            changed = True
+        normalized_actions.append(action)
+    if normalized_actions != actions:
+        payload["actions"] = normalized_actions
+        changed = True
+
+    if not changed:
+        return False, "no_changes_applied"
+
+    try:
+        path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    except OSError as exc:
+        return False, f"write_error:{exc}"
+    return True, "canonicalized_once"
+
+
 def _run(args: argparse.Namespace, *, context: launcher.LaunchContext, log_path: Path) -> int:
     paths = launcher.actions_paths(context)
     actions_provided = bool(args.actions)
@@ -84,12 +186,24 @@ def _run(args: argparse.Namespace, *, context: launcher.LaunchContext, log_path:
             )
 
     rc = actions_validate.main(["--actions", str(actions_path)])
+    retry_applied = False
+    retry_diag = ""
     if rc != 0:
+        retry_applied, retry_diag = _canonicalize_actions_payload_once(actions_path, context=context)
+        if retry_applied:
+            rc = actions_validate.main(["--actions", str(actions_path)])
+    if rc != 0:
+        reason = retry_diag or "validate_failed_without_retry"
+        rel_actions = runtime.rel_path(actions_path, context.root)
+        print(f"[aidd] ERROR: reason_code={_CONTRACT_MISMATCH_REASON_CODE}", file=sys.stderr)
+        print(f"[aidd] ERROR: diagnostics=actions_contract_retry_failed:{reason}", file=sys.stderr)
+        print(f"[aidd] ERROR: actions_path={rel_actions}", file=sys.stderr)
         return rc
-
     print(f"log_path={runtime.rel_path(log_path, context.root)}")
     if not actions_provided:
         print(f"actions_path={runtime.rel_path(actions_path, context.root)}")
+    if retry_applied:
+        print("actions_contract_retry=1")
     print("summary=actions validated")
     return 0
 

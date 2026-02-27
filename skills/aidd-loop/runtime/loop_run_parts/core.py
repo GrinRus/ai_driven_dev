@@ -112,6 +112,7 @@ HARD_BLOCK_REASON_CODES = {
     "active_stage_sync_failed",
     "prompt_flow_blocker",
     "contract_mismatch_stage_result_shape",
+    "contract_mismatch_actions_shape",
 }
 RECOVERABLE_BLOCK_REASON_CODES = {
     "",
@@ -122,7 +123,6 @@ RECOVERABLE_BLOCK_REASON_CODES = {
     "invalid_loop_step_payload",
     "stage_result_missing",
     "stage_chain_logs_missing",
-    "actions_missing",
     "preflight_missing",
     "qa_repair_missing_work_item",
     "qa_repair_no_handoff",
@@ -218,8 +218,16 @@ def _resolve_path_within_target(
     raw = str(value or "").strip()
     if not raw:
         return None, ""
-    resolved = runtime.resolve_path_for_target(Path(raw), target)
+    candidate = Path(raw).expanduser()
+    resolved = runtime.resolve_path_for_target(candidate, target)
     if not runtime.is_relative_to(resolved, target.resolve()):
+        if candidate.is_absolute():
+            remapped_raw = candidate.as_posix().lstrip("/")
+            target_prefix = f"{target.name}/" if target.name else ""
+            if target_prefix and remapped_raw.startswith(target_prefix):
+                remapped = runtime.resolve_path_for_target(Path(remapped_raw), target)
+                if runtime.is_relative_to(remapped, target.resolve()):
+                    return remapped, ""
         return None, f"{label}:outside_target:{resolved.as_posix()}"
     return resolved, ""
 
@@ -464,9 +472,22 @@ def _extract_scope_drift_hint(reason: str, diagnostics: str) -> str:
 
 def _promote_stage_result_reason(reason_code: str, reason: str, diagnostics: str) -> tuple[str, str]:
     code = str(reason_code or "").strip().lower()
-    if code not in {"stage_result_missing_or_invalid", "stage_result_blocked", "blocked_without_reason", ""}:
+    if code not in {"stage_result_missing_or_invalid", "stage_result_blocked", "blocked_without_reason", "actions_missing", ""}:
         return code, ""
     joined = f"{reason}\n{diagnostics}".lower()
+    if "reason_code=contract_mismatch_actions_shape" in joined:
+        return "contract_mismatch_actions_shape", ""
+    if code == "actions_missing":
+        contract_tokens = (
+            "actions-validate",
+            "schema_version must be one of",
+            "missing field: allowed_action_types",
+            "allowed_action_types must be list[str]",
+            "unsupported type",
+            "params must be object",
+        )
+        if any(token in joined for token in contract_tokens):
+            return "contract_mismatch_actions_shape", ""
     if "invalid-schema" in joined:
         return "contract_mismatch_stage_result_shape", ""
     scope_hint = _extract_scope_drift_hint(reason, diagnostics)
