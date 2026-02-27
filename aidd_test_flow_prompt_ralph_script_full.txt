@@ -384,6 +384,13 @@
 - принудительно очистить workspace до `HEAD`:
   - `git reset --hard HEAD`
   - `git clean -fd`
+- после cleanup каждый прогон стартует с новой ветки от актуального `origin/main`:
+  - `git fetch origin main`
+  - `git checkout main`
+  - `git pull --ff-only origin main`
+  - `AUDIT_BRANCH="audit/${TICKET}/${RUN_TS}"`
+  - `git checkout -b "$AUDIT_BRANCH"`
+  - если любой шаг не удался — `BLOCKER(audit_branch_create_failed)` и stop;
 - создать `AUDIT_DIR` после cleanup (иначе untracked аудит-логи могут исчезнуть);
 - скопировать pre-status в `AUDIT_DIR/00_git_status_before.txt`;
 - сохранить post-status в `AUDIT_DIR/00_git_status_after.txt`;
@@ -395,7 +402,7 @@
 Зачем: зафиксировать режим и окружение. Убедиться, что плагин реально загружается в non-interactive `claude -p`.
 
 Сделать:
-- checkout audit branch;
+- подтвердить, что текущая ветка = `$AUDIT_BRANCH` (создана на Шаге 0 от `origin/main`);
 - сохранить head/branch;
 - определить `AUDIT_MODE`:
   - SKILL_FIRST если есть `skills/aidd-core/SKILL.md` и `skills/implement/SKILL.md`;
