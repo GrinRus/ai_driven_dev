@@ -350,6 +350,13 @@ class E2EPromptContractTests(unittest.TestCase):
         self.assertIn("research_gate_links_build_probe", text)
         self.assertIn("policy_mismatch(research_gate_recovery_path)", text)
 
+    def test_prompts_use_ralph_policy_matrix_v2_wording(self) -> None:
+        full_text = _read(AUDIT_PROMPT_FULL)
+        smoke_text = _read(AUDIT_PROMPT_SMOKE)
+        self.assertIn("policy_matrix_v2", full_text)
+        self.assertNotIn("blocking_findings_only", full_text)
+        self.assertIn("policy matrix v2", smoke_text)
+
     def test_researcher_contract_prefers_reviewed_and_plan_new(self) -> None:
         agent_text = _read(RESEARCHER_AGENT)
         skill_text = _read(RESEARCHER_SKILL)

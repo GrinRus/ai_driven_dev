@@ -678,7 +678,9 @@ Fail-fast gate (до шага 7):
 Если loop-step/loop-run вернул `blocked` с `reason_code=blocking_findings`:
 - для `BLOCKED_POLICY=strict`: фиксировать как `WARN(expected_revise_signal)` с продолжением по стандартной диагностике;
 - для `BLOCKED_POLICY=ralph`: ожидать `recoverable_blocked=1` и recovery/retry path; отклонения фиксировать как `policy_mismatch(blocked_policy_vs_reason_code)`.
-- если `BLOCKED_POLICY=ralph` и `reason_code != blocking_findings`, recoverable-ветка по `blocking_findings` считается `not exercised`; ожидать `ralph_recoverable_expected=0` / `ralph_recoverable_not_exercised=1` (или эквивалентную атрибуцию), не классифицировать как `policy_mismatch(blocked_policy_vs_reason_code)` по умолчанию.
+- для `BLOCKED_POLICY=ralph` использовать policy matrix v2 (`ralph_recoverable_reason_scope=policy_matrix_v2`): `hard_block|recoverable_retry|warn_continue`.
+- если `BLOCKED_POLICY=ralph` и `reason_class != recoverable_retry`, ожидай `ralph_recoverable_not_exercised=1` + `ralph_recoverable_not_exercised_reason=reason_not_recoverable_by_policy:<reason_code>`; не классифицировать это как `policy_mismatch` по умолчанию.
+- если `BLOCKED_POLICY=ralph` и `reason_class = recoverable_retry`, но retry не выполнен из-за лимита, ожидай `ralph_recoverable_not_exercised_reason=recoverable_budget_exhausted:<reason_code>`.
 
 Если pre-iteration research gate вернул `blocked` с `reason_code=rlm_links_empty_warn|rlm_status_pending`:
 - для `BLOCKED_POLICY=ralph` ожидать bounded recoverable probe по `next_action` с `recovery_path=research_gate_links_build_probe` до terminal blocked;

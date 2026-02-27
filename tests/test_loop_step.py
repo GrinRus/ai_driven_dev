@@ -276,6 +276,47 @@ class LoopStepTests(unittest.TestCase):
             self.assertEqual(payload.get("output_contract_status"), "warn")
             self.assertTrue(payload.get("output_contract_path"))
 
+    def test_loop_step_warns_on_output_contract_warn_in_strict_hooks_ralph_policy(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-wrap-ralph-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-WRAP-RALPH"
+            scope_key = "iteration_id_I1"
+            work_item_key = "iteration_id=I1"
+            write_active_state(root, ticket=ticket, work_item=work_item_key)
+            write_tasklist_ready(root, ticket)
+            write_file(root, f"docs/prd/{ticket}.prd.md", "Status: READY\n")
+            stage_result = {
+                "schema": "aidd.stage_result.v1",
+                "ticket": ticket,
+                "stage": "implement",
+                "scope_key": scope_key,
+                "work_item_key": work_item_key,
+                "result": "continue",
+                "updated_at": "2024-01-02T00:00:00Z",
+            }
+            write_file(
+                root,
+                f"reports/loops/{ticket}/{scope_key}/stage.implement.result.json",
+                json.dumps(stage_result),
+            )
+            log_path = root / "runner.log"
+            result = self.run_loop_step(
+                root,
+                ticket,
+                log_path,
+                {"AIDD_HOOKS_MODE": "strict"},
+                "--blocked-policy",
+                "ralph",
+                "--format",
+                "json",
+            )
+            self.assertEqual(result.returncode, 10, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("status"), "continue")
+            self.assertEqual(payload.get("output_contract_status"), "warn")
+            self.assertEqual(payload.get("blocked_policy"), "ralph")
+            self.assertIn("reason_code=output_contract_warn", str(payload.get("runner_notice") or ""))
+
     def test_loop_step_runner_with_stage_chain_produces_required_artifacts(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-wrap-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))

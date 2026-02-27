@@ -649,10 +649,25 @@ def resolve_hooks_mode() -> str:
     return _policy.resolve_hooks_mode()
 
 
-def evaluate_output_contract_policy(status: str) -> Tuple[str, str]:
+def resolve_blocked_policy(raw: str | None, target: Path) -> str:
     from aidd_runtime import loop_step_policy as _policy
 
-    return _policy.evaluate_output_contract_policy(status)
+    return _policy.resolve_blocked_policy(raw, target)
+
+
+def evaluate_output_contract_policy(
+    status: str,
+    *,
+    blocked_policy: str | None = None,
+    target: Path | None = None,
+) -> Tuple[str, str]:
+    from aidd_runtime import loop_step_policy as _policy
+
+    return _policy.evaluate_output_contract_policy(
+        status,
+        blocked_policy=blocked_policy,
+        root=target,
+    )
 
 
 def _parse_stage_chain_output(stdout: str) -> Dict[str, str]:
@@ -934,6 +949,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         const="text",
         help=argparse.SUPPRESS,
     )
+    parser.add_argument(
+        "--blocked-policy",
+        choices=("strict", "ralph"),
+        help="Blocked outcome policy (strict|ralph).",
+    )
     return parser.parse_args(argv)
 
 
@@ -960,6 +980,8 @@ def main(argv: list[str] | None = None) -> int:
     cli_log_path = target / "reports" / "loops" / ticket / f"cli.loop-step.{stamp}.log"
 
     stage = read_active_stage(target)
+    blocked_policy = resolve_blocked_policy(getattr(args, "blocked_policy", None), target)
+    os.environ["AIDD_LOOP_BLOCKED_POLICY"] = blocked_policy
     stream_mode = resolve_stream_mode(getattr(args, "stream", None))
     from_qa_mode, from_qa_requested = _resolve_qa_repair_mode(args.from_qa, target)
     reason = ""
@@ -2308,7 +2330,11 @@ def main(argv: list[str] | None = None) -> int:
         output_contract_path = runtime.rel_path(report_path, target)
     except Exception as exc:
         print(f"[loop-step] WARN: output contract check failed: {exc}", file=sys.stderr)
-    contract_policy, contract_reason_code = evaluate_output_contract_policy(output_contract_status)
+    contract_policy, contract_reason_code = evaluate_output_contract_policy(
+        output_contract_status,
+        blocked_policy=blocked_policy,
+        target=target,
+    )
     if contract_policy:
         contract_reason = (
             f"output contract warnings ({', '.join(output_contract_warnings)})"
@@ -2434,6 +2460,7 @@ def emit_result(
     question_questions_path: str = "",
     question_answers_path: str = "",
     runner_source: str = "",
+    blocked_policy: str = "",
     drift_tripwire_hit: bool = False,
     drift_telemetry_events: List[str] | None = None,
 ) -> int:
@@ -2461,6 +2488,13 @@ def emit_result(
             str(os.environ.get("AIDD_LOOP_RUNNER_SOURCE_HINT") or "").strip()
             or "unknown"
         )
+    blocked_policy_value = str(
+        blocked_policy
+        or os.environ.get("AIDD_LOOP_BLOCKED_POLICY")
+        or "strict"
+    ).strip().lower()
+    if blocked_policy_value not in {"strict", "ralph"}:
+        blocked_policy_value = "strict"
 
     cli_log_value = str(cli_log_path) if cli_log_path else ""
     log_value = str(log_path) if log_path else ""
@@ -2498,6 +2532,7 @@ def emit_result(
         "runner": runner_value,
         "runner_effective": runner_effective_value,
         "runner_source": runner_source_value,
+        "blocked_policy": blocked_policy_value,
         "runner_notice": runner_notice,
         "repair_reason_code": repair_reason_code,
         "repair_scope_key": repair_scope_key,

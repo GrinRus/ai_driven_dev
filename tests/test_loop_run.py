@@ -684,6 +684,116 @@ class LoopRunTests(unittest.TestCase):
             self.assertEqual(last_step.get("retry_attempt"), 1)
             self.assertEqual(last_step.get("reason_code"), "blocking_findings")
 
+    def test_loop_run_ralph_retries_no_tests_hard(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-RALPH-NO-TESTS-HARD"
+            write_active_state(root, ticket=ticket, stage="review", work_item="iteration_id=I1")
+
+            fake_result = subprocess.CompletedProcess(
+                args=["loop-step"],
+                returncode=20,
+                stdout=json.dumps(
+                    {
+                        "status": "blocked",
+                        "stage": "review",
+                        "scope_key": "iteration_id_I1",
+                        "work_item_key": "iteration_id=I1",
+                        "reason_code": "no_tests_hard",
+                        "reason": "tests evidence required but not found",
+                    }
+                ),
+                stderr="",
+            )
+            captured = io.StringIO()
+            cwd = os.getcwd()
+            try:
+                os.chdir(root.parent)
+                with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
+                    with patch("aidd_runtime.loop_run.run_loop_step", return_value=fake_result):
+                        with redirect_stdout(captured):
+                            code = loop_run_module.main(
+                                [
+                                    "--ticket",
+                                    ticket,
+                                    "--work-item-key",
+                                    "iteration_id=I1",
+                                    "--max-iterations",
+                                    "1",
+                                    "--blocked-policy",
+                                    "ralph",
+                                    "--recoverable-block-retries",
+                                    "1",
+                                    "--format",
+                                    "json",
+                                ]
+                            )
+            finally:
+                os.chdir(cwd)
+
+            self.assertEqual(code, 11)
+            payload = json.loads(captured.getvalue())
+            self.assertEqual(payload.get("status"), "max-iterations")
+            last_step = payload.get("last_step") or {}
+            self.assertEqual(last_step.get("reason_code"), "no_tests_hard")
+            self.assertEqual(last_step.get("recoverable_blocked"), True)
+            self.assertEqual(last_step.get("ralph_reason_class"), "recoverable_retry")
+
+    def test_loop_run_ralph_retries_qa_tests_failed(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-RALPH-QA-TESTS-FAILED"
+            write_active_state(root, ticket=ticket, stage="qa", work_item="iteration_id=I1")
+
+            fake_result = subprocess.CompletedProcess(
+                args=["loop-step"],
+                returncode=20,
+                stdout=json.dumps(
+                    {
+                        "status": "blocked",
+                        "stage": "qa",
+                        "scope_key": "iteration_id_I1",
+                        "work_item_key": "iteration_id=I1",
+                        "reason_code": "qa_tests_failed",
+                        "reason": "qa tests failed",
+                    }
+                ),
+                stderr="",
+            )
+            captured = io.StringIO()
+            cwd = os.getcwd()
+            try:
+                os.chdir(root.parent)
+                with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
+                    with patch("aidd_runtime.loop_run.run_loop_step", return_value=fake_result):
+                        with redirect_stdout(captured):
+                            code = loop_run_module.main(
+                                [
+                                    "--ticket",
+                                    ticket,
+                                    "--work-item-key",
+                                    "iteration_id=I1",
+                                    "--max-iterations",
+                                    "1",
+                                    "--blocked-policy",
+                                    "ralph",
+                                    "--recoverable-block-retries",
+                                    "1",
+                                    "--format",
+                                    "json",
+                                ]
+                            )
+            finally:
+                os.chdir(cwd)
+
+            self.assertEqual(code, 11)
+            payload = json.loads(captured.getvalue())
+            self.assertEqual(payload.get("status"), "max-iterations")
+            last_step = payload.get("last_step") or {}
+            self.assertEqual(last_step.get("reason_code"), "qa_tests_failed")
+            self.assertEqual(last_step.get("recoverable_blocked"), True)
+            self.assertEqual(last_step.get("ralph_reason_class"), "recoverable_retry")
+
     def test_loop_run_ralph_does_not_retry_hard_block(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
@@ -738,16 +848,18 @@ class LoopRunTests(unittest.TestCase):
             self.assertEqual(payload.get("recoverable_blocked"), False)
             self.assertEqual(payload.get("retry_attempt"), 0)
             self.assertEqual(payload.get("reason_code"), "user_approval_required")
-            self.assertEqual(payload.get("ralph_recoverable_reason_scope"), "blocking_findings_only")
+            self.assertEqual(payload.get("ralph_policy_version"), "v2")
+            self.assertEqual(payload.get("ralph_reason_class"), "hard_block")
+            self.assertEqual(payload.get("ralph_recoverable_reason_scope"), "policy_matrix_v2")
             self.assertEqual(payload.get("ralph_recoverable_expected"), False)
             self.assertEqual(payload.get("ralph_recoverable_exercised"), False)
             self.assertEqual(payload.get("ralph_recoverable_not_exercised"), True)
             self.assertEqual(
                 payload.get("ralph_recoverable_not_exercised_reason"),
-                "reason_code_not_blocking_findings:user_approval_required",
+                "reason_not_recoverable_by_policy:user_approval_required",
             )
 
-    def test_loop_run_ralph_marks_non_blocking_findings_as_not_exercised(self) -> None:
+    def test_loop_run_ralph_retries_review_context_pack_missing(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             ticket = "DEMO-RALPH-NOT-EXERCISED"
@@ -794,19 +906,72 @@ class LoopRunTests(unittest.TestCase):
             finally:
                 os.chdir(cwd)
 
-            self.assertEqual(code, 20)
+            self.assertEqual(code, 11)
             payload = json.loads(captured.getvalue())
-            self.assertEqual(payload.get("status"), "blocked")
-            self.assertEqual(payload.get("reason_code"), "review_context_pack_missing")
-            self.assertEqual(payload.get("recoverable_blocked"), False)
-            self.assertEqual(payload.get("ralph_recoverable_reason_scope"), "blocking_findings_only")
-            self.assertEqual(payload.get("ralph_recoverable_expected"), False)
-            self.assertEqual(payload.get("ralph_recoverable_exercised"), False)
-            self.assertEqual(payload.get("ralph_recoverable_not_exercised"), True)
-            self.assertEqual(
-                payload.get("ralph_recoverable_not_exercised_reason"),
-                "reason_code_not_blocking_findings:review_context_pack_missing",
+            self.assertEqual(payload.get("status"), "max-iterations")
+            self.assertEqual(payload.get("blocked_policy"), "ralph")
+            self.assertEqual(payload.get("retry_attempt"), 1)
+            self.assertEqual(payload.get("recoverable_retry_budget"), 2)
+            last_step = payload.get("last_step") or {}
+            self.assertEqual(last_step.get("reason_code"), "review_context_pack_missing")
+            self.assertEqual(last_step.get("recoverable_blocked"), True)
+            self.assertEqual(last_step.get("ralph_reason_class"), "recoverable_retry")
+            self.assertEqual(payload.get("ralph_recoverable_reason_scope"), "policy_matrix_v2")
+
+    def test_loop_run_ralph_warn_continue_for_output_contract_warn(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-RALPH-OUTPUT-CONTRACT-WARN"
+            write_active_state(root, ticket=ticket, stage="implement", work_item="iteration_id=I1")
+
+            fake_result = subprocess.CompletedProcess(
+                args=["loop-step"],
+                returncode=20,
+                stdout=json.dumps(
+                    {
+                        "status": "blocked",
+                        "stage": "implement",
+                        "scope_key": "iteration_id_I1",
+                        "work_item_key": "iteration_id=I1",
+                        "reason_code": "output_contract_warn",
+                        "reason": "output contract warnings",
+                    }
+                ),
+                stderr="",
             )
+            captured = io.StringIO()
+            cwd = os.getcwd()
+            try:
+                os.chdir(root.parent)
+                with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
+                    with patch("aidd_runtime.loop_run.run_loop_step", return_value=fake_result):
+                        with redirect_stdout(captured):
+                            code = loop_run_module.main(
+                                [
+                                    "--ticket",
+                                    ticket,
+                                    "--work-item-key",
+                                    "iteration_id=I1",
+                                    "--max-iterations",
+                                    "1",
+                                    "--blocked-policy",
+                                    "ralph",
+                                    "--recoverable-block-retries",
+                                    "1",
+                                    "--format",
+                                    "json",
+                                ]
+                            )
+            finally:
+                os.chdir(cwd)
+
+            self.assertEqual(code, 11)
+            payload = json.loads(captured.getvalue())
+            self.assertEqual(payload.get("status"), "max-iterations")
+            last_step = payload.get("last_step") or {}
+            self.assertEqual(last_step.get("status"), "continue")
+            self.assertEqual(last_step.get("reason_code"), "output_contract_warn")
+            self.assertEqual(last_step.get("ralph_reason_class"), "warn_continue")
 
     def test_loop_run_text_mode_emits_machine_readable_result_event(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
