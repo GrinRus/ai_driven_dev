@@ -184,8 +184,8 @@
       "lang": "ru",
       "name": "plan-new",
       "path": "skills/plan-new/SKILL.md",
-      "prompt_version": "1.1.17",
-      "source_version": "1.1.17",
+      "prompt_version": "1.1.16",
+      "source_version": "1.1.16",
       "user_invocable": "true"
     },
     {

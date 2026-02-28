@@ -22,6 +22,15 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Iterable, List, Optional
 
+_PLUGIN_ROOT = (os.getenv("CLAUDE_PLUGIN_ROOT") or "").strip()
+if _PLUGIN_ROOT:
+    plugin_root = Path(_PLUGIN_ROOT).expanduser()
+else:
+    plugin_root = Path(__file__).resolve().parents[3]
+os.environ.setdefault("CLAUDE_PLUGIN_ROOT", str(plugin_root))
+if str(plugin_root) not in sys.path:
+    sys.path.insert(0, str(plugin_root))
+
 from aidd_runtime import id_utils
 from aidd_runtime.feature_ids import resolve_aidd_root, resolve_identifiers
 from aidd_runtime.prd_review_section import (

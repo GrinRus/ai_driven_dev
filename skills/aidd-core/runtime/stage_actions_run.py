@@ -205,9 +205,7 @@ def _canonicalize_actions_payload_once(path: Path, *, context: launcher.LaunchCo
 
     actions = payload.get("actions")
     if not isinstance(actions, list):
-        payload["actions"] = []
-        actions = []
-        changed = True
+        return False, "actions_not_list"
 
     normalized_actions: list[Any] = []
     for raw_action in actions:

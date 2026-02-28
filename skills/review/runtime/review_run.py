@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import datetime as dt
-import json
 import os
 import sys
 from pathlib import Path
@@ -42,34 +40,6 @@ def _resolve_review_report_path(context: launcher.LaunchContext) -> Path:
     return runtime.resolve_path_for_target(Path(report_rel), context.root)
 
 
-def _ensure_review_report_exists(context: launcher.LaunchContext, report_path: Path) -> bool:
-    if report_path.exists():
-        return True
-    now = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
-    feature_context = runtime.resolve_feature_context(context.root, ticket=context.ticket)
-    slug = (feature_context.slug_hint or context.ticket).strip() or context.ticket
-    payload = {
-        "ticket": context.ticket,
-        "slug": slug,
-        "kind": "review",
-        "stage": "review",
-        "scope_key": context.scope_key,
-        "work_item_key": context.work_item_key,
-        "status": "WARN",
-        "summary": "auto-generated placeholder review report",
-        "generated_at": now,
-        "updated_at": now,
-        "findings": [],
-        "blocking_findings_count": 0,
-    }
-    try:
-        report_path.parent.mkdir(parents=True, exist_ok=True)
-        report_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    except OSError:
-        return False
-    return True
-
-
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     context = launcher.resolve_context(
@@ -80,22 +50,15 @@ def main(argv: list[str] | None = None) -> int:
         default_stage=DEFAULT_STAGE,
     )
     report_path = _resolve_review_report_path(context)
-    if not _ensure_review_report_exists(context, report_path):
+    if not report_path.exists():
         report_rel = runtime.rel_path(report_path, context.root)
         print("[aidd] ERROR: reason_code=review_report_missing", file=sys.stderr)
         print(f"[aidd] ERROR: report_path={report_rel}", file=sys.stderr)
         print(
-            "[aidd] ERROR: diagnostics=canonical_review_report_bootstrap_failed",
+            "[aidd] ERROR: diagnostics=canonical_review_report_required",
             file=sys.stderr,
         )
         return 2
-    if not report_path.exists():
-        report_rel = runtime.rel_path(report_path, context.root)
-        print(
-            "[aidd] WARN: reason_code=review_report_missing_auto_generated",
-            file=sys.stderr,
-        )
-        print(f"[aidd] WARN: report_path={report_rel}", file=sys.stderr)
     return stage_actions_run.main(
         argv,
         default_stage=DEFAULT_STAGE,

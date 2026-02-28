@@ -619,6 +619,19 @@ class LoopStepTests(unittest.TestCase):
             )
             review_pack = "---\nschema: aidd.review_pack.v2\nupdated_at: 2024-01-02T00:00:00Z\n---\n"
             write_file(root, "reports/loops/DEMO-2/iteration_id_I1/review.latest.pack.md", review_pack)
+            write_file(
+                root,
+                "reports/reviewer/DEMO-2/iteration_id_I1.json",
+                json.dumps(
+                    {
+                        "schema": "aidd.review_report.v1",
+                        "ticket": "DEMO-2",
+                        "scope_key": "iteration_id_I1",
+                        "status": "READY",
+                        "updated_at": "2024-01-02T00:00:00Z",
+                    }
+                ),
+            )
             review_result = {
                 "schema": "aidd.stage_result.v1",
                 "ticket": "DEMO-2",
@@ -691,6 +704,19 @@ class LoopStepTests(unittest.TestCase):
             )
             review_pack = "---\nschema: aidd.review_pack.v2\nupdated_at: 2024-01-02T00:00:00Z\n---\n"
             write_file(root, "reports/loops/DEMO-SCHEMA-VERSION/iteration_id_I1/review.latest.pack.md", review_pack)
+            write_file(
+                root,
+                "reports/reviewer/DEMO-SCHEMA-VERSION/iteration_id_I1.json",
+                json.dumps(
+                    {
+                        "schema": "aidd.review_report.v1",
+                        "ticket": "DEMO-SCHEMA-VERSION",
+                        "scope_key": "iteration_id_I1",
+                        "status": "READY",
+                        "updated_at": "2024-01-02T00:00:00Z",
+                    }
+                ),
+            )
             review_result = {
                 "schema": "aidd.stage_result.v1",
                 "ticket": "DEMO-SCHEMA-VERSION",
