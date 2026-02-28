@@ -29,7 +29,7 @@ STAGE_RUNTIME_ENTRYPOINT = {
     "idea-new": "skills/idea-new/runtime/analyst_check.py",
     "researcher": "skills/researcher/runtime/research.py",
     "plan-new": "skills/plan-new/runtime/research_check.py",
-    "review-spec": "skills/review-spec/runtime/prd_review_cli.py",
+    "review-spec": "skills/aidd-core/runtime/prd_review.py",
     "spec-interview": "skills/spec-interview/runtime/spec_interview.py",
     "tasks-new": "skills/tasks-new/runtime/tasks_new.py",
     "implement": "skills/implement/runtime/implement_run.py",
@@ -542,7 +542,7 @@ class PromptLintTests(unittest.TestCase):
             skill_path.parent.mkdir(parents=True, exist_ok=True)
             content = skill_override.get(stage, build_stage_skill(stage))
             skill_path.write_text(content, encoding="utf-8")
-            runtime_entry = skills_root / stage / "runtime" / Path(STAGE_RUNTIME_ENTRYPOINT[stage]).name
+            runtime_entry = root / STAGE_RUNTIME_ENTRYPOINT[stage]
             runtime_entry.parent.mkdir(parents=True, exist_ok=True)
             runtime_entry.write_text("from __future__ import annotations\n", encoding="utf-8")
 

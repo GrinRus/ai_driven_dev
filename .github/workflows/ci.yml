@@ -10,6 +10,22 @@ env:
   AIDD_SECURITY_ENFORCE: ${{ vars.AIDD_SECURITY_ENFORCE || '0' }}
 
 jobs:
+  dist-check:
+    name: dist-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate distribution bundle artifacts
+        run: |
+          python3 tests/repo_tools/entrypoints_bundle.py \
+            --root "${GITHUB_WORKSPACE}"
+          git diff --exit-code -- tests/repo_tools/entrypoints-bundle.txt
+          python3 tests/repo_tools/build_e2e_prompts.py --check
+
   lint-and-test:
     runs-on: ubuntu-latest
     steps:

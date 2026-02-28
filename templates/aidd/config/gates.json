@@ -223,6 +223,48 @@
     }
   },
   "review_pack_v2_required": false,
+  "loop": {
+    "blocked_policy": "strict",
+    "auto_repair_from_qa": false,
+    "block_reason_policy": {
+      "hard": [
+        "loop_runner_permissions",
+        "user_approval_required",
+        "diff_boundary_violation",
+        "preflight_contract_mismatch",
+        "plugin_root_missing",
+        "command_unavailable",
+        "invalid_work_item_key",
+        "work_item_resolution_failed",
+        "active_stage_sync_failed",
+        "prompt_flow_blocker",
+        "contract_mismatch_stage_result_shape",
+        "contract_mismatch_actions_shape"
+      ],
+      "recoverable": [
+        "stage_result_missing_or_invalid",
+        "stage_result_blocked",
+        "blocked_without_reason",
+        "blocking_findings",
+        "scope_drift_recoverable",
+        "rlm_links_empty_warn",
+        "rlm_status_pending",
+        "no_tests_hard",
+        "qa_tests_failed",
+        "review_context_pack_missing",
+        "qa_blocked"
+      ],
+      "warn": [
+        "output_contract_warn",
+        "no_tests_soft",
+        "review_context_pack_placeholder_warn",
+        "fast_mode_warn",
+        "out_of_scope_warn",
+        "no_boundaries_defined_warn",
+        "auto_boundary_extend_warn"
+      ]
+    }
+  },
   "reviewer": {
     "enabled": true,
     "tests_marker": "aidd/reports/reviewer/{ticket}/{scope_key}.tests.json",

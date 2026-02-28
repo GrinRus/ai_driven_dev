@@ -236,3 +236,22 @@ _Rollout policy: breaking-only, без обратной совместимост
 2. `W101-4` -> `W101-10` -> `W101-8` -> `W101-11` -> `W101-12`
 3. `W101-1..W101-12` -> `W101-13` -> `W101-14` -> `W101-15`
 
+## Wave 102 — E2E Prompt Readiness WARN Tuning
+
+_Статус: план. Цель — ослабить E2E readiness gate только для scoped research WARN, не снижая fail-fast по ENV/contract mismatch._
+
+### EPIC W2 — Scoped WARN policy in prompt contract
+
+- [ ] **W102-1 (P0) Scoped research WARN for readiness gate (`R18/R12`)** `tests/repo_tools/e2e_prompt/profile_full.md`, `tests/repo_tools/e2e_prompt/profile_smoke.md`, `tests/repo_tools/test_e2e_prompt_contract.py`, `aidd_test_flow_prompt_ralph_script_full.txt`, `aidd_test_flow_prompt_ralph_script.txt`:
+  - обновить readiness PASS rule: `research_status=reviewed|ok` или `research_status=warn` при scoped evidence;
+  - добавить поле `research_warn_scope=<none|links_empty_non_blocking|invalid>` в contract `05_precondition_block.txt`;
+  - расширить FAIL reason codes: добавить `research_warn_unscoped`;
+  - зафиксировать классификацию:
+    - scoped WARN -> `readiness_gate=PASS` + `WARN(readiness_gate_research_scoped)`;
+    - unscoped WARN -> `readiness_gate=FAIL` + `reason_code=research_warn_unscoped`;
+  - пересобирать root prompt outputs только через `python3 tests/repo_tools/build_e2e_prompts.py`.
+  **AC:** FULL/SMOKE prompt fragments и generated scripts синхронизированы; readiness contract допускает только scoped research WARN; contract tests проходят.
+  **Deps:** -
+  **Regression/tests:** `python3 tests/repo_tools/build_e2e_prompts.py --check`, `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Effort:** S
+  **Risk:** Low

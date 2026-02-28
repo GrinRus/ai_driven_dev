@@ -195,15 +195,25 @@ def main(argv: list[str] | None = None) -> int:
             .replace("{scope_key}", scope_key or runtime.resolve_scope_key(ticket, ticket))
         )
 
-    report_template = args.report or runtime.review_report_template(target)
-    if "{scope_key}" not in report_template:
+    requested_report_template = args.report or runtime.review_report_template(target)
+    if "{scope_key}" not in requested_report_template:
         print(
             "[aidd] WARN: review report template missing {scope_key}; falling back to default template.",
             file=sys.stderr,
         )
-        report_template = runtime.DEFAULT_REVIEW_REPORT
-    report_text = _fmt(report_template)
-    report_path = runtime.resolve_path_for_target(Path(report_text), target)
+        requested_report_template = runtime.DEFAULT_REVIEW_REPORT
+    requested_report_path = runtime.resolve_path_for_target(Path(_fmt(requested_report_template)), target)
+
+    canonical_template = runtime.review_report_template(target)
+    if "{scope_key}" not in canonical_template:
+        canonical_template = runtime.DEFAULT_REVIEW_REPORT
+    report_path = runtime.resolve_path_for_target(Path(_fmt(canonical_template)), target)
+    alias_report_path = requested_report_path if requested_report_path != report_path else None
+    if alias_report_path is not None and args.report:
+        print(
+            "[aidd] WARN: --report override stored as compatibility alias; canonical scope report path is enforced.",
+            file=sys.stderr,
+        )
 
     if args.findings and args.findings_file:
         raise ValueError("use --findings or --findings-file (not both)")
@@ -415,11 +425,26 @@ def main(argv: list[str] | None = None) -> int:
     else:
         record["updated_at"] = existing_updated_at or now
 
+    alias_synced = False
+    if alias_report_path is not None:
+        alias_payload: Dict[str, Any] = {}
+        if alias_report_path.exists():
+            try:
+                alias_payload = json.loads(alias_report_path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                alias_payload = {}
+        if _strip_updated_at(alias_payload) != _strip_updated_at(record):
+            alias_report_path.parent.mkdir(parents=True, exist_ok=True)
+            alias_report_path.write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            alias_synced = True
+
     rel_report = runtime.rel_path(report_path, target)
     if changed:
         print(f"[aidd] review report saved to {rel_report}.")
     else:
         print(f"[aidd] review report unchanged ({rel_report}).")
+    if alias_synced and alias_report_path is not None:
+        print(f"[aidd] review report alias synced to {runtime.rel_path(alias_report_path, target)}.")
     runtime.maybe_sync_index(target, ticket, slug_hint or None, reason="review-report")
 
     def _ensure_reviewer_marker() -> None:

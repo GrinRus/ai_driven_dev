@@ -46,7 +46,7 @@ run_cli() {
       mode="python"
       ;;
     prd-review)
-      entrypoint="$PLUGIN_ROOT/skills/review-spec/runtime/prd_review_cli.py"
+      entrypoint="$PLUGIN_ROOT/skills/aidd-core/runtime/prd_review.py"
       mode="python"
       ;;
     spec-interview)

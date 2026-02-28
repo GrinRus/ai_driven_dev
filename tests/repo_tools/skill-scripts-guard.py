@@ -14,7 +14,7 @@ STAGE_PYTHON_ENTRYPOINTS = {
     "idea-new": "skills/idea-new/runtime/analyst_check.py",
     "researcher": "skills/researcher/runtime/research.py",
     "plan-new": "skills/plan-new/runtime/research_check.py",
-    "review-spec": "skills/review-spec/runtime/prd_review_cli.py",
+    "review-spec": "skills/aidd-core/runtime/prd_review.py",
     "spec-interview": "skills/spec-interview/runtime/spec_interview.py",
     "tasks-new": "skills/tasks-new/runtime/tasks_new.py",
     "implement": "skills/implement/runtime/implement_run.py",

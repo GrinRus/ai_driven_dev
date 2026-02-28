@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import List, Tuple
 
 from aidd_runtime import runtime
+from aidd_runtime import loop_block_policy
 from aidd_runtime import loop_step as core
 
 
@@ -225,11 +226,29 @@ def resolve_hooks_mode() -> str:
     return "strict" if raw == "strict" else "fast"
 
 
-def evaluate_output_contract_policy(status: str) -> Tuple[str, str]:
+def resolve_blocked_policy(raw: str | None, root: Path) -> str:
+    return loop_block_policy.resolve_blocked_policy(raw, target=root)
+
+
+def evaluate_output_contract_policy(
+    status: str,
+    *,
+    blocked_policy: str | None = None,
+    root: Path | None = None,
+) -> Tuple[str, str]:
     if str(status).strip().lower() != "warn":
         return "", ""
     hooks_mode = resolve_hooks_mode()
+    resolved_policy = loop_block_policy.resolve_blocked_policy(blocked_policy, target=root)
+    classification = loop_block_policy.classify_block_reason(
+        core.OUTPUT_CONTRACT_WARN_REASON_CODE,
+        resolved_policy,
+        hooks_mode,
+        target=root,
+    )
     if hooks_mode == "strict":
+        if classification.get("reason_class") == "warn_continue":
+            return "warn", core.OUTPUT_CONTRACT_WARN_REASON_CODE
         return "blocked", core.OUTPUT_CONTRACT_WARN_REASON_CODE
     return "warn", core.OUTPUT_CONTRACT_WARN_REASON_CODE
 

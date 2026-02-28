@@ -19,6 +19,7 @@ from typing import Dict, List, Optional, Tuple
 from aidd_runtime import runtime
 from aidd_runtime import stage_result_contract
 from aidd_runtime import marker_semantics
+from aidd_runtime import loop_block_policy
 from aidd_runtime.feature_ids import write_active_state
 from aidd_runtime.loop_pack import (
     is_open_item,
@@ -82,58 +83,13 @@ _SCOPE_STALE_HINT_RE = re.compile(
 DEFAULT_LOOP_STEP_TIMEOUT_SECONDS = 900
 DEFAULT_SILENT_STALL_SECONDS = 1200
 DEFAULT_STAGE_BUDGET_SECONDS = 3600
-DEFAULT_BLOCKED_POLICY = "strict"
 DEFAULT_RECOVERABLE_BLOCK_RETRIES = 2
 DEFAULT_LOOP_RESEARCH_GATE_MODE = "auto"
-BLOCKED_POLICY_VALUES = {"strict", "ralph"}
 RESEARCH_GATE_MODE_VALUES = {"off", "on", "auto"}
 STAGE_DEFAULT_BUDGET_SECONDS = {
     "implement": 3600,
     "review": 3600,
     "qa": 3600,
-}
-HARD_BLOCK_REASON_CODES = {
-    "loop_runner_permissions",
-    "user_approval_required",
-    "diff_boundary_violation",
-    "preflight_contract_mismatch",
-    "plugin_root_missing",
-    "command_unavailable",
-    "invalid_work_item_key",
-    "review_pack_invalid_schema",
-    "review_pack_v2_required",
-    "review_pack_regen_failed",
-    "review_pack_missing",
-    "review_fix_plan_missing",
-    "qa_stage_result_emit_failed",
-    "output_contract_warn",
-    "stage_chain_output_missing",
-    "work_item_resolution_failed",
-    "active_stage_sync_failed",
-    "prompt_flow_blocker",
-    "contract_mismatch_stage_result_shape",
-}
-RECOVERABLE_BLOCK_REASON_CODES = {
-    "",
-    "stage_result_missing_or_invalid",
-    "stage_result_blocked",
-    "blocked_without_reason",
-    "blocking_findings",
-    "invalid_loop_step_payload",
-    "stage_result_missing",
-    "stage_chain_logs_missing",
-    "actions_missing",
-    "preflight_missing",
-    "qa_repair_missing_work_item",
-    "qa_repair_no_handoff",
-    "qa_repair_multiple_handoffs",
-    "qa_repair_tasklist_missing",
-    "unsupported_stage_result",
-    "scope_drift_recoverable",
-}
-RECOVERABLE_RESEARCH_GATE_REASON_CODES = {
-    "rlm_links_empty_warn",
-    "rlm_status_pending",
 }
 DEFAULT_RESEARCH_GATE_PROBE_TIMEOUT_SECONDS = 180
 LOOP_RESULT_SCHEMA = "aidd.loop_result.v1"
@@ -218,8 +174,16 @@ def _resolve_path_within_target(
     raw = str(value or "").strip()
     if not raw:
         return None, ""
-    resolved = runtime.resolve_path_for_target(Path(raw), target)
+    candidate = Path(raw).expanduser()
+    resolved = runtime.resolve_path_for_target(candidate, target)
     if not runtime.is_relative_to(resolved, target.resolve()):
+        if candidate.is_absolute():
+            remapped_raw = candidate.as_posix().lstrip("/")
+            target_prefix = f"{target.name}/" if target.name else ""
+            if target_prefix and remapped_raw.startswith(target_prefix):
+                remapped = runtime.resolve_path_for_target(Path(remapped_raw), target)
+                if runtime.is_relative_to(remapped, target.resolve()):
+                    return remapped, ""
         return None, f"{label}:outside_target:{resolved.as_posix()}"
     return resolved, ""
 
@@ -386,13 +350,6 @@ def _normalize_termination_attribution(
     return normalized, watchdog_marker
 
 
-def _resolve_blocked_policy(raw: str | None) -> str:
-    value = str(raw or os.environ.get("AIDD_LOOP_BLOCKED_POLICY") or DEFAULT_BLOCKED_POLICY).strip().lower()
-    if value not in BLOCKED_POLICY_VALUES:
-        return DEFAULT_BLOCKED_POLICY
-    return value
-
-
 def _resolve_recoverable_retry_budget(raw: object) -> int:
     if raw is None or str(raw).strip() == "":
         raw = os.environ.get("AIDD_LOOP_RECOVERABLE_BLOCK_RETRIES", str(DEFAULT_RECOVERABLE_BLOCK_RETRIES))
@@ -401,21 +358,6 @@ def _resolve_recoverable_retry_budget(raw: object) -> int:
     except (TypeError, ValueError):
         value = DEFAULT_RECOVERABLE_BLOCK_RETRIES
     return max(value, 0)
-
-
-def _is_recoverable_block_reason(code: str) -> bool:
-    reason_code = str(code or "").strip().lower()
-    if reason_code in HARD_BLOCK_REASON_CODES:
-        return False
-    if reason_code in RECOVERABLE_BLOCK_REASON_CODES:
-        return True
-    if reason_code.startswith("stage_result_"):
-        return True
-    if reason_code.startswith("qa_repair_"):
-        return True
-    if reason_code.endswith("_warn"):
-        return True
-    return False
 
 
 def _scope_to_work_item_key(scope_key: str) -> str:
@@ -464,9 +406,22 @@ def _extract_scope_drift_hint(reason: str, diagnostics: str) -> str:
 
 def _promote_stage_result_reason(reason_code: str, reason: str, diagnostics: str) -> tuple[str, str]:
     code = str(reason_code or "").strip().lower()
-    if code not in {"stage_result_missing_or_invalid", "stage_result_blocked", "blocked_without_reason", ""}:
+    if code not in {"stage_result_missing_or_invalid", "stage_result_blocked", "blocked_without_reason", "actions_missing", ""}:
         return code, ""
     joined = f"{reason}\n{diagnostics}".lower()
+    if "reason_code=contract_mismatch_actions_shape" in joined:
+        return "contract_mismatch_actions_shape", ""
+    if code == "actions_missing":
+        contract_tokens = (
+            "actions-validate",
+            "schema_version must be one of",
+            "missing field: allowed_action_types",
+            "allowed_action_types must be list[str]",
+            "unsupported type",
+            "params must be object",
+        )
+        if any(token in joined for token in contract_tokens):
+            return "contract_mismatch_actions_shape", ""
     if "invalid-schema" in joined:
         return "contract_mismatch_stage_result_shape", ""
     scope_hint = _extract_scope_drift_hint(reason, diagnostics)
@@ -590,6 +545,13 @@ def _run_research_gate_probe(
     return True, expanded, "", result.returncode
 
 
+def _research_gate_recovery_path(reason_code: str) -> str:
+    normalized = str(reason_code or "").strip().lower()
+    if normalized == "rlm_worklist_missing":
+        return "research_gate_worklist_rebuild_probe"
+    return "research_gate_links_build_probe"
+
+
 def _apply_recoverable_block_recovery(
     *,
     target: Path,
@@ -700,6 +662,7 @@ def run_loop_step(
     target: Path,
     ticket: str,
     runner: str | None,
+    blocked_policy: str | None = None,
     *,
     from_qa: str | None,
     work_item_key: str | None,
@@ -721,6 +684,8 @@ def run_loop_step(
     ]
     if runner:
         cmd.extend(["--runner", runner])
+    if blocked_policy:
+        cmd.extend(["--blocked-policy", blocked_policy])
     if from_qa:
         cmd.extend(["--from-qa", from_qa])
     if work_item_key:
@@ -731,6 +696,8 @@ def run_loop_step(
         cmd.extend(["--stream", stream_mode])
     env = os.environ.copy()
     env["CLAUDE_PLUGIN_ROOT"] = str(plugin_root)
+    if blocked_policy:
+        env["AIDD_LOOP_BLOCKED_POLICY"] = str(blocked_policy)
     env["PYTHONPATH"] = str(plugin_root) if not env.get("PYTHONPATH") else f"{plugin_root}:{env['PYTHONPATH']}"
     run_started_at = time.time()
     try:
@@ -976,28 +943,42 @@ def _ralph_recoverable_semantics(
     *,
     blocked_policy: str,
     reason_code: str,
+    reason_class: str,
     recoverable_blocked: bool,
+    retry_attempt: int,
+    recoverable_retry_budget: int,
 ) -> Dict[str, object]:
     if blocked_policy != "ralph":
         return {
+            "ralph_policy_version": "",
+            "ralph_reason_class": "n/a",
             "ralph_recoverable_reason_scope": "n/a",
             "ralph_recoverable_expected": False,
             "ralph_recoverable_exercised": False,
             "ralph_recoverable_not_exercised": False,
             "ralph_recoverable_not_exercised_reason": "",
         }
-    normalized_reason = str(reason_code or "").strip()
-    expected = normalized_reason == "blocking_findings"
+    normalized_reason = str(reason_code or "").strip() or "blocked_without_reason"
+    normalized_class = str(reason_class or "").strip() or "not_recoverable"
+    expected = normalized_class == "recoverable_retry"
+    exercised = bool(expected and recoverable_blocked)
+    not_exercised_reason = ""
+    if not exercised:
+        if expected:
+            if int(retry_attempt) >= int(recoverable_retry_budget):
+                not_exercised_reason = f"recoverable_budget_exhausted:{normalized_reason}"
+            else:
+                not_exercised_reason = f"recoverable_not_applied:{normalized_reason}"
+        else:
+            not_exercised_reason = f"reason_not_recoverable_by_policy:{normalized_reason}"
     return {
-        "ralph_recoverable_reason_scope": "blocking_findings_only",
+        "ralph_policy_version": loop_block_policy.RALPH_POLICY_VERSION,
+        "ralph_reason_class": normalized_class,
+        "ralph_recoverable_reason_scope": "policy_matrix_v2",
         "ralph_recoverable_expected": expected,
-        "ralph_recoverable_exercised": bool(expected and recoverable_blocked),
-        "ralph_recoverable_not_exercised": not expected,
-        "ralph_recoverable_not_exercised_reason": (
-            f"reason_code_not_blocking_findings:{normalized_reason or 'blocked_without_reason'}"
-            if not expected
-            else ""
-        ),
+        "ralph_recoverable_exercised": exercised,
+        "ralph_recoverable_not_exercised": not exercised,
+        "ralph_recoverable_not_exercised_reason": not_exercised_reason,
     }
 
 
@@ -1019,7 +1000,10 @@ def main(argv: List[str] | None = None) -> int:
     stream_mode = resolve_stream_mode(getattr(args, "stream", None))
     step_timeout_seconds = _resolve_step_timeout_seconds(getattr(args, "step_timeout_seconds", None))
     silent_stall_seconds = _resolve_silent_stall_seconds(getattr(args, "silent_stall_seconds", None))
-    blocked_policy = _resolve_blocked_policy(getattr(args, "blocked_policy", None))
+    blocked_policy = loop_block_policy.resolve_blocked_policy(
+        getattr(args, "blocked_policy", None),
+        target=target,
+    )
     recoverable_retry_budget = _resolve_recoverable_retry_budget(getattr(args, "recoverable_block_retries", None))
     research_gate_mode = _resolve_loop_research_gate_mode(getattr(args, "research_gate", None))
     stage_budget_starts: Dict[str, float] = {}
@@ -1129,14 +1113,21 @@ def main(argv: List[str] | None = None) -> int:
         )
         if not research_ok:
             research_reason_code = str(research_reason_code or "").strip().lower() or "research_gate_blocked"
+            gate_classification = loop_block_policy.classify_block_reason(
+                research_reason_code,
+                blocked_policy,
+                os.environ.get("AIDD_HOOKS_MODE"),
+                target=target,
+            )
+            gate_reason_class = str(gate_classification.get("reason_class") or "not_recoverable")
             recoverable_gate = (
                 blocked_policy == "ralph"
-                and research_reason_code in RECOVERABLE_RESEARCH_GATE_REASON_CODES
+                and gate_reason_class == "recoverable_retry"
                 and recoverable_retry_attempt < recoverable_retry_budget
             )
             if recoverable_gate:
                 recoverable_retry_attempt += 1
-                last_recovery_path = "research_gate_links_build_probe"
+                last_recovery_path = _research_gate_recovery_path(research_reason_code)
                 probe_ok, probe_command, probe_detail, probe_exit_code = _run_research_gate_probe(
                     target=target,
                     plugin_root=plugin_root,
@@ -1197,7 +1188,30 @@ def main(argv: List[str] | None = None) -> int:
                         research_next_action = probe_command
             if research_ok:
                 pass
+            elif blocked_policy == "ralph" and gate_reason_class == "warn_continue":
+                append_log(
+                    log_path,
+                    (
+                        f"{utc_timestamp()} event=research-gate-warn-continue "
+                        f"reason_code={research_reason_code} ralph_reason_class={gate_reason_class}"
+                    ),
+                )
+                append_log(
+                    cli_log_path,
+                    (
+                        f"{utc_timestamp()} event=research-gate-warn-continue "
+                        f"reason_code={research_reason_code} ralph_reason_class={gate_reason_class}"
+                    ),
+                )
             else:
+                ralph_semantics = _ralph_recoverable_semantics(
+                    blocked_policy=blocked_policy,
+                    reason_code=research_reason_code,
+                    reason_class=gate_reason_class,
+                    recoverable_blocked=bool(recoverable_gate),
+                    retry_attempt=recoverable_retry_attempt,
+                    recoverable_retry_budget=recoverable_retry_budget,
+                )
                 payload = {
                     "status": "blocked",
                     "iterations": 0,
@@ -1208,12 +1222,14 @@ def main(argv: List[str] | None = None) -> int:
                     "blocked_policy": blocked_policy,
                     "reason": research_reason,
                     "reason_code": research_reason_code,
+                    "ralph_reason_class": gate_reason_class,
                     "next_action": research_next_action or None,
                     "recoverable_blocked": bool(recoverable_gate),
                     "retry_attempt": recoverable_retry_attempt,
                     "recoverable_retry_budget": recoverable_retry_budget,
                     "recovery_path": last_recovery_path if recoverable_gate else "",
                     "updated_at": utc_timestamp(),
+                    **ralph_semantics,
                 }
                 append_log(
                     log_path,
@@ -1361,6 +1377,7 @@ def main(argv: List[str] | None = None) -> int:
             target,
             ticket,
             args.runner,
+            blocked_policy,
             from_qa=args.from_qa,
             work_item_key=args.work_item_key,
             select_qa_handoff=args.select_qa_handoff,
@@ -1594,7 +1611,25 @@ def main(argv: List[str] | None = None) -> int:
             chosen_scope = mismatch_to
         if not str(chosen_scope).strip() and runtime.is_valid_work_item_key(step_work_item):
             chosen_scope = runtime.resolve_scope_key(step_work_item, ticket)
-        recoverable_blocked = bool(step_status == "blocked" and _is_recoverable_block_reason(str(log_reason_code)))
+        reason_class = "not_recoverable"
+        if step_status == "blocked":
+            classification = loop_block_policy.classify_block_reason(
+                str(log_reason_code),
+                blocked_policy,
+                os.environ.get("AIDD_HOOKS_MODE"),
+                target=target,
+            )
+            reason_class = str(classification.get("reason_class") or "not_recoverable")
+        recoverable_blocked = bool(step_status == "blocked" and reason_class == "recoverable_retry")
+        warn_continue_blocked = bool(step_status == "blocked" and reason_class == "warn_continue" and blocked_policy == "ralph")
+        if step_status == "blocked":
+            step_payload = dict(step_payload)
+            step_payload["ralph_reason_class"] = reason_class
+            step_payload["ralph_policy_version"] = (
+                loop_block_policy.RALPH_POLICY_VERSION
+                if blocked_policy == "ralph"
+                else ""
+            )
         if not stage_result_path and step_status == "blocked":
             step_stage = str(step_payload.get("stage") or "").strip().lower()
             fallback_scope = str(chosen_scope or runtime.resolve_scope_key("", ticket)).strip()
@@ -1703,7 +1738,8 @@ def main(argv: List[str] | None = None) -> int:
                 f"work_item_key={step_work_item or 'null'} "
                 f"exit_code={step_exit_code} reason_code={log_reason_code} runner={runner_label} "
                 f"runner_cmd={runner_effective} reason={reason} blocked_policy={blocked_policy} "
-                f"recoverable_blocked={'1' if recoverable_blocked else '0'}"
+                f"recoverable_blocked={'1' if recoverable_blocked else '0'} "
+                f"ralph_reason_class={reason_class}"
                 + (f" chosen_scope_key={chosen_scope}" if chosen_scope else "")
                 + (f" scope_key_mismatch_warn={mismatch_warn}" if mismatch_warn else "")
                 + (f" mismatch_from={mismatch_from} mismatch_to={mismatch_to}" if mismatch_to else "")
@@ -1745,6 +1781,7 @@ def main(argv: List[str] | None = None) -> int:
                 f"stage={step_payload.get('stage')} scope_key={scope_key} exit_code={step_exit_code} "
                 f"runner_cmd={runner_effective} blocked_policy={blocked_policy} "
                 f"recoverable_blocked={'1' if recoverable_blocked else '0'} "
+                f"ralph_reason_class={reason_class} "
                 f"work_item_key={step_work_item or 'null'} "
                 f"active_stage_sync_applied={'1' if active_stage_sync_applied else '0'}"
             ),
@@ -1828,6 +1865,34 @@ def main(argv: List[str] | None = None) -> int:
                 if sleep_seconds:
                     time.sleep(sleep_seconds)
                 continue
+            if warn_continue_blocked:
+                step_payload = dict(step_payload)
+                step_payload["status"] = "continue"
+                step_payload["reason_code"] = log_reason_code
+                step_payload["reason"] = reason
+                step_payload["recoverable_blocked"] = False
+                step_payload["retry_attempt"] = recoverable_retry_attempt
+                step_payload["blocked_policy"] = blocked_policy
+                step_payload["ralph_reason_class"] = reason_class
+                last_payload = step_payload
+                append_log(
+                    log_path,
+                    (
+                        f"{utc_timestamp()} event=warn-continue iteration={iteration} "
+                        f"reason_code={log_reason_code} ralph_reason_class={reason_class} "
+                        "classification=policy_matrix_v2_warn_continue"
+                    ),
+                )
+                append_log(
+                    cli_log_path,
+                    (
+                        f"{utc_timestamp()} event=warn-continue iteration={iteration} "
+                        f"reason_code={log_reason_code} ralph_reason_class={reason_class}"
+                    ),
+                )
+                if sleep_seconds:
+                    time.sleep(sleep_seconds)
+                continue
             scope_drift_probe_allowed = True
             if log_reason_code == "scope_drift_recoverable":
                 scope_drift_probe_allowed = not scope_drift_recovery_probe_used
@@ -1855,6 +1920,8 @@ def main(argv: List[str] | None = None) -> int:
                 step_payload["recovery_path"] = recovery_path
                 step_payload["blocked_policy"] = blocked_policy
                 step_payload["recovery_work_item"] = recovery_work_item or None
+                step_payload["ralph_policy_version"] = loop_block_policy.RALPH_POLICY_VERSION
+                step_payload["ralph_reason_class"] = reason_class
                 last_payload = step_payload
                 append_log(
                     log_path,
@@ -1895,7 +1962,10 @@ def main(argv: List[str] | None = None) -> int:
             ralph_semantics = _ralph_recoverable_semantics(
                 blocked_policy=blocked_policy,
                 reason_code=str(log_reason_code or ""),
+                reason_class=reason_class,
                 recoverable_blocked=recoverable_blocked,
+                retry_attempt=recoverable_retry_attempt,
+                recoverable_retry_budget=recoverable_retry_budget,
             )
             payload = {
                 "status": "blocked",
@@ -1909,6 +1979,7 @@ def main(argv: List[str] | None = None) -> int:
                 "stream_jsonl_path": runtime.rel_path(stream_jsonl_path, target) if stream_jsonl_path else "",
                 "reason": reason,
                 "reason_code": log_reason_code,
+                "ralph_reason_class": reason_class,
                 "recoverable_blocked": recoverable_blocked,
                 "retry_attempt": recoverable_retry_attempt,
                 "recoverable_retry_budget": recoverable_retry_budget,
@@ -1979,12 +2050,16 @@ def main(argv: List[str] | None = None) -> int:
     }
     if blocked_policy == "ralph":
         last_reason = str((last_payload or {}).get("reason_code") or "")
+        last_reason_class = str((last_payload or {}).get("ralph_reason_class") or "not_recoverable")
         last_recoverable = bool((last_payload or {}).get("recoverable_blocked"))
         payload.update(
             _ralph_recoverable_semantics(
                 blocked_policy=blocked_policy,
                 reason_code=last_reason,
+                reason_class=last_reason_class,
                 recoverable_blocked=last_recoverable,
+                retry_attempt=recoverable_retry_attempt,
+                recoverable_retry_budget=recoverable_retry_budget,
             )
         )
     clear_active_mode(target)
