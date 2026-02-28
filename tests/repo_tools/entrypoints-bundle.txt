@@ -175,8 +175,8 @@
       "lang": "ru",
       "name": "implement",
       "path": "skills/implement/SKILL.md",
-      "prompt_version": "1.1.48",
-      "source_version": "1.1.48",
+      "prompt_version": "1.1.49",
+      "source_version": "1.1.49",
       "user_invocable": "true"
     },
     {
@@ -184,8 +184,8 @@
       "lang": "ru",
       "name": "plan-new",
       "path": "skills/plan-new/SKILL.md",
-      "prompt_version": "1.1.16",
-      "source_version": "1.1.16",
+      "prompt_version": "1.1.17",
+      "source_version": "1.1.17",
       "user_invocable": "true"
     },
     {
@@ -193,8 +193,8 @@
       "lang": "ru",
       "name": "qa",
       "path": "skills/qa/SKILL.md",
-      "prompt_version": "1.0.38",
-      "source_version": "1.0.38",
+      "prompt_version": "1.0.39",
+      "source_version": "1.0.39",
       "user_invocable": "true"
     },
     {
@@ -211,8 +211,8 @@
       "lang": "ru",
       "name": "review-spec",
       "path": "skills/review-spec/SKILL.md",
-      "prompt_version": "1.0.24",
-      "source_version": "1.0.24",
+      "prompt_version": "1.0.25",
+      "source_version": "1.0.25",
       "user_invocable": "true"
     },
     {
@@ -220,8 +220,8 @@
       "lang": "ru",
       "name": "review",
       "path": "skills/review/SKILL.md",
-      "prompt_version": "1.0.43",
-      "source_version": "1.0.43",
+      "prompt_version": "1.0.44",
+      "source_version": "1.0.44",
       "user_invocable": "true"
     },
     {

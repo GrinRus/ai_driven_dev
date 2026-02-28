@@ -3,8 +3,8 @@ name: qa
 description: Runs QA-stage validation, report generation, and postflight actions for the current scope. Use when QA stage is ready for loop verification.
 argument-hint: $1 [note...]
 lang: ru
-prompt_version: 1.0.38
-source_version: 1.0.38
+prompt_version: 1.0.39
+source_version: 1.0.39
 allowed-tools:
   - Read
   - Edit
@@ -45,7 +45,7 @@ Follow `feature-dev-aidd:aidd-core` and `feature-dev-aidd:aidd-loop`.
 5. Retry safety: do not rerun the same failing shell command more than once without new evidence/artifacts. For cwd/build mismatches, stop with blocker and handoff instead of looped retries.
 6. Read order after stage-chain preflight artifacts: `readmap.md` -> loop pack -> review pack (if exists) -> rolling context pack; do not perform broad repo scan before these artifacts.
 7. Run subagent `feature-dev-aidd:qa`.
-8. Orchestration: run QA via `python3 ${CLAUDE_PLUGIN_ROOT}/skills/qa/runtime/qa.py`, derive tasks if needed, then Fill actions.json for `aidd/reports/actions/<ticket>/<scope_key>/qa.actions.json` strictly as `aidd.actions.v1` (`schema_version`, `allowed_action_types`, canonical `type` + `params`) and validate via `python3 ${CLAUDE_PLUGIN_ROOT}/skills/qa/runtime/qa_run.py`.
+8. Orchestration: run QA via `python3 ${CLAUDE_PLUGIN_ROOT}/skills/qa/runtime/qa.py`, derive tasks if needed, then Fill actions.json for `aidd/reports/actions/<ticket>/<scope_key>/qa.actions.json` strictly as `aidd.actions.v1` (`schema_version`, `allowed_action_types`, canonical `type` + `params`) with action types only from `{tasklist_ops.set_iteration_done, tasklist_ops.append_progress_log, tasklist_ops.next3_recompute, context_pack_ops.context_pack_update}`, and validate via `python3 ${CLAUDE_PLUGIN_ROOT}/skills/qa/runtime/qa_run.py`.
 9. Canonical stage-chain: internal preflight -> stage runtime -> actions_apply.py/postflight -> `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py`. `[AIDD_LOOP_POLICY:CANONICAL_STAGE_RESULT_PATH]`
 10. Non-canonical stage-result path under `skills/aidd-loop/runtime/` is forbidden (treat as prompt-flow drift). `[AIDD_LOOP_POLICY:NON_CANONICAL_STAGE_RESULT_FORBIDDEN]`
 11. Output: return QA status contract with report paths and explicit canonical next action (`/feature-dev-aidd:status <ticket>` or `/feature-dev-aidd:tasks-new <ticket>` when follow-up tasks are required).

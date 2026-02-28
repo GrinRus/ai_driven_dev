@@ -574,6 +574,66 @@ class LoopRunTests(unittest.TestCase):
             probe_mock.assert_called_once()
             step_mock.assert_not_called()
 
+    def test_loop_run_research_gate_ralph_worklist_missing_uses_worklist_recovery_path(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-RLM-WORKLIST-RALPH-BLOCK"
+            write_active_state(root, ticket=ticket, stage="implement", work_item="iteration_id=I1")
+            captured = io.StringIO()
+            cwd = os.getcwd()
+            try:
+                os.chdir(root.parent)
+                with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
+                    with patch("aidd_runtime.loop_run._should_enforce_loop_research_gate", return_value=True):
+                        with patch(
+                            "aidd_runtime.loop_run._validate_loop_research_gate",
+                            return_value=(
+                                False,
+                                "rlm_worklist_missing",
+                                "BLOCK: worklist missing (reason_code=rlm_worklist_missing)",
+                                "python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_nodes_build.py --ticket DEMO-RLM-WORKLIST-RALPH-BLOCK --refresh-worklist",
+                            ),
+                        ):
+                            with patch(
+                                "aidd_runtime.loop_run._run_research_gate_probe",
+                                return_value=(
+                                    False,
+                                    "python3 /plugin/skills/aidd-rlm/runtime/rlm_nodes_build.py --ticket DEMO-RLM-WORKLIST-RALPH-BLOCK --refresh-worklist",
+                                    "probe_exit=1",
+                                    1,
+                                ),
+                            ) as probe_mock:
+                                with patch("aidd_runtime.loop_run.run_loop_step") as step_mock:
+                                    with redirect_stdout(captured):
+                                        code = loop_run_module.main(
+                                            [
+                                                "--ticket",
+                                                ticket,
+                                                "--max-iterations",
+                                                "1",
+                                                "--research-gate",
+                                                "on",
+                                                "--blocked-policy",
+                                                "ralph",
+                                                "--recoverable-block-retries",
+                                                "1",
+                                                "--format",
+                                                "json",
+                                            ]
+                                        )
+            finally:
+                os.chdir(cwd)
+
+            self.assertEqual(code, 20)
+            payload = json.loads(captured.getvalue())
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertEqual(payload.get("reason_code"), "rlm_worklist_missing")
+            self.assertEqual(payload.get("recoverable_blocked"), True)
+            self.assertEqual(payload.get("retry_attempt"), 1)
+            self.assertEqual(payload.get("recovery_path"), "research_gate_worklist_rebuild_probe")
+            probe_mock.assert_called_once()
+            step_mock.assert_not_called()
+
     def test_loop_run_research_gate_strict_skips_recovery_probe(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))

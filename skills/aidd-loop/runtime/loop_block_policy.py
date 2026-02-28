@@ -36,6 +36,7 @@ DEFAULT_RECOVERABLE_REASONS: Set[str] = {
     "blocking_findings",
     "scope_drift_recoverable",
     "rlm_links_empty_warn",
+    "rlm_worklist_missing",
     "rlm_status_pending",
     "no_tests_hard",
     "qa_tests_failed",

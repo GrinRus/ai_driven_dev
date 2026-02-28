@@ -384,10 +384,16 @@ def run(args: argparse.Namespace) -> int:
 
     pack_only = bool(args.pack_only or os.getenv("AIDD_PACK_ONLY", "").strip() == "1")
     if pack_only and pack_path and pack_path.exists():
+        same_target = False
         try:
-            output_path.unlink()
+            same_target = output_path.resolve() == pack_path.resolve()
         except OSError:
-            pass
+            same_target = output_path == pack_path
+        if not same_target:
+            try:
+                output_path.unlink()
+            except OSError:
+                pass
     if getattr(args, "require_ready", False) and report.recommended_status != "ready":
         print(
             "[prd-review] ERROR: report is not ready "

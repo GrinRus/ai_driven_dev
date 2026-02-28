@@ -588,7 +588,7 @@ def cli_cmd(*args: str) -> list[str]:
         script = REPO_ROOT / "skills" / "plan-new" / "runtime" / "research_check.py"
         python_mode = True
     elif cmd in {"prd-review"}:
-        script = REPO_ROOT / "skills" / "review-spec" / "runtime" / "prd_review_cli.py"
+        script = REPO_ROOT / "skills" / "aidd-core" / "runtime" / "prd_review.py"
         python_mode = True
     elif cmd == "research":
         script = REPO_ROOT / "skills" / "researcher" / "runtime" / "research.py"

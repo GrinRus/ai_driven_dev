@@ -607,7 +607,7 @@ Anti-cascade:
   - выполнить ровно один sync-retry `/feature-dev-aidd:plan-new $TICKET AIDD:SYNC_FROM_REVIEW ...`;
   - повторить `/feature-dev-aidd:review-spec $TICKET` один раз.
 - если hang/kill: runtime probe
-  - `python3 $PLUGIN_DIR/skills/review-spec/runtime/prd_review_cli.py --ticket $TICKET`
+  - `python3 $PLUGIN_DIR/skills/aidd-core/runtime/prd_review.py --ticket $TICKET`
 
 #### 5.5 tasks-new
 

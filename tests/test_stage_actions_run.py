@@ -1,4 +1,5 @@
 import io
+import json
 import tempfile
 import unittest
 from argparse import Namespace
@@ -52,6 +53,43 @@ class StageActionsRunTests(unittest.TestCase):
 
             self.assertEqual(code, launcher.RUNTIME_FAILURE_EXIT_CODE)
             self.assertIn("reason_code=launcher_io_enospc", stderr.getvalue())
+
+    def test_actions_contract_diagnostics_include_supported_types_and_first_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="stage-actions-run-") as tmpdir:
+            root = Path(tmpdir)
+            actions_path = root / "reports" / "actions" / "DEMO-1" / "iteration_id_I1" / "implement.actions.json"
+            actions_path.parent.mkdir(parents=True, exist_ok=True)
+            actions_path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "aidd.actions.v1",
+                        "stage": "implement",
+                        "ticket": "DEMO-1",
+                        "scope_key": "iteration_id_I1",
+                        "work_item_key": "iteration_id=I1",
+                        "allowed_action_types": ["tasklist_ops.add_handoff_item"],
+                        "actions": [],
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            context = launcher.LaunchContext(
+                root=root,
+                ticket="DEMO-1",
+                scope_key="iteration_id_I1",
+                work_item_key="iteration_id=I1",
+                stage="implement",
+            )
+
+            diagnostics = stage_actions_run._build_actions_contract_diagnostics(actions_path, context=context)
+
+            self.assertTrue(any(line.startswith("supported_action_types=") for line in diagnostics))
+            self.assertIn(
+                "first_action_type_mismatch=allowed_action_types[0]='tasklist_ops.add_handoff_item':unsupported_type",
+                diagnostics,
+            )
+            self.assertTrue(any("canonical_example_aidd_actions_v1=" in line for line in diagnostics))
 
 
 if __name__ == "__main__":

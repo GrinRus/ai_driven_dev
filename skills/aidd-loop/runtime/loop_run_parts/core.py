@@ -545,6 +545,13 @@ def _run_research_gate_probe(
     return True, expanded, "", result.returncode
 
 
+def _research_gate_recovery_path(reason_code: str) -> str:
+    normalized = str(reason_code or "").strip().lower()
+    if normalized == "rlm_worklist_missing":
+        return "research_gate_worklist_rebuild_probe"
+    return "research_gate_links_build_probe"
+
+
 def _apply_recoverable_block_recovery(
     *,
     target: Path,
@@ -1120,7 +1127,7 @@ def main(argv: List[str] | None = None) -> int:
             )
             if recoverable_gate:
                 recoverable_retry_attempt += 1
-                last_recovery_path = "research_gate_links_build_probe"
+                last_recovery_path = _research_gate_recovery_path(research_reason_code)
                 probe_ok, probe_command, probe_detail, probe_exit_code = _run_research_gate_probe(
                     target=target,
                     plugin_root=plugin_root,
