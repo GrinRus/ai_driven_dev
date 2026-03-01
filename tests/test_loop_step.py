@@ -1553,7 +1553,7 @@ class LoopStepTests(unittest.TestCase):
             self.assertTrue(payload.get("report_noise_events"))
             self.assertTrue(payload.get("marker_signal_events"))
 
-    def test_loop_step_recovers_scope_from_stage_result(self) -> None:
+    def test_loop_step_blocks_transition_on_scope_mismatch_for_implement(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             write_active_state(root, work_item="iteration_id=I2")
@@ -1597,12 +1597,16 @@ class LoopStepTests(unittest.TestCase):
                 "--format",
                 "json",
             )
-            self.assertEqual(result.returncode, 10, msg=result.stderr)
+            self.assertEqual(result.returncode, 20, msg=result.stderr)
             payload = json.loads(result.stdout)
-            self.assertEqual(payload.get("scope_key"), "iteration_id_I4")
+            self.assertEqual(payload.get("reason_code"), "scope_mismatch_transition_blocked")
+            self.assertEqual(payload.get("scope_key"), "iteration_id_I2")
             self.assertEqual(payload.get("scope_key_mismatch_warn"), "1")
+            self.assertEqual(payload.get("scope_mismatch_non_authoritative"), True)
+            self.assertEqual(payload.get("expected_scope_key"), "iteration_id_I2")
+            self.assertEqual(payload.get("selected_scope_key"), "iteration_id_I4")
 
-    def test_loop_step_realigns_actions_log_scope_on_mismatch(self) -> None:
+    def test_loop_step_mismatch_keeps_expected_actions_scope(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             write_active_state(root, work_item="iteration_id=I2")
@@ -1635,14 +1639,14 @@ class LoopStepTests(unittest.TestCase):
                 "--format",
                 "json",
             )
-            self.assertEqual(result.returncode, 10, msg=result.stderr)
+            self.assertEqual(result.returncode, 20, msg=result.stderr)
             payload = json.loads(result.stdout)
-            self.assertEqual(payload.get("scope_key"), "iteration_id_I4")
+            self.assertEqual(payload.get("reason_code"), "scope_mismatch_transition_blocked")
+            self.assertEqual(payload.get("scope_key"), "iteration_id_I2")
             self.assertEqual(payload.get("scope_key_mismatch_warn"), "1")
-            self.assertEqual(
-                payload.get("actions_log_path"),
-                "aidd/reports/actions/DEMO-ACTIONS-MISMATCH/iteration_id_I4/implement.actions.json",
-            )
+            self.assertEqual(payload.get("scope_mismatch_non_authoritative"), True)
+            self.assertEqual(payload.get("expected_scope_key"), "iteration_id_I2")
+            self.assertEqual(payload.get("selected_scope_key"), "iteration_id_I4")
 
     def test_load_stage_result_prefers_canonical_scope_candidate_over_alias(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
