@@ -32,6 +32,8 @@ Follow `feature-dev-aidd:aidd-core`.
 6. In `--auto` mode run bounded canonical finalize recovery once (`rlm_finalize --bootstrap-if-missing`) from stage runtime.
 7. If RLM is still pending after auto recovery, return deterministic pending reason + explicit next action (`python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_finalize.py --ticket <ticket>`) and append research handoff via `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/tasks_derive.py --source research --append`.
 8. Return the output contract with explicit next step (`/feature-dev-aidd:plan-new <ticket>` when stage handoff is ready).
+9. Runtime-path safety: deprecated aliases `set_stage.py`, `active-stage.py`, `context_pack.py`, `research_status.py` are forbidden.
+10. Root-relative `/skills/...` runtime paths are forbidden; use only `${CLAUDE_PLUGIN_ROOT}/skills/.../runtime/...`.
 
 ## Command contracts
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py`

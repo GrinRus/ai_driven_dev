@@ -29,8 +29,10 @@ Follow `feature-dev-aidd:aidd-core`.
 2. Run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan-new/runtime/research_check.py --ticket <ticket>`.
 3. Gate readiness with `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/prd_check.py` and `python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan-new/runtime/research_check.py`; block if either fails.
 4. Use the existing rolling context pack as input evidence; do not invoke standalone context-pack builder scripts from this stage.
-5. Run subagent `feature-dev-aidd:planner`, then run subagent `feature-dev-aidd:validator`; keep updates within plan artifacts and canonical stage outputs.
-6. Update `aidd/docs/plan/<ticket>.md` and return the output contract.
+5. Runtime-path safety: do not use deprecated aliases `set_stage.py`, `active-stage.py`, `context_pack.py`, `research_status.py`; canonical-only runtime calls are required (`python3 ${CLAUDE_PLUGIN_ROOT}/skills/.../runtime/...`).
+6. Root-relative `/skills/...` runtime paths are forbidden; use only `${CLAUDE_PLUGIN_ROOT}/skills/.../runtime/...`.
+7. Run subagent `feature-dev-aidd:planner`, then run subagent `feature-dev-aidd:validator`; keep updates within plan artifacts and canonical stage outputs.
+8. Update `aidd/docs/plan/<ticket>.md` and return the output contract.
 
 ## Command contracts
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan-new/runtime/research_check.py`

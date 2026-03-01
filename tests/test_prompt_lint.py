@@ -1241,6 +1241,38 @@ class PromptLintTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("deprecated runtime alias `stage_set.py`", result.stderr)
 
+    def test_stage_skill_non_canonical_runtime_alias_without_ban_fails(self) -> None:
+        bad_skill = build_stage_skill("review-spec").replace(
+            "## Steps\n1. Run subagent `feature-dev-aidd:plan-reviewer`.\n2. Run subagent `feature-dev-aidd:prd-reviewer`.",
+            (
+                "## Steps\n"
+                "1. Run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_stage.py --stage review-prd`."
+            ),
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, skill_override={"review-spec": bad_skill})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("deprecated runtime alias `set_stage.py`", result.stderr)
+
+    def test_stage_skill_absolute_skills_runtime_path_fails(self) -> None:
+        bad_skill = build_stage_skill("plan-new").replace(
+            "## Steps\n1. Run subagent `feature-dev-aidd:planner`.\n2. Run subagent `feature-dev-aidd:validator`.",
+            (
+                "## Steps\n"
+                "1. Run `python3 /skills/aidd-flow-state/runtime/set_active_stage.py --stage plan`."
+            ),
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, skill_override={"plan-new": bad_skill})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("must not use root-relative `/skills/...` runtime paths", result.stderr)
+
     def test_stage_skill_context_pack_refresh_without_agent_fails(self) -> None:
         bad_skill = build_stage_skill("plan-new").replace(
             "## Steps\n1. Run subagent `feature-dev-aidd:planner`.\n2. Run subagent `feature-dev-aidd:validator`.",

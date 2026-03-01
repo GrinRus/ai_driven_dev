@@ -93,6 +93,7 @@ STAGE_DEFAULT_BUDGET_SECONDS = {
 }
 DEFAULT_RESEARCH_GATE_PROBE_TIMEOUT_SECONDS = 180
 LOOP_RESULT_SCHEMA = "aidd.loop_result.v1"
+PROMPT_FLOW_DRIFT_REASON_FAMILY = "prompt_flow_drift_non_canonical_runtime_path"
 
 
 def clear_active_mode(root: Path) -> None:
@@ -205,6 +206,15 @@ def _safe_updated_at(path: Optional[Path]) -> str:
         return ts.isoformat()
     except OSError:
         return ""
+
+
+def _safe_mtime(path: Optional[Path]) -> float:
+    if path is None or not path.exists():
+        return 0.0
+    try:
+        return float(path.stat().st_mtime)
+    except OSError:
+        return 0.0
 
 
 def _truthy_flag(value: object) -> bool:
@@ -1371,6 +1381,7 @@ def main(argv: List[str] | None = None) -> int:
             timeout_seconds = watchdog_timeout_seconds
             budget_exhausted_on_timeout = False
 
+        iteration_started_at = time.time()
         result = run_loop_step(
             plugin_root,
             workspace_root,
@@ -1606,9 +1617,14 @@ def main(argv: List[str] | None = None) -> int:
                 reason = f"loop-step returned invalid JSON payload: {parse_error}"
             else:
                 reason = f"{step_stage or 'stage'} blocked"
+        scope_mismatch_non_authoritative = bool(step_payload.get("scope_mismatch_non_authoritative"))
+        expected_scope_key_payload = str(step_payload.get("expected_scope_key") or "").strip()
+        selected_scope_key_payload = str(step_payload.get("selected_scope_key") or "").strip()
         chosen_scope = repair_scope or scope_key
-        if mismatch_to:
+        if mismatch_to and not scope_mismatch_non_authoritative:
             chosen_scope = mismatch_to
+        if scope_mismatch_non_authoritative and expected_scope_key_payload:
+            chosen_scope = expected_scope_key_payload
         if not str(chosen_scope).strip() and runtime.is_valid_work_item_key(step_work_item):
             chosen_scope = runtime.resolve_scope_key(step_work_item, ticket)
         reason_class = "not_recoverable"
@@ -1621,6 +1637,9 @@ def main(argv: List[str] | None = None) -> int:
             )
             reason_class = str(classification.get("reason_class") or "not_recoverable")
         recoverable_blocked = bool(step_status == "blocked" and reason_class == "recoverable_retry")
+        strict_recoverable_reason_class = (
+            reason_class if blocked_policy == "strict" and reason_class == "recoverable_retry" else ""
+        )
         warn_continue_blocked = bool(step_status == "blocked" and reason_class == "warn_continue" and blocked_policy == "ralph")
         if step_status == "blocked":
             step_payload = dict(step_payload)
@@ -1630,12 +1649,19 @@ def main(argv: List[str] | None = None) -> int:
                 if blocked_policy == "ralph"
                 else ""
             )
+            step_payload["strict_recoverable_reason_class"] = strict_recoverable_reason_class
         if not stage_result_path and step_status == "blocked":
             step_stage = str(step_payload.get("stage") or "").strip().lower()
             fallback_scope = str(chosen_scope or runtime.resolve_scope_key("", ticket)).strip()
             if step_stage:
                 stage_result_path = f"aidd/reports/loops/{ticket}/{fallback_scope}/stage.{step_stage}.result.json"
         stream_path_invalid: List[str] = []
+        stream_path_stale: List[str] = []
+
+        def _stale_stream(path: Optional[Path]) -> bool:
+            if path is None or not path.exists():
+                return False
+            return _safe_mtime(path) + 1.0 < iteration_started_at
         if stream_mode and stream_log_path and step_stream_log:
             step_stream_log_path, invalid_path = _resolve_path_within_target(
                 target,
@@ -1645,14 +1671,17 @@ def main(argv: List[str] | None = None) -> int:
             if invalid_path:
                 stream_path_invalid.append(invalid_path)
             elif step_stream_log_path:
-                append_stream_file(
-                    stream_log_path,
-                    step_stream_log_path,
-                    header=(
-                        f"==> loop-step iteration={iteration} stage={step_payload.get('stage')} "
-                        f"stream_log={step_stream_log}"
-                    ),
-                )
+                if _stale_stream(step_stream_log_path):
+                    stream_path_stale.append(f"step_stream_log_path:stale:{step_stream_log_path.as_posix()}")
+                else:
+                    append_stream_file(
+                        stream_log_path,
+                        step_stream_log_path,
+                        header=(
+                            f"==> loop-step iteration={iteration} stage={step_payload.get('stage')} "
+                            f"stream_log={step_stream_log}"
+                        ),
+                    )
         if stream_mode and stream_jsonl_path and step_stream_jsonl:
             step_jsonl_path, invalid_path = _resolve_path_within_target(
                 target,
@@ -1662,7 +1691,10 @@ def main(argv: List[str] | None = None) -> int:
             if invalid_path:
                 stream_path_invalid.append(invalid_path)
             elif step_jsonl_path:
-                append_stream_file(stream_jsonl_path, step_jsonl_path)
+                if _stale_stream(step_jsonl_path):
+                    stream_path_stale.append(f"step_stream_jsonl_path:stale:{step_jsonl_path.as_posix()}")
+                else:
+                    append_stream_file(stream_jsonl_path, step_jsonl_path)
         step_main_log_abs, main_log_invalid = _resolve_path_within_target(
             target,
             step_command_log,
@@ -1678,6 +1710,9 @@ def main(argv: List[str] | None = None) -> int:
         )
         if step_stream_log_invalid:
             stream_path_invalid.append(step_stream_log_invalid)
+        elif _stale_stream(step_stream_log_abs):
+            stream_path_stale.append(f"step_stream_log_path:stale:{step_stream_log_abs.as_posix()}")
+            step_stream_log_abs = None
         step_stream_jsonl_abs, step_stream_jsonl_invalid = _resolve_path_within_target(
             target,
             step_stream_jsonl,
@@ -1685,8 +1720,13 @@ def main(argv: List[str] | None = None) -> int:
         )
         if step_stream_jsonl_invalid:
             stream_path_invalid.append(step_stream_jsonl_invalid)
+        elif _stale_stream(step_stream_jsonl_abs):
+            stream_path_stale.append(f"step_stream_jsonl_path:stale:{step_stream_jsonl_abs.as_posix()}")
+            step_stream_jsonl_abs = None
         if stream_path_invalid:
             stream_path_invalid = sorted(set(stream_path_invalid))
+        if stream_path_stale:
+            stream_path_stale = sorted(set(stream_path_stale))
         stream_liveness = {
             "main_log_path": runtime.rel_path(main_log_abs, target),
             "main_log_bytes": _safe_size(main_log_abs),
@@ -1698,6 +1738,8 @@ def main(argv: List[str] | None = None) -> int:
             "observability_degraded": False,
             "stream_path_invalid_count": len(stream_path_invalid),
             "stream_path_invalid": stream_path_invalid,
+            "stream_path_stale_count": len(stream_path_stale),
+            "stream_path_stale": stream_path_stale,
         }
         if stream_liveness["step_stream_jsonl_bytes"] > 0 or stream_liveness["step_stream_log_bytes"] > 0:
             stream_liveness["active_source"] = "stream"
@@ -1709,13 +1751,17 @@ def main(argv: List[str] | None = None) -> int:
             stream_liveness["observability_degraded"] = True
             if stream_path_invalid:
                 stream_liveness["degraded_reason"] = "stream_path_invalid"
+            elif stream_path_stale:
+                stream_liveness["degraded_reason"] = "stream_path_stale"
             elif step_stream_log or step_stream_jsonl:
                 stream_liveness["degraded_reason"] = "stream_artifacts_missing_or_empty"
             else:
                 stream_liveness["degraded_reason"] = "stream_paths_missing"
-        if stream_mode and stream_liveness["active_source"] == "none" and stream_path_invalid:
+        if stream_mode and stream_liveness["active_source"] == "none" and (stream_path_invalid or stream_path_stale):
             stream_liveness["observability_degraded"] = True
-            stream_liveness["degraded_reason"] = "stream_path_invalid"
+            stream_liveness["degraded_reason"] = (
+                "stream_path_invalid" if stream_path_invalid else "stream_path_stale"
+            )
 
         if step_termination_attribution is not None or step_status == "blocked":
             watchdog_hint = bool(
@@ -1729,6 +1775,9 @@ def main(argv: List[str] | None = None) -> int:
                 watchdog_hint=watchdog_hint,
             )
             step_watchdog_marker = normalized_watchdog_marker
+        reason_family = str(step_payload.get("reason_family") or "").strip().lower()
+        if not reason_family and str(log_reason_code).strip().lower() == "runtime_path_missing_or_drift":
+            reason_family = PROMPT_FLOW_DRIFT_REASON_FAMILY
 
         append_log(
             log_path,
@@ -1740,9 +1789,18 @@ def main(argv: List[str] | None = None) -> int:
                 f"runner_cmd={runner_effective} reason={reason} blocked_policy={blocked_policy} "
                 f"recoverable_blocked={'1' if recoverable_blocked else '0'} "
                 f"ralph_reason_class={reason_class}"
+                + (f" strict_recoverable_reason_class={strict_recoverable_reason_class}" if strict_recoverable_reason_class else "")
                 + (f" chosen_scope_key={chosen_scope}" if chosen_scope else "")
+                + (f" expected_scope_key={expected_scope_key_payload}" if expected_scope_key_payload else "")
+                + (f" selected_scope_key={selected_scope_key_payload}" if selected_scope_key_payload else "")
+                + (
+                    f" scope_mismatch_non_authoritative={'1' if scope_mismatch_non_authoritative else '0'}"
+                    if mismatch_to or scope_mismatch_non_authoritative
+                    else ""
+                )
                 + (f" scope_key_mismatch_warn={mismatch_warn}" if mismatch_warn else "")
                 + (f" mismatch_from={mismatch_from} mismatch_to={mismatch_to}" if mismatch_to else "")
+                + (f" reason_family={reason_family}" if reason_family else "")
                 + (f" active_stage_before={active_stage_before}" if active_stage_before else "")
                 + (f" active_stage_after={active_stage_after}" if active_stage_after else "")
                 + (f" active_stage_sync_applied={'1' if active_stage_sync_applied else '0'}")
@@ -1772,6 +1830,7 @@ def main(argv: List[str] | None = None) -> int:
                 + f" marker_signals={len(marker_signal_events)} marker_noise={len(report_noise_events)}"
                 + (f" report_noise={report_noise}" if report_noise else "")
                 + (f" stream_path_invalid={','.join(stream_path_invalid)}" if stream_path_invalid else "")
+                + (f" stream_path_stale={','.join(stream_path_stale)}" if stream_path_stale else "")
             ),
         )
         append_log(
@@ -1782,8 +1841,9 @@ def main(argv: List[str] | None = None) -> int:
                 f"runner_cmd={runner_effective} blocked_policy={blocked_policy} "
                 f"recoverable_blocked={'1' if recoverable_blocked else '0'} "
                 f"ralph_reason_class={reason_class} "
-                f"work_item_key={step_work_item or 'null'} "
-                f"active_stage_sync_applied={'1' if active_stage_sync_applied else '0'}"
+                + (f"strict_recoverable_reason_class={strict_recoverable_reason_class} " if strict_recoverable_reason_class else "")
+                + f"work_item_key={step_work_item or 'null'} "
+                + f"active_stage_sync_applied={'1' if active_stage_sync_applied else '0'}"
             ),
         )
         if step_exit_code == DONE_CODE:
@@ -1897,8 +1957,7 @@ def main(argv: List[str] | None = None) -> int:
             if log_reason_code == "scope_drift_recoverable":
                 scope_drift_probe_allowed = not scope_drift_recovery_probe_used
             if (
-                blocked_policy == "ralph"
-                and recoverable_blocked
+                recoverable_blocked
                 and recoverable_retry_attempt < recoverable_retry_budget
                 and scope_drift_probe_allowed
             ):
@@ -1979,13 +2038,18 @@ def main(argv: List[str] | None = None) -> int:
                 "stream_jsonl_path": runtime.rel_path(stream_jsonl_path, target) if stream_jsonl_path else "",
                 "reason": reason,
                 "reason_code": log_reason_code,
+                "reason_family": reason_family or None,
                 "ralph_reason_class": reason_class,
+                "strict_recoverable_reason_class": strict_recoverable_reason_class or None,
                 "recoverable_blocked": recoverable_blocked,
                 "retry_attempt": recoverable_retry_attempt,
                 "recoverable_retry_budget": recoverable_retry_budget,
                 "recovery_path": last_recovery_path,
                 "runner_cmd": runner_effective,
                 "scope_key": chosen_scope,
+                "expected_scope_key": expected_scope_key_payload or None,
+                "selected_scope_key": selected_scope_key_payload or None,
+                "scope_mismatch_non_authoritative": bool(scope_mismatch_non_authoritative),
                 "work_item_key": step_work_item or None,
                 "stage_budget_seconds": (
                     stage_budget_seconds_payload

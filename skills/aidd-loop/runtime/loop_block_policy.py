@@ -63,11 +63,15 @@ DEFAULT_WARN_CONTINUE_REASONS: Set[str] = {
     "no_boundaries_defined_warn",
     "auto_boundary_extend_warn",
 }
+DEFAULT_STRICT_RECOVERABLE_REASONS: Set[str] = {
+    "no_tests_hard",
+}
 
 _ENV_REASON_KEYS = {
     "hard": "AIDD_LOOP_BLOCK_REASON_HARD",
     "recoverable": "AIDD_LOOP_BLOCK_REASON_RECOVERABLE",
     "warn": "AIDD_LOOP_BLOCK_REASON_WARN",
+    "strict_recoverable": "AIDD_LOOP_BLOCK_REASON_STRICT_RECOVERABLE",
 }
 
 
@@ -88,20 +92,27 @@ def _split_reason_codes(value: object) -> Set[str]:
 
 def _load_gates_policy(target: Path | None) -> Dict[str, Set[str]]:
     if target is None:
-        return {"hard": set(), "recoverable": set(), "warn": set()}
+        return {"hard": set(), "recoverable": set(), "warn": set(), "strict_recoverable": set()}
     config = runtime.load_gates_config(target)
     if not isinstance(config, dict):
-        return {"hard": set(), "recoverable": set(), "warn": set()}
+        return {"hard": set(), "recoverable": set(), "warn": set(), "strict_recoverable": set()}
     loop_cfg = config.get("loop")
     if not isinstance(loop_cfg, dict):
-        return {"hard": set(), "recoverable": set(), "warn": set()}
+        return {"hard": set(), "recoverable": set(), "warn": set(), "strict_recoverable": set()}
     reason_cfg = loop_cfg.get("block_reason_policy")
+    strict_recoverable = _split_reason_codes(loop_cfg.get("strict_recoverable_reason_codes"))
     if not isinstance(reason_cfg, dict):
-        return {"hard": set(), "recoverable": set(), "warn": set()}
+        return {
+            "hard": set(),
+            "recoverable": set(),
+            "warn": set(),
+            "strict_recoverable": strict_recoverable,
+        }
     return {
         "hard": _split_reason_codes(reason_cfg.get("hard")),
         "recoverable": _split_reason_codes(reason_cfg.get("recoverable")),
         "warn": _split_reason_codes(reason_cfg.get("warn")),
+        "strict_recoverable": strict_recoverable,
     }
 
 
@@ -110,9 +121,10 @@ def resolve_reason_policy(target: Path | None = None) -> Dict[str, Set[str]]:
         "hard": set(DEFAULT_HARD_BLOCK_REASONS),
         "recoverable": set(DEFAULT_RECOVERABLE_REASONS),
         "warn": set(DEFAULT_WARN_CONTINUE_REASONS),
+        "strict_recoverable": set(DEFAULT_STRICT_RECOVERABLE_REASONS),
     }
     gates_policy = _load_gates_policy(target)
-    for key in ("hard", "recoverable", "warn"):
+    for key in ("hard", "recoverable", "warn", "strict_recoverable"):
         if gates_policy[key]:
             policy[key] = set(gates_policy[key])
     for key, env_name in _ENV_REASON_KEYS.items():
@@ -161,6 +173,8 @@ def classify_block_reason(
     reason_class = "not_recoverable"
     if normalized in policy["hard"]:
         reason_class = "hard_block"
+    elif resolved_policy == "strict" and normalized in policy["strict_recoverable"]:
+        reason_class = "recoverable_retry"
     elif resolved_policy == "ralph":
         if normalized in policy["recoverable"]:
             reason_class = "recoverable_retry"
