@@ -155,6 +155,7 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
     },
     "loop": {
         "blocked_policy": "strict",
+        "strict_recoverable_reason_codes": ["no_tests_hard"],
         "auto_repair_from_qa": False,
         "block_reason_policy": {
             "hard": [

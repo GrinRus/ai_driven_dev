@@ -64,6 +64,10 @@ Key features:
 /plugin install feature-dev-aidd@aidd-local
 ```
 
+Important:
+- For stable namespaced commands, use the `aidd-local` marketplace install path shown above.
+- After `/plugin update feature-dev-aidd@aidd-local`, restart the Claude Code session; otherwise stale slash-command lists may persist.
+
 ### 2. Initialize the workspace
 
 ```text

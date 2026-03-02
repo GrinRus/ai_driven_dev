@@ -57,6 +57,10 @@ NARRATIVE_TBD_PLACEHOLDER_RE = re.compile(
     r"\bcontain(?:s)?\s+tbd\s+placeholders\b",
     re.IGNORECASE,
 )
+RESOLVED_TBD_RE = re.compile(
+    r"\btbd\b\s*(?:[-:]\s*)?(?:resolved|fixed|closed|done)\b",
+    re.IGNORECASE,
+)
 OPEN_ACTION_ITEM_RE = re.compile(r"^- \[\s\]", re.IGNORECASE)
 
 
@@ -223,6 +227,8 @@ def collect_placeholders(content: str) -> Iterable[str]:
             continue
         trimmed = line.strip()
         if not trimmed:
+            continue
+        if RESOLVED_TBD_RE.search(trimmed):
             continue
         if NARRATIVE_TBD_PLACEHOLDER_RE.search(trimmed):
             continue

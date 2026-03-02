@@ -96,6 +96,7 @@ def main(argv: list[str] | None = None) -> int:
             settings=settings,
             branch=args.branch,
             expected_stage=args.expected_stage,
+            allow_scoped_links_empty_warn=args.expected_stage in {"plan", "review", "qa"},
         )
     except ResearchValidationError as exc:
         reason_code = _extract_reason_code(str(exc))
@@ -114,6 +115,7 @@ def main(argv: list[str] | None = None) -> int:
                 settings=settings,
                 branch=args.branch,
                 expected_stage=args.expected_stage,
+                allow_scoped_links_empty_warn=args.expected_stage in {"plan", "review", "qa"},
             )
         except ResearchValidationError as retry_exc:
             raise RuntimeError(

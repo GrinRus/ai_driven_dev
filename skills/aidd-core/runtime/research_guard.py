@@ -393,6 +393,7 @@ def _validate_rlm_evidence(
     doc_status: Optional[str] = None,
     expected_stage: Optional[str] = None,
     allow_review_links_empty_warn: bool = False,
+    allow_scoped_links_empty_warn: bool = False,
     auto_recovery_attempted: bool = False,
 ) -> list[str]:
     warnings: list[str] = []
@@ -486,6 +487,15 @@ def _validate_rlm_evidence(
             rlm_status = "pending"
 
     links_warn = settings.rlm_require_links and links_empty
+    scoped_links_warn_allowed = (
+        links_empty
+        and links_empty_reason in {"no_symbols", "no_matches"}
+        and nodes_total > 0
+        and pack_exists
+        and rlm_targets_path.exists()
+        and rlm_manifest_path.exists()
+        and rlm_worklist_path.exists()
+    )
 
     if ready_required:
         links_warn_tolerated = False
@@ -504,6 +514,14 @@ def _validate_rlm_evidence(
                     "[aidd] WARN: review-stage links_empty accepted after bounded auto-recovery "
                     f"(reason_code=rlm_links_empty_warn, auto_recovery_attempted={'yes' if auto_recovery_attempted else 'no'}). "
                     f"Hint: `{_rlm_links_cmd_hint(ticket)}`.",
+                    file=sys.stderr,
+                )
+            elif allow_scoped_links_empty_warn and scoped_links_warn_allowed and rlm_status == "warn":
+                links_warn_tolerated = True
+                warnings.append("rlm_links_empty_warn_non_blocking")
+                print(
+                    "[aidd] WARN: scoped links-empty accepted for downstream gate "
+                    f"(reason_code=rlm_links_empty_warn, empty_reason={links_empty_reason}).",
                     file=sys.stderr,
                 )
             else:
@@ -564,6 +582,7 @@ def validate_research(
     branch: Optional[str] = None,
     expected_stage: Optional[str] = None,
     allow_review_links_empty_warn: bool = False,
+    allow_scoped_links_empty_warn: bool = False,
     auto_recovery_attempted: bool = False,
 ) -> ResearchCheckSummary:
     if not settings.enabled:
@@ -687,6 +706,7 @@ def validate_research(
         doc_status=status,
         expected_stage=stage or None,
         allow_review_links_empty_warn=allow_review_links_empty_warn,
+        allow_scoped_links_empty_warn=allow_scoped_links_empty_warn,
         auto_recovery_attempted=auto_recovery_attempted,
     )
 

@@ -107,7 +107,14 @@ LEGACY_STAGE_ALIAS_TO_CANONICAL = {
     "/feature-dev-aidd:implementer": "/feature-dev-aidd:implement",
     "/feature-dev-aidd:reviewer": "/feature-dev-aidd:review",
 }
-DEPRECATED_ACTIVE_STATE_ALIAS_TOKENS = ("stage_set.py", "feature_set.py")
+DEPRECATED_ACTIVE_STATE_ALIAS_TOKENS = (
+    "stage_set.py",
+    "feature_set.py",
+    "set_stage.py",
+    "active-stage.py",
+    "context_pack.py",
+    "research_status.py",
+)
 DISALLOWED_RUNTIME_HINT_MARKER_RE = re.compile(
     r"(?:forbidden|do not run|do not use|deprecated|запрещ|не\s+запуск|не\s+использ)",
     re.IGNORECASE,
@@ -137,6 +144,10 @@ LOOP_STAGE_CHAIN_RE = re.compile(
 )
 STAGE_BODY_REL_RUNTIME_RE = re.compile(
     r"python3\s+(?:\./)?skills/[A-Za-z0-9_.-]+/runtime/[A-Za-z0-9_.-]+\.py",
+    re.IGNORECASE,
+)
+STAGE_BODY_ABS_RUNTIME_RE = re.compile(
+    r"python3\s+/skills/[A-Za-z0-9_.-]+/runtime/[A-Za-z0-9_.-]+\.py",
     re.IGNORECASE,
 )
 LOOP_STAGE_FORBIDDEN_ALLOWED_TOOL_SNIPPETS = (
@@ -1096,6 +1107,14 @@ def lint_skills(root: Path) -> Tuple[List[str], List[str]]:
                 errors.append(
                     f"{info.path}: stage guidance must use canonical runtime paths in body "
                     f"(`python3 ${{CLAUDE_PLUGIN_ROOT}}/skills/.../runtime/...`), not relative `python3 skills/...`"
+                )
+            if (
+                path.parent.name in STAGE_CANONICAL_BODY_RUNTIME_ENV_REQUIRED
+                and STAGE_BODY_ABS_RUNTIME_RE.search(info.body)
+            ):
+                errors.append(
+                    f"{info.path}: stage guidance must not use root-relative `/skills/...` runtime paths; "
+                    "use `${CLAUDE_PLUGIN_ROOT}`-scoped canonical runtime paths"
                 )
 
             context = _as_string(info.front_matter.get("context"))

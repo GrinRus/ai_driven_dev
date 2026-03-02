@@ -799,6 +799,64 @@ class LoopRunTests(unittest.TestCase):
             self.assertEqual(last_step.get("recoverable_blocked"), True)
             self.assertEqual(last_step.get("ralph_reason_class"), "recoverable_retry")
 
+    def test_loop_run_strict_retries_no_tests_hard_when_enabled(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-STRICT-NO-TESTS-HARD"
+            write_active_state(root, ticket=ticket, stage="review", work_item="iteration_id=I1")
+
+            fake_result = subprocess.CompletedProcess(
+                args=["loop-step"],
+                returncode=20,
+                stdout=json.dumps(
+                    {
+                        "status": "blocked",
+                        "stage": "review",
+                        "scope_key": "iteration_id_I1",
+                        "work_item_key": "iteration_id=I1",
+                        "reason_code": "no_tests_hard",
+                        "reason": "tests evidence required but not found",
+                    }
+                ),
+                stderr="",
+            )
+            captured = io.StringIO()
+            cwd = os.getcwd()
+            try:
+                os.chdir(root.parent)
+                with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
+                    with patch("aidd_runtime.loop_run.run_loop_step", return_value=fake_result):
+                        with redirect_stdout(captured):
+                            code = loop_run_module.main(
+                                [
+                                    "--ticket",
+                                    ticket,
+                                    "--work-item-key",
+                                    "iteration_id=I1",
+                                    "--max-iterations",
+                                    "1",
+                                    "--blocked-policy",
+                                    "strict",
+                                    "--recoverable-block-retries",
+                                    "1",
+                                    "--format",
+                                    "json",
+                                ]
+                            )
+            finally:
+                os.chdir(cwd)
+
+            self.assertEqual(code, 11)
+            payload = json.loads(captured.getvalue())
+            self.assertEqual(payload.get("status"), "max-iterations")
+            self.assertEqual(payload.get("blocked_policy"), "strict")
+            self.assertEqual(payload.get("retry_attempt"), 1)
+            self.assertEqual(payload.get("recoverable_retry_budget"), 1)
+            last_step = payload.get("last_step") or {}
+            self.assertEqual(last_step.get("reason_code"), "no_tests_hard")
+            self.assertEqual(last_step.get("recoverable_blocked"), True)
+            self.assertEqual(last_step.get("strict_recoverable_reason_class"), "recoverable_retry")
+
     def test_loop_run_ralph_retries_qa_tests_failed(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
@@ -2292,9 +2350,13 @@ class LoopRunTests(unittest.TestCase):
                 cwd=root,
                 env=env,
             )
-            self.assertEqual(result.returncode, 11, msg=result.stderr)
+            self.assertEqual(result.returncode, 20, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertEqual(payload.get("reason_code"), "review_pack_missing")
+            self.assertEqual(payload.get("scope_key"), "iteration_id_I2")
             loop_log = (root / "reports" / "loops" / "DEMO-MISMATCH" / "loop.run.log").read_text(encoding="utf-8")
-            self.assertIn("scope_key_mismatch_warn=1", loop_log)
+            self.assertIn("stage_result_path=aidd/reports/loops/DEMO-MISMATCH/iteration_id_I4/stage.review.result.json", loop_log)
 
     def test_loop_run_recovers_non_loop_stage_with_iteration_work_item(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:

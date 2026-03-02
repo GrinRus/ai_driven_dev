@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import shutil
 import sys
@@ -157,24 +158,47 @@ def _write_default_actions(path: Path, *, stage: str, ticket: str, scope_key: st
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
-def _canonicalize_actions_payload_once(path: Path, *, context: launcher.LaunchContext) -> tuple[bool, str]:
+def _actions_payload_hash(path: Path) -> str:
+    try:
+        blob = path.read_bytes()
+    except OSError:
+        return ""
+    return hashlib.sha256(blob).hexdigest()
+
+
+def _collect_validation_errors(path: Path) -> list[str]:
+    try:
+        payload = actions_validate.load_actions(path)
+    except actions_validate.ValidationError as exc:
+        return [f"load_error:{exc}"]
+    return list(actions_validate.validate_actions_data(payload))
+
+
+def _canonicalize_actions_payload_once(
+    path: Path,
+    *,
+    context: launcher.LaunchContext,
+) -> tuple[bool, str, list[str]]:
     try:
         payload: Any = json.loads(path.read_text(encoding="utf-8"))
     except OSError as exc:
-        return False, f"read_error:{exc}"
+        return False, f"read_error:{exc}", []
     except json.JSONDecodeError as exc:
-        return False, f"invalid_json:{exc}"
+        return False, f"invalid_json:{exc}", []
     if not isinstance(payload, dict):
-        return False, "payload_not_object"
+        return False, "payload_not_object", []
 
     changed = False
+    recovered_fields: list[str] = []
 
     if not payload.get("schema_version") and isinstance(payload.get("schema"), str):
         payload["schema_version"] = str(payload.get("schema") or "")
         changed = True
+        recovered_fields.append("schema_version<-schema")
     if payload.get("schema_version") != "aidd.actions.v1":
         payload["schema_version"] = "aidd.actions.v1"
         changed = True
+        recovered_fields.append("schema_version")
 
     expected = {
         "stage": context.stage,
@@ -186,11 +210,13 @@ def _canonicalize_actions_payload_once(path: Path, *, context: launcher.LaunchCo
         if str(payload.get(key) or "") != expected_value:
             payload[key] = expected_value
             changed = True
+            recovered_fields.append(key)
 
     allowed_action_types = payload.get("allowed_action_types")
     if not isinstance(allowed_action_types, list) or not all(isinstance(item, str) for item in allowed_action_types):
         payload["allowed_action_types"] = list(_ALLOWED_ACTION_TYPES)
         changed = True
+        recovered_fields.append("allowed_action_types")
     else:
         normalized_allowed: list[str] = []
         for item in allowed_action_types:
@@ -202,10 +228,11 @@ def _canonicalize_actions_payload_once(path: Path, *, context: launcher.LaunchCo
         if normalized_allowed != allowed_action_types:
             payload["allowed_action_types"] = normalized_allowed
             changed = True
+            recovered_fields.append("allowed_action_types")
 
     actions = payload.get("actions")
     if not isinstance(actions, list):
-        return False, "actions_not_list"
+        return False, "actions_not_list", recovered_fields
 
     normalized_actions: list[Any] = []
     for raw_action in actions:
@@ -216,6 +243,7 @@ def _canonicalize_actions_payload_once(path: Path, *, context: launcher.LaunchCo
         if "type" not in action and isinstance(action.get("action"), str):
             action["type"] = str(action.pop("action") or "")
             changed = True
+            recovered_fields.append("actions[].type<-action")
         params = action.get("params")
         if not isinstance(params, dict):
             normalized_params: dict[str, Any] = {}
@@ -223,21 +251,24 @@ def _canonicalize_actions_payload_once(path: Path, *, context: launcher.LaunchCo
                 if key in action:
                     normalized_params[key] = action.pop(key)
                     changed = True
+                    recovered_fields.append(f"actions[].params.{key}")
             action["params"] = normalized_params
             changed = True
+            recovered_fields.append("actions[].params")
         normalized_actions.append(action)
     if normalized_actions != actions:
         payload["actions"] = normalized_actions
         changed = True
+        recovered_fields.append("actions")
 
     if not changed:
-        return False, "no_changes_applied"
+        return False, "no_changes_applied", sorted(set(recovered_fields))
 
     try:
         path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     except OSError as exc:
-        return False, f"write_error:{exc}"
-    return True, "canonicalized_once"
+        return False, f"write_error:{exc}", sorted(set(recovered_fields))
+    return True, "canonicalized_once", sorted(set(recovered_fields))
 
 
 def _run(args: argparse.Namespace, *, context: launcher.LaunchContext, log_path: Path) -> int:
@@ -262,18 +293,39 @@ def _run(args: argparse.Namespace, *, context: launcher.LaunchContext, log_path:
                 work_item_key=context.work_item_key,
             )
 
+    before_hash = _actions_payload_hash(actions_path)
     rc = actions_validate.main(["--actions", str(actions_path)])
     retry_applied = False
     retry_diag = ""
+    recovered_fields: list[str] = []
+    after_hash = before_hash
     if rc != 0:
-        retry_applied, retry_diag = _canonicalize_actions_payload_once(actions_path, context=context)
-        if retry_applied:
+        retry_applied, retry_diag, recovered_fields = _canonicalize_actions_payload_once(actions_path, context=context)
+        after_hash = _actions_payload_hash(actions_path)
+        if retry_applied and before_hash != after_hash:
             rc = actions_validate.main(["--actions", str(actions_path)])
+        elif retry_applied and before_hash == after_hash:
+            retry_applied = False
+            retry_diag = "payload_hash_unchanged"
     if rc != 0:
         reason = retry_diag or "validate_failed_without_retry"
         rel_actions = runtime.rel_path(actions_path, context.root)
+        validation_errors = sorted(set(_collect_validation_errors(actions_path)))
+        deterministic_bundle = {
+            "payload_hash_before": before_hash or None,
+            "payload_hash_after": after_hash or None,
+            "retry_applied": bool(retry_applied),
+            "retry_reason": reason,
+            "recovered_fields": recovered_fields,
+            "invalid_fields": validation_errors[:25],
+        }
         print(f"[aidd] ERROR: reason_code={_CONTRACT_MISMATCH_REASON_CODE}", file=sys.stderr)
         print(f"[aidd] ERROR: diagnostics=actions_contract_retry_failed:{reason}", file=sys.stderr)
+        print(
+            "[aidd] ERROR: deterministic_error_bundle="
+            + json.dumps(deterministic_bundle, ensure_ascii=False, sort_keys=True),
+            file=sys.stderr,
+        )
         print(f"[aidd] ERROR: actions_path={rel_actions}", file=sys.stderr)
         for entry in _build_actions_contract_diagnostics(actions_path, context=context):
             print(f"[aidd] ERROR: {entry}", file=sys.stderr)

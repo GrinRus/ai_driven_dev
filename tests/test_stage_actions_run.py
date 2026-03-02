@@ -117,13 +117,14 @@ class StageActionsRunTests(unittest.TestCase):
                 stage="implement",
             )
 
-            changed, reason = stage_actions_run._canonicalize_actions_payload_once(
+            changed, reason, recovered_fields = stage_actions_run._canonicalize_actions_payload_once(
                 actions_path,
                 context=context,
             )
 
             self.assertFalse(changed)
             self.assertEqual(reason, "actions_not_list")
+            self.assertEqual(recovered_fields, [])
             persisted = json.loads(actions_path.read_text(encoding="utf-8"))
             self.assertEqual(persisted, original_payload)
 

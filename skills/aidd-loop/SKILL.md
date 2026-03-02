@@ -16,8 +16,10 @@ Follow `feature-dev-aidd:aidd-core` for output contract and DocOps.
 5. Scope guard: out-of-scope -> WARN + handoff; forbidden -> BLOCKED. Never expand boundaries yourself.
 6. Tests: follow loop pack or reviewer policy; do not invent new test requirements.
 7. No large logs/diffs in chat; link to `aidd/reports/**`.
-8. Block policy: `strict` fail-fast on any blocked step; `ralph` uses policy matrix v2 (`hard_block|recoverable_retry|warn_continue`) with bounded retries for recoverable reasons.
-9. For recoverable blocked retries, emit observability fields: `recoverable_blocked`, `recovery_path`, `retry_attempt`.
+8. Block policy: `strict` fail-fast by default; `strict_recoverable_reason_codes` may explicitly enable bounded retries for selected reasons (for example `no_tests_hard`).
+9. `ralph` uses policy matrix v2 (`hard_block|recoverable_retry|warn_continue`) with bounded retries for recoverable reasons.
+10. For recoverable blocked retries, emit observability fields: `recoverable_blocked`, `recovery_path`, `retry_attempt`, plus `ralph_reason_class|strict_recoverable_reason_class`.
+11. Scope mismatch fallback is telemetry-only (`scope_mismatch_non_authoritative=1`): emit `expected_scope_key`/`selected_scope_key`; do not treat mismatched fallback as authoritative transition input.
 
 ## Preload matrix v2
 - Roles: `implementer`, `reviewer`, `qa`.
