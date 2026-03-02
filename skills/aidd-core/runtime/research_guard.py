@@ -516,25 +516,20 @@ def _validate_rlm_evidence(
                     f"Hint: `{_rlm_links_cmd_hint(ticket)}`.",
                     file=sys.stderr,
                 )
+            elif allow_scoped_links_empty_warn and scoped_links_warn_allowed and rlm_status == "warn":
+                links_warn_tolerated = True
+                warnings.append("rlm_links_empty_warn_non_blocking")
+                print(
+                    "[aidd] WARN: scoped links-empty accepted for downstream gate "
+                    f"(reason_code=rlm_links_empty_warn, empty_reason={links_empty_reason}).",
+                    file=sys.stderr,
+                )
             else:
                 _raise_block(
                     "rlm_links_empty_warn",
                     detail,
                     _rlm_links_cmd_hint(ticket),
                 )
-        if (
-            not links_warn_tolerated
-            and allow_scoped_links_empty_warn
-            and scoped_links_warn_allowed
-            and rlm_status == "warn"
-        ):
-            links_warn_tolerated = True
-            warnings.append("rlm_links_empty_warn_non_blocking")
-            print(
-                "[aidd] WARN: scoped links-empty accepted for downstream gate "
-                f"(reason_code=rlm_links_empty_warn, empty_reason={links_empty_reason}).",
-                file=sys.stderr,
-            )
         if settings.rlm_require_pack and not pack_exists:
             _raise_block(
                 "rlm_pack_missing",
