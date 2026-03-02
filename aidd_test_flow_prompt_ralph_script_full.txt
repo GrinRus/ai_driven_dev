@@ -55,12 +55,14 @@
 - R2: Никаких ручных правок runtime-артефактов.
 - R3: Не читать/не печатать секреты (`.env`, keys, tokens).
 - R4: Только Python runtime surfaces (`skills/*/runtime/*.py`), без shell wrappers.
+- R4.1: Если canonical runtime из install/cache path (`$PLUGIN_DIR/skills/*/runtime/*.py` или `<plugin_cache>/skills/*/runtime/*.py`) падает с `ModuleNotFoundError: No module named 'aidd_runtime'`, классифицировать как `flow bug (runtime_bootstrap_missing)`; это не `ENV_BLOCKER`.
 - R5: Stage-chain orchestration должны быть включены:
 - R6: Все slash stage-команды запускать только из `PROJECT_DIR`.
 - R6.1: Если `STAGE_OUTPUT_MODE=stream-json`, запускать `claude -p` только с `--verbose` (иначе CLI вернёт ошибку формата вывода).
 - R6.2: Для `claude -p` stage-команд обязательно добавлять `--plugin-dir "$PLUGIN_DIR"`.
 - R7: Перед первым stage-run обязателен plugin-load healthcheck (см. Шаг 1). Если плагин не загружен — это `ENV_BLOCKER` и аудит останавливается.
 - R8: `Unknown skill: feature-dev-aidd:*` классифицируется как `ENV_BLOCKER(plugin_not_loaded)`; **не** классифицировать как `flow bug`.
+- R8.1: Если в UI/операторском выводе встречается unprefixed alias (`/idea-new` и т.п.), но в `init.slash_commands` присутствуют `feature-dev-aidd:*`, фиксировать `INFO(prefix_alias_display_only)`; использовать canonical prefixed команды.
 - R9: Python fallback разрешён только после успешного plugin-load healthcheck и только для `blocked/hang/killed`. Python fallback запрещён как recovery для `Unknown skill`.
 - R10: Ошибка `refusing to use plugin repository as workspace root` классифицируется как `ENV_MISCONFIG(cwd_wrong)`; исправь `cwd` на `PROJECT_DIR` и повтори ровно 1 раз.
 - R11: Для шага 7 (Auto-loop через Python runtime) runner должен быть non-interactive:
@@ -84,6 +86,7 @@
 - R14.1: Если такой drift встречается только во вложенном tool-call, но тот же stage завершился валидным top-level result (`exit_code=0` и `result_count>=1` или эквивалентный `done/success` payload), классифицировать как `WARN(prompt_flow_drift_recovered)`, не как `NOT VERIFIED`.
 - R14.2: Для `runtime_path_missing_or_drift` (включая direct вызовы non-canonical `preflight*.py`) применять fail-fast: immediate `blocked`, без guessed retries и без manual recovery path.
 - R14.3: Если в stage-логе есть direct вызов внутреннего stage-chain preflight entrypoint вне canonical stage-chain, классифицировать как `prompt-flow drift (non-canonical stage orchestration)` и останавливать manual recovery для текущего шага.
+- R14.4: Если в stage-логе есть `ModuleNotFoundError: No module named 'aidd_runtime'` при запуске canonical runtime path, классифицировать как `flow bug (runtime_bootstrap_missing)` и фиксировать отдельным bug-item.
 - R15: Если `*_run<N>.summary.txt` содержит `result_count=0` при валидном `init` (plugin/slash_commands/skills присутствуют), классифицировать как `prompt-exec issue (no_top_level_result)` и фиксировать отдельно.
 - R15.1: Если `result_count` в summary отсутствует или пустой (`result_count=`), не трактовать это как `0` автоматически; сначала проверять top-level result/event в run-log, и только при подтверждённом отсутствии результата классифицировать `no_top_level_result`.
 - R15.2: Для `loop-run` в `text`-режиме валидным top-level result считать JSON event `{"type":"result","schema":"aidd.loop_result.v1",...}` (в дополнение к строке summary `[loop-run] status=...`).
@@ -412,6 +415,16 @@
   - есть `plugins: [{"name":"feature-dev-aidd"...}]`;
   - есть `slash_commands` с `feature-dev-aidd:status`;
   - есть `skills` с `feature-dev-aidd:*`.
+- извлечь install runtime path плагина из `init.plugins[].path` и сохранить `01_plugin_runtime_path.txt`.
+- выполнить runtime bootstrap probe (без внешнего `PYTHONPATH`) и сохранить `01_runtime_bootstrap_probe.txt`:
+  - `python3 <plugin_runtime_path>/skills/aidd-flow-state/runtime/set_active_stage.py --help`
+  - `python3 <plugin_runtime_path>/skills/status/runtime/index_sync.py --help`
+  - `python3 <plugin_runtime_path>/skills/review/runtime/review_report.py --help`
+  - `python3 <plugin_runtime_path>/skills/aidd-rlm/runtime/rlm_slice.py --help`
+- если bootstrap probe содержит `ModuleNotFoundError: No module named 'aidd_runtime'`:
+  - классифицировать как `flow bug (runtime_bootstrap_missing)`;
+  - сохранить `01_runtime_bootstrap_blocker.txt`;
+  - продолжать аудит разрешено, но любой fallback/probe через direct runtime path маркировать `NOT VERIFIED (runtime_bootstrap_missing)`.
 - если любой пункт не выполнен, или получен `Unknown skill`:
   - классифицировать как `ENV_BLOCKER(plugin_not_loaded)`;
   - сохранить маркер `01_env_blocker.txt`;

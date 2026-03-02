@@ -41,11 +41,13 @@
   - если PRD остаётся `Status != READY` при `open_questions_count=0`, выполнить findings-sync cycle (`idea-new` и/или `plan-new` с `AIDD:SYNC_FROM_REVIEW ...`) и затем повторить `review-spec`;
   - если после findings-sync PRD остаётся `Status != READY`, классифицировать как `NOT VERIFIED (findings_sync_not_converged)` + `prompt-flow gap` и не повторять stage, требующий `PRD READY`.
 - R4: Только Python runtime surfaces; shell wrappers не использовать.
+- R4.1: Если canonical runtime из install/cache path (`$PLUGIN_DIR/skills/*/runtime/*.py` или `<plugin_cache>/skills/*/runtime/*.py`) падает с `ModuleNotFoundError: No module named 'aidd_runtime'`, классифицировать как `flow bug (runtime_bootstrap_missing)`; это не `ENV_BLOCKER`.
 - R5: Все slash stage-команды запускать только из `PROJECT_DIR`.
 - R5.1: В `stream-json` режиме `claude -p` запускать только с `--verbose`.
 - R5.2: Для `claude -p` stage-команд обязательно добавлять `--plugin-dir "$PLUGIN_DIR"`.
 - R6: Перед stage sequence обязателен plugin-load healthcheck (Шаг 1).
 - R7: `Unknown skill: feature-dev-aidd:*` = `ENV_BLOCKER(plugin_not_loaded)`; это не flow bug.
+- R7.1: Если в UI/операторском выводе встречается unprefixed alias (`/idea-new` и т.п.), но в `init.slash_commands` присутствуют `feature-dev-aidd:*`, фиксировать `INFO(prefix_alias_display_only)`; использовать canonical prefixed команды.
 - R8: Python fallback разрешён только для `blocked/hang/killed` после успешного plugin healthcheck и запрещён для `Unknown skill`.
 - R9: Ошибка `refusing to use plugin repository as workspace root` = `ENV_MISCONFIG(cwd_wrong)`; исправить `cwd` на `PROJECT_DIR` и повторить 1 раз.
 - R10: Если stage-return уводит в manual path (direct вызов внутреннего stage-chain preflight entrypoint или ручная запись `stage.*.result.json`) — классифицировать как `prompt-flow drift`, manual path не выполнять.
@@ -134,6 +136,16 @@
 - Сохранить `~/.claude/settings.json` (если есть) -> `01_claude_settings_snapshot.json`.
 - Запустить healthcheck: `$PLUGIN_HEALTHCHECK_CMD` через launcher.
 - Проверить `init` на `plugins/slash_commands/skills` (см. 3.1).
+- Извлечь install runtime path плагина из `init.plugins[].path` и сохранить `01_plugin_runtime_path.txt`.
+- Выполнить runtime bootstrap probe (без внешнего `PYTHONPATH`) и сохранить `01_runtime_bootstrap_probe.txt`:
+  - `python3 <plugin_runtime_path>/skills/aidd-flow-state/runtime/set_active_stage.py --help`
+  - `python3 <plugin_runtime_path>/skills/status/runtime/index_sync.py --help`
+  - `python3 <plugin_runtime_path>/skills/review/runtime/review_report.py --help`
+  - `python3 <plugin_runtime_path>/skills/aidd-rlm/runtime/rlm_slice.py --help`
+- Если bootstrap probe содержит `ModuleNotFoundError: No module named 'aidd_runtime'`:
+  - классифицировать как `flow bug (runtime_bootstrap_missing)`;
+  - сохранить `01_runtime_bootstrap_blocker.txt`;
+  - продолжать smoke аудит разрешено, но любой fallback/probe через direct runtime path маркировать `NOT VERIFIED (runtime_bootstrap_missing)`.
 - Если `Unknown skill` или нет feature-dev-aidd в `init`:
   - `ENV_BLOCKER(plugin_not_loaded)`
   - записать `01_env_blocker.txt`
