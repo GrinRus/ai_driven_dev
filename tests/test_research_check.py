@@ -160,7 +160,7 @@ class ResearchCheckTests(unittest.TestCase):
             {"schema": "aidd.report.pack.v1", "type": "rlm", "status": "pending"},
         )
 
-        args = self._make_args(ticket)
+        args = ["--ticket", ticket, "--expected-stage", "implement"]
         old_cwd = Path.cwd()
         os.chdir(workspace)
         try:
@@ -202,7 +202,7 @@ class ResearchCheckTests(unittest.TestCase):
             {"schema": "aidd.report.pack.v1", "type": "rlm", "status": "pending"},
         )
 
-        args = self._make_args(ticket)
+        args = ["--ticket", ticket, "--expected-stage", "research"]
         old_cwd = Path.cwd()
         os.chdir(workspace)
         try:
@@ -222,7 +222,7 @@ class ResearchCheckTests(unittest.TestCase):
         self._write_base_research(project_root, ticket, status="pending")
         self._write_rlm_baseline(project_root, ticket, status="pending", entries=[{"file_id": "file-app"}])
 
-        args = self._make_args(ticket)
+        args = ["--ticket", ticket, "--expected-stage", "review"]
         old_cwd = Path.cwd()
         os.chdir(workspace)
         try:
@@ -246,15 +246,11 @@ class ResearchCheckTests(unittest.TestCase):
         old_cwd = Path.cwd()
         os.chdir(workspace)
         try:
-            with self.assertRaises(RuntimeError) as excinfo:
-                research_check.main(args)
+            exit_code = research_check.main(args)
         finally:
             os.chdir(old_cwd)
 
-        text = str(excinfo.exception)
-        self.assertIn("reason_code=rlm_status_pending", text)
-        self.assertNotIn("reason_code=baseline_missing", text)
-        self.assertIn("rlm_finalize.py --ticket", text)
+        self.assertEqual(exit_code, 0)
 
     def test_research_check_blocks_ready_links_empty(self) -> None:
         workspace, project_root = self._setup_workspace()

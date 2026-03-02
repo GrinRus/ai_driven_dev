@@ -255,3 +255,33 @@ _Статус: план. Цель — ослабить E2E readiness gate тол
   **Regression/tests:** `python3 tests/repo_tools/build_e2e_prompts.py --check`, `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py`.
   **Effort:** S
   **Risk:** Low
+
+- [ ] **W102-2 (P0) Plan-stage temporary soft gate for `rlm_status_pending` + usage telemetry** `skills/plan-new/runtime/research_check.py`, `tests/test_research_check.py`, `tests/repo_tools/smoke-workflow.sh`:
+  - поддержать временный `warn-continue` режим только для `--expected-stage plan`, если после bounded finalize-probe остаётся `reason_code=rlm_status_pending`;
+  - сохранить fail-fast для остальных reason codes (`rlm_nodes_missing`, `rlm_links_empty_warn`, invalid/missing artifacts);
+  - добавить явный WARN-сигнал в stderr для операторской диагностики (policy marker + finalize probe outcome).
+  **AC:** `research_check --expected-stage plan` не падает terminal только из-за `rlm_status_pending`; mandatory RLM artifacts продолжают валидироваться строго.
+  **Deps:** W102-1
+  **Regression/tests:** `python3 -m pytest -q tests/test_research_check.py`.
+  **Effort:** S
+  **Risk:** Medium
+
+- [ ] **W102-3 (P1) Replace temporary soft gate with deterministic readiness promotion path** `skills/researcher/runtime/research.py`, `skills/aidd-rlm/runtime/rlm_finalize.py`, `skills/aidd-core/runtime/research_guard.py`, `tests/test_research_command.py`, `tests/test_research_check.py`:
+  - убрать необходимость soft-continue за счёт детерминированного перехода `pending -> ready|warn(scoped)` в bounded auto-recovery;
+  - нормализовать reason codes и next-action hints между researcher/research_guard/research_check;
+  - обеспечить стабильный `rlm_status` в pack/worklist при повторных прогонах.
+  **AC:** pipeline сходится без временного plan-softening в репрезентативных сценариях; `rlm_status_pending` остаётся только при реальных hard blockers.
+  **Deps:** W102-2
+  **Regression/tests:** `python3 -m pytest -q tests/test_research_command.py tests/test_research_check.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [ ] **W102-4 (P1) Readiness gate/report alignment for `research_not_ready` diagnostics** `tests/repo_tools/aidd_audit_runner.py`, `tests/repo_tools/e2e_prompt/profile_full.md`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - фиксировать отдельные подпpичины `research_not_ready` (`pending`, `nodes_missing`, `links_empty_unscoped`, `pack_missing`) в precondition artifacts;
+  - синхронизовать readiness diagnostics между stage-return и `05_precondition_block.txt`;
+  - добавить проверку, что временный plan-soft mode не маскирует contract/env incidents.
+  **AC:** оператор видит точную подпpичину `research_not_ready`; prompt-contract tests покрывают расхождения report vs stage-return.
+  **Deps:** W102-3
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Effort:** M
+  **Risk:** Medium

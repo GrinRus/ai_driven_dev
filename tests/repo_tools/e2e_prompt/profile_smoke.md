@@ -254,7 +254,10 @@ RLM-only check:
 - При вопросах: retry.
 - Если hang/kill — runtime probe:
   - `python3 $PLUGIN_DIR/skills/plan-new/runtime/research_check.py --ticket $TICKET --expected-stage plan`
-- Для downstream probes ожидаемый pending reason: `rlm_status_pending` (не `baseline_missing`).
+- Для downstream probes:
+  - `plan`: если после bounded finalize остаётся `reason_code=rlm_status_pending`, допускается soft-pass (`exit_code=0`) с `WARN(plan_research_pending_softened)` и telemetry `policy=warn_continue`.
+  - `review/qa`: pending остаётся blocking (`reason_code=rlm_status_pending`) + finalize hint.
+  - `baseline_missing` считать drift/contract mismatch.
 
 #### 5.3a Plan question-closure
 
