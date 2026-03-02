@@ -36,7 +36,7 @@ Follow `feature-dev-aidd:aidd-core`.
 8. Report payload (`aidd/reports/prd/<ticket>.json|.pack.json`) is the source of truth for final verdict: READY is allowed only when `recommended_status=ready`; otherwise return WARN/BLOCKED with canonical next action (`/feature-dev-aidd:spec-interview <ticket>`).
 9. If narrative text conflicts with report payload, mark `WARN(review_spec_report_mismatch)` and follow report payload only.
 10. `Proceed to implementation` is forbidden when `recommended_status != ready`.
-11. Runtime-path safety: deprecated aliases `set_stage.py`, `active-stage.py`, `context_pack.py`, `research_status.py` are forbidden for execution surfaces.
+11. Runtime-path safety: execute only canonical runtime commands from this contract (`python3 ${CLAUDE_PLUGIN_ROOT}/skills/.../runtime/...`).
 12. Root-relative `/skills/...` runtime paths are forbidden; use only `python3 ${CLAUDE_PLUGIN_ROOT}/skills/.../runtime/...`.
 
 ## Command contracts
