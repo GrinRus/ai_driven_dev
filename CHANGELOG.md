@@ -73,6 +73,8 @@
 - Внутренний backlog (`backlog.md`) оставлен dev-only и исключён из marketplace-плагина; lint/check скрипты больше не ожидают каталог `doc/`.
 
 ### Fixes
+- Runtime bootstrap hardening: all risk runtime entrypoints now self-resolve `CLAUDE_PLUGIN_ROOT`/`sys.path` before importing `aidd_runtime`, preventing `ModuleNotFoundError` when scripts run from plugin cache paths.
+- Install docs now explicitly require the `aidd-local` marketplace path for namespaced slash commands and a Claude Code session restart after plugin update.
 - `gate-workflow` hardened reviewer fallback path resolution: no secondary crashes when `tools.runtime` import fails.
 - `aidd-init` CLI simplified: removed `--dry-run` and `--enable-ci`; supported flags are now `--force`, `--detect-build-tools`, and hidden alias `--detect-stack`.
 - Smoke/docs moved to canonical review wrappers in `skills/review/scripts/*`; phased-out `tools/review-*.sh` redirect-wrappers remain transition-only with warnings.

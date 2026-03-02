@@ -57,6 +57,10 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 /plugin install feature-dev-aidd@aidd-local
 ```
 
+Важно:
+- Поддерживаемый install path для namespaced команд: только через `aidd-local` marketplace, как в примере выше.
+- После `/plugin update feature-dev-aidd@aidd-local` перезапустите Claude Code session, иначе может остаться stale список slash-команд.
+
 ### 2. Инициализируйте workspace
 
 ```text

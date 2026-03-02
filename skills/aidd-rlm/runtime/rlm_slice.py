@@ -9,6 +9,31 @@ import re
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
+import os
+import sys
+from pathlib import Path
+
+
+def _ensure_plugin_root_on_path() -> None:
+    env_root = os.environ.get("CLAUDE_PLUGIN_ROOT", "").strip()
+    if env_root:
+        root = Path(env_root).resolve()
+        if (root / "aidd_runtime").is_dir():
+            if str(root) not in sys.path:
+                sys.path.insert(0, str(root))
+            return
+
+    probe = Path(__file__).resolve()
+    for parent in (probe.parent, *probe.parents):
+        if (parent / "aidd_runtime").is_dir():
+            os.environ.setdefault("CLAUDE_PLUGIN_ROOT", str(parent))
+            if str(parent) not in sys.path:
+                sys.path.insert(0, str(parent))
+            return
+
+
+_ensure_plugin_root_on_path()
+
 from aidd_runtime import runtime
 from aidd_runtime.rlm_config import load_rlm_settings
 
