@@ -67,6 +67,10 @@ Key features:
 Important:
 - For stable namespaced commands, use the `aidd-local` marketplace install path shown above.
 - After `/plugin update feature-dev-aidd@aidd-local`, restart the Claude Code session; otherwise stale slash-command lists may persist.
+- If post-update runs still fail with `ModuleNotFoundError: No module named 'aidd_runtime'`, refresh plugin cache:
+  1. `/plugin remove feature-dev-aidd@aidd-local`
+  2. `/plugin install feature-dev-aidd@aidd-local`
+  3. Restart Claude Code session.
 
 ### 2. Initialize the workspace
 

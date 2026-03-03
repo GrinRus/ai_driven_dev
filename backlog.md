@@ -1,5 +1,34 @@
 # Product Backlog
 
+## Wave 103 — Runtime bootstrap hardening + stale cache rollout
+
+_Статус: план. Цель — полностью закрыть `ModuleNotFoundError: No module named 'aidd_runtime'` в direct runtime path (cache/install) и исключить регрессии._
+
+- [ ] **W103-1 (P0)** Runtime bootstrap completion for remaining entrypoints (`skills/aidd-core/runtime/research_guard.py`, `skills/aidd-docio/runtime/context_expand.py`, `skills/aidd-flow-state/runtime/progress.py`, `skills/aidd-loop/runtime/preflight_prepare.py`, `skills/aidd-observability/runtime/doctor.py`, `skills/aidd-rlm/runtime/rlm_finalize.py`, `skills/aidd-rlm/runtime/rlm_links_build.py`):
+  - гарантировать self-bootstrap `CLAUDE_PLUGIN_ROOT`/`sys.path` до первого `from aidd_runtime ...`;
+  - не менять бизнес-логику модулей.
+  **AC:** `python3 -S <entrypoint> --help` проходит из внешнего cwd без `CLAUDE_PLUGIN_ROOT`/`PYTHONPATH`.
+
+- [ ] **W103-2 (P0)** Runtime bootstrap CI guard (`tests/repo_tools/runtime-bootstrap-guard.py`) + wiring in repo tools (`tests/repo_tools/ci-lint.sh`, `tests/repo_tools/python-only-regression.sh`):
+  - автоматический проход по `skills/*/runtime/*.py` с `__main__`;
+  - fail на любом non-zero/`ModuleNotFoundError`.
+  **AC:** регрессии bootstrap ловятся в CI до merge.
+
+- [ ] **W103-3 (P0)** Plugin version bump + stale-cache rollout playbook (`.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `README.md`, `README.en.md`):
+  - bump plugin version для cache invalidation;
+  - операторская процедура remove/install + session restart.
+  **AC:** после update/reinstall новый cache не воспроизводит runtime bootstrap ошибку.
+
+- [ ] **W103-4 (P1)** E2E/audit probe hardening (`tests/repo_tools/e2e_prompt/profile_full.md`, `tests/repo_tools/e2e_prompt/profile_smoke.md`, `docs/runbooks/tst001-audit-hardening.md`):
+  - bootstrap probes в изолированном режиме `python3 -S`;
+  - явная фиксация, что site-packages не должны маскировать дефект.
+  **AC:** audit prompts и runbook детерминированно воспроизводят/детектят bootstrap gaps.
+
+- [ ] **W103-5 (P1)** Contract cleanup for release notes (`CHANGELOG.md`):
+  - убрать некорректную формулировку про "all risk runtime entrypoints hardened";
+  - зафиксировать завершение coverage и новые guard-инварианты.
+  **AC:** changelog не расходится с фактическим runtime state.
+
 ## Wave 102 — Loop soft-gate for Research (temporary)
 
 _Статус: план. Цель — не блокировать loop на `research_status_invalid` во время стабилизации research, затем вернуть строгий gate после исправлений._

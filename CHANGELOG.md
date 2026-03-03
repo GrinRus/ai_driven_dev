@@ -73,7 +73,8 @@
 - Внутренний backlog (`backlog.md`) оставлен dev-only и исключён из marketplace-плагина; lint/check скрипты больше не ожидают каталог `doc/`.
 
 ### Fixes
-- Runtime bootstrap hardening: all risk runtime entrypoints now self-resolve `CLAUDE_PLUGIN_ROOT`/`sys.path` before importing `aidd_runtime`, preventing `ModuleNotFoundError` when scripts run from plugin cache paths.
+- Runtime bootstrap hardening completed for remaining user-invocable runtime entrypoints (`research_guard`, `context_expand`, `progress`, `preflight_prepare`, `doctor`, `rlm_finalize`, `rlm_links_build`) and wired into CI via `tests/repo_tools/runtime-bootstrap-guard.py` to prevent `ModuleNotFoundError` regressions from plugin cache/direct runs.
+- Plugin manifests bumped to `0.2.1` (`.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`) to force cache refresh on upgrade.
 - Install docs now explicitly require the `aidd-local` marketplace path for namespaced slash commands and a Claude Code session restart after plugin update.
 - `gate-workflow` hardened reviewer fallback path resolution: no secondary crashes when `tools.runtime` import fails.
 - `aidd-init` CLI simplified: removed `--dry-run` and `--enable-ci`; supported flags are now `--force`, `--detect-build-tools`, and hidden alias `--detect-stack`.
