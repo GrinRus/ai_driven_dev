@@ -416,11 +416,11 @@
   - есть `slash_commands` с `feature-dev-aidd:status`;
   - есть `skills` с `feature-dev-aidd:*`.
 - извлечь install runtime path плагина из `init.plugins[].path` и сохранить `01_plugin_runtime_path.txt`.
-- выполнить runtime bootstrap probe (без внешнего `PYTHONPATH`) и сохранить `01_runtime_bootstrap_probe.txt`:
-  - `python3 <plugin_runtime_path>/skills/aidd-flow-state/runtime/set_active_stage.py --help`
-  - `python3 <plugin_runtime_path>/skills/status/runtime/index_sync.py --help`
-  - `python3 <plugin_runtime_path>/skills/review/runtime/review_report.py --help`
-  - `python3 <plugin_runtime_path>/skills/aidd-rlm/runtime/rlm_slice.py --help`
+- выполнить runtime bootstrap probe в изолированном режиме (без внешнего `PYTHONPATH`/site-packages) и сохранить `01_runtime_bootstrap_probe.txt`:
+  - `python3 -S <plugin_runtime_path>/skills/aidd-flow-state/runtime/set_active_stage.py --help`
+  - `python3 -S <plugin_runtime_path>/skills/status/runtime/index_sync.py --help`
+  - `python3 -S <plugin_runtime_path>/skills/review/runtime/review_report.py --help`
+  - `python3 -S <plugin_runtime_path>/skills/aidd-rlm/runtime/rlm_slice.py --help`
 - если bootstrap probe содержит `ModuleNotFoundError: No module named 'aidd_runtime'`:
   - классифицировать как `flow bug (runtime_bootstrap_missing)`;
   - сохранить `01_runtime_bootstrap_blocker.txt`;
