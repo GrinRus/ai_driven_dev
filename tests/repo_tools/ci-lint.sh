@@ -267,6 +267,22 @@ run_runtime_module_guard() {
   fi
 }
 
+run_runtime_bootstrap_guard() {
+  if ! command -v python3 >/dev/null 2>&1; then
+    warn "python3 not found; skipping runtime bootstrap guard"
+    return
+  fi
+  if [[ ! -f "tests/repo_tools/runtime-bootstrap-guard.py" ]]; then
+    warn "tests/repo_tools/runtime-bootstrap-guard.py missing; skipping"
+    return
+  fi
+  log "running runtime bootstrap guard"
+  if ! python3 tests/repo_tools/runtime-bootstrap-guard.py --root "$ROOT_DIR"; then
+    err "runtime bootstrap guard failed"
+    STATUS=1
+  fi
+}
+
 run_cli_adapter_guard() {
   if ! command -v python3 >/dev/null 2>&1; then
     warn "python3 not found; skipping cli adapter guard"
@@ -534,6 +550,7 @@ run_schema_guards
 run_runtime_path_regression
 run_research_legacy_artifact_guard
 run_runtime_module_guard
+run_runtime_bootstrap_guard
 run_cli_adapter_guard
 run_python_only_regression
 run_marketplace_ref_guard

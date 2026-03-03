@@ -13,6 +13,7 @@
    - `CLAUDE_PLUGIN_ROOT`
    - `AIDD_PLUGIN_DIR`
    - `PYTHONPATH`
+5. Runtime bootstrap probe must use isolated Python mode (`python3 -S ... --help`) so site-packages cannot mask missing `aidd_runtime` bootstrap wiring.
 
 If disk is below threshold, stop with `ENV_MISCONFIG(no_space_left_on_device)`.
 
