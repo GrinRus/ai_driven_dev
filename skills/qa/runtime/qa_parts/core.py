@@ -43,11 +43,18 @@ def _sync_active_stage_to_qa(target: Path, ticket: str) -> tuple[bool, str]:
 
 
 def _qa_stage_chain_context_available(target: Path, ticket: str) -> tuple[bool, str]:
-    _, scope_key = _resolve_qa_scope_context(target, ticket)
-    logs_dir = target / "reports" / "logs" / "qa" / ticket / scope_key
-    if not logs_dir.exists():
-        return False, scope_key
-    return any(logs_dir.glob("stage.*.log")), scope_key
+    active_work_item, primary_scope = _resolve_qa_scope_context(target, ticket)
+    scopes = [primary_scope]
+    # QA stage-chain may be emitted in ticket scope even when active work-item is iteration scoped.
+    if runtime.is_iteration_work_item_key(active_work_item):
+        ticket_scope = runtime.resolve_scope_key("", ticket)
+        if ticket_scope and ticket_scope not in scopes:
+            scopes.append(ticket_scope)
+    for scope_key in scopes:
+        logs_dir = target / "reports" / "logs" / "qa" / ticket / scope_key
+        if logs_dir.exists() and any(logs_dir.glob("stage.*.log")):
+            return True, scope_key
+    return False, primary_scope
 
 
 def _active_mode(target: Path) -> str:
