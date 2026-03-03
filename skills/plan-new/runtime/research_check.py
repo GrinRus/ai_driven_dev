@@ -14,7 +14,12 @@ if str(_PLUGIN_ROOT) not in sys.path:
 
 from aidd_runtime import runtime
 from aidd_runtime import rlm_finalize
-from aidd_runtime.research_guard import ResearchValidationError, load_settings, validate_research
+from aidd_runtime.research_guard import (
+    ResearchCheckSummary,
+    ResearchValidationError,
+    load_settings,
+    validate_research,
+)
 
 _REASON_CODE_RE = re.compile(r"reason_code=([a-z0-9_:-]+)", re.IGNORECASE)
 
@@ -24,6 +29,17 @@ def _extract_reason_code(message: str) -> str:
     if not match:
         return ""
     return str(match.group(1) or "").strip().lower()
+
+
+def _is_plan_pending_soft_mode(expected_stage: str) -> bool:
+    return str(expected_stage or "").strip().lower() == "plan"
+
+
+def _soft_pending_summary() -> ResearchCheckSummary:
+    return ResearchCheckSummary(
+        status="pending",
+        warnings=["plan_research_pending_softened"],
+    )
 
 
 def _enforce_minimum_rlm_artifacts(target: Path, ticket: str) -> None:
@@ -89,6 +105,7 @@ def main(argv: list[str] | None = None) -> int:
         slug_hint=getattr(args, "slug_hint", None),
     )
     settings = load_settings(target)
+    plan_pending_soft_mode = _is_plan_pending_soft_mode(args.expected_stage)
     try:
         summary = validate_research(
             target,
@@ -108,26 +125,36 @@ def main(argv: list[str] | None = None) -> int:
                 f"{exc}\n[aidd] ERROR: reason_code=rlm_status_pending_finalize_failed "
                 f"(exit_code={finalize_exit_code})"
             ) from exc
-        try:
-            summary = validate_research(
-                target,
-                ticket,
-                settings=settings,
-                branch=args.branch,
-                expected_stage=args.expected_stage,
-                allow_scoped_links_empty_warn=args.expected_stage in {"plan", "review", "qa"},
-            )
-        except ResearchValidationError as retry_exc:
-            raise RuntimeError(
-                f"{exc}\n[aidd] INFO: auto_recovery_attempted=1 "
-                "(recovery_path=research_finalize_probe)\n"
-                f"{retry_exc}"
-            ) from retry_exc
-        print(
-            "[aidd] WARN: research gate auto-recovery applied "
-            "(reason_code=rlm_status_pending, recovery_path=research_finalize_probe).",
-            file=sys.stderr,
-        )
+        else:
+            try:
+                summary = validate_research(
+                    target,
+                    ticket,
+                    settings=settings,
+                    branch=args.branch,
+                    expected_stage=args.expected_stage,
+                    allow_scoped_links_empty_warn=args.expected_stage in {"plan", "review", "qa"},
+                )
+            except ResearchValidationError as retry_exc:
+                retry_reason_code = _extract_reason_code(str(retry_exc))
+                if not (plan_pending_soft_mode and retry_reason_code == "rlm_status_pending"):
+                    raise RuntimeError(
+                        f"{exc}\n[aidd] INFO: auto_recovery_attempted=1 "
+                        "(recovery_path=research_finalize_probe)\n"
+                        f"{retry_exc}"
+                    ) from retry_exc
+                print(
+                    "[aidd] WARN: plan-stage research gate softened after finalize probe "
+                    "(reason_code=rlm_status_pending, auto_recovery_attempted=1, policy=warn_continue).",
+                    file=sys.stderr,
+                )
+                summary = _soft_pending_summary()
+            else:
+                print(
+                    "[aidd] WARN: research gate auto-recovery applied "
+                    "(reason_code=rlm_status_pending, recovery_path=research_finalize_probe).",
+                    file=sys.stderr,
+                )
 
     if summary.status is None:
         if summary.skipped_reason:

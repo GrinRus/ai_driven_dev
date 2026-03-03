@@ -90,10 +90,29 @@ def _mark_checkbox_done(lines: List[str], item_id: str, *, kind: str) -> Tuple[L
     return new_lines, "unchanged"
 
 
+def _normalize_item_id(item_id: str, *, kind: str) -> str:
+    value = str(item_id or "").strip()
+    if not value:
+        return ""
+    if kind == "iteration":
+        match = re.match(r"^iteration_id\s*[:=]\s*(.+)$", value, re.IGNORECASE)
+        if match:
+            return match.group(1).strip()
+        return value
+    match = re.match(r"^id\s*[:=]\s*(.+)$", value, re.IGNORECASE)
+    if match:
+        return match.group(1).strip()
+    return value
+
+
 def tasklist_set_iteration_done(root: Path, ticket: str, item_id: str, *, kind: str = "iteration") -> DocOpsResult:
     tasklist_path = root / "docs" / "tasklist" / f"{ticket}.md"
     if not tasklist_path.exists():
         return DocOpsResult(False, f"tasklist missing: {runtime.rel_path(tasklist_path, root)}", error=True)
+    requested_item_id = str(item_id or "").strip()
+    normalized_item_id = _normalize_item_id(requested_item_id, kind=kind)
+    if not normalized_item_id:
+        return DocOpsResult(False, "item id is required", error=True)
     text = tasklist_path.read_text(encoding="utf-8")
     lines = text.splitlines()
     sections, section_map = parse_sections(lines)
@@ -104,15 +123,15 @@ def tasklist_set_iteration_done(root: Path, ticket: str, item_id: str, *, kind: 
         return DocOpsResult(False, f"missing section: {title}", error=True)
 
     entry = section[0]
-    updated_section, status = _mark_checkbox_done(entry.lines, item_id, kind=kind)
+    updated_section, status = _mark_checkbox_done(entry.lines, normalized_item_id, kind=kind)
     if status == "already_done":
-        return DocOpsResult(False, f"item already done: {item_id}")
+        return DocOpsResult(False, f"item already done: {normalized_item_id}")
     if status == "not_found":
-        return DocOpsResult(False, f"item not found: {item_id}", error=True)
+        return DocOpsResult(False, f"item not found: {requested_item_id}", error=True)
 
     updated_lines = _replace_section_lines(lines, entry.start, entry.end, updated_section)
     tasklist_path.write_text(_ensure_trailing_newline("\n".join(updated_lines)), encoding="utf-8")
-    return DocOpsResult(True, f"marked {kind} {item_id} done")
+    return DocOpsResult(True, f"marked {kind} {normalized_item_id} done")
 
 
 def tasklist_append_progress_log(root: Path, ticket: str, entry: dict) -> DocOpsResult:

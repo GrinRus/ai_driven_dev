@@ -1,5 +1,42 @@
 # Product Backlog
 
+## Wave 102 — Loop soft-gate for Research (temporary)
+
+_Статус: план. Цель — не блокировать loop на `research_status_invalid` во время стабилизации research, затем вернуть строгий gate после исправлений._
+
+- [ ] **W102-1** Stabilize Researcher/RLM links for `no_symbols` cases (`skills/aidd-rlm/runtime/rlm_links_build.py`, `skills/researcher/runtime/research.py`, `tests/test_rlm_links_build.py`, `tests/test_research_command.py`):
+  - снизить ложные `links_empty_reason=no_symbols` на реальных backend/frontend кодовых базах;
+  - добавить диагностику (какие target files/symbol sources отброшены и почему).
+  **AC:** на репрезентативных тикетах `research --auto` перестаёт массово застревать в `Status: warn` из-за `no_symbols`.
+
+- [ ] **W102-2** Add observability for loop research soft-gate usage (`skills/aidd-loop/runtime/loop_run_parts/core.py`, `tests/test_loop_run.py`):
+  - фиксировать отдельный telemetry marker для soft-continue на `research_status_invalid`;
+  - добавить сводный отчёт частоты soft-gate с reason codes в loop artifacts.
+  - Findings (2026-03-03): в policy probe `qa_tests_failed` `ralph` корректно маркирует `recoverable_blocked=1`, `retry_attempt=1`, `recovery_path=handoff_to_implement`; `strict` остаётся terminal blocked (`recoverable_blocked=0`).
+    Evidence: `.aidd_audit/loop_policy/20260303T080709Z/findings_summary_20260303.md`.
+  **AC:** по логам/pack можно детерминированно увидеть, где loop стартовал через soft-gate.
+
+- [ ] **W102-3** Return strict research gate after stabilization (`skills/aidd-loop/runtime/loop_run_parts/core.py`, `templates/aidd/config/gates.json`, `tests/test_loop_run.py`, `tests/repo_tools/e2e_prompt/profile_full.md`):
+  - вернуть fail-fast блокировку `research_status_invalid` (через policy/config flag + rollout plan);
+  - обновить e2e prompt contract и smoke/regression проверки.
+  - Findings (2026-03-03): для non-recoverable причины (`review_pack_missing`) `strict` и `ralph` дают одинаковый terminal blocked (retry не запускается); rollback-план должен явно разделять recoverable/non-recoverable reason classes.
+    Evidence: `.aidd_audit/loop_policy/20260303T080709Z/findings_summary_20260303.md`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/aidd/reports/loops/TST-001/cli.loop-run.20260303-080259.log`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/aidd/reports/loops/TST-001/cli.loop-run.20260303-080315.log`.
+  **AC:** strict mode снова блокирует loop при неконсистентном research; есть подтверждённый rollout toggle и тесты.
+
+- [ ] **W102-5** Keep loop scope-mismatch as non-terminal telemetry for post-review iteration rework (`skills/aidd-loop/runtime/loop_step_parts/core.py`, `tests/test_loop_step.py`):
+  - сохранить soft-continue поведение при fallback `scope_key` mismatch в implement переходе;
+  - фиксировать `scope_key_mismatch_warn`, `expected_scope_key`, `selected_scope_key` как обязательную telemetry поверхность.
+  - Findings (2026-03-03): на `TST-001` mismatch больше не является terminal blocker; flow продолжает выполнение и упирается в downstream причину (`review_pack_missing`), что подтверждает корректность soft-mode только для mismatch gate.
+    Evidence: `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/aidd/reports/loops/TST-001/cli.loop-step.20260303-080315.log`.
+  **AC:** loop не падает terminal на mismatch и продолжает итерацию, а mismatch детерминированно виден в payload/логах.
+
+- [ ] **W102-6** Re-introduce strict scope mismatch transition gate after canonical scope emit hardening (`skills/aidd-loop/runtime/loop_step_parts/core.py`, `skills/aidd-loop/runtime/loop_step_stage_chain.py`, `tests/test_loop_step.py`, `tests/repo_tools/e2e_prompt/profile_full.md`):
+  - после стабилизации stage_result emission вернуть fail-fast блокировку `scope_mismatch_transition_blocked` за feature-flag/policy toggle;
+  - покрыть rollout тестами и e2e профилями (strict vs temporary soft mode).
+  - Findings (2026-03-03): synthetic probe с `blocking_findings` на review показывает нормализацию blocked→continue и downstream terminal по `review_pack_missing`; перед возвратом strict mismatch gate нужно зафиксировать границы нормализации warn-reasons.
+    Evidence: `.aidd_audit/loop_policy/20260303T080709Z/findings_summary_20260303.md`.
+  **AC:** strict profile снова блокирует non-authoritative fallback scope, rollout контролируется конфигом и подтверждён тестами.
+
 ## Wave 100 — Реальная параллелизация (scheduler + claim + parallel loop-run)
 
 _Статус: план. Цель — запуск нескольких implementer/reviewer в параллель по независимым work items, безопасное распределение задач, отсутствие гонок артефактов, консолидация результатов._
@@ -255,3 +292,33 @@ _Статус: план. Цель — ослабить E2E readiness gate тол
   **Regression/tests:** `python3 tests/repo_tools/build_e2e_prompts.py --check`, `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py`.
   **Effort:** S
   **Risk:** Low
+
+- [ ] **W102-2 (P0) Plan-stage temporary soft gate for `rlm_status_pending` + usage telemetry** `skills/plan-new/runtime/research_check.py`, `tests/test_research_check.py`, `tests/repo_tools/smoke-workflow.sh`:
+  - поддержать временный `warn-continue` режим только для `--expected-stage plan`, если после bounded finalize-probe остаётся `reason_code=rlm_status_pending`;
+  - сохранить fail-fast для остальных reason codes (`rlm_nodes_missing`, `rlm_links_empty_warn`, invalid/missing artifacts);
+  - добавить явный WARN-сигнал в stderr для операторской диагностики (policy marker + finalize probe outcome).
+  **AC:** `research_check --expected-stage plan` не падает terminal только из-за `rlm_status_pending`; mandatory RLM artifacts продолжают валидироваться строго.
+  **Deps:** W102-1
+  **Regression/tests:** `python3 -m pytest -q tests/test_research_check.py`.
+  **Effort:** S
+  **Risk:** Medium
+
+- [ ] **W102-3 (P1) Replace temporary soft gate with deterministic readiness promotion path** `skills/researcher/runtime/research.py`, `skills/aidd-rlm/runtime/rlm_finalize.py`, `skills/aidd-core/runtime/research_guard.py`, `tests/test_research_command.py`, `tests/test_research_check.py`:
+  - убрать необходимость soft-continue за счёт детерминированного перехода `pending -> ready|warn(scoped)` в bounded auto-recovery;
+  - нормализовать reason codes и next-action hints между researcher/research_guard/research_check;
+  - обеспечить стабильный `rlm_status` в pack/worklist при повторных прогонах.
+  **AC:** pipeline сходится без временного plan-softening в репрезентативных сценариях; `rlm_status_pending` остаётся только при реальных hard blockers.
+  **Deps:** W102-2
+  **Regression/tests:** `python3 -m pytest -q tests/test_research_command.py tests/test_research_check.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [ ] **W102-4 (P1) Readiness gate/report alignment for `research_not_ready` diagnostics** `tests/repo_tools/aidd_audit_runner.py`, `tests/repo_tools/e2e_prompt/profile_full.md`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - фиксировать отдельные подпpичины `research_not_ready` (`pending`, `nodes_missing`, `links_empty_unscoped`, `pack_missing`) в precondition artifacts;
+  - синхронизовать readiness diagnostics между stage-return и `05_precondition_block.txt`;
+  - добавить проверку, что временный plan-soft mode не маскирует contract/env incidents.
+  **AC:** оператор видит точную подпpичину `research_not_ready`; prompt-contract tests покрывают расхождения report vs stage-return.
+  **Deps:** W102-3
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Effort:** M
+  **Risk:** Medium

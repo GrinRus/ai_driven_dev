@@ -94,6 +94,9 @@ STAGE_DEFAULT_BUDGET_SECONDS = {
 DEFAULT_RESEARCH_GATE_PROBE_TIMEOUT_SECONDS = 180
 LOOP_RESULT_SCHEMA = "aidd.loop_result.v1"
 PROMPT_FLOW_DRIFT_REASON_FAMILY = "prompt_flow_drift_non_canonical_runtime_path"
+LOOP_RESEARCH_SOFT_REASON_CODES = {
+    "research_status_invalid",
+}
 
 
 def clear_active_mode(root: Path) -> None:
@@ -1196,21 +1199,27 @@ def main(argv: List[str] | None = None) -> int:
                     )
                     if probe_command:
                         research_next_action = probe_command
+            soften_research_gate = research_reason_code in LOOP_RESEARCH_SOFT_REASON_CODES
             if research_ok:
                 pass
-            elif blocked_policy == "ralph" and gate_reason_class == "warn_continue":
+            elif gate_reason_class == "warn_continue" or soften_research_gate:
+                effective_reason_class = (
+                    "warn_continue" if gate_reason_class == "warn_continue" else "soft_override"
+                )
                 append_log(
                     log_path,
                     (
                         f"{utc_timestamp()} event=research-gate-warn-continue "
-                        f"reason_code={research_reason_code} ralph_reason_class={gate_reason_class}"
+                        f"reason_code={research_reason_code} blocked_policy={blocked_policy} "
+                        f"reason_class={effective_reason_class}"
                     ),
                 )
                 append_log(
                     cli_log_path,
                     (
                         f"{utc_timestamp()} event=research-gate-warn-continue "
-                        f"reason_code={research_reason_code} ralph_reason_class={gate_reason_class}"
+                        f"reason_code={research_reason_code} blocked_policy={blocked_policy} "
+                        f"reason_class={effective_reason_class}"
                     ),
                 )
             else:

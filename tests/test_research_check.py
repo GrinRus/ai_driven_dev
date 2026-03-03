@@ -6,6 +6,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from tests.helpers import REPO_ROOT
 
@@ -160,7 +161,7 @@ class ResearchCheckTests(unittest.TestCase):
             {"schema": "aidd.report.pack.v1", "type": "rlm", "status": "pending"},
         )
 
-        args = self._make_args(ticket)
+        args = ["--ticket", ticket, "--expected-stage", "implement"]
         old_cwd = Path.cwd()
         os.chdir(workspace)
         try:
@@ -202,7 +203,7 @@ class ResearchCheckTests(unittest.TestCase):
             {"schema": "aidd.report.pack.v1", "type": "rlm", "status": "pending"},
         )
 
-        args = self._make_args(ticket)
+        args = ["--ticket", ticket, "--expected-stage", "research"]
         old_cwd = Path.cwd()
         os.chdir(workspace)
         try:
@@ -222,7 +223,7 @@ class ResearchCheckTests(unittest.TestCase):
         self._write_base_research(project_root, ticket, status="pending")
         self._write_rlm_baseline(project_root, ticket, status="pending", entries=[{"file_id": "file-app"}])
 
-        args = self._make_args(ticket)
+        args = ["--ticket", ticket, "--expected-stage", "review"]
         old_cwd = Path.cwd()
         os.chdir(workspace)
         try:
@@ -234,7 +235,7 @@ class ResearchCheckTests(unittest.TestCase):
         self.assertIn("reason_code=rlm_status_pending", str(excinfo.exception))
         self.assertIn("rlm_finalize.py --ticket", str(excinfo.exception))
 
-    def test_research_check_expected_stage_override_handles_stale_active_stage(self) -> None:
+    def test_research_check_expected_stage_override_blocks_when_finalize_fails(self) -> None:
         workspace, project_root = self._setup_workspace()
         ticket = "demo-stale-stage"
         write_active_feature(project_root, ticket)
@@ -251,10 +252,35 @@ class ResearchCheckTests(unittest.TestCase):
         finally:
             os.chdir(old_cwd)
 
-        text = str(excinfo.exception)
-        self.assertIn("reason_code=rlm_status_pending", text)
-        self.assertNotIn("reason_code=baseline_missing", text)
-        self.assertIn("rlm_finalize.py --ticket", text)
+        self.assertIn("reason_code=rlm_status_pending_finalize_failed", str(excinfo.exception))
+
+    def test_research_check_plan_softens_only_after_successful_finalize_probe(self) -> None:
+        workspace, project_root = self._setup_workspace()
+        ticket = "demo-plan-soften"
+        write_active_feature(project_root, ticket)
+        write_active_stage(project_root, "idea")
+
+        first_error = research_check.ResearchValidationError(
+            "BLOCK: статус Researcher `pending` не входит в ['reviewed'] "
+            "(reason_code=rlm_status_pending)"
+        )
+        retry_error = research_check.ResearchValidationError(
+            "BLOCK: статус Researcher `pending` не входит в ['reviewed'] "
+            "(reason_code=rlm_status_pending)"
+        )
+
+        args = ["--ticket", ticket, "--expected-stage", "plan"]
+        old_cwd = Path.cwd()
+        os.chdir(workspace)
+        try:
+            with patch("aidd_runtime.research_check.validate_research", side_effect=[first_error, retry_error]):
+                with patch("aidd_runtime.research_check.rlm_finalize.main", return_value=0):
+                    with patch("aidd_runtime.research_check._enforce_minimum_rlm_artifacts"):
+                        exit_code = research_check.main(args)
+        finally:
+            os.chdir(old_cwd)
+
+        self.assertEqual(exit_code, 0)
 
     def test_research_check_blocks_ready_links_empty(self) -> None:
         workspace, project_root = self._setup_workspace()

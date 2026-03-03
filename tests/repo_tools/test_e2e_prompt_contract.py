@@ -290,6 +290,21 @@ class E2EPromptContractTests(unittest.TestCase):
             text = _read(prompt)
             self.assertIn("rlm_status_pending", text, msg=f"{prompt}: missing downstream pending reason contract")
             self.assertIn("baseline_missing", text, msg=f"{prompt}: missing baseline_missing drift guard")
+            self.assertIn(
+                "WARN(plan_research_pending_softened)",
+                text,
+                msg=f"{prompt}: missing plan-stage soft pending contract",
+            )
+            self.assertIn(
+                "policy=warn_continue",
+                text,
+                msg=f"{prompt}: missing warn-continue telemetry contract",
+            )
+            self.assertRegex(
+                text,
+                r"review/qa.*blocking|blocking.*review/qa",
+                msg=f"{prompt}: missing strict review/qa pending contract",
+            )
             self.assertIn("AIDD:RLM_EVIDENCE", text, msg=f"{prompt}: missing RLM evidence section contract")
             self.assertRegex(
                 text.lower(),

@@ -557,7 +557,9 @@ RLM artifacts check (после fallback, если был):
 - при вопросах: retry;
 - если hang/kill: выполнить runtime probe
   - `python3 $PLUGIN_DIR/skills/plan-new/runtime/research_check.py --ticket $TICKET --expected-stage plan`
-- для downstream probes (`plan/review/qa`) pending должен классифицироваться как `reason_code=rlm_status_pending` + finalize hint;
+- для downstream probes:
+  - `plan`: если после bounded finalize остаётся `reason_code=rlm_status_pending`, допускается soft-pass (`exit_code=0`) с `WARN(plan_research_pending_softened)` и telemetry `policy=warn_continue`; это не `research_not_ready` само по себе.
+  - `review/qa`: pending остаётся blocking (`reason_code=rlm_status_pending`) + finalize hint.
 - `baseline_missing` в downstream probes считать drift/contract mismatch.
 - классифицировать как prompt-exec issue до probe.
 

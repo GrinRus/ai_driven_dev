@@ -107,7 +107,6 @@ _QUESTION_REASON_CODES = {
 _QUESTION_RETRY_REASON_CODE = "prompt_flow_blocker"
 RUNTIME_PATH_DRIFT_REASON_CODE = "runtime_path_missing_or_drift"
 PROMPT_FLOW_DRIFT_REASON_FAMILY = "prompt_flow_drift_non_canonical_runtime_path"
-SCOPE_MISMATCH_TRANSITION_BLOCKED_REASON_CODE = "scope_mismatch_transition_blocked"
 _CANT_OPEN_RUNTIME_RE = re.compile(
     r"can't open file [\"']?[^\"'\n]*?/skills/[^\"'\n]*/runtime/[^\"'\n]*",
     re.IGNORECASE,
@@ -874,8 +873,12 @@ def append_cli_log(log_path: Path, payload: Dict[str, object]) -> None:
 
 
 def _extract_stage_chain_reason_code(message: str, default: str) -> str:
-    match = STAGE_CHAIN_REASON_CODE_RE.search(str(message or ""))
+    text = str(message or "")
+    match = STAGE_CHAIN_REASON_CODE_RE.search(text)
     if not match:
+        lowered = text.lower()
+        if "[actions-apply] error:" in lowered:
+            return "actions_apply_failed"
         return default
     value = match.group(1).strip().lower()
     return value or default
@@ -1190,32 +1193,6 @@ def main(argv: list[str] | None = None) -> int:
                 f"[loop-step] WARN: scope_key_mismatch_warn from={mismatch_from} to={mismatch_to}",
                 file=sys.stderr,
             )
-            if stage == "implement":
-                mismatch_reason = (
-                    "implement stage_result scope mismatch; selected fallback scope is telemetry-only "
-                    f"(expected={expected_scope_key or 'n/a'}, selected={selected_scope_key or 'n/a'}). "
-                    "Re-emit canonical stage_result for the active scope before transition."
-                )
-                return emit_result(
-                    args.format,
-                    ticket,
-                    stage,
-                    "blocked",
-                    BLOCKED_CODE,
-                    "",
-                    mismatch_reason,
-                    SCOPE_MISMATCH_TRANSITION_BLOCKED_REASON_CODE,
-                    scope_key=expected_scope_key or scope_key,
-                    stage_result_path=runtime.rel_path(result_path, target),
-                    stage_result_diag=diag,
-                    cli_log_path=cli_log_path,
-                    scope_key_mismatch_warn=scope_key_mismatch_warn,
-                    scope_key_mismatch_from=scope_key_mismatch_from,
-                    scope_key_mismatch_to=scope_key_mismatch_to,
-                    scope_mismatch_non_authoritative=scope_mismatch_non_authoritative,
-                    expected_scope_key=expected_scope_key,
-                    selected_scope_key=selected_scope_key,
-                )
         result = str(payload.get("result") or "").strip().lower()
         reason = str(payload.get("reason") or "").strip()
         reason_code = str(payload.get("reason_code") or "").strip().lower()
@@ -2141,43 +2118,6 @@ def main(argv: list[str] | None = None) -> int:
                 f"[loop-step] WARN: scope_key_mismatch_warn from={mismatch_from} to={mismatch_to}",
                 file=sys.stderr,
             )
-        if next_stage == "implement":
-            mismatch_reason = (
-                "implement stage_result scope mismatch; selected fallback scope is telemetry-only "
-                f"(expected={expected_scope_key or next_scope_key or 'n/a'}, selected={selected_scope_key or mismatch_to or 'n/a'}). "
-                "Re-emit canonical stage_result for the active scope before transition."
-            )
-            return emit_result(
-                args.format,
-                ticket,
-                next_stage,
-                "blocked",
-                BLOCKED_CODE,
-                log_path,
-                mismatch_reason,
-                SCOPE_MISMATCH_TRANSITION_BLOCKED_REASON_CODE,
-                scope_key=expected_scope_key or next_scope_key,
-                stage_result_path=runtime.rel_path(result_path, target),
-                runner=runner_raw,
-                runner_effective=runner_effective,
-                runner_notice=runner_notice,
-                repair_reason_code=repair_reason_code,
-                repair_scope_key=repair_scope_key,
-                stream_log_path=stream_log_rel,
-                stream_jsonl_path=stream_jsonl_rel,
-                stage_result_diag=diag,
-                scope_key_mismatch_warn=scope_key_mismatch_warn,
-                scope_key_mismatch_from=scope_key_mismatch_from,
-                scope_key_mismatch_to=scope_key_mismatch_to,
-                scope_mismatch_non_authoritative=scope_mismatch_non_authoritative,
-                expected_scope_key=expected_scope_key,
-                selected_scope_key=selected_scope_key,
-                actions_log_path=actions_log_rel,
-                stage_chain_logs=stage_chain_logs,
-                cli_log_path=cli_log_path,
-                **question_retry_kwargs,
-                **stage_sync_kwargs,
-            )
 
     if stage_chain_enabled:
         ok_stage_chain, post_payload, stage_chain_error = run_stage_chain(
@@ -2241,44 +2181,6 @@ def main(argv: list[str] | None = None) -> int:
                 f"[loop-step] WARN: scope_key_mismatch_warn from={mismatch_from} to={mismatch_to}",
                 file=sys.stderr,
             )
-    if mismatch_to and next_stage == "implement":
-        mismatch_reason = (
-            "implement stage_result scope mismatch; selected fallback scope is telemetry-only "
-            f"(expected={expected_scope_key or next_scope_key or 'n/a'}, selected={selected_scope_key or mismatch_to or 'n/a'}). "
-            "Re-emit canonical stage_result for the active scope before transition."
-        )
-        return emit_result(
-            args.format,
-            ticket,
-            next_stage,
-            "blocked",
-            BLOCKED_CODE,
-            log_path,
-            mismatch_reason,
-            SCOPE_MISMATCH_TRANSITION_BLOCKED_REASON_CODE,
-            scope_key=expected_scope_key or next_scope_key,
-            stage_result_path=runtime.rel_path(result_path, target),
-            runner=runner_raw,
-            runner_effective=runner_effective,
-            runner_notice=runner_notice,
-            repair_reason_code=repair_reason_code,
-            repair_scope_key=repair_scope_key,
-            stream_log_path=stream_log_rel,
-            stream_jsonl_path=stream_jsonl_rel,
-            stage_result_diag=diag,
-            scope_key_mismatch_warn=scope_key_mismatch_warn,
-            scope_key_mismatch_from=scope_key_mismatch_from,
-            scope_key_mismatch_to=scope_key_mismatch_to,
-            scope_mismatch_non_authoritative=scope_mismatch_non_authoritative,
-            expected_scope_key=expected_scope_key,
-            selected_scope_key=selected_scope_key,
-            actions_log_path=actions_log_rel,
-            stage_chain_logs=stage_chain_logs,
-            cli_log_path=cli_log_path,
-            **question_retry_kwargs,
-            **stage_sync_kwargs,
-        )
-
     if error:
         error_reason = f"{error}; {diag}" if diag else error
         error_reason_code = error
