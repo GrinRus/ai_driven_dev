@@ -13,6 +13,9 @@ log() {
 log "runtime path regression"
 bash tests/repo_tools/runtime-path-regression.sh
 
+log "runtime bootstrap guard"
+python3 tests/repo_tools/runtime-bootstrap-guard.py --root "$ROOT_DIR"
+
 log "skill shell-wrapper guard"
 python3 tests/repo_tools/skill-scripts-guard.py
 
