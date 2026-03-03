@@ -40,6 +40,18 @@ from aidd_runtime import runtime
 from aidd_runtime.io_utils import utc_timestamp
 
 
+def _derive_ticket_from_actions_path(path: Path) -> str:
+    parts = list(path.parts)
+    for idx, part in enumerate(parts):
+        if part != "actions":
+            continue
+        if idx + 1 < len(parts):
+            value = str(parts[idx + 1]).strip()
+            if value:
+                return value
+    return ""
+
+
 def _apply_action(root: Path, ticket: str, action: Dict[str, object]) -> tuple[str, bool, bool]:
     action_type = str(action.get("type", ""))
     params = action.get("params") or {}
@@ -140,15 +152,29 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     actions_path = Path(args.actions)
+    ticket_hint = _derive_ticket_from_actions_path(actions_path)
+    next_action_hint = (
+        f" Next action: `/feature-dev-aidd:tasks-new {ticket_hint}`."
+        if ticket_hint
+        else ""
+    )
     try:
         payload = actions_validate.load_actions(actions_path)
     except actions_validate.ValidationError as exc:
-        print(f"[actions-apply] ERROR: {exc}", file=sys.stderr)
+        print(
+            f"[actions-apply] BLOCK: invalid actions payload (reason_code=contract_mismatch_actions_shape): "
+            f"{exc}.{next_action_hint}",
+            file=sys.stderr,
+        )
         return 2
     errors = actions_validate.validate_actions_data(payload)
     if errors:
         for err in errors:
-            print(f"[actions-apply] ERROR: {err}", file=sys.stderr)
+            print(
+                "[actions-apply] BLOCK: invalid actions payload "
+                f"(reason_code=contract_mismatch_actions_shape): {err}.{next_action_hint}",
+                file=sys.stderr,
+            )
         return 2
 
     if args.root:

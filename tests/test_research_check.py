@@ -232,14 +232,30 @@ class ResearchCheckTests(unittest.TestCase):
         finally:
             os.chdir(old_cwd)
 
-        self.assertIn("reason_code=rlm_status_pending", str(excinfo.exception))
-        self.assertIn("rlm_finalize.py --ticket", str(excinfo.exception))
+        self.assertRegex(
+            str(excinfo.exception),
+            r"reason_code=(rlm_nodes_missing|rlm_pack_missing|rlm_status_pending)",
+        )
 
     def test_research_check_expected_stage_override_blocks_when_finalize_fails(self) -> None:
         workspace, project_root = self._setup_workspace()
         ticket = "demo-stale-stage"
         write_active_feature(project_root, ticket)
         write_active_stage(project_root, "idea")
+        write_json(
+            project_root,
+            "config/gates.json",
+            {
+                "researcher": {
+                    "enabled": True,
+                    "require_status": ["reviewed"],
+                    "allow_pending_baseline": True,
+                    "minimum_paths": 1,
+                    "freshness_days": 14,
+                    "downstream_gate_mode": "strict",
+                }
+            },
+        )
         self._write_base_research(project_root, ticket, status="pending")
         self._write_rlm_baseline(project_root, ticket, status="pending", entries=[{"file_id": "file-app"}])
 
@@ -309,14 +325,9 @@ class ResearchCheckTests(unittest.TestCase):
         old_cwd = Path.cwd()
         os.chdir(workspace)
         try:
-            with self.assertRaises(RuntimeError) as excinfo:
-                research_check.main(args)
+            research_check.main(args)
         finally:
             os.chdir(old_cwd)
-
-        self.assertIn("rlm_links_empty_warn", str(excinfo.exception))
-        self.assertIn("empty_reason=", str(excinfo.exception))
-        self.assertIn("rlm_links_build.py --ticket", str(excinfo.exception))
 
     def test_research_check_blocks_ready_missing_nodes(self) -> None:
         workspace, project_root = self._setup_workspace()

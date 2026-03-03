@@ -27,8 +27,15 @@ class GateWorkflowPreflightContractTests(unittest.TestCase):
         actions_dir.mkdir(parents=True, exist_ok=True)
         logs_dir.mkdir(parents=True, exist_ok=True)
 
-        write_file(root, f"reports/actions/{ticket}/{scope_key}/review.actions.template.json", "{}\n")
-        write_file(root, f"reports/actions/{ticket}/{scope_key}/review.actions.json", "{}\n")
+        payload = (
+            '{"schema_version":"aidd.actions.v1","stage":"review","ticket":"'
+            + ticket
+            + '","scope_key":"'
+            + scope_key
+            + '","work_item_key":"iteration_id=I1","allowed_action_types":[],"actions":[]}\n'
+        )
+        write_file(root, f"reports/actions/{ticket}/{scope_key}/review.actions.template.json", payload)
+        write_file(root, f"reports/actions/{ticket}/{scope_key}/review.actions.json", payload)
         write_file(root, f"reports/actions/{ticket}/{scope_key}/readmap.json", "{}\n")
         write_file(root, f"reports/actions/{ticket}/{scope_key}/writemap.json", "{}\n")
         write_file(root, f"reports/actions/{ticket}/{scope_key}/stage.preflight.result.json", "{}\n")
@@ -56,14 +63,30 @@ class GateWorkflowPreflightContractTests(unittest.TestCase):
         context_dir = root / "reports" / "context" / ticket
         loops_dir = root / "reports" / "loops" / ticket / scope_key
         logs_dir = root / "reports" / "logs" / stage / ticket / scope_key
+        work_item_key = (
+            f"iteration_id={scope_key.split('iteration_id_', 1)[-1]}"
+            if scope_key.startswith("iteration_id_")
+            else ""
+        )
 
         actions_dir.mkdir(parents=True, exist_ok=True)
         context_dir.mkdir(parents=True, exist_ok=True)
         loops_dir.mkdir(parents=True, exist_ok=True)
         logs_dir.mkdir(parents=True, exist_ok=True)
 
-        write_file(root, f"reports/actions/{ticket}/{scope_key}/{stage}.actions.template.json", '{"actions":[]}\n')
-        write_file(root, f"reports/actions/{ticket}/{scope_key}/{stage}.actions.json", '{"actions":[]}\n')
+        payload = (
+            '{"schema_version":"aidd.actions.v1","stage":"'
+            + stage
+            + '","ticket":"'
+            + ticket
+            + '","scope_key":"'
+            + scope_key
+            + '","work_item_key":"'
+            + work_item_key
+            + '","allowed_action_types":[],"actions":[]}\n'
+        )
+        write_file(root, f"reports/actions/{ticket}/{scope_key}/{stage}.actions.template.json", payload)
+        write_file(root, f"reports/actions/{ticket}/{scope_key}/{stage}.actions.json", payload)
         write_file(root, f"reports/context/{ticket}/{scope_key}.readmap.json", "{}\n")
         write_file(root, f"reports/context/{ticket}/{scope_key}.readmap.md", "# readmap\n")
         write_file(root, f"reports/context/{ticket}/{scope_key}.writemap.json", "{}\n")
@@ -79,11 +102,7 @@ class GateWorkflowPreflightContractTests(unittest.TestCase):
                     "status": "ok",
                     "ticket": ticket,
                     "scope_key": scope_key,
-                    "work_item_key": (
-                        f"iteration_id={scope_key.split('iteration_id_', 1)[-1]}"
-                        if scope_key.startswith("iteration_id_")
-                        else ""
-                    ),
+                    "work_item_key": work_item_key,
                     "updated_at": "2026-01-01T00:00:00Z",
                     "details": {"target_stage": stage, "artifacts": {}},
                 }
@@ -174,6 +193,31 @@ class GateWorkflowPreflightContractTests(unittest.TestCase):
                     os.environ["CLAUDE_PLUGIN_ROOT"] = env_backup
             self.assertFalse(ok)
             self.assertIn("reason_code=preflight_missing", message)
+            self.assertIn("/feature-dev-aidd:implement", message)
+
+    def test_loop_preflight_guard_blocks_on_actions_payload_contract_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="gate-preflight-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-PREFLIGHT"
+            stage = "implement"
+            scope_key = "iteration_id_M1"
+            work_item_key = "iteration_id=M1"
+            self._prepare_base(root, ticket=ticket, stage=stage, scope_key=scope_key, work_item_key=work_item_key)
+            self._write_required_artifacts(root, ticket=ticket, stage=stage, scope_key=scope_key)
+            write_file(root, f"reports/actions/{ticket}/{scope_key}/{stage}.actions.json", "{}\n")
+
+            env_backup = os.environ.get("CLAUDE_PLUGIN_ROOT")
+            os.environ["CLAUDE_PLUGIN_ROOT"] = str(REPO_ROOT)
+            try:
+                ok, message = gate_workflow._loop_preflight_guard(root, ticket, stage, "strict")
+            finally:
+                if env_backup is None:
+                    os.environ.pop("CLAUDE_PLUGIN_ROOT", None)
+                else:
+                    os.environ["CLAUDE_PLUGIN_ROOT"] = env_backup
+            self.assertFalse(ok)
+            self.assertIn("reason_code=contract_mismatch_actions_shape", message)
+            self.assertIn("/feature-dev-aidd:tasks-new", message)
 
     def test_loop_preflight_guard_blocks_when_actions_log_path_missing_in_strict(self) -> None:
         with tempfile.TemporaryDirectory(prefix="gate-preflight-") as tmpdir:
@@ -304,6 +348,7 @@ class GateWorkflowPreflightContractTests(unittest.TestCase):
                     os.environ["CLAUDE_PLUGIN_ROOT"] = env_backup
             self.assertFalse(ok)
             self.assertIn("reason_code=preflight_missing", message)
+            self.assertIn("/feature-dev-aidd:implement", message)
 
     def test_loop_preflight_guard_ignores_legacy_skip_flag_in_strict(self) -> None:
         with tempfile.TemporaryDirectory(prefix="gate-preflight-") as tmpdir:

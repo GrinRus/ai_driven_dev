@@ -116,6 +116,7 @@ def _fallback_scope_key(root: Path, ticket: str) -> str:
 
 
 def _loop_preflight_guard(root: Path, ticket: str, stage: str, hooks_mode: str) -> tuple[bool, str]:
+    from aidd_runtime import actions_validate
     from aidd_runtime import runtime as _runtime
 
     if stage not in {"implement", "review", "qa"}:
@@ -151,11 +152,43 @@ def _loop_preflight_guard(root: Path, ticket: str, stage: str, hooks_mode: str) 
         missing.append(_runtime.rel_path(path, root))
 
     if missing:
-        return False, f"BLOCK: missing preflight artifacts ({', '.join(missing)}) (reason_code=preflight_missing)"
+        return (
+            False,
+            "BLOCK: missing preflight artifacts "
+            f"({', '.join(missing)}) (reason_code=preflight_missing). "
+            f"Next action: `/feature-dev-aidd:implement {ticket}`.",
+        )
     stage_chain_logs = sorted(logs_dir.glob("stage.*.log")) if logs_dir.exists() else []
     if not stage_chain_logs:
         expected = _runtime.rel_path(logs_dir / "stage.*.log", root)
-        return False, f"BLOCK: missing stage-chain logs ({expected}) (reason_code=preflight_missing)"
+        return (
+            False,
+            "BLOCK: missing stage-chain logs "
+            f"({expected}) (reason_code=preflight_missing). "
+            f"Next action: `/feature-dev-aidd:implement {ticket}`.",
+        )
+
+    actions_payload = required["actions_payload"]
+    try:
+        actions_data = actions_validate.load_actions(actions_payload)
+    except actions_validate.ValidationError as exc:
+        return (
+            False,
+            "BLOCK: invalid actions payload "
+            f"({_runtime.rel_path(actions_payload, root)}) "
+            f"(reason_code=contract_mismatch_actions_shape): {exc}. "
+            f"Next action: `/feature-dev-aidd:tasks-new {ticket}`.",
+        )
+    actions_errors = actions_validate.validate_actions_data(actions_data)
+    if actions_errors:
+        preview = actions_errors[0]
+        return (
+            False,
+            "BLOCK: invalid actions payload "
+            f"({_runtime.rel_path(actions_payload, root)}) "
+            f"(reason_code=contract_mismatch_actions_shape): {preview}. "
+            f"Next action: `/feature-dev-aidd:tasks-new {ticket}`.",
+        )
 
     contract_path = loops_dir / "output.contract.json"
     if contract_path.exists():
@@ -654,12 +687,14 @@ def main() -> int:
 
         research_settings = load_research_settings(root)
         try:
+            research_stage = active_stage or "review"
             research_summary = validate_research(
                 root,
                 ticket,
                 settings=research_settings,
                 branch=current_branch or None,
-                expected_stage=active_stage or "review",
+                expected_stage=research_stage,
+                allow_scoped_links_empty_warn=research_stage in {"plan", "review", "qa"},
             )
         except ResearchValidationError as exc:
             _log_stderr(str(exc))

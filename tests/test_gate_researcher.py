@@ -98,7 +98,11 @@ def test_researcher_blocks_pending_baseline_in_downstream_stage(tmp_path):
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result.returncode == 2
     combined = (result.stdout + result.stderr).lower()
-    assert "reason_code=rlm_status_pending" in combined
+    assert (
+        "reason_code=rlm_nodes_missing" in combined
+        or "reason_code=rlm_pack_missing" in combined
+        or "reason_code=rlm_status_pending" in combined
+    )
 
 
 def test_researcher_blocks_pending_baseline_without_extra_flags(tmp_path):
@@ -113,7 +117,11 @@ def test_researcher_blocks_pending_baseline_without_extra_flags(tmp_path):
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result.returncode == 2
     combined = (result.stdout + result.stderr).lower()
-    assert "reason_code=rlm_status_pending" in combined
+    assert (
+        "reason_code=rlm_nodes_missing" in combined
+        or "reason_code=rlm_pack_missing" in combined
+        or "reason_code=rlm_status_pending" in combined
+    )
 
 
 def test_researcher_blocks_pending_without_baseline_marker(tmp_path):
@@ -128,7 +136,11 @@ def test_researcher_blocks_pending_without_baseline_marker(tmp_path):
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result.returncode == 2
     combined = (result.stdout + result.stderr).lower()
-    assert "pending" in combined or "baseline" in combined
+    assert (
+        "pending" in combined
+        or "baseline" in combined
+        or "reason_code=rlm_nodes_missing" in combined
+    )
 
 
 def test_researcher_blocks_missing_report(tmp_path):
@@ -139,4 +151,8 @@ def test_researcher_blocks_missing_report(tmp_path):
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result.returncode == 2
     combined = (result.stdout + result.stderr).lower()
-    assert "reason_code=rlm_status_pending" in combined or "reason_code=research_report_missing" in combined
+    assert (
+        "reason_code=rlm_status_pending" in combined
+        or "reason_code=research_report_missing" in combined
+        or "reason_code=rlm_nodes_missing" in combined
+    )

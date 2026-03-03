@@ -351,3 +351,47 @@ _Статус: план. Цель — ослабить E2E readiness gate тол
   **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py`.
   **Effort:** M
   **Risk:** Medium
+
+## Wave 104 — Always-soft research gates + QA convergence recovery
+
+_Статус: plan. Цель — временно исключить terminal-block по research warn/pending на шагах 5.2/7, сохранив fail-fast для ENV/contract/runtime-path и восстановить строгие проверки после стабилизации._
+
+- [ ] **W104-1 (P0) Always-soft rollout для шагов 5.2/7 (runtime + prompt + tests)** `skills/aidd-core/runtime/research_guard.py`, `hooks/gate_workflow.py`, `skills/aidd-loop/runtime/loop_run_parts/core.py`, `skills/aidd-loop/runtime/loop_block_policy.py`, `templates/aidd/config/gates.json`, `tests/repo_tools/e2e_prompt/profile_{full,smoke}.md`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - включить `researcher.downstream_gate_mode=always_soft` и default `loop.blocked_policy=ralph`;
+  - перевести `rlm_links_empty_warn|rlm_status_pending` в non-terminal soft path при minimal baseline;
+  - добавить loop telemetry `research_gate_softened/reason/policy`.
+  **AC:** шаг 5.2 и шаг 7 не завершаются terminal fail только из-за research warn/pending при baseline; ENV/contract/runtime-path причины остаются terminal.
+  **Deps:** -
+  **Regression/tests:** `python3 tests/repo_tools/build_e2e_prompts.py --check`, `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py tests/test_research_check.py tests/test_gate_researcher.py tests/test_gate_workflow.py tests/test_loop_run.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [ ] **W104-2 (P0) Research root-cause fix (`no_symbols/no_matches`, links build stability, finalize convergence)** `skills/researcher/runtime/research.py`, `skills/aidd-rlm/runtime/rlm_links_build.py`, `skills/aidd-rlm/runtime/rlm_finalize.py`, `skills/aidd-core/runtime/research_guard.py`, `tests/test_research_command.py`, `tests/test_research_check.py`:
+  - устранить причины пустых links в валидных code scopes;
+  - стабилизировать bounded finalize и детерминированный переход `pending -> ready|warn`;
+  - сократить ложные `pending` после авто-recovery.
+  **AC:** `rlm_links_empty_warn|rlm_status_pending` остаются только в репрезентативных hard-case сценариях; auto-finalize converges без soft override в большинстве прогонов.
+  **Deps:** W104-1
+  **Regression/tests:** `python3 -m pytest -q tests/test_research_command.py tests/test_research_check.py tests/test_gate_workflow.py`.
+  **Effort:** L
+  **Risk:** High
+
+- [ ] **W104-3 (P1) Restore strict research gates после стабилизации** `templates/aidd/config/gates.json`, `skills/aidd-core/runtime/research_guard.py`, `skills/aidd-loop/runtime/loop_block_policy.py`, `tests/repo_tools/e2e_prompt/profile_{full,smoke}.md`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - вернуть strict-default policy (`downstream_gate_mode=strict` и strict readiness contract);
+  - оставить runtime override через CLI/env для controlled rollout;
+  - добавить strict-profile regression в prompt/runtime tests.
+  **AC:** strict режим воспроизводимо блокирует warn/pending при отсутствии explicit soft override; soft rollout остаётся управляемым feature-flag.
+  **Deps:** W104-2
+  **Regression/tests:** `python3 tests/repo_tools/build_e2e_prompts.py --check`, `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py tests/test_research_check.py tests/test_loop_run.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W104-4 (P0) QA convergence hardening (phase-1/phase-2)** `skills/qa/runtime/qa_parts/core.py`, `skills/aidd-docio/runtime/actions_apply.py`, `hooks/gate_workflow.py`, `skills/qa/SKILL.md`, `agents/qa.md`, `tests/test_qa_agent.py`, `tests/test_qa_exit_code.py`, `tests/test_loop_step.py`:
+  - phase-1: fail-fast на `preflight_missing`/workflow-root mismatch и запрет repeated guessed retries;
+  - phase-2: prevalidate actions payload до apply с unified reason code `contract_mismatch_actions_shape`, early BLOCK и canonical next action;
+  - обеспечить детерминированный terminal payload в одном run без watchdog no-result цикла.
+  **AC:** QA run завершает top-level result до watchdog budget; repeated stop-hook cycle без terminal payload не воспроизводится; next action для preflight missing = `/feature-dev-aidd:tasks-new <ticket>`.
+  **Deps:** W104-1
+  **Regression/tests:** `python3 -m pytest -q tests/test_qa_agent.py tests/test_qa_exit_code.py tests/test_loop_step.py tests/test_gate_workflow_preflight_contract.py`.
+  **Effort:** M
+  **Risk:** High

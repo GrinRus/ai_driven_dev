@@ -662,11 +662,12 @@ def main(argv: list[str] | None = None) -> int:
         stage_chain_context_ok, stage_chain_scope = _qa_stage_chain_context_available(target, ticket)
         if not stage_chain_context_ok:
             print(
-                "[aidd] WARN: QA stage-chain context missing "
-                f"(reason_code=qa_stage_chain_context_missing scope_key={stage_chain_scope or 'n/a'}); "
-                "preflight guard may block if stage-chain artifacts are absent.",
+                "[aidd] BLOCK: QA stage-chain context missing "
+                f"(reason_code=preflight_missing scope_key={stage_chain_scope or 'n/a'}). "
+                f"Next action: `/feature-dev-aidd:implement {ticket}`.",
                 file=sys.stderr,
             )
+            return 2
 
     branch = args.branch or runtime.detect_branch(target)
 

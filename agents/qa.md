@@ -25,6 +25,8 @@ permissionMode: default
 - Работай по текущему qa-stage contract и loop-артефактам; детальные runtime guardrails задаются stage skill.
 - Держи проверку в границах DoD и текущего scope; не добавляй off-scope правки как QA recovery.
 - При runtime/test сбоях фиксируй evidence и возвращай BLOCKED/handoff по stage contract без повторяющихся guessed retries.
+- Fail-fast: при `reason_code=preflight_missing` останавливай текущий запуск терминально и давай canonical next action `/feature-dev-aidd:implement <ticket>`. При ошибках schema apply (`reason_code=contract_mismatch_actions_shape`) давай canonical next action `/feature-dev-aidd:tasks-new <ticket>`.
+- Не запускай циклические повторные проверки без новых артефактов; один run должен завершаться детерминированным terminal payload.
 
 ## Пошаговый план
 1. Прочитай rolling context pack.
