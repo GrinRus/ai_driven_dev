@@ -686,6 +686,73 @@ class LoopRunTests(unittest.TestCase):
             probe_mock.assert_not_called()
             step_mock.assert_not_called()
 
+    def test_loop_run_research_gate_strict_softens_research_status_invalid(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-RLM-GATE-STRICT-SOFT-STATUS"
+            write_active_state(root, ticket=ticket, stage="implement", work_item="iteration_id=I1")
+            fake_step = subprocess.CompletedProcess(
+                args=["loop-step"],
+                returncode=0,
+                stdout=json.dumps(
+                    {
+                        "status": "done",
+                        "stage": "review",
+                        "scope_key": "iteration_id_I1",
+                        "work_item_key": "iteration_id=I1",
+                        "reason": "",
+                        "reason_code": "",
+                    }
+                ),
+                stderr="",
+            )
+            captured = io.StringIO()
+            cwd = os.getcwd()
+            try:
+                os.chdir(root.parent)
+                with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
+                    with patch("aidd_runtime.loop_run._should_enforce_loop_research_gate", return_value=True):
+                        with patch(
+                            "aidd_runtime.loop_run._validate_loop_research_gate",
+                            return_value=(
+                                False,
+                                "research_status_invalid",
+                                "BLOCK: статус Researcher `warn` не входит в ['reviewed'] (reason_code=research_status_invalid)",
+                                "python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py --ticket DEMO-RLM-GATE-STRICT-SOFT-STATUS --auto",
+                            ),
+                        ):
+                            with patch("aidd_runtime.loop_run._run_research_gate_probe") as probe_mock:
+                                with patch("aidd_runtime.loop_run.run_loop_step", return_value=fake_step) as step_mock:
+                                    with redirect_stdout(captured):
+                                        code = loop_run_module.main(
+                                            [
+                                                "--ticket",
+                                                ticket,
+                                                "--max-iterations",
+                                                "1",
+                                                "--research-gate",
+                                                "on",
+                                                "--blocked-policy",
+                                                "strict",
+                                                "--recoverable-block-retries",
+                                                "1",
+                                                "--format",
+                                                "json",
+                                            ]
+                                        )
+            finally:
+                os.chdir(cwd)
+
+            self.assertEqual(code, 0)
+            payload = json.loads(captured.getvalue())
+            self.assertEqual(payload.get("status"), "ship")
+            self.assertEqual(payload.get("blocked_policy"), "strict")
+            probe_mock.assert_not_called()
+            step_mock.assert_called_once()
+            loop_log = (root / "reports" / "loops" / ticket / "loop.run.log").read_text(encoding="utf-8")
+            self.assertIn("event=research-gate-warn-continue", loop_log)
+            self.assertIn("reason_code=research_status_invalid", loop_log)
+
     def test_loop_run_ralph_retries_blocking_findings(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
