@@ -121,18 +121,10 @@ def main(argv: list[str] | None = None) -> int:
             raise RuntimeError(str(exc)) from exc
         finalize_exit_code = rlm_finalize.main(["--ticket", ticket, "--emit-json"])
         if finalize_exit_code != 0:
-            if not plan_pending_soft_mode:
-                raise RuntimeError(
-                    f"{exc}\n[aidd] ERROR: reason_code=rlm_status_pending_finalize_failed "
-                    f"(exit_code={finalize_exit_code})"
-                ) from exc
-            print(
-                "[aidd] WARN: plan-stage research gate softened "
-                "(reason_code=rlm_status_pending, policy=warn_continue, "
-                f"finalize_exit_code={finalize_exit_code}).",
-                file=sys.stderr,
-            )
-            summary = _soft_pending_summary()
+            raise RuntimeError(
+                f"{exc}\n[aidd] ERROR: reason_code=rlm_status_pending_finalize_failed "
+                f"(exit_code={finalize_exit_code})"
+            ) from exc
         else:
             try:
                 summary = validate_research(
