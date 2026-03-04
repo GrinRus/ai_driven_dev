@@ -629,6 +629,10 @@ Anti-cascade:
   - перед retry снова проверить PRD header (`Status:` + unresolved `Q*`); если `Status != READY`, сначала выполнить findings-sync cycle (idea-new/plan-new по `05_review_spec_report_check_run<N>.txt`), затем повторно проверить `Status`;
   - если после findings-sync `Status != READY`, классифицировать как `NOT VERIFIED (findings_sync_not_converged)` + `prompt-flow gap` и не выполнять retry `tasks-new`;
   - иначе повторить `/feature-dev-aidd:tasks-new $TICKET` один раз;
+- если `tasks-new` сообщает `AIDD:TEST_EXECUTION missing tasks`:
+  - сохранить `05_tasklist_test_execution_probe.txt` с полями `tasks_key_present`, `tasks_list_count`, `commands_key_present`, `classification`;
+  - если probe подтверждает `tasks_list_count>0` или наличие `command|commands` entries, классифицировать как `WARN(tasklist_schema_parser_mismatch_recoverable)` и продолжать downstream stages (не terminal blocker);
+  - если probe не подтверждает исполняемые test entries, оставлять классификацию как `prompt-flow blocker`.
 - если `tasks-new` завершился `success|WARN`, но `summary/log` содержит рекомендации manual/non-canonical recovery как primary path:
   - классифицировать как `WARN(prompt_flow_drift_non_canonical_stage_orchestration)`;
   - не переходить на manual path, продолжать сценарий.

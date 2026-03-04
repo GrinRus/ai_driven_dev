@@ -213,6 +213,19 @@ class E2EPromptContractTests(unittest.TestCase):
             self.assertIn("05_plan_findings_sync_request.txt", text, msg=f"{prompt}: missing plan sync request artifact")
             self.assertIn("NOT VERIFIED (findings_sync_not_converged)", text, msg=f"{prompt}: missing non-converged sync classification")
 
+    def test_prompts_soften_false_missing_tasks_in_tasks_new(self) -> None:
+        for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
+            text = _read(prompt)
+            self.assertIn("AIDD:TEST_EXECUTION missing tasks", text, msg=f"{prompt}: missing missing-tasks guard")
+            self.assertIn("05_tasklist_test_execution_probe.txt", text, msg=f"{prompt}: missing tasklist probe artifact")
+            self.assertIn("tasks_list_count>0", text, msg=f"{prompt}: missing tasklist list-count probe condition")
+            self.assertIn(
+                "WARN(tasklist_schema_parser_mismatch_recoverable)",
+                text,
+                msg=f"{prompt}: missing recoverable mismatch classification",
+            )
+            self.assertIn("не terminal blocker", text, msg=f"{prompt}: missing non-terminal continuation policy")
+
     def test_full_prompt_requires_answer_normalization_and_compact_retry_payload(self) -> None:
         text = _read(AUDIT_PROMPT_FULL)
         self.assertIn("если source содержит `TBD`/пустые значения в `AIDD:ANSWERS`", text)

@@ -309,6 +309,10 @@ RLM-only check:
   - перед retry проверить PRD header (`Status:` + unresolved `Q*`); если `Status != READY`, сначала выполнить findings-sync cycle (idea-new/plan-new), затем повторно проверить `Status`;
   - если после findings-sync `Status != READY`, классифицировать как `NOT VERIFIED (findings_sync_not_converged)` + `prompt-flow gap` и не выполнять retry;
   - иначе повторить `/feature-dev-aidd:tasks-new $TICKET` один раз.
+- Если `tasks-new` сообщает `AIDD:TEST_EXECUTION missing tasks`:
+  - сохранить `05_tasklist_test_execution_probe.txt` с полями `tasks_key_present`, `tasks_list_count`, `commands_key_present`, `classification`;
+  - если probe подтверждает `tasks_list_count>0` или наличие `command|commands` entries, классифицировать как `WARN(tasklist_schema_parser_mismatch_recoverable)` и продолжать downstream stages (не terminal blocker);
+  - если probe не подтверждает исполняемые test entries, оставлять классификацию как `prompt-flow blocker`.
 - Если hang/kill — fallback:
   - `python3 $PLUGIN_DIR/skills/tasks-new/runtime/tasks_new.py --ticket $TICKET`
 - Сохранить `05_tasklist_status_check.txt`.
