@@ -98,8 +98,15 @@ def _resolve_command_binary(command: str) -> str:
         tokens = shlex.split(text)
     except ValueError:
         return ""
-    if not tokens:
+    idx = _resolve_command_binary_index(tokens)
+    if idx < 0:
         return ""
+    return Path(tokens[idx]).name.lower()
+
+
+def _resolve_command_binary_index(tokens: list[str]) -> int:
+    if not tokens:
+        return -1
     idx = 0
     # Prefix assignments: VAR=value rg ...
     while idx < len(tokens) and "=" in tokens[idx] and not tokens[idx].startswith("-"):
@@ -122,11 +129,54 @@ def _resolve_command_binary(command: str) -> str:
             option_chars = option[1:] if option.startswith("-") else ""
             if "v" in option_chars or "V" in option_chars:
                 # `command -v/-V ...` is lookup mode, not command execution.
-                return ""
+                return -1
             idx += 1
     if idx >= len(tokens):
+        return -1
+    return idx
+
+
+def _extract_shell_wrapper_command(command: str) -> str:
+    text = str(command or "").strip()
+    if not text:
         return ""
-    return Path(tokens[idx]).name.lower()
+    try:
+        tokens = shlex.split(text)
+    except ValueError:
+        return ""
+    idx = _resolve_command_binary_index(tokens)
+    if idx < 0:
+        return ""
+    binary = Path(tokens[idx]).name.lower()
+    if binary not in {"bash", "sh", "zsh", "dash", "ksh", "mksh"}:
+        return ""
+    tail = tokens[idx + 1 :]
+    if not tail:
+        return ""
+    cursor = 0
+    while cursor < len(tail):
+        token = tail[cursor]
+        if token == "--":
+            cursor += 1
+            continue
+        if token == "-c" or token == "--command":
+            if cursor + 1 >= len(tail):
+                return ""
+            return str(tail[cursor + 1]).strip()
+        if token.startswith("-") and not token.startswith("--"):
+            short = token[1:]
+            if "c" in short:
+                pos = short.find("c")
+                attached = short[pos + 1 :]
+                if attached:
+                    return attached.strip()
+                if cursor + 1 >= len(tail):
+                    return ""
+                return str(tail[cursor + 1]).strip()
+            cursor += 1
+            continue
+        return ""
+    return ""
 
 
 def _contains_unquoted_shell_operator(command: str) -> bool:
@@ -173,6 +223,9 @@ def is_rg_command(command: str) -> bool:
     binary = _resolve_command_binary(text)
     if binary in {"rg", "rg.exe"}:
         return True
+    nested = _extract_shell_wrapper_command(text)
+    if nested and nested != text:
+        return is_rg_command(nested)
     try:
         tokens = shlex.split(text)
     except ValueError:
