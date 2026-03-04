@@ -102,8 +102,8 @@
 - R17.4: Severity profile `conservative`: `ENV_BLOCKER`, `ENV_MISCONFIG`, `contract_mismatch` остаются terminal; `stream path` parser-noise (`stream_path_invalid|stream_path_missing`) и telemetry-mismatch не являются terminal сами по себе; `result_count=0` трактуется как инцидент только после явной проверки top-level payload.
 - R17.5: Для шага 7 `diff_boundary_violation` не считается terminal, если `OUT_OF_SCOPE`/sample-path состоят только из `.aidd_audit/**`; это `prompt-exec issue (diff_boundary_ephemeral_misclassified)` и отдельный bug, но не flow terminal blocker.
 - R18: Перед запуском `plan-new`, `review-spec`, `tasks-new` и любого шага `6/7/8` обязателен readiness gate из `AUDIT_DIR/05_precondition_block.txt`.
-- R18.1: Readiness gate = `PASS` только при одновременном выполнении условий: `prd_status=READY`, `open_questions_count=0`, `answers_format=compact_q_codes|legacy_answer_alias`, и `research_status=reviewed|ok|warn|pending` при наличии minimal RLM baseline.
-- R18.1a: `compact_q_codes` обязателен для retry payload в CLI (`AIDD:ANSWERS Q1=...; Q2=...`), но не как обязательный persisted-формат секции `AIDD:ANSWERS` в PRD/plan/tasklist.
+- R18.1: Readiness gate = `PASS` только при одновременном выполнении условий: `prd_status=READY`, `open_questions_count=0`, `answers_format=compact_q_values`, и `research_status=reviewed|ok|warn|pending` при наличии minimal RLM baseline.
+- R18.1a: `compact_q_values` обязателен для retry payload в CLI (`AIDD:ANSWERS Q1=...; Q2="короткий текст"`), но не как обязательный persisted-формат секции `AIDD:ANSWERS` в PRD/plan/tasklist.
 - R18.1b: Minimal RLM baseline для soft-readiness: существуют `aidd/reports/research/<ticket>-rlm-targets.json`, `...-rlm-manifest.json`, `...-rlm.worklist.pack.json`, `...-rlm.pack.json`; `aidd/reports/research/<ticket>-rlm.nodes.jsonl` непустой. `links` могут быть `warn|empty` и не являются terminal при baseline.
 - R18.2: При `FAIL` readiness gate обязателен `reason_code` из набора `prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready`; шаг 5 классифицируется как `NOT VERIFIED (readiness_gate_failed)` + `prompt-flow gap`.
 - R18.2a: Если первичный readiness gate = `FAIL` с `reason_code=prd_not_ready|open_questions_present|answers_format_invalid`, перед terminal-классификацией обязателен ровно один readiness-recovery цикл: закрытие PRD-вопросов (question template + compact `AIDD:ANSWERS` retry для `idea-new`, если trigger валиден) -> `/feature-dev-aidd:spec-interview <ticket>` -> `/feature-dev-aidd:review-spec <ticket>` -> пересчёт `05_precondition_block.txt`.
@@ -236,12 +236,12 @@
 1. Запусти первую попытку по R0/R0.1.
 2. Если stage задаёт вопросы/возвращает BLOCK из-за отсутствия ответов:
    - retry-триггер разрешён только по текущему stage-return (финальный ответ stage-команды);
-   - для `idea-new` и `plan-new` retry-триггер также считается валидным, если top-level `success|WARN` явно требует ответить на `Q*`/закрыть `Ответ N: TBD` и перевести артефакт стадии в `READY`;
+   - для `idea-new` и `plan-new` retry-триггер также считается валидным, если top-level `success|WARN` явно требует ответить на `Q*`/закрыть незаполненные `AIDD:ANSWERS Q<N>=...` и перевести артефакт стадии в `READY`;
    - не считать trigger-ом `Q*`/`AIDD:ANSWERS`/`Question` внутри вложенных артефактов (PRD/tasklist/reports/log excerpts), если stage-return сам не запрашивает ответ;
    - извлеки вопросы в `AUDIT_DIR/<step>_questions.txt`;
    - сформируй `AIDD:ANSWERS` в `AUDIT_DIR/<step>_answers.txt` на основе уже собранных артефактов;
    - дополнительно сохрани `AUDIT_DIR/<step>_questions_raw.txt` и `AUDIT_DIR/<step>_questions_normalized.txt` (нормализация `Q<N>` и choice-кодов перед retry);
-   - если source содержит legacy `Answer N:`/`Answer to QN:` или `TBD`, нормализуй в `Q<N>=<choice|short_code>`; при невозможности нормализации фиксируй `reason_code=answers_format_invalid` и не выполняй retry;
+   - если source содержит `TBD`/пустые значения в `AIDD:ANSWERS`, нормализуй в `Q<N>=<token>` или `Q<N>="короткий текст"`; при невозможности нормализации фиксируй `reason_code=answers_format_invalid` и не выполняй retry;
    - выполни **ровно один** retry;
    - формат ответов для retry должен быть **компактным**: choice-коды/короткие фразы в одной строке, без длинного многострочного prose;
    - рекомендуемый шаблон: `AIDD:ANSWERS Q1=C; Q2=B; Q3=C; Q4=A; Q5=C`.
@@ -249,7 +249,7 @@
    - `idea-new`: `ticket + IDEA_NOTE + AIDD:ANSWERS`;
    - остальные stage: `ticket + AIDD:ANSWERS`;
    - не вставляй в CLI многострочные ответы с большим количеством Unicode/пунктуации; если нужно сохранить детали, держи их в `<step>_answers.txt`, а в команду передавай сжатый вариант.
-   - в CLI передавай только нормализованный one-line payload вида `AIDD:ANSWERS Q1=...; Q2=...`; legacy префиксы `Answer N:` в retry запрещены.
+   - в CLI передавай только нормализованный one-line payload вида `AIDD:ANSWERS Q1=...; Q2="короткий текст"`.
    - для runtime retry используй canonical CLI-аргументы runtime (например, `--plan-path` для `plan-review-gate`) без legacy alias-аргументов.
 4. Если после retry всё ещё BLOCKED:
    - зафиксируй `WARN`/`FAIL` с причиной,
@@ -491,12 +491,12 @@
 
 Сделать:
 - после `5.1` проверить top-level stage-return и `aidd/docs/prd/$TICKET.prd.md`;
-- если обнаружены неотвеченные вопросы (`Q*`, `Ответ N: TBD`, `Answer N: TBD`, `Status: draft` при явном требовании stage-return закрыть вопросы), выполнить question retry для `idea-new` по шаблону секции 6;
+- если обнаружены неотвеченные вопросы (`Q*`, пустые/`TBD` значения в `AIDD:ANSWERS`, `Status: draft` при явном требовании stage-return закрыть вопросы), выполнить question retry для `idea-new` по шаблону секции 6;
 - сохранить артефакты question-cycle:
   - `05_idea_new_questions_raw.txt`
   - `05_idea_new_questions_normalized.txt`
   - `05_idea_new_answers.txt`
-- `AIDD:ANSWERS` для retry передавать compact one-line payload; использовать choice-коды/короткие ответы, опираясь на `Default:`/варианты в PRD;
+- `AIDD:ANSWERS` для retry передавать compact one-line payload; использовать `Q<N>=<token>` или `Q<N>="короткий текст"` (опираясь на `Default:`/варианты в PRD);
 - после retry повторно снять `05_prd_head.txt` и убедиться, что `Status` и unresolved `Q*` отражают актуальное состояние.
 
 #### 5.2 researcher
@@ -530,7 +530,7 @@ RLM artifacts check (после fallback, если был):
 - после `5.1` и `5.2` записать `05_precondition_block.txt` с полями:
   - `prd_status=<READY|draft|...>`
   - `open_questions_count=<int>`
-  - `answers_format=<compact_q_codes|legacy_answer_alias|invalid>`
+  - `answers_format=<compact_q_values|invalid>`
   - `research_status=<reviewed|ok|pending|warn|invalid>`
   - `research_warn_scope=<none|links_empty_non_blocking|minimal_baseline_soft|invalid>`
   - `readiness_gate=<PASS|FAIL>`
@@ -568,12 +568,12 @@ RLM artifacts check (после fallback, если был):
 Зачем: закрыть вопросы плана до запуска downstream стадий, даже если первый `plan-new` завершился `success|WARN`.
 
 Сделать:
-- если top-level stage-return `plan-new` явно требует закрыть `Q*`/`Answer N: TBD`/`AIDD:ANSWERS`, выполнить ровно один question retry по шаблону секции 6;
+- если top-level stage-return `plan-new` явно требует закрыть `Q*`/незаполненный `AIDD:ANSWERS`, выполнить ровно один question retry по шаблону секции 6;
 - сохранить артефакты:
   - `05_plan_new_questions_raw.txt`
   - `05_plan_new_questions_normalized.txt`
   - `05_plan_new_answers.txt`
-- передавать в CLI только compact one-line payload: `AIDD:ANSWERS Q1=...; Q2=...`;
+- передавать в CLI только compact one-line payload: `AIDD:ANSWERS Q1=...; Q2="короткий текст"`;
 - после retry снять `05_plan_head.txt` (статус/нерешённые вопросы плана).
 
 Anti-cascade:

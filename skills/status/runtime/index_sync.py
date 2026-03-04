@@ -247,8 +247,13 @@ def build_index(root: Path, ticket: str, slug: str) -> Dict[str, object]:
 
     next3 = _extract_section(tasklist_text, "AIDD:NEXT_3")
     open_questions = _extract_section(tasklist_text, "AIDD:OPEN_QUESTIONS")
+    open_questions_source = "tasklist"
     if not open_questions:
         open_questions = _extract_section(prd_text, "AIDD:OPEN_QUESTIONS")
+        if open_questions:
+            open_questions_source = "prd:aidd_open_questions"
+    if not open_questions:
+        open_questions_source = "none"
     risks_top5 = _extract_section(tasklist_text, "AIDD:RISKS")
     if not risks_top5:
         risks_top5 = _extract_section(prd_text, "AIDD:RISKS")
@@ -274,6 +279,7 @@ def build_index(root: Path, ticket: str, slug: str) -> Dict[str, object]:
         "reports": _collect_reports(root, ticket),
         "next3": next3,
         "open_questions": open_questions,
+        "open_questions_source": open_questions_source,
         "risks_top5": risks_top5,
         "checks": _collect_checks(root, ticket),
         "context_pack": context_pack,

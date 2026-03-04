@@ -584,6 +584,13 @@ def main() -> int:
     if not ticket:
         _log_stdout("WARN: active ticket not set; skipping tasklist checks.")
         return 0
+    legacy_prd_path = root / "docs" / "prd" / f"{ticket}.md"
+    if legacy_prd_path.exists():
+        _log_stderr(
+            "BLOCK: обнаружен неканоничный PRD-файл "
+            f"({legacy_prd_path}). Используйте только docs/prd/{ticket}.prd.md."
+        )
+        return 2
 
     active_stage = hooklib.resolve_stage(root / "docs" / ".active.json") or ""
     if os.environ.get("CLAUDE_SKIP_STAGE_CHECKS") != "1":

@@ -28,7 +28,8 @@
 - R0.1: Для `idea-new` использовать `ticket + IDEA_NOTE`.
 - R1: При вопросах/`BLOCKED` использовать retry с `AIDD:ANSWERS` (ровно один retry):
   - retry-триггер валиден только если текущий stage-return явно запросил ответы или вернул BLOCK из-за отсутствия ответов;
-  - для `idea-new` и `plan-new` retry-триггер также считается валидным, если top-level `success|WARN` явно требует ответить на `Q*`/закрыть `Ответ N: TBD` и перевести артефакт стадии в `READY`;
+  - для `idea-new` и `plan-new` retry-триггер также считается валидным, если top-level `success|WARN` явно требует ответить на `Q*`/закрыть незаполненный `AIDD:ANSWERS Q<N>=...` и перевести артефакт стадии в `READY`;
+  - формат payload: `Q<N>=<token>` или `Q<N>="короткий текст"` (one-line);
   - не считать trigger-ом `Q*`/`AIDD:ANSWERS`/`Question` внутри вложенных артефактов (PRD/tasklist/reports/log excerpts), если stage-return сам не запрашивает ответ;
   - `idea-new`: `ticket + IDEA_NOTE + AIDD:ANSWERS`
   - остальные stage: `ticket + AIDD:ANSWERS`
@@ -57,7 +58,7 @@
 - R11.3: Для `review-spec` источником истины по finding/recommended status считать `aidd/reports/prd/<ticket>.json` (или `*.pack.json`); narrative top-level текста использовать только как supplementary telemetry.
 - R11.4: Для `BLOCKED_POLICY=ralph` использовать policy matrix v2 (`hard_block|recoverable_retry|warn_continue`) и телеметрию `ralph_recoverable_reason_scope=policy_matrix_v2`.
 - R12: Перед запуском `plan-new`, `review-spec`, `tasks-new` и шага `8` обязателен readiness gate из `AUDIT_DIR/05_precondition_block.txt`.
-- R12.1: Readiness gate = `PASS` только при одновременном выполнении условий: `prd_status=READY`, `open_questions_count=0`, `answers_format=compact_q_codes|legacy_answer_alias`, и `research_status=reviewed|ok|warn|pending` при наличии minimal RLM baseline.
+- R12.1: Readiness gate = `PASS` только при одновременном выполнении условий: `prd_status=READY`, `open_questions_count=0`, `answers_format=compact_q_values`, и `research_status=reviewed|ok|warn|pending` при наличии minimal RLM baseline.
 - R12.1b: Minimal RLM baseline для soft-readiness: существуют `aidd/reports/research/<ticket>-rlm-targets.json`, `...-rlm-manifest.json`, `...-rlm.worklist.pack.json`, `...-rlm.pack.json`; `aidd/reports/research/<ticket>-rlm.nodes.jsonl` непустой. `links` могут быть `warn|empty` и не являются terminal при baseline.
 - R12.2: При `FAIL` readiness gate обязателен `reason_code` из набора `prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready`; для `prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready` перед terminal-классификацией обязателен ровно один readiness-recovery цикл:
   - для `prd_not_ready|open_questions_present|answers_format_invalid`: question-closure (`idea-new` и `plan-new` compact retry при валидном trigger) -> `/feature-dev-aidd:spec-interview <ticket>` -> `/feature-dev-aidd:review-spec <ticket>` -> пересчёт `05_precondition_block.txt`;
@@ -205,7 +206,7 @@ Slug минимум:
 #### 5.1a PRD question-closure (до readiness gate)
 
 - После `5.1` проверить top-level stage-return и `aidd/docs/prd/$TICKET.prd.md`.
-- Если обнаружены неотвеченные вопросы (`Q*`, `Ответ N: TBD`, `Answer N: TBD`, `Status: draft` при явном требовании stage-return закрыть вопросы), выполнить question retry для `idea-new` по шаблону R1.
+- Если обнаружены неотвеченные вопросы (`Q*`, пустые/`TBD` значения в `AIDD:ANSWERS`, `Status: draft` при явном требовании stage-return закрыть вопросы), выполнить question retry для `idea-new` по шаблону R1.
 - Сохранить:
   - `05_idea_new_questions_raw.txt`
   - `05_idea_new_questions_normalized.txt`
@@ -236,7 +237,7 @@ RLM-only check:
 - После `5.1` и `5.2` записать `05_precondition_block.txt` с полями:
   - `prd_status=<READY|draft|...>`
   - `open_questions_count=<int>`
-  - `answers_format=<compact_q_codes|legacy_answer_alias|invalid>`
+  - `answers_format=<compact_q_values|invalid>`
   - `research_status=<reviewed|ok|pending|warn|invalid>`
   - `research_warn_scope=<none|links_empty_non_blocking|minimal_baseline_soft|invalid>`
   - `readiness_gate=<PASS|FAIL>`
@@ -260,7 +261,7 @@ RLM-only check:
 
 #### 5.3a Plan question-closure
 
-- Если top-level stage-return `plan-new` явно требует закрыть `Q*`/`Answer N: TBD`/`AIDD:ANSWERS`, выполнить ровно один compact retry.
+- Если top-level stage-return `plan-new` явно требует закрыть `Q*`/незаполненный `AIDD:ANSWERS`, выполнить ровно один compact retry.
 - Артефакты:
   - `05_plan_new_questions_raw.txt`
   - `05_plan_new_questions_normalized.txt`

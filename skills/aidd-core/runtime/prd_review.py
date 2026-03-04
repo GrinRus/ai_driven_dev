@@ -62,6 +62,16 @@ RESOLVED_TBD_RE = re.compile(
     re.IGNORECASE,
 )
 OPEN_ACTION_ITEM_RE = re.compile(r"^- \[\s\]", re.IGNORECASE)
+AIDD_OPEN_QUESTIONS_HEADING = "## AIDD:OPEN_QUESTIONS"
+AIDD_ANSWERS_HEADING = "## AIDD:ANSWERS"
+NARRATIVE_OPEN_QUESTIONS_HEADING = "## 10. Открытые вопросы"
+Q_RE = re.compile(r"\bQ(\d+)\b")
+LEGACY_ANSWER_RE = re.compile(r"^\s*(?:[-*+]\s*)?(?:Ответ|Answer)\s+\d+\s*:", re.IGNORECASE | re.MULTILINE)
+COMPACT_ANSWER_RE = re.compile(r'\bQ(\d+)\s*=\s*(?:"([^"\n]+)"|([^\s;,#`]+))')
+INVALID_ANSWER_VALUES = {"tbd", "todo", "none", "нет", "n/a", "na", "empty", "unknown", "-", "?"}
+NONE_VALUES = {"none", "нет", "n/a", "na"}
+OPEN_ITEM_PREFIX_RE = re.compile(r"^(?:[-*+]\s+|\d+\.\s+)")
+CHECKBOX_PREFIX_RE = re.compile(r"^\[[ xX]\]\s*")
 
 
 def _normalize_output_path(root: Path, path: Path) -> Path:
@@ -123,6 +133,10 @@ class Report:
     findings: List[Finding]
     action_items: List[str]
     generated_at: str
+    open_questions_count: int = 0
+    answers_format: str = "compact_q_values"
+    narrative_vs_structured_mismatch: bool = False
+    canonical_prd_path: str = ""
 
     def to_dict(self) -> dict:
         payload = asdict(self)
@@ -216,6 +230,81 @@ def extract_review_section(content: str) -> tuple[str, List[str]]:
     return status, action_items
 
 
+def _extract_section(text: str, heading_prefix: str) -> str:
+    lines = text.splitlines()
+    start_idx = -1
+    needle = heading_prefix.strip().lower()
+    for idx, line in enumerate(lines):
+        if line.strip().lower().startswith(needle):
+            start_idx = idx + 1
+            break
+    if start_idx < 0:
+        return ""
+    end_idx = len(lines)
+    for idx in range(start_idx, len(lines)):
+        if lines[idx].startswith("## "):
+            end_idx = idx
+            break
+    return "\n".join(lines[start_idx:end_idx]).strip()
+
+
+def _normalize_open_item(line: str) -> str:
+    normalized = OPEN_ITEM_PREFIX_RE.sub("", line.strip())
+    normalized = CHECKBOX_PREFIX_RE.sub("", normalized).strip()
+    if normalized.startswith("`") and normalized.endswith("`") and len(normalized) > 1:
+        normalized = normalized[1:-1].strip()
+    if normalized.startswith("**") and normalized.endswith("**") and len(normalized) > 3:
+        normalized = normalized[2:-2].strip()
+    return normalized
+
+
+def _collect_open_question_count(section: str) -> int:
+    if not section:
+        return 0
+    q_numbers: set[int] = set()
+    generic_items = 0
+    for raw_line in section.splitlines():
+        stripped = raw_line.strip()
+        if not stripped or stripped.startswith(">"):
+            continue
+        normalized = _normalize_open_item(stripped)
+        if not normalized:
+            continue
+        if normalized.lower() in NONE_VALUES:
+            continue
+        local_numbers = [int(match.group(1)) for match in Q_RE.finditer(normalized)]
+        if local_numbers:
+            q_numbers.update(local_numbers)
+            continue
+        generic_items += 1
+    if q_numbers:
+        return len(q_numbers)
+    return generic_items
+
+
+def _detect_answers_format(section: str) -> str:
+    payload = (section or "").strip()
+    if not payload:
+        return "compact_q_values"
+    if LEGACY_ANSWER_RE.search(payload):
+        return "invalid"
+    compact_answers: dict[int, str] = {}
+    for match in COMPACT_ANSWER_RE.finditer(payload):
+        try:
+            number = int(match.group(1))
+        except ValueError:
+            continue
+        if number <= 0:
+            continue
+        value = str((match.group(2) if match.group(2) is not None else match.group(3)) or "").strip().lower()
+        if value in INVALID_ANSWER_VALUES:
+            return "invalid"
+        compact_answers[number] = value
+    if not compact_answers:
+        return "invalid"
+    return "compact_q_values"
+
+
 def collect_placeholders(content: str) -> Iterable[str]:
     sanitized = HTML_COMMENT_RE.sub(" ", content)
     inside_review_section = False
@@ -248,6 +337,15 @@ def analyse_prd(slug: str, prd_path: Path, *, ticket: Optional[str] = None) -> R
     status, action_items = extract_review_section(content)
     findings: List[Finding] = []
     open_action_items = [item for item in action_items if OPEN_ACTION_ITEM_RE.match(item)]
+    aidd_open_section = _extract_section(content, AIDD_OPEN_QUESTIONS_HEADING)
+    aidd_answers_section = _extract_section(content, AIDD_ANSWERS_HEADING)
+    narrative_open_section = _extract_section(content, NARRATIVE_OPEN_QUESTIONS_HEADING)
+    open_questions_count = _collect_open_question_count(aidd_open_section)
+    narrative_open_questions_count = _collect_open_question_count(narrative_open_section)
+    narrative_vs_structured_mismatch = bool(
+        narrative_open_questions_count and narrative_open_questions_count != open_questions_count
+    )
+    answers_format = _detect_answers_format(aidd_answers_section)
 
     placeholder_hits = list(collect_placeholders(content))
     for item in placeholder_hits:
@@ -256,6 +354,22 @@ def analyse_prd(slug: str, prd_path: Path, *, ticket: Optional[str] = None) -> R
                 severity="major",
                 title="Найдены заглушки в PRD",
                 details=item,
+            )
+        )
+    if open_questions_count > 0:
+        findings.append(
+            Finding(
+                severity="major",
+                title="Незакрытые AIDD:OPEN_QUESTIONS",
+                details=f"Осталось открытых вопросов: {open_questions_count}",
+            )
+        )
+    if answers_format == "invalid":
+        findings.append(
+            Finding(
+                severity="major",
+                title="Неканоничный формат AIDD:ANSWERS",
+                details="Используйте compact payload `AIDD:ANSWERS Q1=A; Q2=\"короткий текст\"` без TBD/пустых значений.",
             )
         )
 
@@ -298,6 +412,10 @@ def analyse_prd(slug: str, prd_path: Path, *, ticket: Optional[str] = None) -> R
         findings=findings,
         action_items=action_items,
         generated_at=generated_at,
+        open_questions_count=open_questions_count,
+        answers_format=answers_format,
+        narrative_vs_structured_mismatch=narrative_vs_structured_mismatch,
+        canonical_prd_path=prd_path.as_posix(),
     )
 
 
