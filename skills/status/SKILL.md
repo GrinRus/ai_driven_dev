@@ -1,6 +1,6 @@
 ---
 name: status
-description: Generates consolidated ticket status summary and key artifact pointers. Use when checking current stage state or handoff readiness.
+description: Generates AIDD ticket workflow status summary and key artifact pointers. Use for stage/blocker/handoff readiness on a feature ticket; do not use for generic git/CI/test status commands.
 argument-hint: [$1]
 lang: ru
 prompt_version: 1.0.8

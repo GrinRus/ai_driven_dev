@@ -405,6 +405,14 @@ class CheckoutService {
     }
 }
 KT
+mkdir -p "$WORKDIR/src/test/kotlin"
+cat <<'KT' >"$WORKDIR/src/test/kotlin/AppTest.kt"
+package demo
+
+class AppTest {
+    fun smoke(): String = App().run()
+}
+KT
 
 log "gate allows edits when feature inactive"
 assert_gate_exit 0 "no active feature"
@@ -436,24 +444,27 @@ base = Path("docs")
 (base / "tasklist").mkdir(parents=True, exist_ok=True)
 prd_path = base / "prd" / f"{ticket}.prd.md"
 research_path = base / "research" / f"{ticket}.md"
-if not prd_path.exists():
-    prd_path.write_text(
-        "# PRD\n\n"
-        "## Диалог analyst\n"
-        "Status: draft\n\n"
-        f"Researcher: docs/research/{ticket}.md (Status: pending)\n\n"
-        "Вопрос 1: Какие ограничения по среде?\n"
-        "Ответ 1: TBD\n\n"
-        "## AIDD:RESEARCH_HINTS\n"
-        "- **Paths**: src/main\n"
-        "- **Keywords**: checkout\n"
-        "- **Notes**: smoke baseline\n\n"
-        "## PRD Review\n"
-        "Status: pending\n",
-        encoding="utf-8",
-    )
-if not research_path.exists():
-    research_path.write_text("# Research\n\nStatus: pending\n", encoding="utf-8")
+prd_path.write_text(
+    "# PRD\n\n"
+    "## Диалог analyst\n"
+    "Status: draft\n\n"
+    f"Researcher: docs/research/{ticket}.md (Status: pending)\n\n"
+    "Вопрос 1: Какие ограничения по среде?\n"
+    "Ответ 1: TBD\n\n"
+    "## AIDD:ANSWERS\n"
+    "AIDD:ANSWERS Q1=B\n\n"
+    "## AIDD:OPEN_QUESTIONS\n"
+    "- `none`\n\n"
+    "## AIDD:RESEARCH_HINTS\n"
+    "- **Paths**: src/main\n"
+    "- **Keywords**: checkout\n"
+    "- **Notes**: smoke baseline\n\n"
+    "## PRD Review\n"
+    "Status: pending\n"
+    "- [x] Smoke review precheck complete.\n",
+    encoding="utf-8",
+)
+research_path.write_text("# Research\n\nStatus: pending\n", encoding="utf-8")
 PY
 
 log "run researcher stage (generate RLM artifacts)"
@@ -677,7 +688,7 @@ import sys
 ticket = sys.argv[1]
 path = Path("docs/prd") / f"{ticket}.prd.md"
 text = path.read_text(encoding="utf-8")
-section_re = re.compile(r"^##\s+(.+?)\s*$", re.MULTILINE)
+section_re = re.compile(r"^#{2,6}\s+(.+?)\s*$", re.MULTILINE)
 
 
 def find_section(text: str, title: str) -> tuple[int | None, int | None]:
@@ -788,8 +799,26 @@ if "Status: READY" not in content:
 path.write_text(content, encoding="utf-8")
 PY
 
+log "normalize PRD placeholders before prd-review pack"
+python3 - "$TICKET" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+ticket = sys.argv[1]
+path = Path("docs/prd") / f"{ticket}.prd.md"
+text = path.read_text(encoding="utf-8")
+text = re.sub(r"<[^>\n]+>", "smoke-value", text)
+text = re.sub(r"\b(?:TODO|TBD)\b", "resolved", text, flags=re.IGNORECASE)
+if "## AIDD:OPEN_QUESTIONS" not in text:
+    text += "\n## AIDD:OPEN_QUESTIONS\n- `none`\n"
+if "## AIDD:ANSWERS" not in text:
+    text += "\n## AIDD:ANSWERS\nAIDD:ANSWERS Q1=B\n"
+path.write_text(text, encoding="utf-8")
+PY
+
 log "run prd-review and prd-review-gate"
-run_cli prd-review --ticket "$TICKET" --report "aidd/reports/prd/${TICKET}.json" --emit-text >/dev/null
+AIDD_PACK_ENFORCE_BUDGET=1 run_cli prd-review --ticket "$TICKET" --report "aidd/reports/prd/${TICKET}.json" --emit-text >/dev/null
 [[ -f "$WORKDIR/reports/prd/${TICKET}.json" ]] || {
   echo "[smoke] prd-review did not create report" >&2
   exit 1
@@ -857,7 +886,7 @@ from pathlib import Path
 ticket = sys.argv[1]
 path = Path("docs/tasklist") / f"{ticket}.md"
 text = path.read_text(encoding="utf-8")
-section_re = re.compile(r"^##\s+(.+?)\s*$", re.MULTILINE)
+section_re = re.compile(r"^#{2,6}\s+(.+?)\s*$", re.MULTILINE)
 today = date.today().isoformat()
 
 
@@ -1024,6 +1053,13 @@ class App {
     fun run(): String = "updated"
 }
 KT
+cat <<'KT' >src/test/kotlin/AppTest.kt
+package demo
+
+class AppTest {
+    fun smoke(): String = App().run()
+}
+KT
 
 log "configure test policy for format-and-test smoke"
 python3 - "$WORKSPACE_ROOT/.claude/settings.json" <<'PY'
@@ -1128,30 +1164,75 @@ assert_gate_exit 0 "progress checkbox added"
 
 log "run QA command and ensure report created"
 run_cli set-active-stage qa >/dev/null
-# pre-mark QA checklist items to avoid false blockers from template
+# Normalize QA checklist and test execution so smoke validates the happy path.
 python3 - "$TICKET" <<'PY'
 from pathlib import Path
+import re
 import sys
 
 ticket = sys.argv[1]
 path = Path("docs/tasklist") / f"{ticket}.md"
 text = path.read_text(encoding="utf-8")
-replacements = {
-    "- [ ] Прогнаны unit/integration/e2e": "- [x] Прогнаны unit/integration/e2e",
-    "- [ ] Проведено ручное тестирование или UAT": "- [x] Проведено ручное тестирование или UAT",
-}
-for previous, updated in replacements.items():
-    if previous in text:
-        text = text.replace(previous, updated, 1)
+
+section_re = re.compile(r"^#{2,6}\s+(.+?)\s*$", re.MULTILINE)
+
+def find_section(content: str, title: str):
+    matches = list(section_re.finditer(content))
+    for idx, match in enumerate(matches):
+        if match.group(1).strip() == title:
+            start = match.end()
+            end = matches[idx + 1].start() if idx + 1 < len(matches) else len(content)
+            return start, end
+    return None, None
+
+def replace_section(content: str, title: str, body: str) -> str:
+    start, end = find_section(content, title)
+    if start is None or end is None:
+        return content
+    return content[:start] + "\n" + body.strip("\n") + "\n\n" + content[end:]
+
+lines = text.splitlines()
+in_qa_checklist = False
+in_handoff_qa = False
+for idx, raw in enumerate(lines):
+    stripped = raw.strip()
+    if stripped == "<!-- handoff:qa start -->":
+        in_handoff_qa = True
+        continue
+    if stripped == "<!-- handoff:qa end -->":
+        in_handoff_qa = False
+        continue
+    if stripped.startswith("#"):
+        in_qa_checklist = "AIDD:CHECKLIST_QA" in stripped
+        continue
+    if (in_qa_checklist or in_handoff_qa) and raw.lstrip().startswith("- [ ]"):
+        prefix_len = len(raw) - len(raw.lstrip())
+        indent = raw[:prefix_len]
+        lines[idx] = indent + raw.lstrip().replace("- [ ]", "- [x]", 1)
+
+text = "\n".join(lines) + "\n"
+test_execution_body = """- profile: smoke
+- tasks:
+  - python3 -c \"print('qa smoke')\"
+- filters: []
+- when: manual
+- reason: smoke qa verification"""
+text = replace_section(text, "AIDD:TEST_EXECUTION", test_execution_body)
 path.write_text(text, encoding="utf-8")
 PY
 
 qa_exit=0
-if ! run_cli qa --ticket "$TICKET" --report "aidd/reports/qa/${TICKET}.json" --emit-json >/dev/null; then
-  qa_exit=$?
+qa_output=""
+set +e
+qa_output="$(run_cli qa --ticket "$TICKET" --report "aidd/reports/qa/${TICKET}.json" --emit-json 2>&1)"
+qa_exit=$?
+set -e
+if [[ "$qa_exit" -ne 0 ]]; then
+  printf '[smoke] qa command failed (exit=%s):\n%s\n' "$qa_exit" "$qa_output" >&2
+  exit 1
 fi
-if [[ "$qa_exit" -ne 0 && "$qa_exit" -ne 2 ]]; then
-  echo "[smoke] qa command failed (exit=$qa_exit)" >&2
+if grep -q "BLOCK: QA report status is BLOCKED" <<<"$qa_output"; then
+  printf '[smoke] qa reported BLOCKED status unexpectedly:\n%s\n' "$qa_output" >&2
   exit 1
 fi
 [[ -f "$WORKDIR/reports/qa/${TICKET}.json" ]] || {
