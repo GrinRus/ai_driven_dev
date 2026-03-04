@@ -227,6 +227,30 @@ class PRDReviewAgentTests(unittest.TestCase):
         self.assertEqual(report.recommended_status, "pending")
         self.assertTrue(any("AIDD:OPEN_QUESTIONS" in item.title for item in report.findings))
 
+    def test_analyse_prd_does_not_overread_open_questions_past_nested_heading(self):
+        prd = self.write_prd(
+            dedent(
+                """\
+                # Demo
+
+                ## AIDD:OPEN_QUESTIONS
+                - none
+
+                ### Notes
+                - Q9: informational note outside structured section
+
+                ## PRD Review
+                Status: READY
+                """
+            ),
+        )
+
+        report = prd_review_agent.analyse_prd("demo-feature", prd)
+
+        self.assertEqual(report.open_questions_count, 0)
+        self.assertEqual(report.recommended_status, "ready")
+        self.assertFalse(any("AIDD:OPEN_QUESTIONS" in item.title for item in report.findings))
+
     def test_analyse_prd_marks_answers_format_invalid_for_non_compact_payload(self):
         prd = self.write_prd(
             dedent(

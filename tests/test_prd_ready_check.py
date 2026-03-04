@@ -98,6 +98,34 @@ class PrdReadyCheckTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("AIDD:OPEN_QUESTIONS", result.stderr)
 
+    def test_prd_ready_ignores_nested_heading_after_open_questions_none(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="prd-check-") as tmpdir:
+            root = Path(tmpdir)
+            write_file(
+                root,
+                "docs/prd/demo.prd.md",
+                (
+                    "# PRD\n\n"
+                    "Status: READY\n\n"
+                    "## AIDD:OPEN_QUESTIONS\n"
+                    "- none\n\n"
+                    "### Notes\n"
+                    "- Q9: informational note outside open questions\n\n"
+                    "## AIDD:ANSWERS\n"
+                    "AIDD:ANSWERS Q1=A\n"
+                ),
+            )
+            result = subprocess.run(
+                cli_cmd("prd-check", "--ticket", "demo"),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            self.assertIn("PRD ready", result.stdout)
+
     def test_prd_ready_blocks_legacy_answers_format(self) -> None:
         with tempfile.TemporaryDirectory(prefix="prd-check-") as tmpdir:
             root = Path(tmpdir)

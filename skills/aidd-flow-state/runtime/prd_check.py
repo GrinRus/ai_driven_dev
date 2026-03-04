@@ -39,6 +39,7 @@ STATUS_RE = re.compile(r"^\s*Status:\s*([A-Za-z]+)", re.MULTILINE)
 CACHE_FILENAME = "prd-check.hash"
 AIDD_OPEN_QUESTIONS_HEADING = "## AIDD:OPEN_QUESTIONS"
 AIDD_ANSWERS_HEADING = "## AIDD:ANSWERS"
+MARKDOWN_HEADING_RE = re.compile(r"^\s{0,3}#{1,6}\s+\S")
 LEGACY_ANSWER_RE = re.compile(r"^\s*(?:[-*+]\s*)?(?:Ответ|Answer)\s+\d+\s*:", re.IGNORECASE | re.MULTILINE)
 COMPACT_ANSWER_RE = re.compile(r'\bQ(\d+)\s*=\s*(?:"([^"\n]+)"|([^\s;,#`]+))')
 OPEN_ITEM_PREFIX_RE = re.compile(r"^(?:[-*+]\s+|\d+\.\s+)")
@@ -80,7 +81,7 @@ def _extract_section(text: str, heading_prefix: str) -> str | None:
         return None
     end_idx = len(lines)
     for idx in range(start_idx, len(lines)):
-        if lines[idx].startswith("## ") and idx != start_idx:
+        if idx != start_idx and MARKDOWN_HEADING_RE.match(lines[idx]):
             end_idx = idx
             break
     return "\n".join(lines[start_idx:end_idx]).strip()
