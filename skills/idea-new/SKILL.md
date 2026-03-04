@@ -1,6 +1,6 @@
 ---
 name: idea-new
-description: Bootstraps a new feature ticket by setting active context, deriving `slug_hint`, and preparing PRD questions. Use when the idea stage starts for a new ticket.
+description: Bootstraps a new feature ticket by setting active context, deriving `slug_hint`, and preparing PRD questions. Use when the idea stage starts for a new ticket. Do not use when the request is to refresh research artifacts (`researcher`) or draft implementation plans (`plan-new`).
 argument-hint: $1 [note...]
 lang: ru
 prompt_version: 1.3.21

@@ -1,6 +1,6 @@
 ---
 name: spec-interview
-description: Collects missing spec inputs and synchronizes answers into `spec.yaml`. Use when review-spec leaves unresolved specification fields.
+description: Collects missing spec inputs and synchronizes answers into `spec.yaml`. Use when review-spec leaves unresolved specification fields. Do not use when the request is readiness gating in `review-spec` or task derivation in `tasks-new`.
 argument-hint: $1 [note...]
 lang: ru
 prompt_version: 1.0.15

@@ -1,6 +1,6 @@
 ---
 name: implement
-description: Executes implement-stage loop workflow for the next scoped work item through stage-chain orchestration. Use when implement stage enters loop mode.
+description: Executes implement-stage loop workflow for the next scoped work item through stage-chain orchestration. Use when implement stage enters loop mode. Do not use when the request is focused on findings validation in `review` or verification/reporting in `qa`.
 argument-hint: $1 [note...] [test=fast|targeted|full|none] [tests=<filters>] [tasks=<task1,task2>]
 lang: ru
 prompt_version: 1.1.49

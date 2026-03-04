@@ -1,6 +1,6 @@
 ---
 name: tasks-new
-description: Derives or refines tasklist items from PRD, plan, and spec artifacts. Use when tasklist stage prepares implementation-ready work items.
+description: Derives or refines tasklist items from PRD, plan, and spec artifacts. Use when tasklist stage prepares implementation-ready work items. Do not use when the request is plan authoring in `plan-new` or loop execution in `implement`.
 argument-hint: $1 [note...]
 lang: ru
 prompt_version: 1.1.23

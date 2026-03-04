@@ -1,6 +1,6 @@
 ---
 name: aidd-rlm
-description: Owns shared RLM evidence workflow for subagents (slice, build, verify, finalize, pack). Use when preload roles require canonical RLM evidence operations.
+description: Owns shared RLM evidence workflow for subagents (slice, build, verify, finalize, pack). Use when preload roles require canonical RLM evidence operations. Do not use when the request is stage-local research execution in `researcher` or stage handoff-only guidance in `aidd-stage-research`.
 lang: en
 allowed-tools:
   - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_slice.py *)"

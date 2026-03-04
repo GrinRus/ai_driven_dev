@@ -1,6 +1,6 @@
 ---
 name: plan-new
-description: Drafts implementation plan from ready PRD and research artifacts. Use when PRD and research gates pass and plan stage should start.
+description: Drafts implementation plan from ready PRD and research artifacts. Use when PRD and research gates pass and plan stage should start. Do not use when the request is feature kickoff in `idea-new` or readiness approval in `review-spec`.
 argument-hint: $1 [note...]
 lang: ru
 prompt_version: 1.1.16

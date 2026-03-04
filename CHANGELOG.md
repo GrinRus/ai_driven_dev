@@ -37,6 +37,7 @@
 - Agent-first documentation set: updated `/feature-dev-aidd:idea-new`, prompt templates (see `AGENTS.md`), PRD/tasklist/research templates, README (RU/EN), and `AGENTS.md`, ensuring agents log repository inputs and script commands before asking the user.
 
 ### Improvements
+- Skill quality lifecycle rollout: added `test -> measure -> refine` toolkit for all 19 skills, including trigger-boundary taxonomy (`docs/skill-trigger-taxonomy.md`), enforced description trigger contracts (`Use when` + `Do not use when`) in prompt lint, LLM-based benchmark tooling (`tests/repo_tools/skill_eval_{run,compare,generate}.py`), and CI advisory jobs (`skills-eval-smoke`, scheduled `skills-eval-full`) with configurable enforcement.
 - Wave 102 completed: all 19 `skills/*/SKILL.md` converged to shared contract structure (`name` baseline, compact `Command contracts`, deterministic `Additional resources` with `when/why`), stage loop policy wording now uses stable semantic markers, and prompt-lint/policy tests were hardened for semantic contract checks.
 - Wave backlog discipline: each wave now has a single active status source-of-truth; historical sections must be marked as archive (non-SoT), and smoke checks guard against conflicting active statuses.
 - `spec-interview` stage chain now explicitly invokes subagent `feature-dev-aidd:spec-interview-writer`, with lint and prompt-test enforcement.

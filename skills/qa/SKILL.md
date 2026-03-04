@@ -1,6 +1,6 @@
 ---
 name: qa
-description: Runs QA-stage validation, report generation, and postflight actions for the current scope. Use when QA stage is ready for loop verification.
+description: Runs QA-stage validation, report generation, and postflight actions for the current scope. Use when QA stage is ready for loop verification. Do not use when the request belongs to `review` findings synthesis or `implement` execution loops.
 argument-hint: $1 [note...]
 lang: ru
 prompt_version: 1.0.39
