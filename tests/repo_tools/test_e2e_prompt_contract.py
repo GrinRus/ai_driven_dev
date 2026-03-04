@@ -285,6 +285,13 @@ class E2EPromptContractTests(unittest.TestCase):
         self.assertIn("recovery_path", full_text)
         self.assertIn("retry_attempt", full_text)
 
+    def test_full_prompt_loop_timeout_contract_is_explicit(self) -> None:
+        full_text = _read(AUDIT_PROMPT_FULL)
+        self.assertIn("LOOP_STEP_TIMEOUT_SECONDS", full_text)
+        self.assertIn("LOOP_STAGE_BUDGET_SECONDS", full_text)
+        self.assertIn("--step-timeout-seconds $LOOP_STEP_TIMEOUT_SECONDS", full_text)
+        self.assertIn("--stage-budget-seconds $LOOP_STAGE_BUDGET_SECONDS", full_text)
+
     def test_prompt_research_pending_finalize_contract(self) -> None:
         for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
             text = _read(prompt)

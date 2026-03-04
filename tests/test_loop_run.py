@@ -2119,6 +2119,54 @@ class LoopRunTests(unittest.TestCase):
             self.assertEqual(kwargs.get("timeout_seconds"), 9)
             self.assertEqual(kwargs.get("budget_exhausted_on_timeout"), True)
 
+    def test_loop_run_uses_default_step_timeout_when_not_configured(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-DEFAULT-STEP-TIMEOUT"
+            write_active_state(root, ticket=ticket, stage="implement", work_item="iteration_id=I1")
+
+            fake_result = subprocess.CompletedProcess(
+                args=["loop-step"],
+                returncode=20,
+                stdout=json.dumps(
+                    {
+                        "status": "blocked",
+                        "stage": "implement",
+                        "scope_key": "iteration_id_I1",
+                        "work_item_key": "iteration_id=I1",
+                        "reason_code": "loop_runner_permissions",
+                        "reason": "command requires approval",
+                    }
+                ),
+                stderr="",
+            )
+            captured = io.StringIO()
+            cwd = os.getcwd()
+            try:
+                os.chdir(root.parent)
+                with patch.dict(
+                    os.environ,
+                    {
+                        "CLAUDE_PLUGIN_ROOT": str(REPO_ROOT),
+                        "AIDD_LOOP_STAGE_BUDGET_SECONDS": "0",
+                    },
+                    clear=False,
+                ):
+                    os.environ.pop("AIDD_LOOP_STEP_TIMEOUT_SECONDS", None)
+                    with patch("aidd_runtime.loop_run.run_loop_step", return_value=fake_result) as run_mock:
+                        with redirect_stdout(captured):
+                            code = loop_run_module.main(
+                                ["--ticket", ticket, "--max-iterations", "1", "--stream", "text", "--format", "json"]
+                            )
+            finally:
+                os.chdir(cwd)
+
+            self.assertEqual(code, 20)
+            self.assertEqual(run_mock.call_count, 1)
+            _, kwargs = run_mock.call_args
+            self.assertEqual(kwargs.get("timeout_seconds"), 3600)
+            self.assertEqual(kwargs.get("budget_exhausted_on_timeout"), False)
+
     def test_loop_run_blocked_promotes_permission_reason_code(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
@@ -2507,13 +2555,202 @@ class LoopRunTests(unittest.TestCase):
                 cwd=root,
                 env=env,
             )
+            self.assertEqual(result.returncode, 11, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("status"), "max-iterations")
+            self.assertEqual(payload.get("last_recovery_path"), "retry_review_pack")
+            last_step = payload.get("last_step") or {}
+            self.assertEqual(last_step.get("reason_code"), "review_pack_missing")
+            self.assertEqual(last_step.get("scope_key"), "iteration_id_I2")
+            self.assertEqual(last_step.get("recoverable_blocked"), True)
+            self.assertEqual(last_step.get("recovery_path"), "retry_review_pack")
+            loop_log = (root / "reports" / "loops" / "DEMO-MISMATCH" / "loop.run.log").read_text(encoding="utf-8")
+            self.assertIn("stage_result_path=aidd/reports/loops/DEMO-MISMATCH/iteration_id_I4/stage.review.result.json", loop_log)
+
+    def test_loop_run_strict_keeps_review_pack_missing_terminal(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            write_active_state(root, ticket="DEMO-MISMATCH-STRICT", stage="review", work_item="iteration_id=I2")
+            self._seed_stage_chain_baseline(root, "DEMO-MISMATCH-STRICT")
+            write_file(
+                root,
+                "reports/loops/DEMO-MISMATCH-STRICT/iteration_id_I4/stage.implement.result.json",
+                json.dumps(
+                    {
+                        "schema": "aidd.stage_result.v1",
+                        "ticket": "DEMO-MISMATCH-STRICT",
+                        "stage": "implement",
+                        "scope_key": "iteration_id_I4",
+                        "result": "continue",
+                        "updated_at": "2024-01-02T00:00:00Z",
+                    }
+                ),
+            )
+            write_file(
+                root,
+                "reports/loops/DEMO-MISMATCH-STRICT/iteration_id_I4/stage.review.result.json",
+                json.dumps(
+                    {
+                        "schema": "aidd.stage_result.v1",
+                        "ticket": "DEMO-MISMATCH-STRICT",
+                        "stage": "review",
+                        "scope_key": "iteration_id_I4",
+                        "result": "continue",
+                        "updated_at": "2024-01-02T00:00:01Z",
+                    }
+                ),
+            )
+            write_file(
+                root,
+                "reports/loops/DEMO-MISMATCH-STRICT/iteration_id_I4/review.latest.pack.md",
+                "---\nschema: aidd.review_pack.v2\nupdated_at: 2024-01-02T00:00:01Z\n---\n",
+            )
+            runner = FIXTURES / "runner.sh"
+            runner_log = root / "runner.log"
+            env = cli_env({"AIDD_LOOP_RUNNER_LOG": str(runner_log)})
+            result = subprocess.run(
+                cli_cmd(
+                    "loop-run",
+                    "--ticket",
+                    "DEMO-MISMATCH-STRICT",
+                    "--max-iterations",
+                    "1",
+                    "--runner",
+                    f"bash {runner}",
+                    "--blocked-policy",
+                    "strict",
+                    "--format",
+                    "json",
+                ),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=env,
+            )
             self.assertEqual(result.returncode, 20, msg=result.stderr)
             payload = json.loads(result.stdout)
             self.assertEqual(payload.get("status"), "blocked")
             self.assertEqual(payload.get("reason_code"), "review_pack_missing")
-            self.assertEqual(payload.get("scope_key"), "iteration_id_I2")
-            loop_log = (root / "reports" / "loops" / "DEMO-MISMATCH" / "loop.run.log").read_text(encoding="utf-8")
-            self.assertIn("stage_result_path=aidd/reports/loops/DEMO-MISMATCH/iteration_id_I4/stage.review.result.json", loop_log)
+            self.assertEqual(payload.get("recoverable_blocked"), False)
+
+    def test_loop_run_review_pack_recovery_with_stale_gates_policy(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            write_active_state(root, ticket="DEMO-MISMATCH-STALE", stage="review", work_item="iteration_id=I2")
+            self._seed_stage_chain_baseline(root, "DEMO-MISMATCH-STALE")
+            write_file(
+                root,
+                "config/gates.json",
+                json.dumps(
+                    {
+                        "loop": {
+                            "blocked_policy": "ralph",
+                            "strict_recoverable_reason_codes": ["no_tests_hard"],
+                            "block_reason_policy": {
+                                "hard": [
+                                    "loop_runner_permissions",
+                                    "user_approval_required",
+                                    "diff_boundary_violation",
+                                    "preflight_contract_mismatch",
+                                    "plugin_root_missing",
+                                    "command_unavailable",
+                                    "invalid_work_item_key",
+                                    "work_item_resolution_failed",
+                                    "active_stage_sync_failed",
+                                    "prompt_flow_blocker",
+                                    "contract_mismatch_stage_result_shape",
+                                    "contract_mismatch_actions_shape",
+                                ],
+                                "recoverable": [
+                                    "stage_result_missing_or_invalid",
+                                    "stage_result_blocked",
+                                    "blocked_without_reason",
+                                    "blocking_findings",
+                                    "scope_drift_recoverable",
+                                    "no_tests_hard",
+                                    "qa_tests_failed",
+                                    "review_context_pack_missing",
+                                    "qa_blocked",
+                                ],
+                                "warn": [
+                                    "rlm_links_empty_warn",
+                                    "rlm_status_pending",
+                                    "output_contract_warn",
+                                    "no_tests_soft",
+                                    "review_context_pack_placeholder_warn",
+                                    "fast_mode_warn",
+                                    "out_of_scope_warn",
+                                    "no_boundaries_defined_warn",
+                                    "auto_boundary_extend_warn",
+                                ],
+                            },
+                        }
+                    },
+                    indent=2,
+                ),
+            )
+            write_file(
+                root,
+                "reports/loops/DEMO-MISMATCH-STALE/iteration_id_I4/stage.implement.result.json",
+                json.dumps(
+                    {
+                        "schema": "aidd.stage_result.v1",
+                        "ticket": "DEMO-MISMATCH-STALE",
+                        "stage": "implement",
+                        "scope_key": "iteration_id_I4",
+                        "result": "continue",
+                        "updated_at": "2024-01-02T00:00:00Z",
+                    }
+                ),
+            )
+            write_file(
+                root,
+                "reports/loops/DEMO-MISMATCH-STALE/iteration_id_I4/stage.review.result.json",
+                json.dumps(
+                    {
+                        "schema": "aidd.stage_result.v1",
+                        "ticket": "DEMO-MISMATCH-STALE",
+                        "stage": "review",
+                        "scope_key": "iteration_id_I4",
+                        "result": "continue",
+                        "updated_at": "2024-01-02T00:00:01Z",
+                    }
+                ),
+            )
+            write_file(
+                root,
+                "reports/loops/DEMO-MISMATCH-STALE/iteration_id_I4/review.latest.pack.md",
+                "---\nschema: aidd.review_pack.v2\nupdated_at: 2024-01-02T00:00:01Z\n---\n",
+            )
+            runner = FIXTURES / "runner.sh"
+            runner_log = root / "runner.log"
+            env = cli_env({"AIDD_LOOP_RUNNER_LOG": str(runner_log)})
+            result = subprocess.run(
+                cli_cmd(
+                    "loop-run",
+                    "--ticket",
+                    "DEMO-MISMATCH-STALE",
+                    "--max-iterations",
+                    "1",
+                    "--runner",
+                    f"bash {runner}",
+                    "--blocked-policy",
+                    "ralph",
+                    "--format",
+                    "json",
+                ),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=env,
+            )
+            self.assertEqual(result.returncode, 11, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("status"), "max-iterations")
+            last_step = payload.get("last_step") or {}
+            self.assertEqual(last_step.get("reason_code"), "review_pack_missing")
+            self.assertEqual(last_step.get("recoverable_blocked"), True)
+            self.assertEqual(last_step.get("recovery_path"), "retry_review_pack")
 
     def test_loop_run_recovers_non_loop_stage_with_iteration_work_item(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:

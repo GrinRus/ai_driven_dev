@@ -28,6 +28,8 @@
 - `LOOP_MODE=loop-run|loop-step` (default: `loop-run`)
 - `BLOCKED_POLICY=strict|ralph` (default: `ralph`)
 - `RECOVERABLE_BLOCK_RETRIES=<int>` (default: `2`)
+- `LOOP_STEP_TIMEOUT_SECONDS=<int>` (default: `3600`)
+- `LOOP_STAGE_BUDGET_SECONDS=<int>` (default: `3600`)
 - `AIDD_HOOKS_MODE=fast|strict` (default: `fast`)
 - `CLAUDE_ARGS=--dangerously-skip-permissions`
 - `STAGE_OUTPUT_MODE=stream-json|text` (default: `stream-json`)
@@ -692,7 +694,7 @@ Fail-fast gate (до шага 7):
 Сделать:
 - перед запуском установить `AIDD_LOOP_RUNNER="claude --dangerously-skip-permissions"`;
 - `loop-run` или `loop-step` (по `LOOP_MODE`) через Python runtime:
-  - `CLAUDE_PLUGIN_ROOT="$PLUGIN_DIR" PYTHONPATH="$PLUGIN_DIR${PYTHONPATH:+:$PYTHONPATH}" python3 $PLUGIN_DIR/skills/aidd-loop/runtime/loop_run.py --ticket $TICKET --max-iterations 6 --stream --blocked-policy $BLOCKED_POLICY --recoverable-block-retries $RECOVERABLE_BLOCK_RETRIES`
+  - `CLAUDE_PLUGIN_ROOT="$PLUGIN_DIR" PYTHONPATH="$PLUGIN_DIR${PYTHONPATH:+:$PYTHONPATH}" python3 $PLUGIN_DIR/skills/aidd-loop/runtime/loop_run.py --ticket $TICKET --max-iterations 6 --stream --step-timeout-seconds $LOOP_STEP_TIMEOUT_SECONDS --stage-budget-seconds $LOOP_STAGE_BUDGET_SECONDS --blocked-policy $BLOCKED_POLICY --recoverable-block-retries $RECOVERABLE_BLOCK_RETRIES`
   - или `CLAUDE_PLUGIN_ROOT="$PLUGIN_DIR" PYTHONPATH="$PLUGIN_DIR${PYTHONPATH:+:$PYTHONPATH}" python3 $PLUGIN_DIR/skills/aidd-loop/runtime/loop_step.py --ticket $TICKET --stream`.
 - сохранить stream liveness и runner-mode диагностику:
   - `07_loop_stream_liveness_check.txt` (main log vs stream jsonl/log growth),
