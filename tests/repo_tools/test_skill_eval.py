@@ -228,6 +228,53 @@ class SkillEvalTests(unittest.TestCase):
             joined = " ".join(payload.get("findings") or []).lower()
             self.assertIn("advisory window", joined)
 
+    def test_comparator_enforced_mode_requires_completed_baseline(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            baseline = Path(tmp) / "baseline.json"
+            candidate = Path(tmp) / "candidate.json"
+            out = Path(tmp) / "delta.json"
+
+            baseline.write_text(
+                json.dumps(
+                    {
+                        "schema": "aidd.skill_eval.summary.v1",
+                        "status": "skipped_missing_api_key",
+                        "metrics": {},
+                        "critical_skill_recall": {},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            candidate.write_text(json.dumps(self._strong_summary()), encoding="utf-8")
+
+            env = os.environ.copy()
+            env["AIDD_SKILL_EVAL_ENFORCE"] = "1"
+            env["AIDD_SKILL_EVAL_ADVISORY_PRS"] = "10"
+            env["AIDD_SKILL_EVAL_ADVISORY_DAYS"] = "14"
+            env["AIDD_SKILL_EVAL_NIGHTLY_STREAK"] = "3"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(COMPARATOR),
+                    "--baseline",
+                    str(baseline),
+                    "--candidate",
+                    str(candidate),
+                    "--out",
+                    str(out),
+                ],
+                cwd=REPO_ROOT,
+                env=env,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 1)
+            payload = json.loads(out.read_text(encoding="utf-8"))
+            self.assertEqual(payload.get("status"), "failed")
+            joined = " ".join(payload.get("findings") or []).lower()
+            self.assertIn("baseline status", joined)
+
     def test_comparator_reports_ready_for_hard_switch_when_window_complete(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             baseline = Path(tmp) / "baseline.json"

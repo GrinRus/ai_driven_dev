@@ -117,11 +117,15 @@ def main() -> int:
 
     if baseline_status != "completed":
         findings.append(f"baseline status is `{baseline_status}` (expected `completed`)")
-        status = "warn"
+        if enforce:
+            status = "failed"
+        elif status == "ok":
+            status = "warn"
 
     if candidate_status != "completed":
         findings.append(f"candidate status is `{candidate_status}` (expected `completed`)")
-        status = "warn"
+        if status == "ok":
+            status = "warn"
         if enforce:
             status = "failed"
 

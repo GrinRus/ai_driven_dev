@@ -2,16 +2,13 @@
 from __future__ import annotations
 
 import argparse
-import re
 import hashlib
 import json
+import os
+import re
 import sys
 from pathlib import Path
 from typing import List, Optional
-
-import os
-import sys
-from pathlib import Path
 
 
 def _ensure_plugin_root_on_path() -> None:
@@ -40,6 +37,7 @@ from aidd_runtime import runtime
 
 STATUS_RE = re.compile(r"^\s*Status:\s*([A-Za-z]+)", re.MULTILINE)
 CACHE_FILENAME = "prd-check.hash"
+CACHE_VERSION = "2"
 
 
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
@@ -58,8 +56,18 @@ def _resolve_prd_path(project_root: Path, ticket: str, override: Optional[str]) 
 def _cache_path(root: Path) -> Path:
     return root / ".cache" / CACHE_FILENAME
 
+
 def _hash_prd(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _write_cache(path: Path, *, ticket: str, hash_value: str) -> None:
+    payload = {"ticket": ticket, "hash": hash_value, "cache_version": CACHE_VERSION}
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    except OSError:
+        return
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -76,7 +84,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     current_hash = _hash_prd(text)
     cache_path = _cache_path(project_root)
     cache_payload = cache_helpers.load_json_cache(cache_path)
-    if cache_payload.get("ticket") == ticket and cache_payload.get("hash") == current_hash:
+    if (
+        cache_payload.get("ticket") == ticket
+        and cache_payload.get("hash") == current_hash
+        and cache_payload.get("cache_version") == CACHE_VERSION
+    ):
         print("[prd-check] SKIP: cache hit (reason_code=cache_hit)", file=sys.stderr)
         return 0
     match = STATUS_RE.search(text)
@@ -90,7 +102,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         )
 
     print(f"[aidd] PRD ready for `{ticket}` (status: READY).")
-    cache_helpers.write_ticket_hash_cache(cache_path, ticket=ticket, hash_value=current_hash)
+    _write_cache(cache_path, ticket=ticket, hash_value=current_hash)
     return 0
 
 
