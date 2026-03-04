@@ -28,6 +28,8 @@
 - `RECOVERABLE_BLOCK_RETRIES=<int>` (default: `2`)
 - `LOOP_STEP_TIMEOUT_SECONDS=<int>` (default: `3600`)
 - `LOOP_STAGE_BUDGET_SECONDS=<int>` (default: `3600`)
+- `STEP6_IMPLEMENT_BUDGET_SECONDS=<int>` (default: `3600`)
+- `STEP6_REVIEW_BUDGET_SECONDS=<int>` (default: `3600`)
 - `AIDD_HOOKS_MODE=fast|strict` (default: `fast`)
 - `CLAUDE_ARGS=--dangerously-skip-permissions`
 - `STAGE_OUTPUT_MODE=stream-json|text` (default: `stream-json`)
@@ -222,6 +224,7 @@
 - Для этапов: idea-new, research, review-spec, tasks-new предусмотрен бюджет до 20 мин.
 - Для этапа `plan-new` предусмотрен бюджет до 30 мин.
 - Для этапов: implement до 60 мин, review до 60 мин, loop-run до 120 мин, loop-step до 90 мин.
+- Для шага 6 (`implement` и `review`) budget считается по каждому запуску отдельно: `STEP6_IMPLEMENT_BUDGET_SECONDS` и `STEP6_REVIEW_BUDGET_SECONDS` (оба по умолчанию `3600`), без общего shared-window.
 
 Если бюджет превышен:
 - собрать диагностику (`ps`, `tail`, артефакты),
@@ -641,6 +644,9 @@ Anti-cascade:
 Зачем: зафиксировать ручную стартовую итерацию.
 
 Сделать:
+- перед запуском шага установить локальные бюджеты seed-run:
+  - `STEP6_IMPLEMENT_BUDGET_SECONDS=3600`
+  - `STEP6_REVIEW_BUDGET_SECONDS=3600`
 - один запуск `implement`, один запуск `review`.
 - question retry для шага 6 запрещён (R1): если один из запусков уходит в BLOCK/questions, зафиксировать `NOT VERIFIED` и не делать второй attempt того же stage.
 - если kill/hang — отмечать `NOT VERIFIED`.

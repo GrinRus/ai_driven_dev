@@ -289,8 +289,11 @@ class E2EPromptContractTests(unittest.TestCase):
         full_text = _read(AUDIT_PROMPT_FULL)
         self.assertIn("LOOP_STEP_TIMEOUT_SECONDS", full_text)
         self.assertIn("LOOP_STAGE_BUDGET_SECONDS", full_text)
+        self.assertIn("STEP6_IMPLEMENT_BUDGET_SECONDS", full_text)
+        self.assertIn("STEP6_REVIEW_BUDGET_SECONDS", full_text)
         self.assertIn("--step-timeout-seconds $LOOP_STEP_TIMEOUT_SECONDS", full_text)
         self.assertIn("--stage-budget-seconds $LOOP_STAGE_BUDGET_SECONDS", full_text)
+        self.assertIn("budget считается по каждому запуску отдельно", full_text)
 
     def test_prompt_research_pending_finalize_contract(self) -> None:
         for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
