@@ -229,14 +229,34 @@ seed_preflight_contract_artifacts() {
   local context_dir="$WORKDIR/reports/context/${ticket}"
   local loops_dir="$WORKDIR/reports/loops/${ticket}/${scope_key}"
   local logs_dir="$WORKDIR/reports/logs/${stage}/${ticket}/${scope_key}"
+  local work_item_key=""
+  if [[ "$scope_key" == iteration_id_* ]]; then
+    work_item_key="iteration_id=${scope_key#iteration_id_}"
+  fi
 
   mkdir -p "$actions_dir" "$context_dir" "$loops_dir" "$logs_dir"
 
-  cat >"$actions_dir/${stage}.actions.template.json" <<'JSON'
-{"schema_version":"aidd.actions.v1","actions":[]}
+  cat >"$actions_dir/${stage}.actions.template.json" <<JSON
+{
+  "schema_version": "aidd.actions.v1",
+  "stage": "${stage}",
+  "ticket": "${ticket}",
+  "scope_key": "${scope_key}",
+  "work_item_key": "${work_item_key}",
+  "allowed_action_types": [],
+  "actions": []
+}
 JSON
-  cat >"$actions_dir/${stage}.actions.json" <<'JSON'
-{"schema_version":"aidd.actions.v1","actions":[]}
+  cat >"$actions_dir/${stage}.actions.json" <<JSON
+{
+  "schema_version": "aidd.actions.v1",
+  "stage": "${stage}",
+  "ticket": "${ticket}",
+  "scope_key": "${scope_key}",
+  "work_item_key": "${work_item_key}",
+  "allowed_action_types": [],
+  "actions": []
+}
 JSON
   cat >"$context_dir/${scope_key}.readmap.json" <<'JSON'
 {"schema":"aidd.context_map.v1","allowed_paths":["src/**"]}
@@ -470,24 +490,46 @@ for marker in ("Status: warn", "Status: pending", "Status: draft"):
 path.write_text(text, encoding="utf-8")
 PY
 
-log "research-check pending reason must be rlm_status_pending before finalize"
+RESEARCH_GATE_MODE="$(python3 - "$WORKDIR" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+gates_path = root / "config" / "gates.json"
+data = json.loads(gates_path.read_text(encoding="utf-8"))
+researcher = data.get("researcher") or {}
+mode = str(researcher.get("downstream_gate_mode") or "").strip().lower()
+print(mode or "strict")
+PY
+)"
+
+log "research-check pre-finalize behavior (mode=${RESEARCH_GATE_MODE})"
 set +e
 research_pending_output="$(run_cli research-check --ticket "$TICKET" --expected-stage plan 2>&1)"
 research_pending_rc=$?
 set -e
-if [[ $research_pending_rc -eq 0 ]]; then
-  echo "[smoke] research-check unexpectedly passed before finalize readiness" >&2
-  exit 1
-fi
-if ! grep -Eq "reason_code=(rlm_status_pending|rlm_links_empty_warn|rlm_nodes_missing|finalize_prereqs_missing)" <<<"$research_pending_output"; then
-  echo "[smoke] research-check pending reason mismatch (expected deterministic pending/finalize reason)" >&2
-  echo "$research_pending_output" >&2
-  exit 1
-fi
-if grep -q "reason_code=baseline_missing" <<<"$research_pending_output"; then
-  echo "[smoke] research-check emitted forbidden baseline_missing in downstream probe" >&2
-  echo "$research_pending_output" >&2
-  exit 1
+if [[ "${RESEARCH_GATE_MODE}" == "always_soft" ]]; then
+  if [[ $research_pending_rc -ne 0 ]]; then
+    echo "[smoke] research-check unexpectedly blocked in always_soft mode" >&2
+    echo "$research_pending_output" >&2
+    exit 1
+  fi
+else
+  if [[ $research_pending_rc -eq 0 ]]; then
+    echo "[smoke] research-check unexpectedly passed before finalize readiness (strict mode)" >&2
+    exit 1
+  fi
+  if ! grep -Eq "reason_code=(rlm_status_pending|rlm_links_empty_warn|rlm_nodes_missing|finalize_prereqs_missing)" <<<"$research_pending_output"; then
+    echo "[smoke] research-check pending reason mismatch (expected deterministic pending/finalize reason)" >&2
+    echo "$research_pending_output" >&2
+    exit 1
+  fi
+  if grep -q "reason_code=baseline_missing" <<<"$research_pending_output"; then
+    echo "[smoke] research-check emitted forbidden baseline_missing in downstream probe" >&2
+    echo "$research_pending_output" >&2
+    exit 1
+  fi
 fi
 
 log "seed minimal RLM nodes"

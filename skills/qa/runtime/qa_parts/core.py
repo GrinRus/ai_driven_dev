@@ -43,11 +43,18 @@ def _sync_active_stage_to_qa(target: Path, ticket: str) -> tuple[bool, str]:
 
 
 def _qa_stage_chain_context_available(target: Path, ticket: str) -> tuple[bool, str]:
-    _, scope_key = _resolve_qa_scope_context(target, ticket)
-    logs_dir = target / "reports" / "logs" / "qa" / ticket / scope_key
-    if not logs_dir.exists():
-        return False, scope_key
-    return any(logs_dir.glob("stage.*.log")), scope_key
+    active_work_item, primary_scope = _resolve_qa_scope_context(target, ticket)
+    scopes = [primary_scope]
+    # QA stage-chain may be emitted in ticket scope even when active work-item is iteration scoped.
+    if runtime.is_iteration_work_item_key(active_work_item):
+        ticket_scope = runtime.resolve_scope_key("", ticket)
+        if ticket_scope and ticket_scope not in scopes:
+            scopes.append(ticket_scope)
+    for scope_key in scopes:
+        logs_dir = target / "reports" / "logs" / "qa" / ticket / scope_key
+        if logs_dir.exists() and any(logs_dir.glob("stage.*.log")):
+            return True, scope_key
+    return False, primary_scope
 
 
 def _active_mode(target: Path) -> str:
@@ -662,11 +669,12 @@ def main(argv: list[str] | None = None) -> int:
         stage_chain_context_ok, stage_chain_scope = _qa_stage_chain_context_available(target, ticket)
         if not stage_chain_context_ok:
             print(
-                "[aidd] WARN: QA stage-chain context missing "
-                f"(reason_code=qa_stage_chain_context_missing scope_key={stage_chain_scope or 'n/a'}); "
-                "preflight guard may block if stage-chain artifacts are absent.",
+                "[aidd] BLOCK: QA stage-chain context missing "
+                f"(reason_code=preflight_missing scope_key={stage_chain_scope or 'n/a'}). "
+                f"Next action: `/feature-dev-aidd:implement {ticket}`.",
                 file=sys.stderr,
             )
+            return 2
 
     branch = args.branch or runtime.detect_branch(target)
 

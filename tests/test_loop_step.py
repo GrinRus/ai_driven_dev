@@ -226,6 +226,8 @@ class LoopStepTests(unittest.TestCase):
                 "DEMO-SKIP",
                 log_path,
                 {"AIDD_HOOKS_MODE": "strict"},
+                "--blocked-policy",
+                "strict",
                 "--format",
                 "json",
             )
@@ -266,6 +268,8 @@ class LoopStepTests(unittest.TestCase):
                 ticket,
                 log_path,
                 {"AIDD_HOOKS_MODE": "strict"},
+                "--blocked-policy",
+                "strict",
                 "--format",
                 "json",
             )

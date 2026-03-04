@@ -103,7 +103,17 @@ class LoopRunTests(unittest.TestCase):
             write_active_state(root, stage="review", work_item="iteration_id=I1")
 
             result = subprocess.run(
-                cli_cmd("loop-run", "--ticket", "DEMO-2", "--max-iterations", "1", "--format", "json"),
+                cli_cmd(
+                    "loop-run",
+                    "--ticket",
+                    "DEMO-2",
+                    "--max-iterations",
+                    "1",
+                    "--blocked-policy",
+                    "strict",
+                    "--format",
+                    "json",
+                ),
                 text=True,
                 capture_output=True,
                 cwd=root,
@@ -367,7 +377,7 @@ class LoopRunTests(unittest.TestCase):
             self.assertEqual(payload.get("recoverable_blocked"), False)
             self.assertEqual(payload.get("retry_attempt"), 0)
 
-    def test_loop_run_research_gate_blocks_links_empty_before_auto_loop(self) -> None:
+    def test_loop_run_research_gate_softens_links_empty_before_auto_loop(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             ticket = "DEMO-RLM-GATE"
@@ -408,12 +418,27 @@ class LoopRunTests(unittest.TestCase):
                 json.dumps({"rlm_status": "warn"}),
             )
 
+            fake_step = subprocess.CompletedProcess(
+                args=["loop-step"],
+                returncode=0,
+                stdout=json.dumps(
+                    {
+                        "status": "done",
+                        "stage": "review",
+                        "scope_key": "iteration_id_I1",
+                        "work_item_key": "iteration_id=I1",
+                        "reason": "",
+                        "reason_code": "",
+                    }
+                ),
+                stderr="",
+            )
             captured = io.StringIO()
             cwd = os.getcwd()
             try:
                 os.chdir(root.parent)
                 with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
-                    with patch("aidd_runtime.loop_run.run_loop_step") as run_step_mock:
+                    with patch("aidd_runtime.loop_run.run_loop_step", return_value=fake_step) as run_step_mock:
                         with redirect_stdout(captured):
                             code = loop_run_module.main(
                                 [
@@ -430,14 +455,15 @@ class LoopRunTests(unittest.TestCase):
             finally:
                 os.chdir(cwd)
 
-            self.assertEqual(code, 20)
+            self.assertEqual(code, 0)
             payload = json.loads(captured.getvalue())
-            self.assertEqual(payload.get("status"), "blocked")
-            self.assertEqual(payload.get("reason_code"), "rlm_links_empty_warn")
-            self.assertIn("rlm_links_build.py --ticket", str(payload.get("next_action") or ""))
-            run_step_mock.assert_not_called()
+            self.assertEqual(payload.get("status"), "ship")
+            self.assertTrue(payload.get("research_gate_softened"))
+            self.assertEqual(payload.get("research_gate_soft_reason"), "rlm_links_empty_warn")
+            self.assertEqual(payload.get("research_gate_soft_policy"), "always")
+            run_step_mock.assert_called_once()
 
-    def test_loop_run_research_gate_ralph_recovery_probe_success_unblocks_loop(self) -> None:
+    def test_loop_run_research_gate_ralph_softens_warn_without_probe(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             ticket = "DEMO-RLM-GATE-RALPH-RECOVER"
@@ -450,7 +476,6 @@ class LoopRunTests(unittest.TestCase):
                     "BLOCK: links missing (reason_code=rlm_links_empty_warn)",
                     "python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_links_build.py --ticket DEMO-RLM-GATE-RALPH-RECOVER",
                 ),
-                (True, "", "", ""),
             ]
             fake_step = subprocess.CompletedProcess(
                 args=["loop-step"],
@@ -474,13 +499,82 @@ class LoopRunTests(unittest.TestCase):
                 with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
                     with patch("aidd_runtime.loop_run._should_enforce_loop_research_gate", return_value=True):
                         with patch("aidd_runtime.loop_run._validate_loop_research_gate", side_effect=gate_side_effects):
+                            with patch("aidd_runtime.loop_run._run_research_gate_probe") as probe_mock:
+                                with patch("aidd_runtime.loop_run.run_loop_step", return_value=fake_step) as step_mock:
+                                    with redirect_stdout(captured):
+                                        code = loop_run_module.main(
+                                            [
+                                                "--ticket",
+                                                ticket,
+                                                "--max-iterations",
+                                                "1",
+                                                "--research-gate",
+                                                "on",
+                                                "--blocked-policy",
+                                                "ralph",
+                                                "--recoverable-block-retries",
+                                                "1",
+                                                "--format",
+                                                "json",
+                                            ]
+                                        )
+            finally:
+                os.chdir(cwd)
+
+            self.assertEqual(code, 0)
+            payload = json.loads(captured.getvalue())
+            self.assertEqual(payload.get("status"), "ship")
+            self.assertEqual(payload.get("blocked_policy"), "ralph")
+            self.assertTrue(payload.get("research_gate_softened"))
+            self.assertEqual(payload.get("research_gate_soft_reason"), "rlm_links_empty_warn")
+            self.assertEqual(payload.get("research_gate_soft_policy"), "always")
+            probe_mock.assert_not_called()
+            step_mock.assert_called_once()
+            loop_log = (root / "reports" / "loops" / ticket / "loop.run.log").read_text(encoding="utf-8")
+            self.assertIn("event=research-gate-warn-continue", loop_log)
+
+    def test_loop_run_research_gate_ralph_probe_failure_still_soft_continues(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-RLM-GATE-RALPH-BLOCK"
+            write_active_state(root, ticket=ticket, stage="implement", work_item="iteration_id=I1")
+            fake_step = subprocess.CompletedProcess(
+                args=["loop-step"],
+                returncode=0,
+                stdout=json.dumps(
+                    {
+                        "status": "done",
+                        "stage": "review",
+                        "scope_key": "iteration_id_I1",
+                        "work_item_key": "iteration_id=I1",
+                        "reason": "",
+                        "reason_code": "",
+                    }
+                ),
+                stderr="",
+            )
+            captured = io.StringIO()
+            cwd = os.getcwd()
+            try:
+                os.chdir(root.parent)
+                with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
+                    with patch("aidd_runtime.loop_run._should_enforce_loop_research_gate", return_value=True):
+                        with patch(
+                            "aidd_runtime.loop_run._validate_loop_research_gate",
+                            return_value=(
+                                False,
+                                "rlm_links_empty_warn",
+                                "BLOCK: links missing (reason_code=rlm_links_empty_warn)",
+                                "python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_links_build.py --ticket DEMO-RLM-GATE-RALPH-BLOCK",
+                            ),
+                        ):
                             with patch(
                                 "aidd_runtime.loop_run._run_research_gate_probe",
                                 return_value=(
-                                    True,
-                                    "python3 /plugin/skills/aidd-rlm/runtime/rlm_links_build.py --ticket DEMO-RLM-GATE-RALPH-RECOVER",
-                                    "",
-                                    0,
+                                    False,
+                                    "python3 /plugin/skills/aidd-rlm/runtime/rlm_links_build.py --ticket DEMO-RLM-GATE-RALPH-BLOCK",
+                                    "probe_exit=1",
+                                    1,
                                 ),
                             ) as probe_mock:
                                 with patch("aidd_runtime.loop_run.run_loop_step", return_value=fake_step) as step_mock:
@@ -507,72 +601,11 @@ class LoopRunTests(unittest.TestCase):
             self.assertEqual(code, 0)
             payload = json.loads(captured.getvalue())
             self.assertEqual(payload.get("status"), "ship")
-            self.assertEqual(payload.get("blocked_policy"), "ralph")
-            probe_mock.assert_called_once()
+            self.assertTrue(payload.get("research_gate_softened"))
+            self.assertEqual(payload.get("research_gate_soft_reason"), "rlm_links_empty_warn")
+            self.assertEqual(payload.get("research_gate_soft_policy"), "always")
+            probe_mock.assert_not_called()
             step_mock.assert_called_once()
-            loop_log = (root / "reports" / "loops" / ticket / "loop.run.log").read_text(encoding="utf-8")
-            self.assertIn("event=research-gate-recovery-probe", loop_log)
-            self.assertIn("event=research-gate-recovered", loop_log)
-
-    def test_loop_run_research_gate_ralph_probe_failure_returns_recoverable_blocked(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
-            root = ensure_project_root(Path(tmpdir))
-            ticket = "DEMO-RLM-GATE-RALPH-BLOCK"
-            write_active_state(root, ticket=ticket, stage="implement", work_item="iteration_id=I1")
-            captured = io.StringIO()
-            cwd = os.getcwd()
-            try:
-                os.chdir(root.parent)
-                with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
-                    with patch("aidd_runtime.loop_run._should_enforce_loop_research_gate", return_value=True):
-                        with patch(
-                            "aidd_runtime.loop_run._validate_loop_research_gate",
-                            return_value=(
-                                False,
-                                "rlm_links_empty_warn",
-                                "BLOCK: links missing (reason_code=rlm_links_empty_warn)",
-                                "python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_links_build.py --ticket DEMO-RLM-GATE-RALPH-BLOCK",
-                            ),
-                        ):
-                            with patch(
-                                "aidd_runtime.loop_run._run_research_gate_probe",
-                                return_value=(
-                                    False,
-                                    "python3 /plugin/skills/aidd-rlm/runtime/rlm_links_build.py --ticket DEMO-RLM-GATE-RALPH-BLOCK",
-                                    "probe_exit=1",
-                                    1,
-                                ),
-                            ) as probe_mock:
-                                with patch("aidd_runtime.loop_run.run_loop_step") as step_mock:
-                                    with redirect_stdout(captured):
-                                        code = loop_run_module.main(
-                                            [
-                                                "--ticket",
-                                                ticket,
-                                                "--max-iterations",
-                                                "1",
-                                                "--research-gate",
-                                                "on",
-                                                "--blocked-policy",
-                                                "ralph",
-                                                "--recoverable-block-retries",
-                                                "1",
-                                                "--format",
-                                                "json",
-                                            ]
-                                        )
-            finally:
-                os.chdir(cwd)
-
-            self.assertEqual(code, 20)
-            payload = json.loads(captured.getvalue())
-            self.assertEqual(payload.get("status"), "blocked")
-            self.assertEqual(payload.get("reason_code"), "rlm_links_empty_warn")
-            self.assertEqual(payload.get("recoverable_blocked"), True)
-            self.assertEqual(payload.get("retry_attempt"), 1)
-            self.assertEqual(payload.get("recovery_path"), "research_gate_links_build_probe")
-            probe_mock.assert_called_once()
-            step_mock.assert_not_called()
 
     def test_loop_run_research_gate_ralph_worklist_missing_uses_worklist_recovery_path(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
@@ -634,11 +667,26 @@ class LoopRunTests(unittest.TestCase):
             probe_mock.assert_called_once()
             step_mock.assert_not_called()
 
-    def test_loop_run_research_gate_strict_skips_recovery_probe(self) -> None:
+    def test_loop_run_research_gate_strict_softens_links_empty_without_probe(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             ticket = "DEMO-RLM-GATE-STRICT"
             write_active_state(root, ticket=ticket, stage="implement", work_item="iteration_id=I1")
+            fake_step = subprocess.CompletedProcess(
+                args=["loop-step"],
+                returncode=0,
+                stdout=json.dumps(
+                    {
+                        "status": "done",
+                        "stage": "review",
+                        "scope_key": "iteration_id_I1",
+                        "work_item_key": "iteration_id=I1",
+                        "reason": "",
+                        "reason_code": "",
+                    }
+                ),
+                stderr="",
+            )
             captured = io.StringIO()
             cwd = os.getcwd()
             try:
@@ -655,7 +703,7 @@ class LoopRunTests(unittest.TestCase):
                             ),
                         ):
                             with patch("aidd_runtime.loop_run._run_research_gate_probe") as probe_mock:
-                                with patch("aidd_runtime.loop_run.run_loop_step") as step_mock:
+                                with patch("aidd_runtime.loop_run.run_loop_step", return_value=fake_step) as step_mock:
                                     with redirect_stdout(captured):
                                         code = loop_run_module.main(
                                             [
@@ -676,15 +724,15 @@ class LoopRunTests(unittest.TestCase):
             finally:
                 os.chdir(cwd)
 
-            self.assertEqual(code, 20)
+            self.assertEqual(code, 0)
             payload = json.loads(captured.getvalue())
-            self.assertEqual(payload.get("status"), "blocked")
-            self.assertEqual(payload.get("reason_code"), "rlm_links_empty_warn")
-            self.assertEqual(payload.get("recoverable_blocked"), False)
-            self.assertEqual(payload.get("retry_attempt"), 0)
-            self.assertEqual(payload.get("recovery_path"), "")
+            self.assertEqual(payload.get("status"), "ship")
+            self.assertEqual(payload.get("blocked_policy"), "strict")
+            self.assertTrue(payload.get("research_gate_softened"))
+            self.assertEqual(payload.get("research_gate_soft_reason"), "rlm_links_empty_warn")
+            self.assertEqual(payload.get("research_gate_soft_policy"), "always")
             probe_mock.assert_not_called()
-            step_mock.assert_not_called()
+            step_mock.assert_called_once()
 
     def test_loop_run_research_gate_strict_softens_research_status_invalid(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
@@ -747,6 +795,9 @@ class LoopRunTests(unittest.TestCase):
             payload = json.loads(captured.getvalue())
             self.assertEqual(payload.get("status"), "ship")
             self.assertEqual(payload.get("blocked_policy"), "strict")
+            self.assertTrue(payload.get("research_gate_softened"))
+            self.assertEqual(payload.get("research_gate_soft_reason"), "research_status_invalid")
+            self.assertEqual(payload.get("research_gate_soft_policy"), "always")
             probe_mock.assert_not_called()
             step_mock.assert_called_once()
             loop_log = (root / "reports" / "loops" / ticket / "loop.run.log").read_text(encoding="utf-8")
@@ -1298,7 +1349,17 @@ class LoopRunTests(unittest.TestCase):
             write_file(root, f"docs/tasklist/{ticket}.md", tasklist_ready_text(ticket))
 
             result = subprocess.run(
-                cli_cmd("loop-run", "--ticket", ticket, "--max-iterations", "1", "--format", "json"),
+                cli_cmd(
+                    "loop-run",
+                    "--ticket",
+                    ticket,
+                    "--max-iterations",
+                    "1",
+                    "--blocked-policy",
+                    "strict",
+                    "--format",
+                    "json",
+                ),
                 text=True,
                 capture_output=True,
                 cwd=root,
@@ -1333,7 +1394,17 @@ class LoopRunTests(unittest.TestCase):
                 ),
             )
             result = subprocess.run(
-                cli_cmd("loop-run", "--ticket", "DEMO-FALLBACK", "--max-iterations", "1", "--format", "json"),
+                cli_cmd(
+                    "loop-run",
+                    "--ticket",
+                    "DEMO-FALLBACK",
+                    "--max-iterations",
+                    "1",
+                    "--blocked-policy",
+                    "strict",
+                    "--format",
+                    "json",
+                ),
                 text=True,
                 capture_output=True,
                 cwd=root,
@@ -1369,7 +1440,16 @@ class LoopRunTests(unittest.TestCase):
                     with patch("aidd_runtime.loop_run.run_loop_step", return_value=fake_result):
                         with redirect_stdout(captured):
                             code = loop_run_module.main(
-                                ["--ticket", ticket, "--max-iterations", "1", "--format", "json"]
+                                [
+                                    "--ticket",
+                                    ticket,
+                                    "--max-iterations",
+                                    "1",
+                                    "--blocked-policy",
+                                    "strict",
+                                    "--format",
+                                    "json",
+                                ]
                             )
             finally:
                 os.chdir(cwd)
@@ -1722,6 +1802,8 @@ class LoopRunTests(unittest.TestCase):
                                     "iteration_id=I1",
                                     "--max-iterations",
                                     "1",
+                                    "--blocked-policy",
+                                    "strict",
                                     "--format",
                                     "json",
                                 ]
@@ -1782,6 +1864,8 @@ class LoopRunTests(unittest.TestCase):
                                     "iteration_id=I1",
                                     "--max-iterations",
                                     "1",
+                                    "--blocked-policy",
+                                    "strict",
                                     "--format",
                                     "json",
                                 ]
@@ -2130,6 +2214,8 @@ class LoopRunTests(unittest.TestCase):
                                     "iteration_id=I1",
                                     "--max-iterations",
                                     "1",
+                                    "--blocked-policy",
+                                    "strict",
                                     "--stream",
                                     "text",
                                     "--format",
@@ -2190,6 +2276,8 @@ class LoopRunTests(unittest.TestCase):
                                     "iteration_id=I1",
                                     "--max-iterations",
                                     "1",
+                                    "--blocked-policy",
+                                    "strict",
                                     "--stream",
                                     "text",
                                     "--format",
@@ -2250,6 +2338,8 @@ class LoopRunTests(unittest.TestCase):
                                     "iteration_id=I1",
                                     "--max-iterations",
                                     "1",
+                                    "--blocked-policy",
+                                    "strict",
                                     "--stream",
                                     "text",
                                     "--format",

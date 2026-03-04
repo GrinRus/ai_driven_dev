@@ -75,6 +75,7 @@ class ResearchSettings:
     minimum_paths: int = 0
     allow_pending_baseline: bool = True
     baseline_phrase: str = "контекст пуст"
+    downstream_gate_mode: str = "always_soft"
     branches: list[str] | None = None
     skip_branches: list[str] | None = None
     rlm_enabled: bool = True
@@ -166,6 +167,14 @@ def load_settings(root: Path) -> ResearchSettings:
             settings.allow_pending_baseline = bool(raw["allow_pending_baseline"])
         if "baseline_phrase" in raw and isinstance(raw["baseline_phrase"], str):
             settings.baseline_phrase = raw["baseline_phrase"].strip()
+        if "downstream_gate_mode" in raw:
+            downstream_gate_mode = str(raw.get("downstream_gate_mode") or "").strip().lower()
+            if downstream_gate_mode in {"always_soft", "strict"}:
+                settings.downstream_gate_mode = downstream_gate_mode
+            else:
+                raise ResearchValidationError(
+                    "config/gates.json: поле researcher.downstream_gate_mode должно быть always_soft|strict"
+                )
         settings.branches = gates.normalize_patterns(raw.get("branches"))
         settings.skip_branches = gates.normalize_patterns(raw.get("skip_branches"))
 
@@ -467,6 +476,9 @@ def _validate_rlm_evidence(
     stage = str(expected_stage or _load_stage(root) or "").strip().lower()
     normalized_status = (doc_status or "").strip().lower()
     ready_required = stage in {"plan", "review", "qa"} or normalized_status == "reviewed"
+    downstream_soft_mode = (
+        settings.downstream_gate_mode == "always_soft" and stage in {"plan", "review", "qa"}
+    )
 
     nodes_exists = rlm_nodes_path.exists()
     nodes_total = _count_rlm_nodes(rlm_nodes_path) if nodes_exists else 0
@@ -537,12 +549,20 @@ def _validate_rlm_evidence(
                     f"Hint: `{_rlm_links_cmd_hint(ticket)}`.",
                     file=sys.stderr,
                 )
-            elif allow_scoped_links_empty_warn and scoped_links_warn_allowed and rlm_status == "warn":
+            elif allow_scoped_links_empty_warn and scoped_links_warn_allowed:
                 links_warn_tolerated = True
                 warnings.append("rlm_links_empty_warn_non_blocking")
                 print(
                     "[aidd] WARN: scoped links-empty accepted for downstream gate "
                     f"(reason_code=rlm_links_empty_warn, empty_reason={links_empty_reason}).",
+                    file=sys.stderr,
+                )
+            elif downstream_soft_mode and nodes_total > 0 and pack_exists:
+                links_warn_tolerated = True
+                warnings.append("rlm_links_empty_warn_non_blocking")
+                print(
+                    "[aidd] WARN: downstream research gate softened "
+                    f"(reason_code=rlm_links_empty_warn, policy=warn_continue, stage={stage}).",
                     file=sys.stderr,
                 )
             else:
@@ -558,7 +578,15 @@ def _validate_rlm_evidence(
                 _rlm_finalize_cmd_hint(ticket),
             )
         if rlm_status != "ready":
-            if links_warn_tolerated and rlm_status == "warn":
+            if downstream_soft_mode and nodes_total > 0 and pack_exists:
+                warnings.append("rlm_status_pending_softened")
+                print(
+                    "[aidd] WARN: downstream research gate softened "
+                    f"(reason_code=rlm_status_pending, policy=warn_continue, stage={stage}).",
+                    file=sys.stderr,
+                )
+                return warnings
+            if links_warn_tolerated and rlm_status in {"warn", "pending"}:
                 return warnings
             _raise_block(
                 "rlm_status_pending",
@@ -645,6 +673,8 @@ def validate_research(
     stage = str(expected_stage or _load_stage(root) or "").strip().lower()
     baseline_stage_allowed = stage in {"research"}
     downstream_stage = stage in {"plan", "review", "qa", "implement"}
+    downstream_soft_mode = settings.downstream_gate_mode == "always_soft" and stage in {"plan", "review", "qa"}
+    status_softened_warning = ""
     required_statuses = settings.require_status or ["reviewed"]
     required_statuses = [item for item in required_statuses if item]
     if required_statuses:
@@ -655,27 +685,30 @@ def validate_research(
                 _research_cmd_hint(ticket),
             )
         if status not in required_statuses:
-            if status == "pending" and settings.allow_pending_baseline:
-                if baseline_stage_allowed:
-                    baseline_phrase = settings.baseline_phrase.strip().lower()
-                    if baseline_phrase and baseline_phrase in doc_text_lower:
-                        return ResearchCheckSummary(status=status, skipped_reason="pending-baseline")
-                    _raise_block(
-                        "baseline_missing",
-                        "статус Researcher `pending` допустим только для baseline (нужна отметка baseline в отчёте)",
-                        _research_cmd_hint(ticket),
-                    )
-                if downstream_stage:
-                    _raise_block(
-                        "rlm_status_pending",
-                        "rlm_status=pending — требуется rlm_status=ready с nodes/links/pack для текущей стадии",
-                        _rlm_finalize_cmd_hint(ticket),
-                    )
-            _raise_block(
-                "research_status_invalid",
-                f"статус Researcher `{status}` не входит в {required_statuses}",
-                _research_cmd_hint(ticket),
-            )
+            if downstream_soft_mode and status in {"pending", "warn"}:
+                status_softened_warning = f"research_status_{status}_softened"
+            else:
+                if status == "pending" and settings.allow_pending_baseline:
+                    if baseline_stage_allowed:
+                        baseline_phrase = settings.baseline_phrase.strip().lower()
+                        if baseline_phrase and baseline_phrase in doc_text_lower:
+                            return ResearchCheckSummary(status=status, skipped_reason="pending-baseline")
+                        _raise_block(
+                            "baseline_missing",
+                            "статус Researcher `pending` допустим только для baseline (нужна отметка baseline в отчёте)",
+                            _research_cmd_hint(ticket),
+                        )
+                    if downstream_stage:
+                        _raise_block(
+                            "rlm_status_pending",
+                            "rlm_status=pending — требуется rlm_status=ready с nodes/links/pack для текущей стадии",
+                            _rlm_finalize_cmd_hint(ticket),
+                        )
+                _raise_block(
+                    "research_status_invalid",
+                    f"статус Researcher `{status}` не входит в {required_statuses}",
+                    _research_cmd_hint(ticket),
+                )
 
     path_count: Optional[int] = None
     min_paths = settings.minimum_paths or 0
@@ -730,6 +763,14 @@ def validate_research(
         allow_scoped_links_empty_warn=allow_scoped_links_empty_warn,
         auto_recovery_attempted=auto_recovery_attempted,
     )
+    if status_softened_warning:
+        warnings = list(warnings)
+        warnings.append(status_softened_warning)
+        print(
+            "[aidd] WARN: downstream research status softened "
+            f"(status={status}, policy=warn_continue, stage={stage or 'n/a'}).",
+            file=sys.stderr,
+        )
 
     return ResearchCheckSummary(status=status, path_count=path_count, age_days=age_days, warnings=warnings or None)
 

@@ -105,6 +105,7 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
         "minimum_paths": 1,
         "allow_pending_baseline": True,
         "baseline_phrase": "контекст пуст",
+        "downstream_gate_mode": "always_soft",
     },
     "rlm": {
         "enabled": True,
@@ -154,7 +155,7 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
         },
     },
     "loop": {
-        "blocked_policy": "strict",
+        "blocked_policy": "ralph",
         "strict_recoverable_reason_codes": ["no_tests_hard"],
         "auto_repair_from_qa": False,
         "block_reason_policy": {
@@ -178,14 +179,14 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
                 "blocked_without_reason",
                 "blocking_findings",
                 "scope_drift_recoverable",
-                "rlm_links_empty_warn",
-                "rlm_status_pending",
                 "no_tests_hard",
                 "qa_tests_failed",
                 "review_context_pack_missing",
                 "qa_blocked",
             ],
             "warn": [
+                "rlm_links_empty_warn",
+                "rlm_status_pending",
                 "output_contract_warn",
                 "no_tests_soft",
                 "review_context_pack_placeholder_warn",

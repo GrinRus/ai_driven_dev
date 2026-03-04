@@ -10,7 +10,7 @@ from typing import Dict, Set
 from aidd_runtime import runtime
 
 
-DEFAULT_BLOCKED_POLICY = "strict"
+DEFAULT_BLOCKED_POLICY = "ralph"
 BLOCKED_POLICY_VALUES = {"strict", "ralph"}
 RALPH_POLICY_VERSION = "v2"
 
@@ -35,9 +35,7 @@ DEFAULT_RECOVERABLE_REASONS: Set[str] = {
     "blocked_without_reason",
     "blocking_findings",
     "scope_drift_recoverable",
-    "rlm_links_empty_warn",
     "rlm_worklist_missing",
-    "rlm_status_pending",
     "no_tests_hard",
     "qa_tests_failed",
     "review_context_pack_missing",
@@ -55,6 +53,8 @@ DEFAULT_RECOVERABLE_REASONS: Set[str] = {
 }
 
 DEFAULT_WARN_CONTINUE_REASONS: Set[str] = {
+    "rlm_links_empty_warn",
+    "rlm_status_pending",
     "output_contract_warn",
     "no_tests_soft",
     "review_context_pack_placeholder_warn",

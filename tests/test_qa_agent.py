@@ -417,6 +417,28 @@ class QaAgentTests(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertIn("reason_code=qa_stage_result_emit_failed", stderr.getvalue())
 
+    def test_qa_loop_mode_missing_stage_chain_context_fails_fast(self):
+        write_active_state(self.project_root, ticket="demo-ticket", stage="qa", work_item="iteration_id=I1")
+        write_file(self.project_root, "docs/.active_mode", "loop\n")
+
+        result = self.run_agent("--format", "json", "--skip-tests", "--allow-no-tests")
+        self.assertEqual(result.returncode, 2, msg=result.stderr)
+        self.assertIn("reason_code=preflight_missing", result.stderr)
+        self.assertIn("/feature-dev-aidd:implement demo-ticket", result.stderr)
+
+    def test_qa_loop_mode_accepts_ticket_scope_stage_chain_logs(self):
+        write_active_state(self.project_root, ticket="demo-ticket", stage="qa", work_item="iteration_id=I1")
+        write_file(self.project_root, "docs/.active_mode", "loop\n")
+        write_file(
+            self.project_root,
+            "reports/logs/qa/demo-ticket/demo-ticket/stage.preflight.log",
+            "ok\n",
+        )
+
+        result = self.run_agent("--format", "json", "--skip-tests", "--allow-no-tests")
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        self.assertNotIn("reason_code=preflight_missing", result.stderr)
+
     def test_qa_skipped_tests_logged_as_skipped(self):
         write_json(
             self.project_root,

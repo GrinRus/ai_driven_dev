@@ -96,6 +96,8 @@ LOOP_RESULT_SCHEMA = "aidd.loop_result.v1"
 PROMPT_FLOW_DRIFT_REASON_FAMILY = "prompt_flow_drift_non_canonical_runtime_path"
 LOOP_RESEARCH_SOFT_REASON_CODES = {
     "research_status_invalid",
+    "rlm_links_empty_warn",
+    "rlm_status_pending",
 }
 
 
@@ -479,7 +481,7 @@ def _validate_loop_research_gate(target: Path, ticket: str) -> tuple[bool, str, 
 
     try:
         settings = research_guard.load_settings(target)
-        research_guard.validate_research(
+        summary = research_guard.validate_research(
             target,
             ticket,
             settings=settings,
@@ -490,6 +492,11 @@ def _validate_loop_research_gate(target: Path, ticket: str) -> tuple[bool, str, 
         reason_code = _extract_reason_code(message) or "research_gate_blocked"
         next_action = _extract_next_action(message)
         return False, reason_code, message, next_action
+    warnings = [str(item).strip().lower() for item in (summary.warnings or []) if str(item).strip()]
+    if "rlm_links_empty_warn_non_blocking" in warnings:
+        return True, "rlm_links_empty_warn", "", ""
+    if "rlm_status_pending_softened" in warnings or "research_status_pending_softened" in warnings:
+        return True, "rlm_status_pending", "", ""
     return True, "", "", ""
 
 
@@ -1019,6 +1026,9 @@ def main(argv: List[str] | None = None) -> int:
     )
     recoverable_retry_budget = _resolve_recoverable_retry_budget(getattr(args, "recoverable_block_retries", None))
     research_gate_mode = _resolve_loop_research_gate_mode(getattr(args, "research_gate", None))
+    research_gate_softened = False
+    research_gate_soft_reason = ""
+    research_gate_soft_policy = "always"
     stage_budget_starts: Dict[str, float] = {}
     recoverable_retry_attempt = 0
     last_recovery_path = ""
@@ -1044,6 +1054,12 @@ def main(argv: List[str] | None = None) -> int:
         ),
     )
 
+    def _attach_research_gate_telemetry(payload: Dict[str, object]) -> Dict[str, object]:
+        payload["research_gate_softened"] = bool(research_gate_softened)
+        payload["research_gate_soft_reason"] = research_gate_soft_reason
+        payload["research_gate_soft_policy"] = research_gate_soft_policy
+        return payload
+
     if args.work_item_key and not runtime.is_valid_work_item_key(args.work_item_key):
         clear_active_mode(target)
         payload = {
@@ -1063,7 +1079,7 @@ def main(argv: List[str] | None = None) -> int:
             f"{utc_timestamp()} ticket={ticket} iteration=0 status=blocked reason_code=work_item_invalid_format",
         )
         append_log(cli_log_path, f"{utc_timestamp()} event=blocked iterations=0 reason_code=work_item_invalid_format")
-        emit(args.format, payload)
+        emit(args.format, _attach_research_gate_telemetry(payload))
         return BLOCKED_CODE
 
     if not args.work_item_key:
@@ -1116,7 +1132,7 @@ def main(argv: List[str] | None = None) -> int:
                     f"{utc_timestamp()} ticket={ticket} iteration=0 status=blocked reason_code=work_item_missing",
                 )
                 append_log(cli_log_path, f"{utc_timestamp()} event=blocked iterations=0 reason_code=work_item_missing")
-                emit(args.format, payload)
+                emit(args.format, _attach_research_gate_telemetry(payload))
                 return BLOCKED_CODE
 
     if _should_enforce_loop_research_gate(target, ticket, research_gate_mode):
@@ -1124,6 +1140,23 @@ def main(argv: List[str] | None = None) -> int:
             target,
             ticket,
         )
+        if research_ok and str(research_reason_code or "").strip().lower() in LOOP_RESEARCH_SOFT_REASON_CODES:
+            research_gate_softened = True
+            research_gate_soft_reason = str(research_reason_code or "").strip().lower()
+            append_log(
+                log_path,
+                (
+                    f"{utc_timestamp()} event=research-gate-softened-by-guard "
+                    f"reason_code={research_gate_soft_reason} policy={research_gate_soft_policy}"
+                ),
+            )
+            append_log(
+                cli_log_path,
+                (
+                    f"{utc_timestamp()} event=research-gate-softened-by-guard "
+                    f"reason_code={research_gate_soft_reason}"
+                ),
+            )
         if not research_ok:
             research_reason_code = str(research_reason_code or "").strip().lower() or "research_gate_blocked"
             gate_classification = loop_block_policy.classify_block_reason(
@@ -1206,6 +1239,8 @@ def main(argv: List[str] | None = None) -> int:
                 effective_reason_class = (
                     "warn_continue" if gate_reason_class == "warn_continue" else "soft_override"
                 )
+                research_gate_softened = True
+                research_gate_soft_reason = research_reason_code
                 append_log(
                     log_path,
                     (
@@ -1277,7 +1312,7 @@ def main(argv: List[str] | None = None) -> int:
                         )
                     ),
                 )
-                emit(args.format, payload)
+                emit(args.format, _attach_research_gate_telemetry(payload))
                 return BLOCKED_CODE
 
     last_payload: Dict[str, object] = {}
@@ -1374,7 +1409,7 @@ def main(argv: List[str] | None = None) -> int:
                 ),
             )
             clear_active_mode(target)
-            emit(args.format, payload)
+            emit(args.format, _attach_research_gate_telemetry(payload))
             return BLOCKED_CODE
 
         if stream_mode:
@@ -1498,7 +1533,7 @@ def main(argv: List[str] | None = None) -> int:
                 ),
             )
             clear_active_mode(target)
-            emit(args.format, payload)
+            emit(args.format, _attach_research_gate_telemetry(payload))
             return out_code
         parse_error = ""
         try:
@@ -1911,7 +1946,7 @@ def main(argv: List[str] | None = None) -> int:
                 "updated_at": utc_timestamp(),
             }
             append_log(cli_log_path, f"{utc_timestamp()} event=done iterations={iteration}")
-            emit(args.format, payload)
+            emit(args.format, _attach_research_gate_telemetry(payload))
             return DONE_CODE
         if step_exit_code == BLOCKED_CODE:
             step_stage = str(step_payload.get("stage") or "").strip().lower()
@@ -2092,7 +2127,7 @@ def main(argv: List[str] | None = None) -> int:
                 **ralph_semantics,
             }
             append_log(cli_log_path, f"{utc_timestamp()} event=blocked iterations={iteration}")
-            emit(args.format, payload)
+            emit(args.format, _attach_research_gate_telemetry(payload))
             return BLOCKED_CODE
         if sleep_seconds:
             time.sleep(sleep_seconds)
@@ -2137,7 +2172,7 @@ def main(argv: List[str] | None = None) -> int:
         )
     clear_active_mode(target)
     append_log(cli_log_path, f"{utc_timestamp()} event=max-iterations iterations={max_iterations}")
-    emit(args.format, payload)
+    emit(args.format, _attach_research_gate_telemetry(payload))
     return MAX_ITERATIONS_CODE
 
 

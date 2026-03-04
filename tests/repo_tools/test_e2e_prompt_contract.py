@@ -181,22 +181,21 @@ class E2EPromptContractTests(unittest.TestCase):
         self.assertIn("answers_format=compact_q_codes|legacy_answer_alias", text)
         self.assertIn("`compact_q_codes` обязателен для retry payload", text)
         self.assertIn(
-            "prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready|research_warn_unscoped",
+            "prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready",
             text,
         )
-        self.assertIn("research_warn_scope=<none|links_empty_non_blocking|invalid>", text)
-        self.assertIn("WARN(readiness_gate_research_scoped)", text)
+        self.assertIn("research_warn_scope=<none|links_empty_non_blocking|minimal_baseline_soft|invalid>", text)
+        self.assertIn("WARN(readiness_gate_research_softened)", text)
         self.assertIn("NOT VERIFIED (readiness_gate_failed)", text)
         self.assertIn("NOT VERIFIED (upstream_readiness_gate_failed)", text)
 
     def test_prompts_define_scoped_research_warn_readiness_policy(self) -> None:
         for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
             text = _read(prompt)
-            self.assertIn("research_status=reviewed|ok` или scoped `research_status=warn", text)
-            self.assertIn("research_warn_scope=links_empty_non_blocking", text)
-            self.assertIn("empty_reason=no_symbols|no_matches", text)
-            self.assertIn("reason_code=research_warn_unscoped", text)
-            self.assertIn("WARN(readiness_gate_research_scoped)", text)
+            self.assertIn("research_status=reviewed|ok|warn|pending", text)
+            self.assertIn("minimal RLM baseline", text)
+            self.assertIn("research_warn_scope=minimal_baseline_soft", text)
+            self.assertIn("WARN(readiness_gate_research_softened)", text)
 
     def test_prompts_require_review_spec_report_alignment(self) -> None:
         for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
@@ -278,6 +277,7 @@ class E2EPromptContractTests(unittest.TestCase):
         smoke_text = _read(AUDIT_PROMPT_SMOKE)
         for text, label in ((full_text, "full"), (smoke_text, "smoke")):
             self.assertIn("BLOCKED_POLICY=strict|ralph", text, msg=f"{label}: missing blocked policy variable")
+            self.assertIn("(default: `ralph`)", text, msg=f"{label}: blocked policy default must be ralph")
             self.assertIn("RECOVERABLE_BLOCK_RETRIES", text, msg=f"{label}: missing recoverable retry variable")
         self.assertIn("--blocked-policy $BLOCKED_POLICY", full_text)
         self.assertIn("--recoverable-block-retries $RECOVERABLE_BLOCK_RETRIES", full_text)
@@ -291,7 +291,7 @@ class E2EPromptContractTests(unittest.TestCase):
             self.assertIn("rlm_status_pending", text, msg=f"{prompt}: missing downstream pending reason contract")
             self.assertIn("baseline_missing", text, msg=f"{prompt}: missing baseline_missing drift guard")
             self.assertIn(
-                "WARN(plan_research_pending_softened)",
+                "WARN(research_gate_softened)",
                 text,
                 msg=f"{prompt}: missing plan-stage soft pending contract",
             )
@@ -299,11 +299,6 @@ class E2EPromptContractTests(unittest.TestCase):
                 "policy=warn_continue",
                 text,
                 msg=f"{prompt}: missing warn-continue telemetry contract",
-            )
-            self.assertRegex(
-                text,
-                r"review/qa.*blocking|blocking.*review/qa",
-                msg=f"{prompt}: missing strict review/qa pending contract",
             )
             self.assertIn("AIDD:RLM_EVIDENCE", text, msg=f"{prompt}: missing RLM evidence section contract")
             self.assertRegex(
@@ -359,11 +354,12 @@ class E2EPromptContractTests(unittest.TestCase):
         self.assertIn("runtime_path_missing_or_drift", smoke_text)
         self.assertNotIn("manual_stage_chain_preflight_forbidden", smoke_text)
 
-    def test_full_prompt_requires_ralph_recoverable_probe_for_research_gate(self) -> None:
+    def test_full_prompt_requires_soft_research_gate_telemetry(self) -> None:
         text = _read(AUDIT_PROMPT_FULL)
         self.assertIn("rlm_links_empty_warn|rlm_status_pending", text)
-        self.assertIn("research_gate_links_build_probe", text)
-        self.assertIn("policy_mismatch(research_gate_recovery_path)", text)
+        self.assertIn("research_gate_softened=true", text)
+        self.assertIn("research_gate_soft_reason", text)
+        self.assertIn("research_gate_soft_policy=always", text)
 
     def test_prompts_use_ralph_policy_matrix_v2_wording(self) -> None:
         full_text = _read(AUDIT_PROMPT_FULL)
