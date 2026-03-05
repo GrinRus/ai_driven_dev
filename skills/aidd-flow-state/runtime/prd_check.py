@@ -42,7 +42,6 @@ CACHE_VERSION = "2"
 AIDD_OPEN_QUESTIONS_HEADING = "## AIDD:OPEN_QUESTIONS"
 AIDD_ANSWERS_HEADING = "## AIDD:ANSWERS"
 MARKDOWN_HEADING_RE = re.compile(r"^\s{0,3}#{1,6}\s+\S")
-LEGACY_ANSWER_RE = re.compile(r"^\s*(?:[-*+]\s*)?(?:Ответ|Answer)\s+\d+\s*:", re.IGNORECASE | re.MULTILINE)
 COMPACT_ANSWER_RE = re.compile(r'\bQ(\d+)\s*=\s*(?:"([^"\n]+)"|([^\s;,#`]+))')
 OPEN_ITEM_PREFIX_RE = re.compile(r"^(?:[-*+]\s+|\d+\.\s+)")
 CHECKBOX_PREFIX_RE = re.compile(r"^\[[ xX]\]\s*")
@@ -168,15 +167,10 @@ def main(argv: Optional[List[str]] = None) -> int:
             "Закройте вопросы перед /feature-dev-aidd:plan-new."
         )
     answers_section = _extract_section(text, AIDD_ANSWERS_HEADING) or ""
-    if LEGACY_ANSWER_RE.search(answers_section):
-        raise SystemExit(
-            "BLOCK: AIDD:ANSWERS использует неканоничный формат ответов; "
-            "используйте `AIDD:ANSWERS Q1=A; Q2=\"короткий текст\"`."
-        )
     answers_map = _collect_compact_answers(answers_section)
     if answers_section.strip() and not answers_map:
         raise SystemExit(
-            "BLOCK: AIDD:ANSWERS должен быть в compact формате `Q<N>=<value>` (например, `Q1=A` или `Q1=\"короткий текст\"`)."
+            "BLOCK: AIDD:ANSWERS должен быть в compact формате `Q<N>=<value>`."
         )
     invalid_numbers = sorted(
         number

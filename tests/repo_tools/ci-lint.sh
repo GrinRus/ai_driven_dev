@@ -453,10 +453,10 @@ run_yamllint() {
   fi
 }
 
-run_answer_pattern_check() {
+run_legacy_qna_pattern_check() {
   local root="$1"
   if ! command -v python3 >/dev/null 2>&1; then
-    warn "python3 not found; skipping Answer-pattern check"
+    warn "python3 not found; skipping legacy Qn-pattern check"
     return
   fi
   if ! python3 - "$root" <<'PY'
@@ -467,37 +467,42 @@ import sys
 from pathlib import Path
 
 root = Path(sys.argv[1])
-pattern = re.compile(r"Answer\\s+[0-9]")
-answers_header = "## aidd:answers"
+pattern = re.compile(r"\b(?:Answer|Ответ)\s+[0-9]+\s*:")
+target_globs = [
+    "skills/*/templates/*",
+    "tests/repo_tools/e2e_prompt/*.md",
+    "aidd_test_flow_prompt_ralph_script*.txt",
+    "tests/repo_tools/smoke-workflow.sh",
+]
+
+targets = set()
+for glob_pattern in target_globs:
+    for path in root.glob(glob_pattern):
+        if path.is_file():
+            targets.add(path)
 
 violations = []
-for path in root.rglob("*"):
-    if not path.is_file():
-        continue
+for path in sorted(targets):
     try:
         text = path.read_text(encoding="utf-8")
     except Exception:
         continue
-    inside_answers = False
-    for line in text.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("## "):
-            inside_answers = stripped.lower() == answers_header
-        if pattern.search(line) and not inside_answers:
-            violations.append(f"{path.as_posix()}:{line.strip()}")
+    for lineno, line in enumerate(text.splitlines(), start=1):
+        if pattern.search(line):
+            violations.append(f"{path.as_posix()}:{lineno}:{line.strip()}")
             break
 
 if violations:
     for entry in violations[:5]:
-        print(f"[answer-pattern] {entry}", file=sys.stderr)
+        print(f"[legacy-qna-pattern] {entry}", file=sys.stderr)
     raise SystemExit(1)
 PY
   then
-    err "found forbidden pattern 'Answer [0-9]' outside AIDD:ANSWERS blocks"
+    err "found forbidden legacy Qn tokens ('Answer N:' / 'Ответ N:') in canonical templates/prompts/smoke"
     STATUS=1
     return
   fi
-  log "no forbidden Answer-pattern strings detected (root: ${root})"
+  log "no forbidden legacy Qn tokens detected (root: ${root})"
 }
 
 run_repo_linters() {
@@ -508,7 +513,7 @@ run_repo_linters() {
   run_shellcheck "${LINT_ROOT}"
   run_markdownlint "${LINT_ROOT}"
   run_yamllint "${LINT_ROOT}"
-  run_answer_pattern_check "${LINT_ROOT}"
+  run_legacy_qna_pattern_check "${LINT_ROOT}"
 }
 
 run_python_tests() {

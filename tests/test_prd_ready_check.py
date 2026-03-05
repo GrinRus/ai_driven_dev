@@ -119,13 +119,13 @@ class PrdReadyCheckTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("AIDD:OPEN_QUESTIONS", result.stderr)
 
-    def test_prd_ready_blocks_legacy_answers_format(self) -> None:
+    def test_prd_ready_blocks_non_compact_answers_format(self) -> None:
         with tempfile.TemporaryDirectory(prefix="prd-check-") as tmpdir:
             root = Path(tmpdir)
             write_file(
                 root,
                 "docs/prd/demo.prd.md",
-                "# PRD\n\nStatus: READY\n\n## AIDD:ANSWERS\n- Answer 1: A\n",
+                "# PRD\n\nStatus: READY\n\n## AIDD:ANSWERS\n- свободный ответ вне compact формата\n",
             )
             result = subprocess.run(
                 cli_cmd("prd-check", "--ticket", "demo"),
@@ -136,7 +136,7 @@ class PrdReadyCheckTests(unittest.TestCase):
             )
 
             self.assertNotEqual(result.returncode, 0)
-            self.assertIn("неканоничный формат", result.stderr)
+            self.assertIn("должен быть в compact формате", result.stderr)
 
     def test_prd_ready_blocks_placeholder_answer_values(self) -> None:
         with tempfile.TemporaryDirectory(prefix="prd-check-") as tmpdir:

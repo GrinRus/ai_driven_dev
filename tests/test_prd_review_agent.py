@@ -260,7 +260,7 @@ class PRDReviewAgentTests(unittest.TestCase):
                 # Demo
 
                 ## AIDD:ANSWERS
-                - Answer 1: A
+                - свободный ответ без Q-ключа
 
                 ## PRD Review
                 Status: READY

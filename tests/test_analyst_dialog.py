@@ -297,12 +297,12 @@ def test_draft_status_rejected(tmp_path):
     assert "draft" in str(excinfo.value).lower()
 
 
-def test_legacy_answers_alias_is_rejected(tmp_path):
+def test_non_compact_answers_payload_is_rejected(tmp_path):
     project = tmp_path / "aidd"
     project.mkdir(parents=True, exist_ok=True)
     ensure_gates_config(project)
     slug = "demo"
-    prd = """# PRD\n\n## Диалог analyst\nStatus: READY\nСсылка: docs/research/demo.md\n\nВопрос 1: Что уточнить?\n\n## AIDD:ANSWERS\n- Answer 1: B\n"""
+    prd = """# PRD\n\n## Диалог analyst\nStatus: READY\nСсылка: docs/research/demo.md\n\nВопрос 1: Что уточнить?\n\n## AIDD:ANSWERS\n- свободный ответ вне compact формата\n"""
     _write_prd(project, slug, prd)
     _write_research(project, slug)
     settings = load_settings(project)
@@ -310,7 +310,7 @@ def test_legacy_answers_alias_is_rejected(tmp_path):
     with pytest.raises(AnalystValidationError) as excinfo:
         validate_prd(project, slug, settings=settings)
 
-    assert "неканоничный формат" in str(excinfo.value)
+    assert "должен быть в compact формате" in str(excinfo.value)
 
 
 def test_compact_answers_with_tbd_are_rejected(tmp_path):

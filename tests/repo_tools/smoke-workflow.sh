@@ -443,7 +443,8 @@ if not prd_path.exists():
         "Status: draft\n\n"
         f"Researcher: aidd/docs/research/{ticket}.md (Status: pending)\n\n"
         "Вопрос 1: Какие ограничения по среде?\n"
-        "Ответ 1: TBD\n\n"
+        "## AIDD:ANSWERS\n"
+        "AIDD:ANSWERS Q1=TBD\n\n"
         "## AIDD:RESEARCH_HINTS\n"
         "- **Paths**: src/main\n"
         "- **Keywords**: checkout\n"
@@ -660,7 +661,11 @@ content = prd_path.read_text(encoding="utf-8")
 if not re.search(r"^##\s+(?:\d+\.\s+)?PRD Review\s*$", content, re.MULTILINE):
     content += "\n## PRD Review\nStatus: PENDING\n"
 if "Вопрос 1:" in content and "TBD" in content:
-    content = content.replace("Ответ 1: TBD", "Ответ 1: Покрываем стандартный happy-path и ошибку оплаты.", 1)
+    content = content.replace(
+        "AIDD:ANSWERS Q1=TBD",
+        'AIDD:ANSWERS Q1="Покрываем стандартный happy-path и ошибку оплаты."',
+        1,
+    )
 if "Status: draft" in content:
     content = content.replace("Status: draft", "Status: READY", 1)
 if "Researcher:" not in content:
@@ -701,12 +706,6 @@ if "Вопрос 1:" in text:
     text = text.replace(
         "Вопрос 1: `<Что нужно уточнить?>`",
         "Вопрос 1: Какие этапы checkout нужно покрыть в демо?",
-        1,
-    )
-if "Ответ 1:" in text:
-    text = text.replace(
-        "Ответ 1: `<Ответ или TBD>`",
-        "Ответ 1: Покрываем стандартный happy-path и ошибку оплаты.",
         1,
     )
 if "Status: draft" in text:
