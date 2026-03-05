@@ -20,6 +20,7 @@ from aidd_runtime import runtime
 from aidd_runtime import stage_result_contract
 from aidd_runtime import marker_semantics
 from aidd_runtime import loop_block_policy
+from aidd_runtime import tasklist_parser
 from aidd_runtime.feature_ids import write_active_state
 from aidd_runtime.loop_pack import (
     is_open_item,
@@ -149,6 +150,33 @@ def select_next_work_item(target: Path, ticket: str, current_work_item: str) -> 
     if not candidate:
         candidate = open_items[0]
     return candidate.work_item_key, pending_count
+
+
+def _has_executable_test_entries(target: Path, ticket: str) -> bool:
+    tasklist_path = target / "docs" / "tasklist" / f"{ticket}.md"
+    if not tasklist_path.exists():
+        return False
+    try:
+        lines = tasklist_path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return False
+    section_lines = tasklist_parser.extract_section(lines, "AIDD:TEST_EXECUTION")
+    if not section_lines:
+        return False
+    parsed = tasklist_parser.parse_test_execution(section_lines)
+    if parsed.get("tasks"):
+        return True
+    extra_commands: list[str] = []
+    for field in ("command", "commands"):
+        scalar = tasklist_parser.extract_scalar_field(section_lines, field)
+        if scalar:
+            extra_commands.append(scalar)
+        extra_commands.extend(tasklist_parser.extract_list_field(section_lines, field))
+    for raw in extra_commands:
+        normalized = tasklist_parser.normalize_test_execution_task(str(raw))
+        if normalized:
+            return True
+    return False
 
 
 def resolve_runner_label(raw: str | None) -> str:
@@ -605,6 +633,14 @@ def _apply_recoverable_block_recovery(
         # Keep review stage active for a bounded retry when review-pack artifacts lag.
         write_active_stage(target, "review")
         return "retry_review_pack", active_work_item
+    if (
+        stage == "review"
+        and reason_value == "no_tests_hard"
+        and runtime.is_iteration_work_item_key(active_work_item)
+    ):
+        if _has_executable_test_entries(target, ticket):
+            write_active_stage(target, "review")
+            return "derive_tests_then_retry_review", active_work_item
     if stage in {"review", "qa"} and runtime.is_iteration_work_item_key(active_work_item):
         write_active_stage(target, "implement")
         return "handoff_to_implement", active_work_item

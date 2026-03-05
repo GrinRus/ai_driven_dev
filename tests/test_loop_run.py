@@ -867,6 +867,12 @@ class LoopRunTests(unittest.TestCase):
             root = ensure_project_root(Path(tmpdir))
             ticket = "DEMO-RALPH-NO-TESTS-HARD"
             write_active_state(root, ticket=ticket, stage="review", work_item="iteration_id=I1")
+            tasklist_text = tasklist_ready_text(ticket).replace(
+                "- tasks: []",
+                '- tasks:\n    - ./gradlew test --tests "demo.ExampleTest"',
+                1,
+            )
+            write_file(root, f"docs/tasklist/{ticket}.md", tasklist_text)
 
             fake_result = subprocess.CompletedProcess(
                 args=["loop-step"],
@@ -916,6 +922,63 @@ class LoopRunTests(unittest.TestCase):
             self.assertEqual(last_step.get("reason_code"), "no_tests_hard")
             self.assertEqual(last_step.get("recoverable_blocked"), True)
             self.assertEqual(last_step.get("ralph_reason_class"), "recoverable_retry")
+            self.assertEqual(last_step.get("recovery_path"), "derive_tests_then_retry_review")
+            self.assertEqual(payload.get("last_recovery_path"), "derive_tests_then_retry_review")
+
+    def test_loop_run_ralph_no_tests_hard_without_executable_entries_handoffs_to_implement(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-RALPH-NO-TESTS-HARD-FALLBACK"
+            write_active_state(root, ticket=ticket, stage="review", work_item="iteration_id=I1")
+            write_file(root, f"docs/tasklist/{ticket}.md", tasklist_ready_text(ticket))
+
+            fake_result = subprocess.CompletedProcess(
+                args=["loop-step"],
+                returncode=20,
+                stdout=json.dumps(
+                    {
+                        "status": "blocked",
+                        "stage": "review",
+                        "scope_key": "iteration_id_I1",
+                        "work_item_key": "iteration_id=I1",
+                        "reason_code": "no_tests_hard",
+                        "reason": "tests evidence required but not found",
+                    }
+                ),
+                stderr="",
+            )
+            captured = io.StringIO()
+            cwd = os.getcwd()
+            try:
+                os.chdir(root.parent)
+                with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
+                    with patch("aidd_runtime.loop_run.run_loop_step", return_value=fake_result):
+                        with redirect_stdout(captured):
+                            code = loop_run_module.main(
+                                [
+                                    "--ticket",
+                                    ticket,
+                                    "--work-item-key",
+                                    "iteration_id=I1",
+                                    "--max-iterations",
+                                    "1",
+                                    "--blocked-policy",
+                                    "ralph",
+                                    "--recoverable-block-retries",
+                                    "1",
+                                    "--format",
+                                    "json",
+                                ]
+                            )
+            finally:
+                os.chdir(cwd)
+
+            self.assertEqual(code, 11)
+            payload = json.loads(captured.getvalue())
+            last_step = payload.get("last_step") or {}
+            self.assertEqual(last_step.get("reason_code"), "no_tests_hard")
+            self.assertEqual(last_step.get("recovery_path"), "handoff_to_implement")
+            self.assertEqual(payload.get("last_recovery_path"), "handoff_to_implement")
 
     def test_loop_run_strict_retries_no_tests_hard_when_enabled(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:

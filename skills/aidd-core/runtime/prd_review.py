@@ -72,6 +72,7 @@ INVALID_ANSWER_VALUES = {"tbd", "todo", "none", "нет", "n/a", "na", "empty", 
 NONE_VALUES = {"none", "нет", "n/a", "na"}
 OPEN_ITEM_PREFIX_RE = re.compile(r"^(?:[-*+]\s+|\d+\.\s+)")
 CHECKBOX_PREFIX_RE = re.compile(r"^\[[ xX]\]\s*")
+MARKDOWN_HEADING_RE = re.compile(r"^\s{0,3}#{1,6}\s+\S")
 
 
 def _normalize_output_path(root: Path, path: Path) -> Path:
@@ -242,7 +243,7 @@ def _extract_section(text: str, heading_prefix: str) -> str:
         return ""
     end_idx = len(lines)
     for idx in range(start_idx, len(lines)):
-        if lines[idx].startswith("## "):
+        if MARKDOWN_HEADING_RE.match(lines[idx]):
             end_idx = idx
             break
     return "\n".join(lines[start_idx:end_idx]).strip()

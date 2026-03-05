@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import re
 import hashlib
+import json
 import sys
 from pathlib import Path
 from typing import List, Optional
@@ -37,8 +38,10 @@ from aidd_runtime import runtime
 
 STATUS_RE = re.compile(r"^\s*Status:\s*([A-Za-z]+)", re.MULTILINE)
 CACHE_FILENAME = "prd-check.hash"
+CACHE_VERSION = "2"
 AIDD_OPEN_QUESTIONS_HEADING = "## AIDD:OPEN_QUESTIONS"
 AIDD_ANSWERS_HEADING = "## AIDD:ANSWERS"
+MARKDOWN_HEADING_RE = re.compile(r"^\s{0,3}#{1,6}\s+\S")
 LEGACY_ANSWER_RE = re.compile(r"^\s*(?:[-*+]\s*)?(?:Ответ|Answer)\s+\d+\s*:", re.IGNORECASE | re.MULTILINE)
 COMPACT_ANSWER_RE = re.compile(r'\bQ(\d+)\s*=\s*(?:"([^"\n]+)"|([^\s;,#`]+))')
 OPEN_ITEM_PREFIX_RE = re.compile(r"^(?:[-*+]\s+|\d+\.\s+)")
@@ -68,6 +71,15 @@ def _hash_prd(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+def _write_cache(path: Path, *, ticket: str, hash_value: str) -> None:
+    payload = {"ticket": ticket, "hash": hash_value, "cache_version": CACHE_VERSION}
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    except OSError:
+        return
+
+
 def _extract_section(text: str, heading_prefix: str) -> str | None:
     lines = text.splitlines()
     start_idx: Optional[int] = None
@@ -80,7 +92,7 @@ def _extract_section(text: str, heading_prefix: str) -> str | None:
         return None
     end_idx = len(lines)
     for idx in range(start_idx, len(lines)):
-        if lines[idx].startswith("## ") and idx != start_idx:
+        if idx != start_idx and MARKDOWN_HEADING_RE.match(lines[idx]):
             end_idx = idx
             break
     return "\n".join(lines[start_idx:end_idx]).strip()
@@ -133,7 +145,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     current_hash = _hash_prd(text)
     cache_path = _cache_path(project_root)
     cache_payload = cache_helpers.load_json_cache(cache_path)
-    if cache_payload.get("ticket") == ticket and cache_payload.get("hash") == current_hash:
+    if (
+        cache_payload.get("ticket") == ticket
+        and cache_payload.get("hash") == current_hash
+        and cache_payload.get("cache_version") == CACHE_VERSION
+    ):
         print("[prd-check] SKIP: cache hit (reason_code=cache_hit)", file=sys.stderr)
         return 0
     match = STATUS_RE.search(text)
@@ -174,7 +190,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         )
 
     print(f"[aidd] PRD ready for `{ticket}` (status: READY).")
-    cache_helpers.write_ticket_hash_cache(cache_path, ticket=ticket, hash_value=current_hash)
+    _write_cache(cache_path, ticket=ticket, hash_value=current_hash)
     return 0
 
 
