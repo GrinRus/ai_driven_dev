@@ -43,6 +43,25 @@ class PrdReadyCheckTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, msg=result.stderr)
             self.assertIn("PRD ready", result.stdout)
 
+    def test_prd_ready_allows_quoted_compact_answers_for_q2(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="prd-check-") as tmpdir:
+            root = Path(tmpdir)
+            write_file(
+                root,
+                "docs/prd/demo.prd.md",
+                '# PRD\n\nStatus: READY\n\n## AIDD:ANSWERS\nAIDD:ANSWERS Q1=A; Q2="нужен режим без кэша"\n\n## AIDD:OPEN_QUESTIONS\n- none\n',
+            )
+            result = subprocess.run(
+                cli_cmd("prd-check", "--ticket", "demo"),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            self.assertIn("PRD ready", result.stdout)
+
     def test_prd_ready_blocks_when_draft(self) -> None:
         with tempfile.TemporaryDirectory(prefix="prd-check-") as tmpdir:
             root = Path(tmpdir)
@@ -118,6 +137,25 @@ class PrdReadyCheckTests(unittest.TestCase):
 
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("неканоничный формат", result.stderr)
+
+    def test_prd_ready_blocks_placeholder_answer_values(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="prd-check-") as tmpdir:
+            root = Path(tmpdir)
+            write_file(
+                root,
+                "docs/prd/demo.prd.md",
+                "# PRD\n\nStatus: READY\n\n## AIDD:ANSWERS\nAIDD:ANSWERS Q1=<нужно заполнить>\n",
+            )
+            result = subprocess.run(
+                cli_cmd("prd-check", "--ticket", "demo"),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("недопустимые значения", result.stderr)
 
     def test_prd_ready_ignores_nested_heading_after_none_open_questions(self) -> None:
         with tempfile.TemporaryDirectory(prefix="prd-check-") as tmpdir:

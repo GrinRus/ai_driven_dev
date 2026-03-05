@@ -429,7 +429,7 @@ from pathlib import Path
 import sys
 
 ticket = sys.argv[1]
-base = Path("docs")
+base = Path("aidd/docs")
 (base / "prd").mkdir(parents=True, exist_ok=True)
 (base / "research").mkdir(parents=True, exist_ok=True)
 (base / "plan").mkdir(parents=True, exist_ok=True)
@@ -441,7 +441,7 @@ if not prd_path.exists():
         "# PRD\n\n"
         "## Диалог analyst\n"
         "Status: draft\n\n"
-        f"Researcher: docs/research/{ticket}.md (Status: pending)\n\n"
+        f"Researcher: aidd/docs/research/{ticket}.md (Status: pending)\n\n"
         "Вопрос 1: Какие ограничения по среде?\n"
         "Ответ 1: TBD\n\n"
         "## AIDD:RESEARCH_HINTS\n"
@@ -664,7 +664,7 @@ if "Вопрос 1:" in content and "TBD" in content:
 if "Status: draft" in content:
     content = content.replace("Status: draft", "Status: READY", 1)
 if "Researcher:" not in content:
-    content = content.replace("## Диалог analyst", f"## Диалог analyst\nResearcher: docs/research/{ticket}.md (Status: reviewed)", 1)
+    content = content.replace("## Диалог analyst", f"## Диалог analyst\nResearcher: aidd/docs/research/{ticket}.md (Status: reviewed)", 1)
 prd_path.write_text(content, encoding="utf-8")
 PY
 
@@ -740,7 +740,7 @@ if "Design & Patterns" not in text:
     text += (
         "\n## Design & Patterns\n"
         "- Pattern: service layer + adapters/ports (KISS/YAGNI/DRY/SOLID)\n"
-        f"- Reuse: docs/research/{ticket}.md\n"
+        f"- Reuse: aidd/docs/research/{ticket}.md\n"
         "- Scope: domain/application/infra boundaries fixed; avoid over-engineering.\n"
     )
 elif "service layer" not in text.lower():
@@ -1276,6 +1276,13 @@ fi
 log "smoke scenario passed"
 popd >/dev/null
 popd >/dev/null
+
+for shadow in docs reports config .cache; do
+  if [[ -e "$WORKSPACE_ROOT/$shadow" ]]; then
+    echo "[smoke] legacy-shadow artifact created at workspace root: $WORKSPACE_ROOT/$shadow" >&2
+    exit 1
+  fi
+done
 
 log "negative scenario: gate fails on incorrect target without aidd workflow"
 BAD_DIR="$(mktemp -d "${TMPDIR:-/tmp}/aidd-smoke-bad-target.XXXXXX")"

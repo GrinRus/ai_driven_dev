@@ -47,7 +47,9 @@ INVALID_ANSWER_VALUES = {"tbd", "todo", "none", "нет", "n/a", "na", "empty", 
 OPEN_ITEM_PREFIX_RE = re.compile(r"^(?:[-*+]\s+|\d+\.\s+)")
 CHECKBOX_PREFIX_RE = re.compile(r"^\[[ xX]\]\s*")
 ALLOWED_STATUSES = {"READY", "BLOCKED", "PENDING"}
-RESEARCH_REF_TEMPLATE = "docs/research/{ticket}.md"
+RESEARCH_REF_TEMPLATE = "aidd/docs/research/{ticket}.md"
+LEGACY_RESEARCH_REF_TEMPLATE = "docs/research/{ticket}.md"
+MARKDOWN_HEADING_RE = re.compile(r"^\s{0,3}#{1,6}\s+\S")
 
 
 class AnalystValidationError(RuntimeError):
@@ -115,7 +117,7 @@ def _extract_section(text: str, heading_prefix: str) -> str | None:
         return None
     end_idx = len(lines)
     for idx in range(start_idx, len(lines)):
-        if lines[idx].startswith("## ") and idx != start_idx:
+        if idx != start_idx and MARKDOWN_HEADING_RE.match(lines[idx]):
             end_idx = idx
             break
     return "\n".join(lines[start_idx:end_idx]).strip()
@@ -154,7 +156,14 @@ def _invalid_compact_answers(answers: dict[int, str]) -> list[int]:
     invalid: list[int] = []
     for number, value in answers.items():
         normalized = str(value).strip().lower()
+        stripped = str(value).strip()
         if normalized in INVALID_ANSWER_VALUES:
+            invalid.append(number)
+            continue
+        if stripped.startswith("<") and stripped.endswith(">"):
+            invalid.append(number)
+            continue
+        if "<" in stripped or ">" in stripped:
             invalid.append(number)
     return sorted(set(invalid))
 
@@ -209,6 +218,8 @@ def validate_prd(
     text = prd_path.read_text(encoding="utf-8")
     dialog_section = _extract_section(text, DIALOG_HEADING)
     questions_source = dialog_section or text
+    if dialog_section and not _collect_numbers(QUESTION_RE, questions_source):
+        questions_source = text
     answers_section = _extract_section(text, ANSWERS_HEADING)
     questions = _collect_numbers(QUESTION_RE, questions_source)
     answers_source = answers_section or ""
@@ -336,7 +347,8 @@ def validate_prd(
             raise AnalystValidationError("BLOCK: статус PENDING. Закройте вопросы и установите Status: READY.")
 
     research_ref = RESEARCH_REF_TEMPLATE.format(ticket=ticket)
-    if research_ref not in text:
+    legacy_ref = LEGACY_RESEARCH_REF_TEMPLATE.format(ticket=ticket)
+    if research_ref not in text and legacy_ref not in text:
         raise AnalystValidationError(
             f"BLOCK: PRD должен ссылаться на `{research_ref}` в разделе `## Диалог analyst` → добавьте ссылку на отчёт Researcher."
         )

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Lightweight PRD review helper for Claude workflow.
 
-The script inspects docs/prd/<ticket>.prd.md, looks for the dedicated
+The script inspects aidd/docs/prd/<ticket>.prd.md, looks for the dedicated
 `## PRD Review` section (including numbered `## <N>. PRD Review` variants),
 checks status/action items and surfaces obvious placeholders (TODO/TBD/<...>)
 that must be resolved before development.
@@ -151,18 +151,18 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--ticket",
-        help="Feature ticket to analyse (defaults to docs/.active.json).",
+        help="Feature ticket to analyse (defaults to aidd/docs/.active.json).",
     )
     parser.add_argument(
         "--slug",
         "--slug-hint",
         dest="slug_hint",
-        help="Optional slug hint override (defaults to docs/.active.json when available).",
+        help="Optional slug hint override (defaults to aidd/docs/.active.json when available).",
     )
     parser.add_argument(
         "--prd",
         type=Path,
-        help="Explicit path to PRD file. Defaults to docs/prd/<ticket>.prd.md.",
+        help="Explicit path to PRD file. Defaults to aidd/docs/prd/<ticket>.prd.md.",
     )
     parser.add_argument(
         "--report",
@@ -299,6 +299,10 @@ def _detect_answers_format(section: str) -> str:
             continue
         value = str((match.group(2) if match.group(2) is not None else match.group(3)) or "").strip().lower()
         if value in INVALID_ANSWER_VALUES:
+            return "invalid"
+        if value.startswith("<") and value.endswith(">"):
+            return "invalid"
+        if "<" in value or ">" in value:
             return "invalid"
         compact_answers[number] = value
     if not compact_answers:
@@ -439,7 +443,7 @@ def run(args: argparse.Namespace) -> int:
     if not ticket:
         print(
             "[prd-review] Cannot determine feature ticket. "
-            "Pass --ticket or create docs/.active.json.",
+            "Pass --ticket or create aidd/docs/.active.json.",
             file=sys.stderr,
         )
         return 1

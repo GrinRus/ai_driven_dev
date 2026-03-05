@@ -588,7 +588,7 @@ def main() -> int:
     if legacy_prd_path.exists():
         _log_stderr(
             "BLOCK: обнаружен неканоничный PRD-файл "
-            f"({legacy_prd_path}). Используйте только docs/prd/{ticket}.prd.md."
+            f"({legacy_prd_path}). Используйте только aidd/docs/prd/{ticket}.prd.md."
         )
         return 2
 
@@ -648,7 +648,7 @@ def main() -> int:
 
         if not tasklist_path.exists():
             hooklib.ensure_template(root, "docs/tasklist/template.md", tasklist_path)
-            _log_stderr(f"BLOCK: нет задач → запустите /feature-dev-aidd:tasks-new {ticket} (docs/tasklist/{ticket}.md)")
+            _log_stderr(f"BLOCK: нет задач → запустите /feature-dev-aidd:tasks-new {ticket} (aidd/docs/tasklist/{ticket}.md)")
             return 2
 
         if not (root / "docs" / "prd" / f"{ticket}.prd.md").exists():
@@ -712,7 +712,7 @@ def main() -> int:
             return 0
 
         if not _next3_has_real_items(tasklist_path):
-            _log_stderr(f"BLOCK: нет задач → запустите /feature-dev-aidd:tasks-new {ticket} (docs/tasklist/{ticket}.md)")
+            _log_stderr(f"BLOCK: нет задач → запустите /feature-dev-aidd:tasks-new {ticket} (aidd/docs/tasklist/{ticket}.md)")
             return 2
 
         reviewer_notice = _reviewer_notice(root, ticket, slug_hint)

@@ -179,7 +179,11 @@ def main(argv: Optional[List[str]] = None) -> int:
             "BLOCK: AIDD:ANSWERS должен быть в compact формате `Q<N>=<value>` (например, `Q1=A` или `Q1=\"короткий текст\"`)."
         )
     invalid_numbers = sorted(
-        number for number, value in answers_map.items() if value.strip().lower() in INVALID_ANSWER_VALUES
+        number
+        for number, value in answers_map.items()
+        if value.strip().lower() in INVALID_ANSWER_VALUES
+        or (value.strip().startswith("<") and value.strip().endswith(">"))
+        or ("<" in value.strip() or ">" in value.strip())
     )
     if invalid_numbers:
         sample = ", ".join(f"Q{num}" for num in invalid_numbers[:3])

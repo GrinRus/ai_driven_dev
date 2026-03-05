@@ -445,7 +445,7 @@ class HookReadWritePolicyTests(unittest.TestCase):
             payload = {
                 "hook_event_name": "PreToolUse",
                 "tool_name": "Write",
-                "tool_input": {"file_path": "docs/plan/other.md", "content": "x"},
+                "tool_input": {"file_path": "src/outside.py", "content": "print('x')"},
             }
             result = _run_pretool(root, payload, hooks_mode="strict")
             self.assertEqual(result.returncode, 0, msg=result.stderr)
@@ -489,6 +489,51 @@ class HookReadWritePolicyTests(unittest.TestCase):
             result = _run_pretool(root, payload, hooks_mode="strict")
             self.assertEqual(result.returncode, 0, msg=result.stderr)
             self.assertEqual(result.stdout.strip(), "")
+
+    def test_strict_blocks_legacy_shadow_write_from_workspace_root(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="hook-rw-") as tmpdir:
+            workspace = Path(tmpdir)
+            ensure_project_root(workspace)
+            payload = {
+                "hook_event_name": "PreToolUse",
+                "tool_name": "Write",
+                "tool_input": {"file_path": "docs/prd/demo.prd.md", "content": "# PRD\n"},
+            }
+            result = _run_pretool(workspace, payload, hooks_mode="strict")
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            data = json.loads(result.stdout)
+            decision = data.get("hookSpecificOutput", {}).get("permissionDecision")
+            self.assertEqual(decision, "deny")
+            self.assertIn("legacy-shadow", data.get("hookSpecificOutput", {}).get("permissionDecisionReason", ""))
+
+    def test_strict_allows_canonical_aidd_write_from_workspace_root(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="hook-rw-") as tmpdir:
+            workspace = Path(tmpdir)
+            ensure_project_root(workspace)
+            payload = {
+                "hook_event_name": "PreToolUse",
+                "tool_name": "Write",
+                "tool_input": {"file_path": "aidd/docs/prd/demo.prd.md", "content": "# PRD\n"},
+            }
+            result = _run_pretool(workspace, payload, hooks_mode="strict")
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            self.assertEqual(result.stdout.strip(), "")
+
+    def test_strict_blocks_legacy_shadow_bash_command(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="hook-rw-") as tmpdir:
+            workspace = Path(tmpdir)
+            ensure_project_root(workspace)
+            payload = {
+                "hook_event_name": "PreToolUse",
+                "tool_name": "Bash",
+                "tool_input": {"command": "mkdir -p docs/prd && touch docs/prd/demo.prd.md"},
+            }
+            result = _run_pretool(workspace, payload, hooks_mode="strict")
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            data = json.loads(result.stdout)
+            decision = data.get("hookSpecificOutput", {}).get("permissionDecision")
+            self.assertEqual(decision, "deny")
+            self.assertIn("legacy-shadow", data.get("hookSpecificOutput", {}).get("permissionDecisionReason", ""))
 
 
 if __name__ == "__main__":

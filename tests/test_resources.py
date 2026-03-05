@@ -90,6 +90,38 @@ class ResourcesTests(unittest.TestCase):
             self.assertIn("workflow not found at", message)
             self.assertIn("/feature-dev-aidd:aidd-init", message)
 
+    def test_resolve_roots_migrates_legacy_shadow_when_project_missing(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="resources-") as tmp:
+            workspace = Path(tmp) / "ws"
+            workspace.mkdir()
+            (workspace / ".git").mkdir()
+            (workspace / "docs" / "prd").mkdir(parents=True)
+            (workspace / "config").mkdir()
+            (workspace / "docs" / "prd" / "demo.prd.md").write_text("# PRD\n", encoding="utf-8")
+
+            workspace_root, project_root = runtime.resolve_roots(workspace, create=False)
+
+            self.assertEqual(workspace_root, workspace.resolve())
+            self.assertEqual(project_root, (workspace / "aidd").resolve())
+            self.assertTrue((project_root / "docs" / "prd" / "demo.prd.md").exists())
+            self.assertFalse((workspace / "docs").exists())
+
+    def test_resolve_roots_blocks_on_legacy_shadow_conflict(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="resources-") as tmp:
+            workspace = Path(tmp) / "ws"
+            workspace.mkdir()
+            (workspace / ".git").mkdir()
+            (workspace / "docs" / "prd").mkdir(parents=True)
+            (workspace / "config").mkdir()
+            (workspace / "aidd" / "docs" / "prd").mkdir(parents=True)
+            (workspace / "aidd" / "config").mkdir(parents=True)
+            (workspace / "docs" / "prd" / "demo.prd.md").write_text("# legacy\n", encoding="utf-8")
+            (workspace / "aidd" / "docs" / "prd" / "demo.prd.md").write_text("# canonical\n", encoding="utf-8")
+
+            with self.assertRaises(RuntimeError) as ctx:
+                runtime.resolve_roots(workspace, create=False)
+            self.assertIn("workspace_layout_conflict", str(ctx.exception))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -26,7 +26,7 @@ SRC_ROOT = REPO_ROOT
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
-from hooks.context_gc import working_set_builder  # noqa: E402
+from hooks.context_gc import pretooluse_guard, working_set_builder  # noqa: E402
 from hooks import hooklib  # noqa: E402
 
 USERPROMPT_MODULE = "hooks.context_gc.userprompt_guard"
@@ -805,6 +805,8 @@ class PreToolUseGuardTests(unittest.TestCase):
             data = json.loads(result.stdout)
             hook_output = data.get("hookSpecificOutput", {})
             self.assertEqual(hook_output.get("permissionDecision"), "ask")
+            reason = str(hook_output.get("permissionDecisionReason", "")).lower()
+            self.assertIn("destructive", reason)
 
     def test_pretooluse_guard_dangerous_bash_denies(self) -> None:
         with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
@@ -911,7 +913,10 @@ class PreToolUseGuardTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             data = json.loads(result.stdout)
             hook_output = data.get("hookSpecificOutput", {})
-            self.assertEqual(hook_output.get("permissionDecision"), "ask")
+            self.assertEqual(hook_output.get("permissionDecision"), "allow")
+            reason = str(hook_output.get("permissionDecisionReason", "")).lower()
+            self.assertIn("legacy-shadow read", reason)
+            self.assertIn("legacy-shadow", str(data.get("systemMessage", "")).lower())
 
 
 class PreCompactSnapshotTests(unittest.TestCase):
@@ -1084,6 +1089,59 @@ class HooklibResolutionTests(unittest.TestCase):
 
             self.assertEqual(resolved, aidd_root.resolve())
             self.assertTrue(used_workspace)
+
+    def test_resolve_project_root_migrates_legacy_shadow_layout(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+            root = Path(tmpdir)
+            (root / "docs" / "prd").mkdir(parents=True, exist_ok=True)
+            (root / "config").mkdir(parents=True, exist_ok=True)
+            (root / "docs" / "prd" / "demo.prd.md").write_text("# PRD\n", encoding="utf-8")
+            ctx = hooklib.HookContext(
+                hook_event_name="",
+                session_id="",
+                transcript_path=None,
+                cwd=str(root),
+                permission_mode=None,
+                raw={},
+            )
+
+            resolved, used_workspace = hooklib.resolve_project_root(ctx)
+
+            self.assertEqual(resolved, (root / "aidd").resolve())
+            self.assertTrue(used_workspace)
+            self.assertTrue((root / "aidd" / "docs" / "prd" / "demo.prd.md").exists())
+            self.assertFalse((root / "docs").exists())
+
+    def test_resolve_project_root_raises_on_legacy_shadow_conflict(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+            root = Path(tmpdir)
+            (root / "docs" / "prd").mkdir(parents=True, exist_ok=True)
+            (root / "config").mkdir(parents=True, exist_ok=True)
+            (root / "aidd" / "docs" / "prd").mkdir(parents=True, exist_ok=True)
+            (root / "aidd" / "config").mkdir(parents=True, exist_ok=True)
+            (root / "docs" / "prd" / "demo.prd.md").write_text("# legacy\n", encoding="utf-8")
+            (root / "aidd" / "docs" / "prd" / "demo.prd.md").write_text("# canonical\n", encoding="utf-8")
+            ctx = hooklib.HookContext(
+                hook_event_name="",
+                session_id="",
+                transcript_path=None,
+                cwd=str(root),
+                permission_mode=None,
+                raw={},
+            )
+
+            with self.assertRaises(hooklib.HookLibError) as exc:
+                hooklib.resolve_project_root(ctx)
+            self.assertIn("workspace_layout_conflict", str(exc.exception))
+
+    def test_pretool_path_resolution_prefers_canonical_aidd_target(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+            root = Path(tmpdir)
+            aidd_root = root / "aidd"
+            (aidd_root / "docs").mkdir(parents=True, exist_ok=True)
+            (aidd_root / "config").mkdir(parents=True, exist_ok=True)
+            resolved = pretooluse_guard._resolve_tool_path("docs/prd/new.prd.md", root, aidd_root)
+            self.assertEqual(resolved, (aidd_root / "docs" / "prd" / "new.prd.md").resolve())
 
 
 class StopUpdateTests(unittest.TestCase):

@@ -504,3 +504,15 @@ _Статус: plan. Цель — убрать ложные WARN/telemetry noise
   **Regression/tests:** `python3 -m pytest -q tests/test_prd_ready_check.py tests/test_prd_review_agent.py`.
   **Effort:** S
   **Risk:** Medium
+
+- [ ] **W106-6 (P1) Canonical `aidd/*` workspace layout enforcement + legacy-shadow migration** `skills/aidd-core/runtime/workspace_layout.py`, `skills/aidd-core/runtime/runtime.py`, `hooks/hooklib.py`, `hooks/context_gc/pretooluse_guard.py`, `tests/test_resources.py`, `tests/test_context_gc.py`, `tests/test_hook_rw_policy.py`, `tests/repo_tools/smoke-workflow.sh`, `tests/repo_tools/e2e_prompt/profile_full.md`, `tests/repo_tools/e2e_prompt/profile_smoke.md`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - enforce canonical runtime artifacts only under `aidd/docs/**`, `aidd/reports/**`, `aidd/config/**`, `aidd/.cache/**`;
+  - detect and auto-migrate legacy-shadow paths (`docs/**|reports/**|config/**|.cache/**`) when canonical target missing;
+  - if both legacy+canonical exist with different content, return terminal `workspace_layout_conflict` with diagnostics report;
+  - if both are equal, keep canonical and archive legacy shadow under deterministic backup path;
+  - block root-level legacy writes when `aidd/` exists; allow legacy reads only as migration probe telemetry.
+  **AC:** full/smoke flows do not recreate root-level legacy-shadow artifacts; duplicate PRD path scenarios resolve deterministically via migrate/archive/conflict.
+  **Deps:** -
+  **Regression/tests:** `python3 -m pytest -q tests/test_resources.py tests/test_context_gc.py tests/test_hook_rw_policy.py tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Effort:** M
+  **Risk:** Medium

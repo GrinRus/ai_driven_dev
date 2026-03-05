@@ -274,6 +274,27 @@ class PRDReviewAgentTests(unittest.TestCase):
         self.assertEqual(report.recommended_status, "pending")
         self.assertTrue(any("AIDD:ANSWERS" in item.title for item in report.findings))
 
+    def test_analyse_prd_marks_answers_format_invalid_for_placeholder_value(self):
+        prd = self.write_prd(
+            dedent(
+                """\
+                # Demo
+
+                ## AIDD:ANSWERS
+                AIDD:ANSWERS Q1=<указать позже>
+
+                ## PRD Review
+                Status: READY
+                """
+            ),
+        )
+
+        report = prd_review_agent.analyse_prd("demo-feature", prd)
+
+        self.assertEqual(report.answers_format, "invalid")
+        self.assertEqual(report.recommended_status, "pending")
+        self.assertTrue(any("AIDD:ANSWERS" in item.title for item in report.findings))
+
     def test_analyse_prd_accepts_compact_answers_with_quoted_text(self):
         prd = self.write_prd(
             dedent(

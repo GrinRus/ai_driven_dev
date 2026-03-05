@@ -16,6 +16,7 @@ from aidd_runtime import active_state as _active_state
 from aidd_runtime import stage_lexicon
 from aidd_runtime.feature_ids import FeatureIdentifiers, read_active_state, resolve_identifiers
 from aidd_runtime.resources import DEFAULT_PROJECT_SUBDIR, resolve_project_root as resolve_workspace_root
+from aidd_runtime.workspace_layout import WorkspaceLayoutConflict, reconcile_workspace_layout
 
 DEFAULT_REVIEW_REPORT = "aidd/reports/reviewer/{ticket}/{scope_key}.json"
 _SCOPE_KEY_RE = re.compile(r"[^A-Za-z0-9_.-]+")
@@ -120,6 +121,10 @@ def resolve_roots(raw_target: Path | None = None, *, create: bool = False) -> tu
     target = (raw_target or Path.cwd()).resolve()
     workspace_root, project_root = resolve_workspace_root(target, DEFAULT_PROJECT_SUBDIR)
     _plugin_workspace_guard(workspace_root)
+    try:
+        reconcile_workspace_layout(workspace_root, project_root)
+    except WorkspaceLayoutConflict as exc:
+        raise RuntimeError(str(exc)) from exc
     if project_root.exists():
         return workspace_root, project_root
     if create:

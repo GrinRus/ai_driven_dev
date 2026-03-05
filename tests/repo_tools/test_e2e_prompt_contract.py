@@ -189,6 +189,13 @@ class E2EPromptContractTests(unittest.TestCase):
         self.assertIn("NOT VERIFIED (readiness_gate_failed)", text)
         self.assertIn("NOT VERIFIED (upstream_readiness_gate_failed)", text)
 
+    def test_prompts_require_workspace_layout_shadow_check(self) -> None:
+        full_text = _read(AUDIT_PROMPT_FULL)
+        smoke_text = _read(AUDIT_PROMPT_SMOKE)
+        self.assertIn("99_workspace_layout_check.txt", full_text)
+        self.assertIn("legacy-shadow", full_text)
+        self.assertIn("99_workspace_layout_check.txt", smoke_text)
+
     def test_prompts_define_scoped_research_warn_readiness_policy(self) -> None:
         for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
             text = _read(prompt)
@@ -248,6 +255,11 @@ class E2EPromptContractTests(unittest.TestCase):
             self.assertIn('--plugin-dir "$PLUGIN_DIR"', text, msg=f"{prompt}: missing plugin-dir launcher invariant")
             self.assertIn("--verbose --output-format stream-json", text, msg=f"{prompt}: missing stream-json verbose flags")
             self.assertIn('df -Pk "$PROJECT_DIR"', text, msg=f"{prompt}: missing disk preflight invariant")
+
+    def test_smoke_script_blocks_legacy_shadow_artifacts_in_workspace_root(self) -> None:
+        text = _read(REPO_ROOT / "tests" / "repo_tools" / "smoke-workflow.sh")
+        self.assertIn("for shadow in docs reports config .cache; do", text)
+        self.assertIn("legacy-shadow artifact created at workspace root", text)
 
     def test_full_prompt_step7_python_runtime_has_plugin_env_wiring(self) -> None:
         text = _read(AUDIT_PROMPT_FULL)
