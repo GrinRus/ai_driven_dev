@@ -105,6 +105,7 @@
   - если не растут и `main log`, и stream — это `silent stall`.
 - Для `stream-json` каждого stage-run обязательно проверять рост и `main log`, и stream-файлов.
 - Stream path учитывать в liveness только если путь внутри `PROJECT_DIR` и физически существует; отсутствующий путь внутри `PROJECT_DIR` фиксировать как `stream_path_missing` и исключать из liveness.
+- Stream-path extraction выполнять только из `system/init` JSON payload и control-header строк (`==> streaming enabled ... stream=... log=...`); `tool_result`/artifact prose и произвольные строки run-log в extraction не включать.
 - Если primary extraction дал только `stream_path_invalid`/`stream_path_missing` или пустой валидный набор, обязателен fallback discovery в `aidd/reports/loops/<ticket>/`; при валидном top-level result и отсутствии stream после fallback фиксировать только `INFO(stream_path_not_emitted_by_cli)`.
 - Для `silent stall` один debug-retry с `ANTHROPIC_LOG=debug` перед финальной классификацией.
 - Порядок классификации:

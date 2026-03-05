@@ -149,6 +149,22 @@ class E2EPromptContractTests(unittest.TestCase):
                 msg=f"{label}: missing stream jsonl probe policy",
             )
 
+    def test_prompts_require_canonical_stream_source_extraction_only(self) -> None:
+        full_text = _read(AUDIT_PROMPT_FULL)
+        smoke_text = _read(AUDIT_PROMPT_SMOKE)
+        for text, label in ((full_text, "full"), (smoke_text, "smoke")):
+            self.assertRegex(
+                text,
+                r"system/init.*JSON|init JSON",
+                msg=f"{label}: missing init-json stream extraction rule",
+            )
+            self.assertIn("streaming enabled", text, msg=f"{label}: missing control-header extraction rule")
+            self.assertRegex(
+                text.lower(),
+                r"tool_result|artifact",
+                msg=f"{label}: missing explicit tool_result/artifact exclusion",
+            )
+
     def test_full_prompt_captures_watchdog_and_stream_path_attribution_rules(self) -> None:
         text = _read(AUDIT_PROMPT_FULL)
         self.assertIn("stream_path_invalid", text)

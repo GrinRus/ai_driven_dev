@@ -75,6 +75,7 @@
   - stream-файлы (`*.stream.jsonl` и `*.stream.log`) из header/метаданных.
   Стагнация только main log при растущем stream не является `silent stall`.
 - R12.1: Извлечение stream-путей обязано поддерживать абсолютные и относительные пути из `init/header/metadata`; относительные пути нормализуются относительно `PROJECT_DIR` и сохраняются в нормализованном виде.
+- R12.1a: Primary extraction разрешён только из `system/init` JSON payload и control-header строк (`==> streaming enabled ... stream=... log=...`); любые `tool_result`/artifact excerpts/prose строки исключаются из extraction.
 - R12.2: Если stream-пути не извлеклись из main log/metadata, обязателен fallback discovery в `aidd/reports/loops/<ticket>/` (по `*.stream.jsonl` и `*.stream.log`) с выбором самых свежих файлов; этот fallback фиксируется в `AUDIT_DIR/<step>_stream_paths_run<N>.txt`.
 - R12.3: После нормализации stream-путей оставлять в liveness-множестве только пути внутри `PROJECT_DIR`, которые физически существуют на момент проверки; абсолютные пути вне workspace (например, `/reports/...`) фиксировать как `stream_path_invalid`, отсутствующие пути внутри workspace фиксировать как `stream_path_missing`, оба типа исключать из расчёта stall.
 - R12.4: Если primary extraction дал только `stream_path_invalid`/`stream_path_missing` или пустой валидный набор, обязателен fallback discovery; отсутствие fallback при таком случае — `prompt-exec issue (stream_path_resolution_incomplete)`.
@@ -137,6 +138,7 @@
 - Для каждого stage-run сохраняй `head` и `tail` в отдельные файлы (`*.head*.txt`, `*.tail.log`) и heartbeat (`*.heartbeat.log`).
 - Для `stream-json` run дополнительно извлекай/сохраняй stream-пути (`*.stream.jsonl`, `*.stream.log`) в `AUDIT_DIR/<step>_stream_paths_run<N>.txt`.
 - В `AUDIT_DIR/<step>_stream_paths_run<N>.txt` обязательно сохранять source-attribution для каждого пути (`init/header/metadata|fallback_scan`) и нормализованный абсолютный путь.
+- Для stream-path extraction запрещён глобальный regex-scan по всему run-log; extract only from init JSON/control header sources and ignore `tool_result`/artifact text fragments.
 - Если primary extraction stream-путей не дал результата, выполнить fallback discovery и явно зафиксировать это в `AUDIT_DIR/<step>_stream_paths_run<N>.txt`.
 - Если primary extraction содержит невалидные абсолютные пути вне `PROJECT_DIR`, сохранить их с source-attribution как `stream_path_invalid`, но не использовать для liveness/stall.
 - Если primary extraction содержит путь внутри `PROJECT_DIR`, но путь отсутствует на диске, сохранить его как `stream_path_missing` и исключить из liveness/stall.
