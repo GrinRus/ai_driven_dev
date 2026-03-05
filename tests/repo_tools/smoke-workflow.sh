@@ -1278,7 +1278,7 @@ popd >/dev/null
 
 for shadow in docs reports config .cache; do
   if [[ -e "$WORKSPACE_ROOT/$shadow" ]]; then
-    echo "[smoke] legacy-shadow artifact created at workspace root: $WORKSPACE_ROOT/$shadow" >&2
+    echo "[smoke] non-canonical root artifact created at workspace root: $WORKSPACE_ROOT/$shadow" >&2
     exit 1
   fi
 done

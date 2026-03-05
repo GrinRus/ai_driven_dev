@@ -764,13 +764,13 @@ QA integrity checks:
 - `99_plugin_git_status_diff.txt` (delta относительно `00_plugin_git_status_before.txt`)
 - `99_plugin_new_paths_stat.txt` (size/mtime для новых путей в plugin repo)
 - `99_cleanup_policy.txt` (зафиксировать, что запуск был в режиме force-clean: `reset --hard` + `clean -fd`).
-- `99_workspace_layout_check.txt` (проверка отсутствия legacy-shadow путей в workspace root: `docs/**|reports/**|config/**|.cache/**` вне `aidd/`).
+- `99_workspace_layout_check.txt` (проверка отсутствия non-canonical root путей в workspace root: `docs/**|reports/**|config/**|.cache/**` вне `aidd/`).
 - удалить временный pre-status файл: `rm -f "/tmp/00_git_status_before.${TICKET}.${RUN_TS}.txt"`.
 - Классификация write-safety:
   - `PASS`: delta отсутствует.
   - `FAIL(plugin_write_safety_violation)`: есть новые/изменённые пути в plugin repo и есть прямые runtime-evidence записи/редактирования plugin path в stage-логах.
   - `WARN(plugin_write_safety_inconclusive)`: delta есть, но прямого runtime-evidence нет (например, нулевые файлы в корне plugin repo с неочевидным источником); обязательна пометка как release-risk.
-  - `WARN(workspace_layout_legacy_shadow_detected)`: в workspace root появились legacy-shadow пути вне `aidd/`; downstream результаты считать недетерминированными.
+  - `WARN(workspace_layout_non_canonical_root_detected)`: в workspace root появились non-canonical root пути вне `aidd/`; downstream результаты считать недетерминированными.
 
 ## 10) Финальный отчёт в чат
 

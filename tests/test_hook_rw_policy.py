@@ -504,7 +504,7 @@ class HookReadWritePolicyTests(unittest.TestCase):
             data = json.loads(result.stdout)
             decision = data.get("hookSpecificOutput", {}).get("permissionDecision")
             self.assertEqual(decision, "deny")
-            self.assertIn("legacy-shadow", data.get("hookSpecificOutput", {}).get("permissionDecisionReason", ""))
+            self.assertIn("non-canonical root", data.get("hookSpecificOutput", {}).get("permissionDecisionReason", ""))
 
     def test_strict_allows_canonical_aidd_write_from_workspace_root(self) -> None:
         with tempfile.TemporaryDirectory(prefix="hook-rw-") as tmpdir:
@@ -533,7 +533,7 @@ class HookReadWritePolicyTests(unittest.TestCase):
             data = json.loads(result.stdout)
             decision = data.get("hookSpecificOutput", {}).get("permissionDecision")
             self.assertEqual(decision, "deny")
-            self.assertIn("legacy-shadow", data.get("hookSpecificOutput", {}).get("permissionDecisionReason", ""))
+            self.assertIn("non-canonical root", data.get("hookSpecificOutput", {}).get("permissionDecisionReason", ""))
 
 
 if __name__ == "__main__":

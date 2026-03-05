@@ -342,7 +342,7 @@ RLM-only check:
   - `99_plugin_git_status_after.txt`
   - `99_project_git_status_after.txt`
   - `99_stash_head.txt` (если был stash)
-- Сохранить `99_workspace_layout_check.txt` с проверкой, что в workspace root нет legacy-shadow путей `docs/**|reports/**|config/**|.cache/**` вне `aidd/`.
+- Сохранить `99_workspace_layout_check.txt` с проверкой, что в workspace root нет non-canonical root путей `docs/**|reports/**|config/**|.cache/**` вне `aidd/`.
 - `stash pop` автоматически не делать.
 
 ## 5) Что не выполняется в smoke

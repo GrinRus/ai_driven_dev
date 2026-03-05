@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, Optional, Sequence
 
 from aidd_runtime import stage_lexicon
-from aidd_runtime.workspace_layout import WorkspaceLayoutConflict, reconcile_workspace_layout
+from aidd_runtime.resources import DEFAULT_PROJECT_SUBDIR, resolve_project_root as resolve_workspace_root
 
 
 DEFAULT_CONFIG: Dict[str, Any] = {
@@ -191,25 +191,9 @@ def resolve_project_root(ctx: HookContext | None = None, *, cwd: str | None = No
         base = resolve_project_dir(ctx)
     else:
         base = Path.cwd().resolve()
-
-    for parent in _iter_parent_dirs(base):
-        if parent.name == "aidd" and (parent / "docs").is_dir():
-            _reconcile_layout(parent.parent.resolve(), parent.resolve())
-            return parent.resolve(), parent != base
-        candidate = parent / "aidd"
-        if (candidate / "docs").is_dir():
-            _reconcile_layout(parent.resolve(), candidate.resolve())
-            return candidate.resolve(), True
-
-    if _has_workspace_legacy_shadow(base.resolve()):
-        workspace_root = base.resolve()
-        candidate = workspace_root / "aidd"
-        _reconcile_layout(workspace_root, candidate)
-        if (candidate / "docs").is_dir():
-            return candidate.resolve(), True
-    if (base / "docs").is_dir() and ((base / "config").is_dir() or (base / "hooks").is_dir()):
-        return base.resolve(), False
-    return base.resolve(), False
+    workspace_root, project_root = resolve_workspace_root(base, DEFAULT_PROJECT_SUBDIR)
+    resolved = project_root.resolve()
+    return resolved, resolved != base.resolve()
 
 
 def _iter_parent_dirs(path: Path) -> Iterable[Path]:
@@ -219,52 +203,13 @@ def _iter_parent_dirs(path: Path) -> Iterable[Path]:
 
 
 def resolve_aidd_root(project_dir: Path) -> Optional[Path]:
-    env_candidates = [
-        os.environ.get("CLAUDE_PLUGIN_ROOT"),
-    ]
-    for c in env_candidates:
-        if not c:
-            continue
-        p = Path(c).expanduser()
-        if not p.is_absolute():
-            p = (project_dir / p).resolve()
-        else:
-            p = p.resolve()
-        if (p / "docs").is_dir() and (p / "config").is_dir():
-            return p
-
-    for parent in _iter_parent_dirs(project_dir):
+    for parent in _iter_parent_dirs(project_dir.resolve()):
         if parent.name == "aidd" and (parent / "docs").is_dir() and (parent / "config").is_dir():
             return parent.resolve()
         candidate = parent / "aidd"
         if (candidate / "docs").is_dir() and (candidate / "config").is_dir():
-            _reconcile_layout(parent.resolve(), candidate.resolve())
             return candidate.resolve()
-        if _has_workspace_legacy_shadow(parent.resolve()):
-            workspace_root = parent.resolve()
-            canonical = workspace_root / "aidd"
-            _reconcile_layout(workspace_root, canonical)
-            if (canonical / "docs").is_dir() and (canonical / "config").is_dir():
-                return canonical.resolve()
-        if (parent / "docs").is_dir() and (parent / "config").is_dir():
-            return parent.resolve()
     return None
-
-
-def _has_workspace_legacy_shadow(workspace_root: Path) -> bool:
-    if workspace_root.name == "aidd":
-        return False
-    for name in ("docs", "reports", "config", ".cache"):
-        if (workspace_root / name).exists():
-            return True
-    return False
-
-
-def _reconcile_layout(workspace_root: Path, project_root: Path) -> None:
-    try:
-        reconcile_workspace_layout(workspace_root, project_root)
-    except WorkspaceLayoutConflict as exc:
-        raise HookLibError(str(exc)) from exc
 
 
 def load_config(aidd_root: Optional[Path]) -> Dict[str, Any]:

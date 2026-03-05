@@ -1,3 +1,5 @@
+import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -90,7 +92,7 @@ class ResourcesTests(unittest.TestCase):
             self.assertIn("workflow not found at", message)
             self.assertIn("/feature-dev-aidd:aidd-init", message)
 
-    def test_resolve_roots_migrates_legacy_shadow_when_project_missing(self) -> None:
+    def test_resolve_roots_does_not_migrate_root_docs_when_project_missing(self) -> None:
         with tempfile.TemporaryDirectory(prefix="resources-") as tmp:
             workspace = Path(tmp) / "ws"
             workspace.mkdir()
@@ -99,14 +101,14 @@ class ResourcesTests(unittest.TestCase):
             (workspace / "config").mkdir()
             (workspace / "docs" / "prd" / "demo.prd.md").write_text("# PRD\n", encoding="utf-8")
 
-            workspace_root, project_root = runtime.resolve_roots(workspace, create=False)
+            with self.assertRaises(FileNotFoundError) as ctx:
+                runtime.resolve_roots(workspace, create=False)
 
-            self.assertEqual(workspace_root, workspace.resolve())
-            self.assertEqual(project_root, (workspace / "aidd").resolve())
-            self.assertTrue((project_root / "docs" / "prd" / "demo.prd.md").exists())
-            self.assertFalse((workspace / "docs").exists())
+            self.assertIn("/feature-dev-aidd:aidd-init", str(ctx.exception))
+            self.assertTrue((workspace / "docs" / "prd" / "demo.prd.md").exists())
+            self.assertFalse((workspace / "aidd" / "docs").exists())
 
-    def test_resolve_roots_blocks_on_legacy_shadow_conflict(self) -> None:
+    def test_resolve_roots_uses_canonical_aidd_and_ignores_root_docs(self) -> None:
         with tempfile.TemporaryDirectory(prefix="resources-") as tmp:
             workspace = Path(tmp) / "ws"
             workspace.mkdir()
@@ -118,9 +120,41 @@ class ResourcesTests(unittest.TestCase):
             (workspace / "docs" / "prd" / "demo.prd.md").write_text("# legacy\n", encoding="utf-8")
             (workspace / "aidd" / "docs" / "prd" / "demo.prd.md").write_text("# canonical\n", encoding="utf-8")
 
-            with self.assertRaises(RuntimeError) as ctx:
-                runtime.resolve_roots(workspace, create=False)
-            self.assertIn("workspace_layout_conflict", str(ctx.exception))
+            workspace_root, project_root = runtime.resolve_roots(workspace, create=False)
+            self.assertEqual(workspace_root, workspace.resolve())
+            self.assertEqual(project_root, (workspace / "aidd").resolve())
+            self.assertEqual((workspace / "docs" / "prd" / "demo.prd.md").read_text(encoding="utf-8"), "# legacy\n")
+            self.assertEqual(
+                (workspace / "aidd" / "docs" / "prd" / "demo.prd.md").read_text(encoding="utf-8"),
+                "# canonical\n",
+            )
+
+    def test_status_runtime_does_not_migrate_root_docs_when_aidd_missing(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="resources-") as tmp:
+            workspace = Path(tmp) / "ws"
+            workspace.mkdir()
+            (workspace / ".git").mkdir()
+            legacy_prd = workspace / "docs" / "prd" / "demo.prd.md"
+            legacy_prd.parent.mkdir(parents=True, exist_ok=True)
+            legacy_prd.write_text("# Legacy PRD\n", encoding="utf-8")
+
+            env = os.environ.copy()
+            env["CLAUDE_PLUGIN_ROOT"] = str(REPO_ROOT)
+            env["PYTHONPATH"] = str(REPO_ROOT)
+            env["PYTHONDONTWRITEBYTECODE"] = "1"
+            result = subprocess.run(
+                [sys.executable, str(REPO_ROOT / "skills" / "status" / "runtime" / "status.py"), "--ticket", "TST-001"],
+                cwd=workspace,
+                env=env,
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            combined = (result.stdout or "") + (result.stderr or "")
+            self.assertIn("aidd-init", combined)
+            self.assertTrue(legacy_prd.exists())
+            self.assertFalse((workspace / "aidd" / "docs").exists())
 
 
 if __name__ == "__main__":

@@ -274,7 +274,8 @@ def _raw_targets_legacy_shadow(path_value: str, project_dir: Path, aidd_root: Op
 def _legacy_shadow_message() -> str:
     return (
         "Canonical workspace layout is `aidd/*`. Root-level `docs/*|reports/*|config/*|.cache/*` "
-        "is legacy-shadow. Use `aidd/docs/...`, `aidd/reports/...`, `aidd/config/...`, `aidd/.cache/...`."
+        "is non-canonical for runtime operations. Use `aidd/docs/...`, `aidd/reports/...`, `aidd/config/...`, "
+        "`aidd/.cache/...`."
     )
 
 
@@ -293,13 +294,13 @@ def _legacy_shadow_rw_decision(
     if tool_name in {"Write", "Edit"}:
         return _deny_or_warn(
             strict_mode,
-            reason="Writes to legacy-shadow root paths are forbidden when canonical aidd/ exists.",
+            reason="Writes to non-canonical root paths are forbidden when canonical aidd/ exists.",
             system_message=f"BLOCK/WARN: {_legacy_shadow_message()}",
         )
     if tool_name in {"Read", "Glob"}:
         return {
             "decision": "allow",
-            "reason": "Legacy-shadow read allowed for migration probe only.",
+            "reason": "Read from non-canonical root aliases is allowed for compatibility diagnostics only.",
             "system_message": f"WARN: {_legacy_shadow_message()}",
         }
     return None
@@ -318,7 +319,7 @@ def _legacy_shadow_bash_decision(
         return None
     return _deny_or_warn(
         strict_mode,
-        reason="Bash command targets legacy-shadow root paths while canonical aidd/ exists.",
+        reason="Bash command targets non-canonical root paths while canonical aidd/ exists.",
         system_message=f"BLOCK/WARN: {_legacy_shadow_message()}",
     )
 

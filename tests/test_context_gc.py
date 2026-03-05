@@ -915,8 +915,8 @@ class PreToolUseGuardTests(unittest.TestCase):
             hook_output = data.get("hookSpecificOutput", {})
             self.assertEqual(hook_output.get("permissionDecision"), "allow")
             reason = str(hook_output.get("permissionDecisionReason", "")).lower()
-            self.assertIn("legacy-shadow read", reason)
-            self.assertIn("legacy-shadow", str(data.get("systemMessage", "")).lower())
+            self.assertIn("compatibility diagnostics", reason)
+            self.assertIn("non-canonical", str(data.get("systemMessage", "")).lower())
 
 
 class PreCompactSnapshotTests(unittest.TestCase):
@@ -1090,7 +1090,7 @@ class HooklibResolutionTests(unittest.TestCase):
             self.assertEqual(resolved, aidd_root.resolve())
             self.assertTrue(used_workspace)
 
-    def test_resolve_project_root_migrates_legacy_shadow_layout(self) -> None:
+    def test_resolve_project_root_does_not_migrate_root_docs_layout(self) -> None:
         with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
             root = Path(tmpdir)
             (root / "docs" / "prd").mkdir(parents=True, exist_ok=True)
@@ -1109,10 +1109,10 @@ class HooklibResolutionTests(unittest.TestCase):
 
             self.assertEqual(resolved, (root / "aidd").resolve())
             self.assertTrue(used_workspace)
-            self.assertTrue((root / "aidd" / "docs" / "prd" / "demo.prd.md").exists())
-            self.assertFalse((root / "docs").exists())
+            self.assertTrue((root / "docs" / "prd" / "demo.prd.md").exists())
+            self.assertFalse((root / "aidd" / "docs" / "prd" / "demo.prd.md").exists())
 
-    def test_resolve_project_root_raises_on_legacy_shadow_conflict(self) -> None:
+    def test_resolve_project_root_uses_existing_aidd_without_conflict(self) -> None:
         with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
             root = Path(tmpdir)
             (root / "docs" / "prd").mkdir(parents=True, exist_ok=True)
@@ -1130,9 +1130,14 @@ class HooklibResolutionTests(unittest.TestCase):
                 raw={},
             )
 
-            with self.assertRaises(hooklib.HookLibError) as exc:
-                hooklib.resolve_project_root(ctx)
-            self.assertIn("workspace_layout_conflict", str(exc.exception))
+            resolved, used_workspace = hooklib.resolve_project_root(ctx)
+            self.assertEqual(resolved, (root / "aidd").resolve())
+            self.assertTrue(used_workspace)
+            self.assertEqual((root / "docs" / "prd" / "demo.prd.md").read_text(encoding="utf-8"), "# legacy\n")
+            self.assertEqual(
+                (root / "aidd" / "docs" / "prd" / "demo.prd.md").read_text(encoding="utf-8"),
+                "# canonical\n",
+            )
 
     def test_pretool_path_resolution_prefers_canonical_aidd_target(self) -> None:
         with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
