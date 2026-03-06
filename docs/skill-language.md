@@ -17,6 +17,15 @@ This document defines the canonical prompt-language and structure policy used by
 - Skill prompts are EN-only for shared consistency checks.
 - Every skill frontmatter must include `name`, and `name` must match the skill directory.
 - Every skill frontmatter must include `description`, `lang`, `model`, and `user-invocable`.
+- Every skill `description` must contain both:
+  - positive trigger clause: `Use when ...`
+  - anti-trigger clause: `Do not use when ...`
+- `Use when` must appear before `Do not use when`, and both clauses must be non-trivial.
+- Anti-trigger clause must reference neighboring skill names or explicit outside-AIDD scope.
+- Trigger boundaries must be aligned with `docs/skill-trigger-taxonomy.md`.
+- Skill routing quality policy lives in `tests/repo_tools/skill_eval/policy.v1.json` and is evaluated by:
+  - `tests/repo_tools/skill_eval_run.py` (benchmark run),
+  - `tests/repo_tools/skill_eval_compare.py` (baseline vs candidate + advisory/hard gate checks).
 - Shared skills and stage skills must include:
   - `## Command contracts` with interface cards (`When to run`, `Inputs`, `Outputs`, `Failure mode`, `Next action`),
   - `## Additional resources` with progressive-disclosure markers (`when:` and `why:` per item).

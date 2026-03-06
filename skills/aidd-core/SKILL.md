@@ -1,6 +1,6 @@
 ---
 name: aidd-core
-description: Aggregates shared runtime navigation and cross-skill ownership links. Use when resolving shared runtime entrypoints or ownership boundaries.
+description: Aggregates shared runtime navigation and cross-skill ownership links. Use when resolving shared runtime entrypoints or ownership boundaries. Do not use when the request belongs to `aidd-policy` output/question rules or `status` summary reporting.
 lang: en
 model: inherit
 user-invocable: false

@@ -5,9 +5,18 @@ name: CI
   push:
     branches: [main]
   pull_request:
+  schedule:
+    - cron: '30 2 * * *'
 
 env:
   AIDD_SECURITY_ENFORCE: ${{ vars.AIDD_SECURITY_ENFORCE || '0' }}
+  AIDD_SKILL_EVAL_ENFORCE: ${{ vars.AIDD_SKILL_EVAL_ENFORCE || '0' }}
+  AIDD_SKILL_EVAL_BASELINE: ${{ vars.AIDD_SKILL_EVAL_BASELINE || '' }}
+  AIDD_SKILL_EVAL_ADVISORY_PRS: ${{ vars.AIDD_SKILL_EVAL_ADVISORY_PRS || '0' }}
+  AIDD_SKILL_EVAL_ADVISORY_DAYS: >-
+    ${{ vars.AIDD_SKILL_EVAL_ADVISORY_DAYS || '0' }}
+  AIDD_SKILL_EVAL_NIGHTLY_STREAK: >-
+    ${{ vars.AIDD_SKILL_EVAL_NIGHTLY_STREAK || '0' }}
 
 jobs:
   dist-check:
@@ -99,6 +108,91 @@ jobs:
       - name: Skip smoke workflow (no runtime changes)
         if: steps.runtime_changes.outputs.runtime != 'true'
         run: echo "No runtime changes; skipping smoke"
+
+  skills-eval-smoke:
+    name: skills-eval-smoke
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ vars.AIDD_SKILL_EVAL_ENFORCE != '1' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run skill eval smoke (38 cases)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          python3 tests/repo_tools/skill_eval_run.py \
+            --cases tests/repo_tools/skill_eval/cases.v1.jsonl \
+            --max-cases 38 \
+            --seed 104 \
+            --out-dir aidd/reports/events/skill-eval
+
+      - name: Skill eval rollout notice
+        if: ${{ env.AIDD_SKILL_EVAL_ENFORCE != '1' }}
+        run: |
+          echo "skills-eval-smoke is advisory"
+          echo "set AIDD_SKILL_EVAL_ENFORCE=1 to make it required"
+
+  skills-eval-full:
+    name: skills-eval-full
+    if: ${{ github.event_name == 'schedule' }}
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ vars.AIDD_SKILL_EVAL_ENFORCE != '1' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run skill eval full (190 cases)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          python3 tests/repo_tools/skill_eval_run.py \
+            --cases tests/repo_tools/skill_eval/cases.v1.jsonl \
+            --seed 104 \
+            --out-dir aidd/reports/events/skill-eval
+
+      - name: Upload skill eval artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: skill-eval-full-${{ github.run_id }}
+          path: aidd/reports/events/skill-eval
+          if-no-files-found: ignore
+
+      - name: Compare with baseline (optional)
+        if: always()
+        run: |
+          if [[ -z "${AIDD_SKILL_EVAL_BASELINE}" \
+            || ! -f "${AIDD_SKILL_EVAL_BASELINE}" ]]; then
+            echo "Skill eval baseline is not configured in this workflow run"
+            if [[ "${AIDD_SKILL_EVAL_ENFORCE}" == "1" ]]; then
+              exit 1
+            fi
+            exit 0
+          fi
+          CANDIDATE="$(
+            find aidd/reports/events/skill-eval -type f \
+              -path '*/run-*/summary.json' -print 2>/dev/null \
+              | sort | tail -n 1 || true
+          )"
+          if [[ -z "${CANDIDATE}" || ! -f "${CANDIDATE}" ]]; then
+            echo "Candidate summary not found; skipping compare"
+            if [[ "${AIDD_SKILL_EVAL_ENFORCE}" == "1" ]]; then
+              exit 1
+            fi
+            exit 0
+          fi
+          python3 tests/repo_tools/skill_eval_compare.py \
+            --baseline "${AIDD_SKILL_EVAL_BASELINE}" \
+            --candidate "${CANDIDATE}" \
+            --out aidd/reports/events/skill-eval/compare.latest.json
+
+      - name: Skill eval rollout notice
+        if: ${{ env.AIDD_SKILL_EVAL_ENFORCE != '1' }}
+        run: |
+          echo "skills-eval-full is advisory"
+          echo "set AIDD_SKILL_EVAL_ENFORCE=1 to make it required"
 
   dependency-review:
     if: ${{ github.event_name == 'pull_request' }}

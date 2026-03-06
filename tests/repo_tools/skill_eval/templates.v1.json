@@ -1,0 +1,24 @@
+{
+  "schema": "aidd.skill_eval.templates.v1",
+  "skills": [
+    {"name": "aidd-core", "focus": "shared runtime ownership and boundary resolution", "avoid": ["aidd-policy", "status"]},
+    {"name": "aidd-docio", "focus": "markdown slicing, actions validation/apply, context map operations", "avoid": ["aidd-flow-state", "aidd-core"]},
+    {"name": "aidd-flow-state", "focus": "active stage/feature, progress, tasklist, stage-result lifecycle", "avoid": ["aidd-docio", "status"]},
+    {"name": "aidd-init", "focus": "workspace bootstrap with canonical aidd structure", "avoid": ["idea-new", "status"]},
+    {"name": "aidd-loop", "focus": "loop discipline and stage-chain safety for implement/review/qa", "avoid": ["implement", "review", "qa"]},
+    {"name": "aidd-observability", "focus": "doctor diagnostics, inventory, logs and DAG exports", "avoid": ["status", "aidd-core"]},
+    {"name": "aidd-policy", "focus": "output contract, question format, read policy and loop safety rules", "avoid": ["aidd-core", "aidd-loop"]},
+    {"name": "aidd-rlm", "focus": "RLM slice/build/verify/finalize/report pack tooling", "avoid": ["researcher", "aidd-stage-research"]},
+    {"name": "aidd-stage-research", "focus": "stage-level researcher handoff contract for RLM ownership", "avoid": ["researcher", "aidd-rlm"]},
+    {"name": "idea-new", "focus": "new ticket kickoff, slug_hint derivation and PRD question prep", "avoid": ["plan-new", "researcher"]},
+    {"name": "implement", "focus": "implement-stage execution and loop actions contract", "avoid": ["review", "qa"]},
+    {"name": "plan-new", "focus": "plan drafting from ready PRD + research artifacts", "avoid": ["review-spec", "tasks-new"]},
+    {"name": "qa", "focus": "qa-stage verification, report generation and postflight", "avoid": ["review", "implement"]},
+    {"name": "researcher", "focus": "research artifact refresh and canonical RLM readiness pipeline", "avoid": ["idea-new", "plan-new"]},
+    {"name": "review", "focus": "review-stage findings validation and follow-up task derivation", "avoid": ["implement", "qa"]},
+    {"name": "review-spec", "focus": "plan+PRD readiness review and approval gate", "avoid": ["plan-new", "spec-interview"]},
+    {"name": "spec-interview", "focus": "collect unresolved spec answers and sync to spec.yaml", "avoid": ["review-spec", "tasks-new"]},
+    {"name": "status", "focus": "consolidated ticket status summary and artifact pointers", "avoid": ["aidd-observability", "aidd-flow-state"]},
+    {"name": "tasks-new", "focus": "derive/refine tasklist from PRD, plan and spec", "avoid": ["plan-new", "implement"]}
+  ]
+}

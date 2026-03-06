@@ -1,6 +1,6 @@
 ---
 name: review-spec
-description: Runs the AIDD review-spec gate over plan and PRD artifacts, then emits implementation-readiness decision. Use only for plan+PRD approval handoff; do not use for review stage findings or plan/tasklist authoring.
+description: Reviews plan and PRD, then gates readiness for implementation. Use when plan and PRD artifacts are ready for spec approval. Do not use when the request is plan authoring in `plan-new` or unresolved answer collection in `spec-interview`.
 argument-hint: $1 [note...]
 lang: ru
 prompt_version: 1.0.25

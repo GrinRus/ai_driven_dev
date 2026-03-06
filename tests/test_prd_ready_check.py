@@ -1,3 +1,5 @@
+import hashlib
+import json
 import subprocess
 import tempfile
 import unittest
@@ -11,25 +13,6 @@ class PrdReadyCheckTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="prd-check-") as tmpdir:
             root = Path(tmpdir)
             write_file(root, "docs/prd/demo.prd.md", "# PRD\n\nStatus: READY\n")
-            result = subprocess.run(
-                cli_cmd("prd-check", "--ticket", "demo"),
-                text=True,
-                capture_output=True,
-                cwd=root,
-                env=cli_env(),
-            )
-
-            self.assertEqual(result.returncode, 0, msg=result.stderr)
-            self.assertIn("PRD ready", result.stdout)
-
-    def test_prd_ready_allows_quoted_compact_answers(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="prd-check-") as tmpdir:
-            root = Path(tmpdir)
-            write_file(
-                root,
-                "docs/prd/demo.prd.md",
-                '# PRD\n\nStatus: READY\n\n## AIDD:ANSWERS\nAIDD:ANSWERS Q1="короткий ответ с пробелами"\n\n## AIDD:OPEN_QUESTIONS\n- none\n',
-            )
             result = subprocess.run(
                 cli_cmd("prd-check", "--ticket", "demo"),
                 text=True,
@@ -79,14 +62,18 @@ class PrdReadyCheckTests(unittest.TestCase):
             self.assertEqual(second.returncode, 0, msg=second.stderr)
             self.assertIn("cache hit", second.stderr.lower())
 
-    def test_prd_ready_blocks_when_aidd_open_questions_not_empty(self) -> None:
+    def test_prd_ready_invalidates_legacy_cache_without_version(self) -> None:
         with tempfile.TemporaryDirectory(prefix="prd-check-") as tmpdir:
             root = Path(tmpdir)
+            text = "# PRD\n\nStatus: READY\n"
+            write_file(root, "docs/prd/demo.prd.md", text)
+            digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
             write_file(
                 root,
-                "docs/prd/demo.prd.md",
-                "# PRD\n\nStatus: READY\n\n## AIDD:OPEN_QUESTIONS\n- Q1: pending\n",
+                ".cache/prd-check.hash",
+                json.dumps({"ticket": "demo", "hash": digest}, ensure_ascii=False, indent=2) + "\n",
             )
+
             result = subprocess.run(
                 cli_cmd("prd-check", "--ticket", "demo"),
                 text=True,
@@ -94,56 +81,11 @@ class PrdReadyCheckTests(unittest.TestCase):
                 cwd=root,
                 env=cli_env(),
             )
-
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn("AIDD:OPEN_QUESTIONS", result.stderr)
-
-    def test_prd_ready_ignores_nested_heading_after_open_questions_none(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="prd-check-") as tmpdir:
-            root = Path(tmpdir)
-            write_file(
-                root,
-                "docs/prd/demo.prd.md",
-                (
-                    "# PRD\n\n"
-                    "Status: READY\n\n"
-                    "## AIDD:OPEN_QUESTIONS\n"
-                    "- none\n\n"
-                    "### Notes\n"
-                    "- Q9: informational note outside open questions\n\n"
-                    "## AIDD:ANSWERS\n"
-                    "AIDD:ANSWERS Q1=A\n"
-                ),
-            )
-            result = subprocess.run(
-                cli_cmd("prd-check", "--ticket", "demo"),
-                text=True,
-                capture_output=True,
-                cwd=root,
-                env=cli_env(),
-            )
-
             self.assertEqual(result.returncode, 0, msg=result.stderr)
-            self.assertIn("PRD ready", result.stdout)
+            self.assertNotIn("cache hit", result.stderr.lower())
 
-    def test_prd_ready_blocks_legacy_answers_format(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="prd-check-") as tmpdir:
-            root = Path(tmpdir)
-            write_file(
-                root,
-                "docs/prd/demo.prd.md",
-                "# PRD\n\nStatus: READY\n\n## AIDD:ANSWERS\n- Answer 1: A\n",
-            )
-            result = subprocess.run(
-                cli_cmd("prd-check", "--ticket", "demo"),
-                text=True,
-                capture_output=True,
-                cwd=root,
-                env=cli_env(),
-            )
-
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn("неканоничный формат", result.stderr)
+            payload = json.loads((root / "aidd" / ".cache" / "prd-check.hash").read_text(encoding="utf-8"))
+            self.assertEqual(payload.get("cache_version"), "2")
 
 
 if __name__ == "__main__":

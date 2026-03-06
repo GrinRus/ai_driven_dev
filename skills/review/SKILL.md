@@ -1,6 +1,6 @@
 ---
 name: review
-description: Runs AIDD review-stage validation for scope changes, findings, and follow-up task derivation. Use for stage-level verdict/handoff after implement changes; do not use for generic code review or review-spec approval.
+description: Runs review-stage validation for scope changes, findings, and follow-up task derivation. Use when review stage needs verdict and handoff tasks. Do not use when the request is direct implementation execution in `implement` or QA validation in `qa`.
 argument-hint: $1 [note...]
 lang: ru
 prompt_version: 1.0.44

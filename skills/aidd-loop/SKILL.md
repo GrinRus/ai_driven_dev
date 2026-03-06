@@ -1,6 +1,6 @@
 ---
 name: aidd-loop
-description: Enforces loop-mode discipline for implement/review/qa (packs, scope, no questions). Use when loop stages require bounded scope and retry policy.
+description: Enforces loop-mode discipline for implement/review/qa (packs, scope, no questions). Use when loop stages require bounded scope and retry policy. Do not use when direct stage execution belongs to `implement`, `review`, or `qa` stage skills.
 lang: en
 model: inherit
 user-invocable: false

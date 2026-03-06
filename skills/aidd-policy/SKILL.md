@@ -1,6 +1,6 @@
 ---
 name: aidd-policy
-description: Defines the shared policy contract for output format, read discipline, question format, and loop safety. Use when applying cross-stage policy rules.
+description: Defines the shared policy contract for output format, read discipline, question format, and loop safety. Use when applying cross-stage policy rules. Do not use when the request is to execute runtime orchestration from `aidd-core` or `aidd-loop`.
 lang: en
 model: inherit
 user-invocable: false

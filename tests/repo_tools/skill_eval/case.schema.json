@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "aidd.skill_eval.case.v1",
+  "title": "SkillEvalCaseV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "id",
+    "kind",
+    "prompt",
+    "expected_skills"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "aidd.skill_eval.case.v1"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 3
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "positive",
+        "near_miss",
+        "no_skill"
+      ]
+    },
+    "prompt": {
+      "type": "string",
+      "minLength": 8
+    },
+    "expected_skills": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "critical": {
+      "type": "boolean"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "positive"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "expected_skills": {
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ]
+}
