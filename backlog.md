@@ -478,7 +478,7 @@ _Статус: plan. Цель — убрать ложные WARN/telemetry noise
   **Effort:** S
   **Risk:** Medium
 
-- [ ] **W106-3 (P1) Review-spec report/narrative convergence diagnostics** `skills/aidd-core/runtime/prd_review.py`, `tests/test_prd_review_agent.py`, `tests/repo_tools/aidd_audit_runner.py`, `tests/repo_tools/e2e_prompt/profile_full.md`, `tests/repo_tools/e2e_prompt/profile_smoke.md`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+- [ ] **W106-3 (P0) Review-spec report/narrative convergence diagnostics** `skills/aidd-core/runtime/prd_review.py`, `tests/test_prd_review_agent.py`, `tests/repo_tools/aidd_audit_runner.py`, `tests/repo_tools/e2e_prompt/profile_full.md`, `tests/repo_tools/e2e_prompt/profile_smoke.md`, `tests/repo_tools/test_e2e_prompt_contract.py`:
   - синхронизовать narrative с report summary и явно маркировать `review_spec_report_mismatch` только при фактическом расхождении;
   - в audit runner закрепить приоритет report payload для recovery decision.
   **AC:** mismatch детерминированно диагностируется; recovery-решения всегда берутся из report payload.
@@ -487,7 +487,7 @@ _Статус: plan. Цель — убрать ложные WARN/telemetry noise
   **Effort:** S
   **Risk:** Low
 
-- [ ] **W106-4 (P1) Tasklist hygiene WARN normalization (non-terminal by design)** `skills/aidd-flow-state/runtime/tasklist_check.py`, `skills/aidd-flow-state/runtime/tasklist_normalize.py`, `skills/tasks-new/SKILL.md`, `tests/test_tasklist_check.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+- [ ] **W106-4 (P0) Tasklist hygiene WARN normalization (non-terminal by design)** `skills/aidd-flow-state/runtime/tasklist_check.py`, `skills/aidd-flow-state/runtime/tasklist_normalize.py`, `skills/tasks-new/SKILL.md`, `tests/test_tasklist_check.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
   - нормализовать и дедуплицировать hygiene WARN (`max_loc`, `expected_paths`, `NEXT_3 deps`, `PROGRESS_LOG format`);
   - сохранить terminal только для реально неисполняемого `AIDD:TEST_EXECUTION`, без отката недавнего fix на multiline `tasks`.
   **AC:** `tasks-new` не блокируется из-за hygiene-only WARN; `missing tasks` остаётся ошибкой только при реальном отсутствии задач.
@@ -514,4 +514,54 @@ _Статус: plan. Цель — убрать ложные WARN/telemetry noise
   **Deps:** -
   **Regression/tests:** `python3 -m pytest -q tests/test_resources.py tests/test_context_gc.py tests/test_hook_rw_policy.py tests/repo_tools/test_e2e_prompt_contract.py`.
   **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W106-7 (P0) Silent-stall determinism for loop/qa runners** `skills/aidd-loop/runtime/loop_run_parts/core.py`, `skills/qa/runtime/qa_parts/core.py`, `tests/test_loop_run.py`, `tests/test_qa_agent.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - стабилизировать liveness finalization в loop/qa, чтобы процесс не оставался "живым без top-level result" до budget kill;
+  - возвращать детерминированный terminal payload с `reason_code=silent_stall` при подтверждённой стагнации main+stream;
+  - синхронизовать классификацию watchdog/silent-stall в runtime и e2e contract.
+  **AC:** на synthetic stall кейсах нет сценария "процесс жив >20m без top-level result" без явного terminal payload.
+  **Deps:** W104-4
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_run.py tests/test_qa_agent.py tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [ ] **W106-8 (P0) QA status contract hardening (report ↔ top-level parity)** `skills/qa/runtime/qa_parts/core.py`, `skills/qa/runtime/qa.py`, `tests/test_qa_agent.py`, `tests/test_qa_exit_code.py`:
+  - зафиксировать strict parity между `aidd/reports/qa/<ticket>.json` status и top-level stage status;
+  - запретить `success` при `qa report status=BLOCKED`, оставить только `blocked|warn`;
+  - документировать таблицу status mapping в runtime diagnostics.
+  **AC:** `report=BLOCKED => stage status in {blocked,warn}`; `success` возможен только при `report=PASS`.
+  **Deps:** W104-5
+  **Regression/tests:** `python3 -m pytest -q tests/test_qa_agent.py tests/test_qa_exit_code.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [ ] **W106-9 (P1) Canonical orchestration guard against internal manual recovery paths** `skills/qa/SKILL.md`, `skills/aidd-loop/SKILL.md`, `tests/test_prompt_lint.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - запретить рекомендации и primary recovery path с direct internal preflight/stage-result writes;
+  - добавить prompt-lint tripwire на non-canonical ручной handoff внутри QA/loop orchestrations;
+  - оставить только canonical stage-chain next actions в top-level stage-return.
+  **AC:** prompt-lint ловит non-canonical recovery hints; e2e contract tests падают на manual stage-result path в primary action.
+  **Deps:** W104-5
+  **Regression/tests:** `python3 -m pytest -q tests/test_prompt_lint.py tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Effort:** S
+  **Risk:** Medium
+
+- [ ] **W106-10 (P1) Write-safety classifier baseline awareness for root non-canonical paths** `tests/repo_tools/aidd_audit_runner.py`, `tests/repo_tools/test_e2e_prompt_contract.py`, `tests/repo_tools/test_audit_runner.py`:
+  - отличать pre-existing root `docs|reports|config|.cache` от newly-created/modified during run;
+  - при отсутствии delta классифицировать как `INFO(preexisting_noncanonical_root)`, не как WARN;
+  - поднимать WARN только при фактической мутации root non-canonical paths во время прогона.
+  **AC:** pre-existing неизменённый root path больше не приводит к WARN; delta/mutation остаётся WARN.
+  **Deps:** W106-6
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_audit_runner.py tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Effort:** S
+  **Risk:** Medium
+
+- [ ] **W106-11 (P1) Stream-path telemetry completeness for stall classification** `tests/repo_tools/aidd_audit_runner.py`, `tests/repo_tools/e2e_prompt/profile_full.md`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - сделать fallback discovery обязательным при `stream_paths_missing` и пустом валидном наборе primary extraction;
+  - фиксировать `stream_path_not_emitted_by_cli` как non-terminal noise при валидном top-level result;
+  - синхронизовать liveness классификацию между prompt contract и audit runner.
+  **AC:** ложный stall из-за пустого primary stream-path extraction не воспроизводится при живом stream/fallback evidence.
+  **Deps:** W106-7
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Effort:** S
   **Risk:** Medium
