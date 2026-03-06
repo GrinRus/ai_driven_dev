@@ -1,6 +1,6 @@
 ---
 name: review-spec
-description: Reviews plan and PRD, then gates readiness for implementation. Use when plan and PRD artifacts are ready for spec approval.
+description: Reviews plan and PRD, then gates readiness for implementation. Use when plan and PRD artifacts are ready for spec approval. Do not use when the request is plan authoring in `plan-new` or unresolved answer collection in `spec-interview`.
 argument-hint: $1 [note...]
 lang: ru
 prompt_version: 1.0.25

@@ -1,6 +1,6 @@
 ---
 name: aidd-flow-state
-description: Owns shared flow/state runtime for stage state, progress/tasklist, and stage-result lifecycle. Use when orchestration needs canonical active-stage, progress, tasklist, or stage-result commands.
+description: Owns shared flow/state runtime for stage state, progress/tasklist, and stage-result lifecycle. Use when orchestration needs canonical active-stage, progress, tasklist, or stage-result commands. Do not use when the request is about `aidd-docio` action patch mechanics or `status` read-only summaries.
 lang: en
 model: inherit
 user-invocable: false

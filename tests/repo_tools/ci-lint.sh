@@ -126,6 +126,105 @@ run_prompt_regression() {
   fi
 }
 
+run_skill_eval_smoke() {
+  local enforce="${AIDD_SKILL_EVAL_ENFORCE:-0}"
+  if ! command -v python3 >/dev/null 2>&1; then
+    if [[ "${enforce}" == "1" ]]; then
+      err "python3 not found under skill eval enforcement"
+      STATUS=1
+      return
+    fi
+    warn "python3 not found; skipping skill eval smoke"
+    return
+  fi
+  if [[ ! -f "tests/repo_tools/skill_eval_run.py" ]]; then
+    if [[ "${enforce}" == "1" ]]; then
+      err "tests/repo_tools/skill_eval_run.py missing under skill eval enforcement"
+      STATUS=1
+      return
+    fi
+    warn "tests/repo_tools/skill_eval_run.py missing; skipping skill eval smoke"
+    return
+  fi
+  if [[ ! -f "tests/repo_tools/skill_eval/cases.v1.jsonl" ]]; then
+    if [[ "${enforce}" == "1" ]]; then
+      err "skill eval dataset missing under skill eval enforcement"
+      STATUS=1
+      return
+    fi
+    warn "skill eval dataset missing; skipping skill eval smoke"
+    return
+  fi
+
+  local out_dir="aidd/reports/events/skill-eval"
+
+  log "running skill eval smoke (38 cases, advisory by default)"
+  if ! python3 tests/repo_tools/skill_eval_run.py \
+    --cases tests/repo_tools/skill_eval/cases.v1.jsonl \
+    --max-cases 38 \
+    --seed 104 \
+    --out-dir "${out_dir}"; then
+    if [[ "${enforce}" == "1" ]]; then
+      err "skill eval smoke failed under enforcement"
+      STATUS=1
+      return
+    fi
+    warn "skill eval smoke failed (advisory mode)"
+    return
+  fi
+
+  if [[ ! -f "tests/repo_tools/skill_eval_compare.py" ]]; then
+    if [[ "${enforce}" == "1" ]]; then
+      err "tests/repo_tools/skill_eval_compare.py missing under skill eval enforcement"
+      STATUS=1
+      return
+    fi
+    warn "tests/repo_tools/skill_eval_compare.py missing; skipping skill eval comparator"
+    return
+  fi
+
+  local baseline="${AIDD_SKILL_EVAL_BASELINE:-}"
+  if [[ -z "${baseline}" || ! -f "${baseline}" ]]; then
+    if [[ "${enforce}" == "1" ]]; then
+      err "skill eval baseline is required under enforcement"
+      STATUS=1
+      return
+    fi
+    log "skill eval baseline not configured; skipping comparator"
+    return
+  fi
+
+  local candidate
+  candidate="$(
+    find "${out_dir}" -type f -path "*/run-*/summary.json" -print 2>/dev/null \
+      | sort \
+      | tail -n 1 || true
+  )"
+  if [[ -z "${candidate}" || ! -f "${candidate}" ]]; then
+    if [[ "${enforce}" == "1" ]]; then
+      err "skill eval candidate summary missing under enforcement"
+      STATUS=1
+      return
+    fi
+    warn "skill eval candidate summary not found; skipping comparator"
+    return
+  fi
+
+  local delta_path="${out_dir}/compare.latest.json"
+  if ! python3 tests/repo_tools/skill_eval_compare.py \
+    --baseline "${baseline}" \
+    --candidate "${candidate}" \
+    --out "${delta_path}"; then
+    if [[ "${enforce}" == "1" ]]; then
+      err "skill eval comparator failed under enforcement"
+      STATUS=1
+      return
+    fi
+    warn "skill eval comparator failed (advisory mode)"
+    return
+  fi
+}
+
 run_loop_regression() {
   if [[ ! -f "tests/repo_tools/loop-regression.sh" ]]; then
     warn "tests/repo_tools/loop-regression.sh missing; skipping"
@@ -540,6 +639,7 @@ run_prompt_version_check
 run_prompt_sync_guard
 run_entrypoints_bundle_guard
 run_prompt_regression
+run_skill_eval_smoke
 run_loop_regression
 run_output_contract_regression
 run_claude_stream_renderer

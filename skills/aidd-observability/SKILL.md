@@ -1,6 +1,6 @@
 ---
 name: aidd-observability
-description: Owns shared observability/runtime reporting for diagnostics, inventory, identifiers, logs, and DAG export. Use when deterministic diagnostics or inventory exports are required.
+description: Owns shared observability/runtime reporting for diagnostics, inventory, identifiers, logs, and DAG export. Use when deterministic diagnostics or inventory exports are required. Do not use when request scope is `status` stage summaries or `aidd-core` runtime ownership mapping.
 lang: en
 model: inherit
 user-invocable: false

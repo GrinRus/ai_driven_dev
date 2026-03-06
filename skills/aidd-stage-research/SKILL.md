@@ -1,6 +1,6 @@
 ---
 name: aidd-stage-research
-description: Defines stage-specific research contract for subagent evidence reading and handoff behavior. Use when researcher subagent stage rules are needed.
+description: Defines stage-specific research contract for subagent evidence reading and handoff behavior. Use when researcher subagent stage rules are needed. Do not use when the request belongs to shared RLM runtime ownership in `aidd-rlm` or direct stage command execution in `researcher`.
 lang: en
 model: inherit
 user-invocable: false

@@ -1,0 +1,17 @@
+{
+  "schema": "aidd.skill_eval.policy.v1",
+  "advisory_window": {
+    "min_prs": 10,
+    "min_days": 14,
+    "required_consecutive_nightly": 3
+  },
+  "hard_thresholds": {
+    "macro_trigger_f1": 0.9,
+    "exact_match_rate": 0.88,
+    "completion_proxy_pass_rate": 0.92,
+    "critical_skill_recall": 0.85
+  },
+  "regression_guard": {
+    "max_drop": 0.02
+  }
+}
