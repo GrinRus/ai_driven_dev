@@ -181,6 +181,8 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
                 "scope_drift_recoverable",
                 "no_tests_hard",
                 "qa_tests_failed",
+                "review_pack_missing",
+                "review_pack_stale",
                 "review_context_pack_missing",
                 "qa_blocked",
             ],

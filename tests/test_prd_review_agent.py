@@ -205,6 +205,94 @@ class PRDReviewAgentTests(unittest.TestCase):
         self.assertTrue(all(f.id for f in report.findings))
         self.assertEqual(report.recommended_status, "pending")
 
+    def test_analyse_prd_tracks_open_questions_from_structured_section(self):
+        prd = self.write_prd(
+            dedent(
+                """\
+                # Demo
+
+                ## AIDD:OPEN_QUESTIONS
+                - Q1: unresolved
+                - Q2: unresolved
+
+                ## PRD Review
+                Status: READY
+                """
+            ),
+        )
+
+        report = prd_review_agent.analyse_prd("demo-feature", prd)
+
+        self.assertEqual(report.open_questions_count, 2)
+        self.assertEqual(report.recommended_status, "pending")
+        self.assertTrue(any("AIDD:OPEN_QUESTIONS" in item.title for item in report.findings))
+
+    def test_analyse_prd_does_not_overread_open_questions_past_nested_heading(self):
+        prd = self.write_prd(
+            dedent(
+                """\
+                # Demo
+
+                ## AIDD:OPEN_QUESTIONS
+                - none
+
+                ### Notes
+                - Q9: informational note outside structured section
+
+                ## PRD Review
+                Status: READY
+                """
+            ),
+        )
+
+        report = prd_review_agent.analyse_prd("demo-feature", prd)
+
+        self.assertEqual(report.open_questions_count, 0)
+        self.assertEqual(report.recommended_status, "ready")
+        self.assertFalse(any("AIDD:OPEN_QUESTIONS" in item.title for item in report.findings))
+
+    def test_analyse_prd_marks_answers_format_invalid_for_non_compact_payload(self):
+        prd = self.write_prd(
+            dedent(
+                """\
+                # Demo
+
+                ## AIDD:ANSWERS
+                - Answer 1: A
+
+                ## PRD Review
+                Status: READY
+                """
+            ),
+        )
+
+        report = prd_review_agent.analyse_prd("demo-feature", prd)
+
+        self.assertEqual(report.answers_format, "invalid")
+        self.assertEqual(report.recommended_status, "pending")
+        self.assertTrue(any("AIDD:ANSWERS" in item.title for item in report.findings))
+
+    def test_analyse_prd_accepts_compact_answers_with_quoted_text(self):
+        prd = self.write_prd(
+            dedent(
+                """\
+                # Demo
+
+                ## AIDD:ANSWERS
+                AIDD:ANSWERS Q1="короткий текст с пробелами"
+
+                ## PRD Review
+                Status: READY
+                """
+            ),
+        )
+
+        report = prd_review_agent.analyse_prd("demo-feature", prd)
+
+        self.assertEqual(report.answers_format, "compact_q_values")
+        self.assertEqual(report.recommended_status, "ready")
+        self.assertFalse(any("AIDD:ANSWERS" in item.title for item in report.findings))
+
     def test_analyse_prd_ignores_html_comments_and_review_narrative_tbd(self):
         prd = self.write_prd(
             dedent(

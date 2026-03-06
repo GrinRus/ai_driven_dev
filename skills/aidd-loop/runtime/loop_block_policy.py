@@ -38,6 +38,8 @@ DEFAULT_RECOVERABLE_REASONS: Set[str] = {
     "rlm_worklist_missing",
     "no_tests_hard",
     "qa_tests_failed",
+    "review_pack_missing",
+    "review_pack_stale",
     "review_context_pack_missing",
     "qa_blocked",
     # Compatibility reasons from historical loop-run recoverable set.
@@ -176,7 +178,9 @@ def classify_block_reason(
     elif resolved_policy == "strict" and normalized in policy["strict_recoverable"]:
         reason_class = "recoverable_retry"
     elif resolved_policy == "ralph":
-        if normalized in policy["recoverable"]:
+        if normalized in policy["recoverable"] or normalized in {"review_pack_missing", "review_pack_stale"}:
+            # Keep review-pack reasons recoverable for ralph even if workspace gates
+            # carries a stale recoverable list from older templates.
             reason_class = "recoverable_retry"
         elif normalized in policy["warn"]:
             reason_class = "warn_continue"

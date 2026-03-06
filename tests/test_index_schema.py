@@ -56,6 +56,7 @@ def test_index_sync_generates_required_fields(tmp_path):
         assert field in payload, f"missing {field}"
     assert payload["ticket"] == "DEMO-1"
     assert payload["schema"] == index_sync.SCHEMA
+    assert payload.get("open_questions_source") in {"tasklist", "prd:aidd_open_questions", "none"}
 
 
 def test_index_sync_includes_pack_variants(tmp_path):

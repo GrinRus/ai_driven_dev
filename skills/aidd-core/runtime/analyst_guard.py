@@ -8,7 +8,6 @@ from typing import Optional
 
 import os
 import sys
-from pathlib import Path
 
 
 def _ensure_plugin_root_on_path() -> None:
@@ -36,17 +35,15 @@ from aidd_runtime.feature_ids import resolve_aidd_root
 
 # Allow Markdown prefixes (headings/bullets/bold) so analyst output doesn't trip the gate.
 QUESTION_RE = re.compile(r"^\s*(?:[#>*-]+\s*)?(?:\*\*)?Вопрос\s+(\d+)\b[^:\n]*:(?:\*\*)?", re.MULTILINE)
-ANSWER_RE = re.compile(
-    r"^\s*(?:[#>*-]+\s*)?(?:\*\*)?(?:Ответ|Answer)\s+(\d+)\b(?:\*\*)?\s*:",
-    re.MULTILINE,
-)
+LEGACY_ANSWER_RE = re.compile(r"^\s*(?:[-*+]\s*)?(?:Ответ|Answer)\s+\d+\s*:", re.IGNORECASE | re.MULTILINE)
+COMPACT_ANSWER_RE = re.compile(r'\bQ(\d+)\s*=\s*(?:"([^"\n]+)"|([^\s;,#`]+))')
 STATUS_RE = re.compile(r"^\s*Status:\s*([A-Za-z]+)", re.MULTILINE)
 DIALOG_HEADING = "## Диалог analyst"
 ANSWERS_HEADING = "## AIDD:ANSWERS"
-OPEN_QUESTIONS_HEADING = "## 10. Открытые вопросы"
 AIDD_OPEN_QUESTIONS_HEADING = "## AIDD:OPEN_QUESTIONS"
 Q_RE = re.compile(r"\bQ(\d+)\b")
 NONE_VALUES = {"none", "нет", "n/a", "na"}
+INVALID_ANSWER_VALUES = {"tbd", "todo", "none", "нет", "n/a", "na", "empty", "unknown", "-", "?"}
 OPEN_ITEM_PREFIX_RE = re.compile(r"^(?:[-*+]\s+|\d+\.\s+)")
 CHECKBOX_PREFIX_RE = re.compile(r"^\[[ xX]\]\s*")
 ALLOWED_STATUSES = {"READY", "BLOCKED", "PENDING"}
@@ -137,6 +134,31 @@ def _collect_numbers(pattern: re.Pattern[str], text: str) -> list[int]:
     return numbers
 
 
+def _collect_compact_answers(section: str) -> dict[int, str]:
+    answers: dict[int, str] = {}
+    for match in COMPACT_ANSWER_RE.finditer(section or ""):
+        try:
+            number = int(match.group(1))
+        except ValueError:
+            continue
+        if number <= 0:
+            continue
+        value = str((match.group(2) if match.group(2) is not None else match.group(3)) or "").strip()
+        if not value:
+            continue
+        answers[number] = value
+    return answers
+
+
+def _invalid_compact_answers(answers: dict[int, str]) -> list[int]:
+    invalid: list[int] = []
+    for number, value in answers.items():
+        normalized = str(value).strip().lower()
+        if normalized in INVALID_ANSWER_VALUES:
+            invalid.append(number)
+    return sorted(set(invalid))
+
+
 def _has_open_items(section: str) -> bool:
     for line in section.splitlines():
         stripped = line.strip()
@@ -188,9 +210,28 @@ def validate_prd(
     dialog_section = _extract_section(text, DIALOG_HEADING)
     questions_source = dialog_section or text
     answers_section = _extract_section(text, ANSWERS_HEADING)
-    answers_source = answers_section if answers_section is not None else (dialog_section or text)
     questions = _collect_numbers(QUESTION_RE, questions_source)
-    answers = _collect_numbers(ANSWER_RE, answers_source)
+    answers_source = answers_section or ""
+    if LEGACY_ANSWER_RE.search(answers_source):
+        raise AnalystValidationError(
+            "BLOCK: AIDD:ANSWERS использует неканоничный формат ответов. "
+            "Используйте compact payload `AIDD:ANSWERS Q1=A; Q2=\"короткий текст\"`."
+        )
+    answers_map = _collect_compact_answers(answers_source)
+    if answers_source.strip() and not answers_map:
+        raise AnalystValidationError(
+            "BLOCK: AIDD:ANSWERS должен быть в compact формате `Q<N>=<value>`; "
+            "пример: `AIDD:ANSWERS Q1=A; Q2=\"короткий текст\"`."
+        )
+    invalid_compact = _invalid_compact_answers(answers_map)
+    if invalid_compact:
+        sample = ", ".join(f"Q{num}" for num in invalid_compact[:3])
+        if len(invalid_compact) > 3:
+            sample = f"{sample}, …"
+        raise AnalystValidationError(
+            f"BLOCK: ответы {sample} содержат недопустимое значение (TBD/TODO/empty). "
+            "Используйте `Q<N>=...` или `Q<N>=\"короткий текст\"`."
+        )
 
     min_questions = settings.min_questions
     if min_questions_override is not None:
@@ -218,13 +259,12 @@ def validate_prd(
 
     status_match = STATUS_RE.search(text)
     status = status_match.group(1).upper() if status_match else None
-    open_section = _extract_section(text, OPEN_QUESTIONS_HEADING)
     aidd_open_section = _extract_section(text, AIDD_OPEN_QUESTIONS_HEADING)
     if settings.check_open_questions and aidd_open_section:
         q_numbers = _collect_q_numbers(aidd_open_section)
         if q_numbers:
             question_numbers = set(questions)
-            answer_numbers = set(answers)
+            answer_numbers = set(answers_map)
             missing_q = sorted(q_numbers - question_numbers)
             if missing_q:
                 sample = ", ".join(f"Q{num}" for num in missing_q[:3])
@@ -239,40 +279,33 @@ def validate_prd(
                 if len(missing_answer) > 3:
                     sample = f"{sample}..."
                 raise AnalystValidationError(
-                    f"BLOCK: AIDD:OPEN_QUESTIONS содержит {sample}, но нет соответствующих «Answer N»."
+                    f"BLOCK: AIDD:OPEN_QUESTIONS содержит {sample}, но нет соответствующих ответов в `AIDD:ANSWERS QN=<value>`."
                 )
 
     if settings.check_open_questions and status == "READY":
-        if open_section:
-            for line in open_section.splitlines():
-                stripped = line.strip()
-                if not stripped:
-                    continue
-                if stripped.startswith("- [ ]"):
-                    raise AnalystValidationError(
-                        "BLOCK: статус READY, но раздел «Открытые вопросы» содержит незакрытые пункты."
-                    )
         if aidd_open_section and _has_open_items(aidd_open_section):
             raise AnalystValidationError(
                 "BLOCK: статус READY, но AIDD:OPEN_QUESTIONS содержит незакрытые пункты."
             )
 
-    missing_answers = sorted(set(questions) - set(answers))
+    missing_answers = sorted(set(questions) - set(answers_map))
     if missing_answers:
         sample = ", ".join(str(num) for num in missing_answers[:3])
         if len(missing_answers) > 3:
             sample += ", …"
         raise AnalystValidationError(
-            f"BLOCK: отсутствуют ответы для вопросов {sample}. Ответьте в формате «Ответ N: …» и повторите /feature-dev-aidd:idea-new {ticket}."
+            f"BLOCK: отсутствуют ответы для вопросов {sample}. "
+            f"Заполните `AIDD:ANSWERS` в compact формате `Q<N>=<value>` и повторите /feature-dev-aidd:idea-new {ticket}."
         )
 
-    extra_answers = sorted(set(answers) - set(questions))
+    extra_answers = sorted(set(answers_map) - set(questions))
     if extra_answers:
         sample = ", ".join(str(num) for num in extra_answers[:3])
         if len(extra_answers) > 3:
             sample += ", …"
         raise AnalystValidationError(
-            f"BLOCK: найдены ответы без соответствующих вопросов ({sample}). Согласуйте пары «Вопрос N»/«Ответ N»."
+            f"BLOCK: найдены ответы без соответствующих вопросов ({sample}). "
+            "Согласуйте пары «Вопрос N»/`AIDD:ANSWERS QN=<value>`."
         )
 
     if status is None:
@@ -308,7 +341,7 @@ def validate_prd(
             f"BLOCK: PRD должен ссылаться на `{research_ref}` в разделе `## Диалог analyst` → добавьте ссылку на отчёт Researcher."
         )
 
-    return AnalystCheckSummary(status=status, question_count=len(set(questions)), answered_count=len(set(answers)))
+    return AnalystCheckSummary(status=status, question_count=len(set(questions)), answered_count=len(set(answers_map)))
 
 
 def _build_parser() -> argparse.ArgumentParser:

@@ -395,3 +395,43 @@ _Статус: plan. Цель — временно исключить terminal-b
   **Regression/tests:** `python3 -m pytest -q tests/test_qa_agent.py tests/test_qa_exit_code.py tests/test_loop_step.py tests/test_gate_workflow_preflight_contract.py`.
   **Effort:** M
   **Risk:** High
+
+## Wave 105 — Loop review-pack recovery + 1h iteration timeout
+
+_Статус: plan. Цель — точечно смягчить loop только для `review_pack_missing|review_pack_stale` в `ralph`, поднять timeout итерации до 1 часа и зафиксировать контракт в prompt/tests._
+
+- [ ] **W105-1 (P0) Ralph targeted recovery for review-pack reasons** `skills/aidd-loop/runtime/loop_block_policy.py`, `templates/aidd/config/gates.json`, `tests/test_loop_run.py`:
+  - перевести `review_pack_missing|review_pack_stale` в `recoverable_retry` только для `blocked_policy=ralph`;
+  - сохранить terminal поведение для `strict` и для ENV/contract/runtime-path hard blockers.
+  **AC:** в `ralph` review-pack причины получают bounded retry; в `strict` остаются terminal blocked без recoverable path.
+  **Deps:** -
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_run.py`.
+  **Effort:** S
+  **Risk:** Medium
+
+- [ ] **W105-2 (P0) Loop iteration timeout 1h contract** `skills/aidd-loop/runtime/loop_run_parts/core.py`, `tests/repo_tools/e2e_prompt/profile_full.md`, `aidd_test_flow_prompt_ralph_script_full.txt`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - установить default `DEFAULT_LOOP_STEP_TIMEOUT_SECONDS=3600` при сохранении `DEFAULT_STAGE_BUDGET_SECONDS=3600`;
+  - зафиксировать в full-flow prompt явные флаги `--step-timeout-seconds $LOOP_STEP_TIMEOUT_SECONDS` и `--stage-budget-seconds $LOOP_STAGE_BUDGET_SECONDS`.
+  **AC:** runtime default и full prompt/script согласованы на 3600s; prompt-contract тесты проверяют наличие timeout flags.
+  **Deps:** W105-1
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py tests/test_loop_run.py`.
+  **Effort:** S
+  **Risk:** Low
+
+- [ ] **W105-3 (P1) Review-pack recovery path hardening** `skills/aidd-loop/runtime/loop_run_parts/core.py`, `tests/test_loop_run.py`:
+  - добавить детерминированный recovery path `retry_review_pack` для stage=`review` при review-pack recoverable reason;
+  - исключить деградацию в `handoff_to_implement` для этой причины.
+  **AC:** telemetry содержит `recovery_path=retry_review_pack`; bounded retry не переключает stage в implement.
+  **Deps:** W105-1
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_run.py`.
+  **Effort:** S
+  **Risk:** Medium
+
+- [ ] **W105-4 (P1) Regression coverage for targeted relax + timeout contract** `tests/test_loop_run.py`, `tests/repo_tools/test_e2e_prompt_contract.py`, `tests/repo_tools/ci-lint.sh`:
+  - покрыть кейсы: `ralph + review_pack_missing` recoverable, `strict + review_pack_missing` terminal, default step-timeout `3600`, наличие timeout flags в full prompt;
+  - закрепить через CI-repro entrypoint.
+  **AC:** unit + prompt-contract тесты стабильно ловят регрессии по policy/timeouts.
+  **Deps:** W105-2, W105-3
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_run.py tests/repo_tools/test_e2e_prompt_contract.py`, `tests/repo_tools/ci-lint.sh`.
+  **Effort:** S
+  **Risk:** Low

@@ -60,7 +60,7 @@ def test_validate_prd_passes_when_ready(tmp_path):
     project.mkdir(parents=True, exist_ok=True)
     ensure_gates_config(project)
     slug = "demo"
-    prd = """# PRD\n\n## Диалог analyst\nStatus: READY\nСсылка: docs/research/demo.md\n\nВопрос 1: Какие этапы checkout нужно покрыть?\nОтвет 1: Используем happy-path и неуспешную оплату.\n\n## 1. Обзор\n- **Название продукта/фичи**: Demo\n\n## 10. Открытые вопросы\n- [x] Все уточнения закрыты\n"""
+    prd = """# PRD\n\n## Диалог analyst\nStatus: READY\nСсылка: docs/research/demo.md\n\nВопрос 1: Какие этапы checkout нужно покрыть?\n\n## AIDD:ANSWERS\nAIDD:ANSWERS Q1=C\n\n## AIDD:OPEN_QUESTIONS\n- none\n\n## 1. Обзор\n- **Название продукта/фичи**: Demo\n\n## 10. Открытые вопросы\n- [x] Все уточнения закрыты\n"""
     _write_prd(project, slug, prd)
     _write_research(project, slug)
     settings = load_settings(project)
@@ -77,7 +77,7 @@ def test_validate_prd_allows_missing_research_doc(tmp_path):
     project.mkdir(parents=True, exist_ok=True)
     ensure_gates_config(project)
     slug = "demo"
-    prd = """# PRD\n\n## Диалог analyst\nStatus: READY\nСсылка: docs/research/demo.md\n\nВопрос 1: Какие этапы checkout нужно покрыть?\nОтвет 1: Используем happy-path и неуспешную оплату.\n\n## 1. Обзор\n- **Название продукта/фичи**: Demo\n\n## 10. Открытые вопросы\n- [x] Все уточнения закрыты\n"""
+    prd = """# PRD\n\n## Диалог analyst\nStatus: READY\nСсылка: docs/research/demo.md\n\nВопрос 1: Какие этапы checkout нужно покрыть?\n\n## AIDD:ANSWERS\nAIDD:ANSWERS Q1=C\n\n## AIDD:OPEN_QUESTIONS\n- none\n\n## 1. Обзор\n- **Название продукта/фичи**: Demo\n\n## 10. Открытые вопросы\n- [x] Все уточнения закрыты\n"""
     _write_prd(project, slug, prd)
     settings = load_settings(project)
 
@@ -93,7 +93,24 @@ def test_markdown_questions_allowed(tmp_path):
     project.mkdir(parents=True, exist_ok=True)
     ensure_gates_config(project)
     slug = "demo"
-    prd = """# PRD\n\n## Диалог analyst\nStatus: READY\nСсылка: docs/research/demo.md\n\n### **Вопрос 1 (Blocker):** Что уточнить?\n**Ответ 1**: Ответ получен.\n\n## 1. Обзор\n- **Название продукта/фичи**: Demo\n\n## 10. Открытые вопросы\n- [x] Все уточнения закрыты\n"""
+    prd = """# PRD\n\n## Диалог analyst\nStatus: READY\nСсылка: docs/research/demo.md\n\n### **Вопрос 1 (Blocker):** Что уточнить?\n\n## AIDD:ANSWERS\nAIDD:ANSWERS Q1=B\n\n## AIDD:OPEN_QUESTIONS\n- none\n\n## 1. Обзор\n- **Название продукта/фичи**: Demo\n\n## 10. Открытые вопросы\n- [x] Все уточнения закрыты\n"""
+    _write_prd(project, slug, prd)
+    _write_research(project, slug)
+    settings = load_settings(project)
+
+    summary = validate_prd(project, slug, settings=settings)
+
+    assert summary.status == "READY"
+    assert summary.question_count == 1
+    assert summary.answered_count == 1
+
+
+def test_compact_answers_allow_quoted_short_text(tmp_path):
+    project = tmp_path / "aidd"
+    project.mkdir(parents=True, exist_ok=True)
+    ensure_gates_config(project)
+    slug = "demo"
+    prd = """# PRD\n\n## Диалог analyst\nStatus: READY\nСсылка: docs/research/demo.md\n\nВопрос 1: Что уточнить?\n\n## AIDD:ANSWERS\nAIDD:ANSWERS Q1="нужен режим без кэша"\n\n## AIDD:OPEN_QUESTIONS\n- none\n"""
     _write_prd(project, slug, prd)
     _write_research(project, slug)
     settings = load_settings(project)
@@ -126,7 +143,7 @@ def test_aidd_answers_section_satisfies_missing_dialog_answer(tmp_path):
     project.mkdir(parents=True, exist_ok=True)
     ensure_gates_config(project)
     slug = "demo"
-    prd = """# PRD\n\n## Диалог analyst\nStatus: READY\nСсылка: docs/research/demo.md\n\nВопрос 1: Что уточнить?\n\n## AIDD:ANSWERS\n- Answer 1: Ответ получен.\n\n## 1. Обзор\n- **Название продукта/фичи**: Demo\n\n## 10. Открытые вопросы\n- [x] Все уточнения закрыты\n"""
+    prd = """# PRD\n\n## Диалог analyst\nStatus: READY\nСсылка: docs/research/demo.md\n\nВопрос 1: Что уточнить?\n\n## AIDD:ANSWERS\nAIDD:ANSWERS Q1=A\n\n## AIDD:OPEN_QUESTIONS\n- none\n\n## 1. Обзор\n- **Название продукта/фичи**: Demo\n\n## 10. Открытые вопросы\n- [x] Все уточнения закрыты\n"""
     _write_prd(project, slug, prd)
     _write_research(project, slug)
     settings = load_settings(project)
@@ -143,7 +160,7 @@ def test_aidd_answers_missing_blocks_validation(tmp_path):
     project.mkdir(parents=True, exist_ok=True)
     ensure_gates_config(project)
     slug = "demo"
-    prd = """# PRD\n\n## Диалог analyst\nStatus: BLOCKED\nСсылка: docs/research/demo.md\n\nВопрос 1: Что уточнить?\n\n## AIDD:ANSWERS\n- Answer 2: Не по теме\n\n## 1. Обзор\n- **Название продукта/фичи**: Demo\n"""
+    prd = """# PRD\n\n## Диалог analyst\nStatus: BLOCKED\nСсылка: docs/research/demo.md\n\nВопрос 1: Что уточнить?\n\n## AIDD:ANSWERS\nAIDD:ANSWERS Q2=B\n\n## 1. Обзор\n- **Название продукта/фичи**: Demo\n"""
     _write_prd(project, slug, prd)
     _write_research(project, slug, status="pending")
     settings = load_settings(project)
@@ -154,20 +171,18 @@ def test_aidd_answers_missing_blocks_validation(tmp_path):
     assert "отсутствуют ответы" in str(excinfo.value)
 
 
-def test_ready_status_with_open_questions_fails(tmp_path):
+def test_ready_status_ignores_narrative_open_questions_section(tmp_path):
     project = tmp_path / "aidd"
     project.mkdir(parents=True, exist_ok=True)
     ensure_gates_config(project)
     slug = "demo"
-    prd = """# PRD\n\n## Диалог analyst\nStatus: READY\nСсылка: docs/research/demo.md\n\nВопрос 1: Что уточнить?\nОтвет 1: Ответ получен.\n\n## 1. Обзор\n- **Название продукта/фичи**: Demo\n\n## 10. Открытые вопросы\n- [ ] Остаётся блокер\n"""
+    prd = """# PRD\n\n## Диалог analyst\nStatus: READY\nСсылка: docs/research/demo.md\n\nВопрос 1: Что уточнить?\n\n## AIDD:ANSWERS\nAIDD:ANSWERS Q1=A\n\n## AIDD:OPEN_QUESTIONS\n- none\n\n## 1. Обзор\n- **Название продукта/фичи**: Demo\n\n## 10. Открытые вопросы\n- [ ] Остаётся блокер\n"""
     _write_prd(project, slug, prd)
     _write_research(project, slug)
     settings = load_settings(project)
 
-    with pytest.raises(AnalystValidationError) as excinfo:
-        validate_prd(project, slug, settings=settings)
-
-    assert "Открытые вопросы" in str(excinfo.value)
+    summary = validate_prd(project, slug, settings=settings)
+    assert summary.status == "READY"
 
 
 def test_ready_status_with_aidd_open_questions_fails(tmp_path):
@@ -175,7 +190,7 @@ def test_ready_status_with_aidd_open_questions_fails(tmp_path):
     project.mkdir(parents=True, exist_ok=True)
     ensure_gates_config(project)
     slug = "demo"
-    prd = """# PRD\n\n## Диалог analyst\nStatus: READY\nСсылка: docs/research/demo.md\n\nВопрос 1: Что уточнить?\nОтвет 1: Ответ получен.\n\n## AIDD:ANSWERS\n- Answer 1: Ответ получен.\n\n## AIDD:OPEN_QUESTIONS\n- Q1: Остаётся блокер → Analyst → 2026-01-01\n\n## 1. Обзор\n- **Название продукта/фичи**: Demo\n"""
+    prd = """# PRD\n\n## Диалог analyst\nStatus: READY\nСсылка: docs/research/demo.md\n\nВопрос 1: Что уточнить?\n\n## AIDD:ANSWERS\nAIDD:ANSWERS Q1=B\n\n## AIDD:OPEN_QUESTIONS\n- Q1: Остаётся блокер → Analyst → 2026-01-01\n\n## 1. Обзор\n- **Название продукта/фичи**: Demo\n"""
     _write_prd(project, slug, prd)
     _write_research(project, slug)
     settings = load_settings(project)
@@ -191,7 +206,7 @@ def test_ready_allows_aidd_open_questions_none(tmp_path):
     project.mkdir(parents=True, exist_ok=True)
     ensure_gates_config(project)
     slug = "demo"
-    prd = """# PRD\n\n## Диалог analyst\nStatus: READY\nСсылка: docs/research/demo.md\n\nВопрос 1: Что уточнить?\nОтвет 1: Ответ получен.\n\n## AIDD:OPEN_QUESTIONS\n- `none`\n\n## 1. Обзор\n- **Название продукта/фичи**: Demo\n"""
+    prd = """# PRD\n\n## Диалог analyst\nStatus: READY\nСсылка: docs/research/demo.md\n\nВопрос 1: Что уточнить?\n\n## AIDD:ANSWERS\nAIDD:ANSWERS Q1=C\n\n## AIDD:OPEN_QUESTIONS\n- `none`\n\n## 1. Обзор\n- **Название продукта/фичи**: Demo\n"""
     _write_prd(project, slug, prd)
     _write_research(project, slug)
     settings = load_settings(project)
@@ -206,7 +221,7 @@ def test_open_questions_q_requires_matching_question(tmp_path):
     project.mkdir(parents=True, exist_ok=True)
     ensure_gates_config(project)
     slug = "demo"
-    prd = """# PRD\n\n## Диалог analyst\nStatus: READY\nСсылка: docs/research/demo.md\n\nВопрос 1: Что уточнить?\nОтвет 1: Ответ получен.\n\n## AIDD:OPEN_QUESTIONS\n- Q2: Другой вопрос → Analyst → 2026-01-01\n\n## AIDD:ANSWERS\n- Answer 1: Ответ получен.\n- Answer 2: Ответ получен.\n\n## 1. Обзор\n- **Название продукта/фичи**: Demo\n"""
+    prd = """# PRD\n\n## Диалог analyst\nStatus: READY\nСсылка: docs/research/demo.md\n\nВопрос 1: Что уточнить?\n\n## AIDD:OPEN_QUESTIONS\n- Q2: Другой вопрос → Analyst → 2026-01-01\n\n## AIDD:ANSWERS\nAIDD:ANSWERS Q1=A; Q2=B\n\n## 1. Обзор\n- **Название продукта/фичи**: Demo\n"""
     _write_prd(project, slug, prd)
     _write_research(project, slug)
     settings = load_settings(project)
@@ -222,7 +237,7 @@ def test_open_questions_q_blocks_when_blocked(tmp_path):
     project.mkdir(parents=True, exist_ok=True)
     ensure_gates_config(project)
     slug = "demo"
-    prd = """# PRD\n\n## Диалог analyst\nStatus: BLOCKED\nСсылка: docs/research/demo.md\n\nВопрос 1: Что уточнить?\nОтвет 1: Ответ получен.\n\n## AIDD:OPEN_QUESTIONS\n- Q2: Другой вопрос → Analyst → 2026-01-01\n\n## AIDD:ANSWERS\n- Answer 1: Ответ получен.\n\n## 1. Обзор\n- **Название продукта/фичи**: Demo\n"""
+    prd = """# PRD\n\n## Диалог analyst\nStatus: BLOCKED\nСсылка: docs/research/demo.md\n\nВопрос 1: Что уточнить?\n\n## AIDD:OPEN_QUESTIONS\n- Q2: Другой вопрос → Analyst → 2026-01-01\n\n## AIDD:ANSWERS\nAIDD:ANSWERS Q1=A\n\n## 1. Обзор\n- **Название продукта/фичи**: Demo\n"""
     _write_prd(project, slug, prd)
     _write_research(project, slug)
     settings = load_settings(project)
@@ -238,7 +253,7 @@ def test_open_questions_q_requires_matching_answer(tmp_path):
     project.mkdir(parents=True, exist_ok=True)
     ensure_gates_config(project)
     slug = "demo"
-    prd = """# PRD\n\n## Диалог analyst\nStatus: READY\nСсылка: docs/research/demo.md\n\nВопрос 1: Что уточнить?\nОтвет 1: Ответ получен.\nВопрос 2: Другой вопрос?\n\n## AIDD:OPEN_QUESTIONS\n- Q2: Другой вопрос → Analyst → 2026-01-01\n\n## AIDD:ANSWERS\n- Answer 1: Ответ получен.\n\n## 1. Обзор\n- **Название продукта/фичи**: Demo\n"""
+    prd = """# PRD\n\n## Диалог analyst\nStatus: READY\nСсылка: docs/research/demo.md\n\nВопрос 1: Что уточнить?\nВопрос 2: Другой вопрос?\n\n## AIDD:OPEN_QUESTIONS\n- Q2: Другой вопрос → Analyst → 2026-01-01\n\n## AIDD:ANSWERS\nAIDD:ANSWERS Q1=A\n\n## 1. Обзор\n- **Название продукта/фичи**: Demo\n"""
     _write_prd(project, slug, prd)
     _write_research(project, slug)
     settings = load_settings(project)
@@ -254,7 +269,7 @@ def test_draft_status_rejected(tmp_path):
     project.mkdir(parents=True, exist_ok=True)
     ensure_gates_config(project)
     slug = "demo"
-    prd = """# PRD\n\n## Диалог analyst\nStatus: draft\nСсылка: docs/research/demo.md\n\nВопрос 1: Что уточнить?\nОтвет 1: TBD\n"""
+    prd = """# PRD\n\n## Диалог analyst\nStatus: draft\nСсылка: docs/research/demo.md\n\nВопрос 1: Что уточнить?\n\n## AIDD:ANSWERS\nAIDD:ANSWERS Q1=A\n"""
     _write_prd(project, slug, prd)
     _write_research(project, slug, status="pending")
     settings = load_settings(project)
@@ -263,6 +278,38 @@ def test_draft_status_rejected(tmp_path):
         validate_prd(project, slug, settings=settings)
 
     assert "draft" in str(excinfo.value).lower()
+
+
+def test_legacy_answers_alias_is_rejected(tmp_path):
+    project = tmp_path / "aidd"
+    project.mkdir(parents=True, exist_ok=True)
+    ensure_gates_config(project)
+    slug = "demo"
+    prd = """# PRD\n\n## Диалог analyst\nStatus: READY\nСсылка: docs/research/demo.md\n\nВопрос 1: Что уточнить?\n\n## AIDD:ANSWERS\n- Answer 1: B\n"""
+    _write_prd(project, slug, prd)
+    _write_research(project, slug)
+    settings = load_settings(project)
+
+    with pytest.raises(AnalystValidationError) as excinfo:
+        validate_prd(project, slug, settings=settings)
+
+    assert "неканоничный формат" in str(excinfo.value)
+
+
+def test_compact_answers_with_tbd_are_rejected(tmp_path):
+    project = tmp_path / "aidd"
+    project.mkdir(parents=True, exist_ok=True)
+    ensure_gates_config(project)
+    slug = "demo"
+    prd = """# PRD\n\n## Диалог analyst\nStatus: READY\nСсылка: docs/research/demo.md\n\nВопрос 1: Что уточнить?\n\n## AIDD:ANSWERS\nAIDD:ANSWERS Q1=TBD\n"""
+    _write_prd(project, slug, prd)
+    _write_research(project, slug)
+    settings = load_settings(project)
+
+    with pytest.raises(AnalystValidationError) as excinfo:
+        validate_prd(project, slug, settings=settings)
+
+    assert "недопустимое значение" in str(excinfo.value)
 
 
 def test_validation_skipped_when_disabled(tmp_path):

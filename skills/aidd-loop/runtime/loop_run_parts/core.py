@@ -80,7 +80,7 @@ _SCOPE_STALE_HINT_RE = re.compile(
     r"\b(?:scope_fallback_stale_ignored|scope_shape_invalid)=([A-Za-z0-9_.:-]+)\b",
     re.IGNORECASE,
 )
-DEFAULT_LOOP_STEP_TIMEOUT_SECONDS = 900
+DEFAULT_LOOP_STEP_TIMEOUT_SECONDS = 3600
 DEFAULT_SILENT_STALL_SECONDS = 1200
 DEFAULT_STAGE_BUDGET_SECONDS = 3600
 DEFAULT_RECOVERABLE_BLOCK_RETRIES = 2
@@ -597,6 +597,14 @@ def _apply_recoverable_block_recovery(
         if from_scope:
             active_work_item = from_scope
             write_active_state(target, ticket=ticket, work_item=active_work_item)
+    if (
+        stage == "review"
+        and reason_value in {"review_pack_missing", "review_pack_stale"}
+        and runtime.is_iteration_work_item_key(active_work_item)
+    ):
+        # Keep review stage active for a bounded retry when review-pack artifacts lag.
+        write_active_stage(target, "review")
+        return "retry_review_pack", active_work_item
     if stage in {"review", "qa"} and runtime.is_iteration_work_item_key(active_work_item):
         write_active_stage(target, "implement")
         return "handoff_to_implement", active_work_item

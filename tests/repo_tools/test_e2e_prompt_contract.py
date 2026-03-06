@@ -178,8 +178,8 @@ class E2EPromptContractTests(unittest.TestCase):
         text = _read(AUDIT_PROMPT_FULL)
         self.assertIn("#### 5.2.1 Step 5 Readiness Gate (hard-stop)", text)
         self.assertIn("05_precondition_block.txt", text)
-        self.assertIn("answers_format=compact_q_codes|legacy_answer_alias", text)
-        self.assertIn("`compact_q_codes` обязателен для retry payload", text)
+        self.assertIn("answers_format=compact_q_values", text)
+        self.assertIn("`compact_q_values` обязателен для retry payload", text)
         self.assertIn(
             "prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready",
             text,
@@ -215,10 +215,10 @@ class E2EPromptContractTests(unittest.TestCase):
 
     def test_full_prompt_requires_answer_normalization_and_compact_retry_payload(self) -> None:
         text = _read(AUDIT_PROMPT_FULL)
-        self.assertIn("legacy `Answer N:`/`Answer to QN:`", text)
+        self.assertIn("если source содержит `TBD`/пустые значения в `AIDD:ANSWERS`", text)
+        self.assertIn('Q<N>="короткий текст"', text)
         self.assertIn("AUDIT_DIR/<step>_questions_normalized.txt", text)
         self.assertIn("AIDD:ANSWERS Q1=C; Q2=B; Q3=C; Q4=A; Q5=C", text)
-        self.assertIn("legacy префиксы `Answer N:` в retry запрещены", text)
 
     def test_full_prompt_marker_semantics_excludes_template_backup_noise(self) -> None:
         text = _read(AUDIT_PROMPT_FULL)
@@ -284,6 +284,13 @@ class E2EPromptContractTests(unittest.TestCase):
         self.assertIn("recoverable_blocked", full_text)
         self.assertIn("recovery_path", full_text)
         self.assertIn("retry_attempt", full_text)
+
+    def test_full_prompt_loop_timeout_contract_is_explicit(self) -> None:
+        full_text = _read(AUDIT_PROMPT_FULL)
+        self.assertIn("LOOP_STEP_TIMEOUT_SECONDS", full_text)
+        self.assertIn("LOOP_STAGE_BUDGET_SECONDS", full_text)
+        self.assertIn("--step-timeout-seconds $LOOP_STEP_TIMEOUT_SECONDS", full_text)
+        self.assertIn("--stage-budget-seconds $LOOP_STAGE_BUDGET_SECONDS", full_text)
 
     def test_prompt_research_pending_finalize_contract(self) -> None:
         for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):

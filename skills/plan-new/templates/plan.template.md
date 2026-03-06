@@ -17,8 +17,7 @@ Research: `aidd/docs/research/<ticket>.md`
 
 ## AIDD:ANSWERS
 > Единый формат ответов из чата (если вопросы были).
-- Answer 1: <ответ>
-- Answer 2: <ответ>
+`AIDD:ANSWERS Q1=A; Q2="нужен режим без кэша"`
 
 ## AIDD:RISKS
 - `<риск> → <митигация>`

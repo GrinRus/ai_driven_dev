@@ -91,6 +91,31 @@ def write_prompt(root: Path, name: str, version: str = "1.0.0", kind: str = "age
     (ru_dir / f"{name}.md").write_text(ru_text, encoding="utf-8")
 
 
+def write_stage_skill(root: Path, name: str, version: str = "1.0.0") -> None:
+    skill_dir = root / "skills" / name
+    skill_dir.mkdir(parents=True, exist_ok=True)
+    text = dedent(
+        f"""
+        ---
+        name: {name}
+        description: "{name}"
+        argument-hint: "<TICKET>"
+        lang: ru
+        prompt_version: {version}
+        source_version: {version}
+        allowed-tools: Read
+        model: inherit
+        disable-model-invocation: true
+        user-invocable: true
+        ---
+
+        ## Steps
+        1. do
+        """
+    ).strip() + "\n"
+    (skill_dir / "SKILL.md").write_text(text, encoding="utf-8")
+
+
 class PromptVersioningTests(unittest.TestCase):
     def run_prompt_version(self, root: Path, name: str, kind: str, part: str) -> subprocess.CompletedProcess[str]:
         env = os.environ.copy()
@@ -135,6 +160,16 @@ class PromptVersioningTests(unittest.TestCase):
             ru_text = (root / "commands" / "plan-new.md").read_text(encoding="utf-8")
             self.assertIn("prompt_version: 1.0.1", ru_text)
             self.assertIn("source_version: 1.0.1", ru_text)
+
+    def test_bump_updates_stage_skill_command_fallback(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_stage_skill(root, "review", version="1.0.44")
+            result = self.run_prompt_version(root, "review", "command", "patch")
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            ru_text = (root / "skills" / "review" / "SKILL.md").read_text(encoding="utf-8")
+            self.assertIn("prompt_version: 1.0.45", ru_text)
+            self.assertIn("source_version: 1.0.45", ru_text)
 
 
 if __name__ == "__main__":  # pragma: no cover
