@@ -5,12 +5,12 @@
 _Статус: план. Цель — закрыть причины WARN/FAIL из full-аудита `TST-001` (run: `20260307T172536Z`) и получить детерминированный PASS на full profile без ручных recovery path._
 
 Evidence baseline:
-- `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-001/20260307T172536Z/05_plan_new_run1.log`
-- `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-001/20260307T172536Z/06_review_run1.log`
-- `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-001/20260307T172536Z/07_loop_run_run1.log`
-- `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-001/20260307T172536Z/08_qa_run1.log`
-- `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-001/20260307T172536Z/05_precondition_block_initial.txt`
-- `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-001/20260307T172536Z/05_precondition_block.txt`
+- `<workspace>/.aidd_audit/TST-001/20260307T172536Z/05_plan_new_run1.log`
+- `<workspace>/.aidd_audit/TST-001/20260307T172536Z/06_review_run1.log`
+- `<workspace>/.aidd_audit/TST-001/20260307T172536Z/07_loop_run_run1.log`
+- `<workspace>/.aidd_audit/TST-001/20260307T172536Z/08_qa_run1.log`
+- `<workspace>/.aidd_audit/TST-001/20260307T172536Z/05_precondition_block_initial.txt`
+- `<workspace>/.aidd_audit/TST-001/20260307T172536Z/05_precondition_block.txt`
 
 - [ ] **W104-1 (P0)** Eliminate planner drift to missing runtime entrypoint (`set_stage.py`) in plan-stage orchestration (`skills/plan-new/**`, prompts/runtime handoff text):
   - убрать/нормализовать все вызовы несуществующего `skills/aidd-flow-state/runtime/set_stage.py`;
