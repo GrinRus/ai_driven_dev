@@ -1,5 +1,47 @@
 # Product Backlog
 
+## Wave 104 — TST-001 e2e flow remediation (WARN/FAIL closure)
+
+_Статус: план. Цель — закрыть причины WARN/FAIL из full-аудита `TST-001` (run: `20260307T172536Z`) и получить детерминированный PASS на full profile без ручных recovery path._
+
+Evidence baseline:
+- `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-001/20260307T172536Z/05_plan_new_run1.log`
+- `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-001/20260307T172536Z/06_review_run1.log`
+- `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-001/20260307T172536Z/07_loop_run_run1.log`
+- `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-001/20260307T172536Z/08_qa_run1.log`
+- `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-001/20260307T172536Z/05_precondition_block_initial.txt`
+- `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-001/20260307T172536Z/05_precondition_block.txt`
+
+- [ ] **W104-1 (P0)** Eliminate planner drift to missing runtime entrypoint (`set_stage.py`) in plan-stage orchestration (`skills/plan-new/**`, prompts/runtime handoff text):
+  - убрать/нормализовать все вызовы несуществующего `skills/aidd-flow-state/runtime/set_stage.py`;
+  - использовать только canonical `set_active_stage.py` interface при необходимости.
+  **AC:** в `plan-new` run-логах отсутствуют `can't open file .../set_stage.py`; top-level stage остаётся `exit_code=0` без nested runtime path errors.
+
+- [ ] **W104-2 (P0)** Stage-result enum contract hardening for review/qa (`skills/review/**`, `skills/qa/**`, shared stage_result writers/tests):
+  - запретить передачу non-canonical `--result` значений (`revise_required`, `conditional_pass`) в `stage_result.py`;
+  - ввести явное mapping-правило user-facing verdict -> canonical result (`blocked|continue|done`) до вызова runtime.
+  **AC:** в review/qa логах нет `stage_result.py: error: argument --result: invalid choice`; stage-result artifacts всегда валидны с первой попытки.
+
+- [ ] **W104-3 (P1)** Readiness recovery telemetry convergence (`tests/repo_tools/e2e_prompt/*`, audit harness scripts, reporting helpers):
+  - после recovery `readiness_gate=PASS` автоматически помечать ранние `*_skipped_*`/`05_gate_outcome` как superseded в едином итоговом status file;
+  - исключить ложный terminal narrative при фактическом downstream execution.
+  **AC:** итоговый audit status по шагу 5 не содержит конфликтующих `NOT VERIFIED` при реально выполненных `5.3/5.4/5.5`.
+
+- [ ] **W104-4 (P1)** Ralph loop policy improvement for diff-boundary hard blocks (`skills/aidd-loop/runtime/loop_*`, boundary policy config/tests):
+  - разобрать `diff_boundary_violation` кейс `out_of_scope=26 threshold=25` на implement loop-step;
+  - добавить policy-safe recovery/telemetry path для near-threshold кейсов без ослабления `FORBIDDEN`.
+  **AC:** `BLOCKED_POLICY=ralph` не падает terminal на near-threshold boundary cases без попытки policy-defined recovery, при этом `FORBIDDEN` остаётся terminal.
+
+- [ ] **W104-5 (P1)** Loop scope/output-contract warning cleanup (`skills/aidd-loop/runtime/loop_run_parts/*`, `output_contract.py`, tests):
+  - убрать предупреждения `scope_key_mismatch_warn` fallback-перехода и `output_contract_warn(read_log_missing, read_order_missing_loop_pack)` в happy path;
+  - обеспечить консистентный preflight/read-order для loop pack/report logs.
+  **AC:** на full-flow smoke отсутствуют вышеуказанные WARN при валидном env и canonical artifacts.
+
+- [ ] **W104-6 (P1)** Add TST-001 regression checks to repo tools (`tests/repo_tools/**`, smoke/e2e profiles):
+  - автоматические проверки на: missing runtime path drift, invalid stage_result enum usage, stale readiness telemetry conflicts, loop hard-block attribution;
+  - включить в `ci-lint.sh`/smoke profile как non-flaky contract guard.
+  **AC:** регрессии класса TST-001 ловятся автоматически до merge.
+
 ## Wave 103 — Runtime bootstrap hardening + stale cache rollout
 
 _Статус: план. Цель — полностью закрыть `ModuleNotFoundError: No module named 'aidd_runtime'` в direct runtime path (cache/install) и исключить регрессии._
