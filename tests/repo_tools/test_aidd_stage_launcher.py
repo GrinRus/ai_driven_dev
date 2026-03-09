@@ -1,0 +1,158 @@
+from __future__ import annotations
+
+import importlib.util
+import os
+import sys
+import tempfile
+import time
+import unittest
+from pathlib import Path
+
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+STREAM_PATHS_MODULE_PATH = REPO_ROOT / "tests" / "repo_tools" / "aidd_stream_paths.py"
+LAUNCHER_MODULE_PATH = REPO_ROOT / "tests" / "repo_tools" / "aidd_stage_launcher.py"
+
+
+def _load_module(path: Path, name: str):
+    spec = importlib.util.spec_from_file_location(name, path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"unable to load module {name} from {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+class AiddStageLauncherTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.stream_paths = _load_module(STREAM_PATHS_MODULE_PATH, "aidd_stream_paths")
+        cls.launcher = _load_module(LAUNCHER_MODULE_PATH, "aidd_stage_launcher")
+
+    def test_primary_extraction_ignores_tool_result_noise(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            log = root / "run.log"
+            log.write_text(
+                "\n".join(
+                    [
+                        '{"type":"system","subtype":"init","plugins":[{"name":"feature-dev-aidd"}]}',
+                        '{"type":"user","message":{"content":"tool_result: cli.loop-run.20260305-140900.stream.jsonl"}}',
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            candidates = self.stream_paths.extract_primary_paths(log_path=log, project_dir=root)
+            self.assertEqual(candidates, [])
+
+    def test_header_extraction_parses_stream_and_log_without_prefix_drift(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            stream_jsonl = root / "aidd" / "reports" / "loops" / "TST-001" / "cli.loop-step.20260305-140900.stream.jsonl"
+            stream_log = root / "aidd" / "reports" / "loops" / "TST-001" / "cli.loop-step.20260305-140900.stream.log"
+            stream_jsonl.parent.mkdir(parents=True, exist_ok=True)
+            stream_jsonl.write_text("{}", encoding="utf-8")
+            stream_log.write_text("{}", encoding="utf-8")
+            log = root / "run.log"
+            log.write_text(
+                "==> streaming enabled: writing stream=aidd/reports/loops/TST-001/cli.loop-step.20260305-140900.stream.jsonl "
+                "log=aidd/reports/loops/TST-001/cli.loop-step.20260305-140900.stream.log\n",
+                encoding="utf-8",
+            )
+            result = self.stream_paths.resolve_stream_paths(
+                log_path=log,
+                out_path=root / "stream_paths.txt",
+                project_dir=root,
+                ticket="TST-001",
+                run_start_epoch=int(time.time()),
+            )
+            self.assertEqual(result["valid_count"], 2)
+            self.assertEqual(result["invalid_count"], 0)
+            self.assertEqual(result["missing_count"], 0)
+            lines = (root / "stream_paths.txt").read_text(encoding="utf-8").splitlines()
+            self.assertIn(f"source=loop_stream_header path={stream_jsonl.resolve()}", lines)
+            self.assertIn(f"source=loop_stream_header path={stream_log.resolve()}", lines)
+            self.assertNotRegex("\n".join(lines), r"log=aidd/")
+
+    def test_invalid_and_missing_paths_are_classified_and_not_promoted(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            candidates = [
+                self.stream_paths.CandidatePath(source="init_json", raw_path="/tmp/outside.stream.log"),
+                self.stream_paths.CandidatePath(source="init_json", raw_path="aidd/reports/loops/TST-001/missing.stream.jsonl"),
+            ]
+            valid, invalid, missing = self.stream_paths.normalize_and_validate(candidates, project_dir=root)
+            self.assertEqual(len(valid), 0)
+            self.assertEqual(len(invalid), 1)
+            self.assertEqual(len(missing), 1)
+
+    def test_fallback_discovery_ignores_stale_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            loop_root = root / "aidd" / "reports" / "loops" / "TST-001"
+            loop_root.mkdir(parents=True, exist_ok=True)
+            old_file = loop_root / "old.stream.jsonl"
+            new_file = loop_root / "new.stream.log"
+            old_file.write_text("old", encoding="utf-8")
+            new_file.write_text("new", encoding="utf-8")
+
+            now = int(time.time())
+            run_start = now
+            old_mtime = run_start - 60
+            new_mtime = run_start - 1
+            os.utime(old_file, (old_mtime, old_mtime))
+            os.utime(new_file, (new_mtime, new_mtime))
+
+            fallback = self.stream_paths.fallback_discovery(project_dir=root, ticket="TST-001", run_start_epoch=run_start)
+            self.assertEqual(len(fallback), 1)
+            self.assertEqual(fallback[0].raw_path, str(new_file.resolve()))
+
+    def test_fallback_discovery_requires_ticket_to_avoid_cross_ticket_scan(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            foreign_root = root / "aidd" / "reports" / "loops" / "OTHER-TICKET"
+            foreign_root.mkdir(parents=True, exist_ok=True)
+            (foreign_root / "foreign.stream.jsonl").write_text("{}", encoding="utf-8")
+            fallback = self.stream_paths.fallback_discovery(project_dir=root, ticket="", run_start_epoch=int(time.time()))
+            self.assertEqual(fallback, [])
+
+    def test_liveness_active_stream_when_stream_grows_and_main_stale(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            main = root / "main.log"
+            stream = root / "stream.jsonl"
+            main.write_text("main", encoding="utf-8")
+            stream.write_text("stream", encoding="utf-8")
+            now = int(time.time())
+            os.utime(main, (now - 2000, now - 2000))
+            os.utime(stream, (now - 5, now - 5))
+            payload = self.launcher.build_liveness_payload(
+                main_log=main,
+                valid_stream_paths=[str(stream)],
+                run_start_epoch=now - 100,
+            )
+            self.assertEqual(payload["classification"], "active_stream")
+            self.assertEqual(payload["active_source"], "stream")
+
+    def test_liveness_silent_stall_when_all_sources_stale(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            main = root / "main.log"
+            stream = root / "stream.log"
+            main.write_text("main", encoding="utf-8")
+            stream.write_text("stream", encoding="utf-8")
+            now = int(time.time())
+            os.utime(main, (now - 2500, now - 2500))
+            os.utime(stream, (now - 2500, now - 2500))
+            payload = self.launcher.build_liveness_payload(
+                main_log=main,
+                valid_stream_paths=[str(stream)],
+                run_start_epoch=now - 3000,
+            )
+            self.assertEqual(payload["classification"], "silent_stall")
+            self.assertEqual(payload["active_source"], "none")
+
+
+if __name__ == "__main__":
+    unittest.main()

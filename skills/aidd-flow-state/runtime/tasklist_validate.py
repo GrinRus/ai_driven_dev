@@ -13,6 +13,11 @@ from aidd_runtime import tasklist_normalize as normalize
 from aidd_runtime import tasklist_parser
 
 
+def _has_test_execution_field_key(lines: List[str], field: str) -> bool:
+    pattern = re.compile(rf"^\s*-\s*{re.escape(field)}\s*:\s*(?:.*)$", re.IGNORECASE)
+    return any(pattern.match(line) for line in lines)
+
+
 def check_tasklist_text(
     root: Path,
     ticket: str,
@@ -61,9 +66,15 @@ def check_tasklist_text(
         add_issue("error", "missing CONTEXT_PACK Status")
 
     test_execution = core.section_body(section_map.get("AIDD:TEST_EXECUTION", [None])[0]) if section_map.get("AIDD:TEST_EXECUTION") else []
-    for field in ("profile", "tasks", "filters", "when", "reason"):
+    for field in ("profile", "when", "reason"):
         if not core.extract_field_value(test_execution, field):
             add_issue("error", f"AIDD:TEST_EXECUTION missing {field}")
+    for field in ("tasks", "filters"):
+        inline_value = core.extract_field_value(test_execution, field)
+        list_value = core.extract_list_field(test_execution, field)
+        if inline_value or list_value or _has_test_execution_field_key(test_execution, field):
+            continue
+        add_issue("error", f"AIDD:TEST_EXECUTION missing {field}")
     parsed_test_execution = tasklist_parser.parse_test_execution(test_execution)
     malformed_test_tasks = parsed_test_execution.get("malformed_tasks") or []
     if malformed_test_tasks:

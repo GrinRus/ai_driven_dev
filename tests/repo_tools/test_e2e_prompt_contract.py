@@ -149,6 +149,22 @@ class E2EPromptContractTests(unittest.TestCase):
                 msg=f"{label}: missing stream jsonl probe policy",
             )
 
+    def test_prompts_require_canonical_stream_source_extraction_only(self) -> None:
+        full_text = _read(AUDIT_PROMPT_FULL)
+        smoke_text = _read(AUDIT_PROMPT_SMOKE)
+        for text, label in ((full_text, "full"), (smoke_text, "smoke")):
+            self.assertRegex(
+                text,
+                r"system/init.*JSON|init JSON",
+                msg=f"{label}: missing init-json stream extraction rule",
+            )
+            self.assertIn("streaming enabled", text, msg=f"{label}: missing control-header extraction rule")
+            self.assertRegex(
+                text.lower(),
+                r"tool_result|artifact",
+                msg=f"{label}: missing explicit tool_result/artifact exclusion",
+            )
+
     def test_full_prompt_captures_watchdog_and_stream_path_attribution_rules(self) -> None:
         text = _read(AUDIT_PROMPT_FULL)
         self.assertIn("stream_path_invalid", text)
@@ -189,6 +205,13 @@ class E2EPromptContractTests(unittest.TestCase):
         self.assertIn("NOT VERIFIED (readiness_gate_failed)", text)
         self.assertIn("NOT VERIFIED (upstream_readiness_gate_failed)", text)
 
+    def test_prompts_require_workspace_layout_shadow_check(self) -> None:
+        full_text = _read(AUDIT_PROMPT_FULL)
+        smoke_text = _read(AUDIT_PROMPT_SMOKE)
+        self.assertIn("99_workspace_layout_check.txt", full_text)
+        self.assertIn("non-canonical root", full_text)
+        self.assertIn("99_workspace_layout_check.txt", smoke_text)
+
     def test_prompts_define_scoped_research_warn_readiness_policy(self) -> None:
         for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
             text = _read(prompt)
@@ -213,6 +236,19 @@ class E2EPromptContractTests(unittest.TestCase):
             self.assertIn("05_plan_findings_sync_request.txt", text, msg=f"{prompt}: missing plan sync request artifact")
             self.assertIn("NOT VERIFIED (findings_sync_not_converged)", text, msg=f"{prompt}: missing non-converged sync classification")
 
+    def test_prompts_soften_false_missing_tasks_in_tasks_new(self) -> None:
+        for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
+            text = _read(prompt)
+            self.assertIn("AIDD:TEST_EXECUTION missing tasks", text, msg=f"{prompt}: missing missing-tasks guard")
+            self.assertIn("05_tasklist_test_execution_probe.txt", text, msg=f"{prompt}: missing tasklist probe artifact")
+            self.assertIn("tasks_list_count>0", text, msg=f"{prompt}: missing tasklist list-count probe condition")
+            self.assertIn(
+                "WARN(tasklist_schema_parser_mismatch_recoverable)",
+                text,
+                msg=f"{prompt}: missing recoverable mismatch classification",
+            )
+            self.assertIn("не terminal blocker", text, msg=f"{prompt}: missing non-terminal continuation policy")
+
     def test_full_prompt_requires_answer_normalization_and_compact_retry_payload(self) -> None:
         text = _read(AUDIT_PROMPT_FULL)
         self.assertIn("если source содержит `TBD`/пустые значения в `AIDD:ANSWERS`", text)
@@ -235,6 +271,11 @@ class E2EPromptContractTests(unittest.TestCase):
             self.assertIn('--plugin-dir "$PLUGIN_DIR"', text, msg=f"{prompt}: missing plugin-dir launcher invariant")
             self.assertIn("--verbose --output-format stream-json", text, msg=f"{prompt}: missing stream-json verbose flags")
             self.assertIn('df -Pk "$PROJECT_DIR"', text, msg=f"{prompt}: missing disk preflight invariant")
+
+    def test_smoke_script_blocks_legacy_shadow_artifacts_in_workspace_root(self) -> None:
+        text = _read(REPO_ROOT / "tests" / "repo_tools" / "smoke-workflow.sh")
+        self.assertIn("for shadow in docs reports config .cache; do", text)
+        self.assertIn("non-canonical root artifact created at workspace root", text)
 
     def test_full_prompt_step7_python_runtime_has_plugin_env_wiring(self) -> None:
         text = _read(AUDIT_PROMPT_FULL)
@@ -289,8 +330,11 @@ class E2EPromptContractTests(unittest.TestCase):
         full_text = _read(AUDIT_PROMPT_FULL)
         self.assertIn("LOOP_STEP_TIMEOUT_SECONDS", full_text)
         self.assertIn("LOOP_STAGE_BUDGET_SECONDS", full_text)
+        self.assertIn("STEP6_IMPLEMENT_BUDGET_SECONDS", full_text)
+        self.assertIn("STEP6_REVIEW_BUDGET_SECONDS", full_text)
         self.assertIn("--step-timeout-seconds $LOOP_STEP_TIMEOUT_SECONDS", full_text)
         self.assertIn("--stage-budget-seconds $LOOP_STAGE_BUDGET_SECONDS", full_text)
+        self.assertIn("budget считается по каждому запуску отдельно", full_text)
 
     def test_prompt_research_pending_finalize_contract(self) -> None:
         for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):

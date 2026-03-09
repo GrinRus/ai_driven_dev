@@ -656,7 +656,7 @@ def validate_research(
     except Exception:
         _raise_block(
             "research_report_unreadable",
-            f"не удалось прочитать docs/research/{ticket}.md",
+            f"не удалось прочитать aidd/docs/research/{ticket}.md",
             _research_cmd_hint(ticket),
         )
     doc_text_lower = doc_text.lower()
@@ -665,7 +665,7 @@ def validate_research(
         sample = ", ".join(sorted(stale_markers[:3]))
         _raise_block(
             "research_template_stale",
-            f"docs/research/{ticket}.md содержит неразрешённые template markers ({sample})",
+            f"aidd/docs/research/{ticket}.md содержит неразрешённые template markers ({sample})",
             _research_cmd_hint(ticket),
         )
 
@@ -681,7 +681,7 @@ def validate_research(
         if not status:
             _raise_block(
                 "research_status_missing",
-                f"docs/research/{ticket}.md не содержит строки `Status:` или она пуста",
+                f"aidd/docs/research/{ticket}.md не содержит строки `Status:` или она пуста",
                 _research_cmd_hint(ticket),
             )
         if status not in required_statuses:

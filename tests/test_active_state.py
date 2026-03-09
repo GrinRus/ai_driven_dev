@@ -70,7 +70,7 @@ class ActiveStateTests(unittest.TestCase):
             feature_ids.write_identifiers(
                 aidd,
                 ticket="TST-001",
-                slug_hint="AIDD:ANSWERS answer 1: proceed with defaults",
+                slug_hint='AIDD:ANSWERS Q1="proceed with defaults"',
                 scaffold_prd_file=False,
             )
 

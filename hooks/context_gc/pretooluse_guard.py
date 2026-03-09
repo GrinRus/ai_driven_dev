@@ -154,6 +154,12 @@ _STAGE_RESULT_SUFFIXES = (
     "/stage.review.result.json",
     "/stage.qa.result.json",
 )
+LEGACY_SHADOW_NAMES = ("docs", "reports", "config", ".cache")
+LEGACY_SHADOW_PREFIXES = tuple(f"{name}/" for name in LEGACY_SHADOW_NAMES)
+LEGACY_SHADOW_BASH_RE = re.compile(
+    r"(?<![A-Za-z0-9_./-])(?:\./)?(?:docs|reports|config|\.cache)(?:/|\b)",
+    flags=re.IGNORECASE,
+)
 _MANUAL_PREFLIGHT_RE = re.compile(
     r"\bpython(?:3)?\b[^\n\r]*\bskills/aidd-loop/runtime/preflight_prepare\.py\b",
     flags=re.IGNORECASE,
@@ -199,9 +205,9 @@ def _resolve_tool_path(path_value: str, project_dir: Path, aidd_root: Optional[P
         else:
             candidates.append((project_dir / raw).resolve())
     else:
-        candidates.append((project_dir / raw).resolve())
         if aidd_root:
             candidates.append((aidd_root / raw).resolve())
+        candidates.append((project_dir / raw).resolve())
 
     for candidate in candidates:
         try:
@@ -212,6 +218,110 @@ def _resolve_tool_path(path_value: str, project_dir: Path, aidd_root: Optional[P
     if candidates:
         return candidates[0]
     return (project_dir / raw).resolve()
+
+
+def _normalize_path_value(raw: str) -> str:
+    normalized = str(raw or "").strip().replace("\\", "/")
+    while normalized.startswith("./"):
+        normalized = normalized[2:]
+    return normalized
+
+
+def _workspace_root(project_dir: Path, aidd_root: Optional[Path]) -> Path:
+    if aidd_root and aidd_root.name == "aidd":
+        return aidd_root.parent.resolve()
+    return project_dir.resolve()
+
+
+def _has_canonical_aidd_root(aidd_root: Optional[Path]) -> bool:
+    return bool(aidd_root and aidd_root.name == "aidd" and (aidd_root / "docs").is_dir())
+
+
+def _path_is_legacy_shadow_target(path: Path, project_dir: Path, aidd_root: Optional[Path]) -> bool:
+    workspace_root = _workspace_root(project_dir, aidd_root)
+    resolved = path.resolve()
+    for name in LEGACY_SHADOW_NAMES:
+        legacy_root = (workspace_root / name).resolve()
+        try:
+            resolved.relative_to(legacy_root)
+            return True
+        except Exception:
+            continue
+    return False
+
+
+def _raw_targets_legacy_shadow(path_value: str, project_dir: Path, aidd_root: Optional[Path]) -> bool:
+    normalized = _normalize_path_value(path_value)
+    if not normalized:
+        return False
+    if normalized.startswith("aidd/"):
+        return False
+    try:
+        raw_path = Path(path_value)
+    except Exception:
+        raw_path = Path(normalized)
+    if raw_path.is_absolute():
+        return _path_is_legacy_shadow_target(raw_path, project_dir, aidd_root)
+    if aidd_root:
+        try:
+            project_dir.resolve().relative_to(aidd_root.resolve())
+            return False
+        except Exception:
+            pass
+    return normalized in LEGACY_SHADOW_NAMES or normalized.startswith(LEGACY_SHADOW_PREFIXES)
+
+
+def _legacy_shadow_message() -> str:
+    return (
+        "Canonical workspace layout is `aidd/*`. Root-level `docs/*|reports/*|config/*|.cache/*` "
+        "is non-canonical for runtime operations. Use `aidd/docs/...`, `aidd/reports/...`, `aidd/config/...`, "
+        "`aidd/.cache/...`."
+    )
+
+
+def _legacy_shadow_rw_decision(
+    *,
+    tool_name: str,
+    path_value: str,
+    project_dir: Path,
+    aidd_root: Optional[Path],
+    strict_mode: bool,
+) -> Optional[Dict[str, str]]:
+    if not _has_canonical_aidd_root(aidd_root):
+        return None
+    if not _raw_targets_legacy_shadow(path_value, project_dir, aidd_root):
+        return None
+    if tool_name in {"Write", "Edit"}:
+        return _deny_or_warn(
+            strict_mode,
+            reason="Writes to non-canonical root paths are forbidden when canonical aidd/ exists.",
+            system_message=f"BLOCK/WARN: {_legacy_shadow_message()}",
+        )
+    if tool_name in {"Read", "Glob"}:
+        return {
+            "decision": "allow",
+            "reason": "Read from non-canonical root aliases is allowed for compatibility diagnostics only.",
+            "system_message": f"WARN: {_legacy_shadow_message()}",
+        }
+    return None
+
+
+def _legacy_shadow_bash_decision(
+    *,
+    command: str,
+    project_dir: Path,
+    aidd_root: Optional[Path],
+    strict_mode: bool,
+) -> Optional[Dict[str, str]]:
+    if not _has_canonical_aidd_root(aidd_root):
+        return None
+    if not LEGACY_SHADOW_BASH_RE.search(command):
+        return None
+    return _deny_or_warn(
+        strict_mode,
+        reason="Bash command targets non-canonical root paths while canonical aidd/ exists.",
+        system_message=f"BLOCK/WARN: {_legacy_shadow_message()}",
+    )
 
 
 def _path_candidates(path: Path, project_dir: Path, aidd_root: Optional[Path]) -> list[str]:
@@ -468,17 +578,28 @@ def _enforce_rw_policy(
     if tool_name not in {"Read", "Write", "Edit", "Glob"}:
         return None
 
+    strict_mode = resolve_hooks_mode() == "strict"
     if tool_name == "Glob":
         candidates = _glob_candidates(tool_input, project_dir, aidd_root)
         if not candidates:
             return None
+        path_value = str(tool_input.get("path") or tool_input.get("pattern") or "")
     else:
         path_value = _tool_input_path(tool_input)
         if not path_value:
             return None
         path = _resolve_tool_path(path_value, project_dir, aidd_root)
         candidates = _path_candidates(path, project_dir, aidd_root)
-    strict_mode = resolve_hooks_mode() == "strict"
+
+    legacy_decision = _legacy_shadow_rw_decision(
+        tool_name=tool_name,
+        path_value=path_value,
+        project_dir=project_dir,
+        aidd_root=aidd_root,
+        strict_mode=strict_mode,
+    )
+    if legacy_decision:
+        return legacy_decision
 
     state = _policy_state(project_dir, aidd_root)
     if not state:
@@ -749,9 +870,9 @@ def handle_read(project_dir: Path, aidd_root: Optional[Path], cfg: Dict[str, Any
             else:
                 candidates.append(project_dir / path)
         else:
-            candidates.append(project_dir / path)
             if aidd_root:
                 candidates.append(aidd_root / path)
+            candidates.append(project_dir / path)
         resolved = None
         for candidate in candidates:
             try:
@@ -848,6 +969,19 @@ def main() -> None:
                     permission_decision=manual_preflight_decision["decision"],
                     reason=manual_preflight_decision["reason"],
                     system_message=manual_preflight_decision["system_message"],
+                )
+                return
+            legacy_bash_decision = _legacy_shadow_bash_decision(
+                command=cmd,
+                project_dir=project_dir,
+                aidd_root=aidd_root,
+                strict_mode=resolve_hooks_mode() == "strict",
+            )
+            if legacy_bash_decision:
+                pretooluse_decision(
+                    permission_decision=legacy_bash_decision["decision"],
+                    reason=legacy_bash_decision["reason"],
+                    system_message=legacy_bash_decision["system_message"],
                 )
                 return
 

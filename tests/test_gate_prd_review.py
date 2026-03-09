@@ -27,7 +27,9 @@ def make_prd(
         Status: {dialog_status}
 
         Вопрос 1: Что уточнить?
-        Ответ 1: Ответ получен.
+
+        ## AIDD:ANSWERS
+        AIDD:ANSWERS Q1=B
 
         {review_header}
         Status: {status}

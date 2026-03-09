@@ -223,6 +223,92 @@ class AiddAuditRunnerTests(unittest.TestCase):
         self.assertEqual(payload.get("readiness_gate_failed"), 1)
         self.assertEqual(payload.get("readiness_reason"), "prd_not_ready")
 
+    def test_no_stream_emitted_with_top_level_result_is_telemetry_info(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "07_loop_run_run1.summary.txt"
+            log_path = Path(tmp) / "07_loop_run_run1.log"
+            liveness_path = Path(tmp) / "07_loop_run_stream_liveness_check.txt"
+            summary_path.write_text(
+                "\n".join(
+                    [
+                        "exit_code=0",
+                        "result_count=0",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            log_path.write_text("[loop-run] status=blocked iterations=1 log=aidd/reports/loops/TST-001/loop.run.log\n", encoding="utf-8")
+            liveness_path.write_text(
+                "\n".join(
+                    [
+                        "run_start_epoch=100",
+                        "main_log_bytes=1",
+                        "main_log_mtime=100",
+                        "valid_stream_count=0",
+                        "active_source=none",
+                        "stagnation_seconds=0",
+                        "classification=no_stream_emitted",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(summary_path=summary_path, run_log_path=log_path, liveness_path=liveness_path)
+        self.assertEqual(payload.get("classification"), "TELEMETRY_ONLY")
+        self.assertEqual(payload.get("classification_subtype"), "stream_path_not_emitted_by_cli")
+        self.assertEqual(payload.get("effective_classification"), "INFO(stream_path_not_emitted_by_cli)")
+
+    def test_silent_stall_from_liveness_promotes_prompt_exec_issue(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "08_qa_run1.summary.txt"
+            log_path = Path(tmp) / "08_qa_run1.log"
+            liveness_path = Path(tmp) / "08_qa_stream_liveness_check.txt"
+            summary_path.write_text(
+                "\n".join(
+                    [
+                        "exit_code=0",
+                        "result_count=0",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            log_path.write_text("no top level result present\n", encoding="utf-8")
+            liveness_path.write_text(
+                "\n".join(
+                    [
+                        "run_start_epoch=100",
+                        "main_log_bytes=1",
+                        "main_log_mtime=100",
+                        "valid_stream_count=1",
+                        "stream_0_path=/tmp/stream.log",
+                        "stream_0_bytes=1",
+                        "stream_0_mtime=100",
+                        "active_source=none",
+                        "stagnation_seconds=2000",
+                        "classification=silent_stall",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(summary_path=summary_path, run_log_path=log_path, liveness_path=liveness_path)
+        self.assertEqual(payload.get("classification"), "PROMPT_EXEC_ISSUE")
+        self.assertEqual(payload.get("classification_subtype"), "silent_stall")
+
+    def test_infer_liveness_path_prefers_run_specific_then_fallback(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            summary = root / "07_loop_run_run2.summary.txt"
+            summary.write_text("exit_code=0\n", encoding="utf-8")
+            generic = root / "07_loop_run_stream_liveness_check.txt"
+            run_specific = root / "07_loop_run_stream_liveness_check_run2.txt"
+            generic.write_text("classification=no_stream_emitted\n", encoding="utf-8")
+            run_specific.write_text("classification=active_stream\n", encoding="utf-8")
+
+            inferred = self.runner.infer_liveness_path(summary)
+            self.assertEqual(inferred, run_specific)
+
 
 if __name__ == "__main__":
     unittest.main()
