@@ -1,5 +1,54 @@
 # Product Backlog
 
+## Wave 108 — TST-001 e2e flow remediation (run `20260309T070354Z`)
+
+_Статус: план. Цель — закрыть WARN/blocked-сигналы из full-аудита `TST-001` (run: `20260309T070354Z`) и вернуть детерминированную сходимость full-profile без non-canonical drift._
+
+Evidence baseline:
+- `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-001/20260309T070354Z/05_plan_new_drift_check.txt`
+- `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-001/20260309T070354Z/05_review_spec_report_check_run1.txt`
+- `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-001/20260309T070354Z/05_review_spec_report_check_run4.txt`
+- `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-001/20260309T070354Z/07_loop_run1.log`
+- `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-001/20260309T070354Z/07_loop_run1.summary.txt`
+- `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-001/20260309T070354Z/07_scope_mismatch_check.txt`
+- `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-001/20260309T070354Z/07_recoverable_block_policy_check.txt`
+- `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-001/20260309T070354Z/07_loop_stream_liveness_check.txt`
+
+- [ ] **W108-1 (P0)** Remove plan-stage runtime drift to non-canonical/missing `set_stage.py` (`skills/plan-new/SKILL.md`, `agents/planner.md`, `skills/plan-new/runtime/*`, `tests/repo_tools/test_e2e_prompt_contract.py`):
+  - убрать обращения к `skills/aidd-flow-state/runtime/set_stage.py` и legacy summary path, оставить только canonical `set_active_stage.py`/stage routing;
+  - добавить tripwire-тест на сигнатуру `can't open file ... set_stage.py`.
+  **AC:** в `plan-new` run-логах отсутствуют nested `set_stage.py` ошибки; stage завершает top-level result без runtime path drift.
+
+- [ ] **W108-2 (P0)** Enforce review-spec source-of-truth alignment (report payload first) (`skills/review-spec/**`, `skills/review-spec/runtime/*`, `tests/test_review_spec.py`, `tests/repo_tools/test_e2e_prompt_contract.py`):
+  - синхронизовать top-level narrative с `aidd/reports/prd/<ticket>.json|*.pack.json`;
+  - при расхождении выставлять явный telemetry marker и deterministic next action по report payload.
+  **AC:** `narrative_vs_report_mismatch=0` на happy-path rerun; решение readiness/sync принимается только из report payload.
+
+- [ ] **W108-3 (P0)** Loop scope reconciliation for next-iteration review (`skills/aidd-loop/runtime/loop_step_parts/core.py`, `skills/aidd-loop/runtime/loop_run_parts/core.py`, `tests/test_loop_step.py`, `tests/test_loop_run.py`):
+  - устранить fallback `expected_scope_key=iteration_id_I2` -> `selected_scope_key=iteration_id_I1` как default path;
+  - закрепить deterministic reconcile/probe path для `scope_key_mismatch_warn` без неявного stale fallback.
+  **AC:** в loop-step для `iteration_id_I2` отсутствует `scope_key_mismatch_warn`; stage-result candidate выбирается по authoritative scope.
+
+- [ ] **W108-4 (P0)** Ralph recoverable retry convergence for `no_tests_hard` in review stage (`skills/review/runtime/*`, `skills/aidd-loop/runtime/loop_run_parts/core.py`, `skills/aidd-flow-state/runtime/*`, `tests/test_review_agent.py`, `tests/test_loop_run.py`):
+  - обеспечить детерминированное формирование tests evidence для `iteration_id_I<N>` в recoverable path `handoff_to_implement`;
+  - исключить terminal blocked по `no_tests_hard` при валидно выполненном recoverable retry budget.
+  **AC:** loop-run в `BLOCKED_POLICY=ralph` после recoverable retries не завершается `reason_code=no_tests_hard` на том же ticket при наличии ожидаемого tests evidence.
+
+- [ ] **W108-5 (P1)** Output-contract warning cleanup for loop-step artifacts (`skills/aidd-loop/runtime/output_contract.py`, `skills/aidd-loop/runtime/loop_step_stage_chain.py`, `tests/test_loop_step.py`):
+  - закрыть `output_contract_warn(read_log_missing, read_order_missing_loop_pack)` в штатном path;
+  - гарантировать порядок и наличие read-order/loop-pack артефактов до финального blocked/done return.
+  **AC:** loop-step happy/recoverable path не генерирует `read_log_missing`/`read_order_missing_loop_pack` warnings.
+
+- [ ] **W108-6 (P1)** Audit/telemetry parser hardening for stream path normalization (`tests/repo_tools/aidd_audit_runner.py`, `tests/repo_tools/test_aidd_audit_runner.py`):
+  - корректно парсить `stream=... log=...` токены из loop stdout без ложных `stream_path_missing` префиксов;
+  - сохранить source-attribution (`raw|metadata|fallback_scan`) и фильтрацию path outside workspace.
+  **AC:** stream-path report не содержит артефактных путей вида `.../stream=aidd/...`; liveness набор состоит из нормализованных валидных workspace paths.
+
+- [ ] **W108-7 (P1)** Full-profile regression guard for run `20260309T070354Z` signatures (`tests/repo_tools/test_e2e_prompt_contract.py`, `tests/repo_tools/smoke-workflow.sh`, `tests/repo_tools/ci-lint.sh`):
+  - добавить проверки на сигнатуры: plan `set_stage.py` drift, review-spec mismatch, loop scope mismatch fallback, terminal `no_tests_hard` after ralph retries, output_contract_warn;
+  - зафиксировать expected/allowed WARN matrix отдельно от terminal blockers.
+  **AC:** регрессии из run `20260309T070354Z` воспроизводимо ловятся в repo-tools до merge.
+
 ## Wave 107 — TST-001 e2e flow remediation (run `20260308T093331Z`)
 
 _Статус: план. Цель — закрыть причины WARN/FAIL из full-аудита `TST-001` (run: `20260308T093331Z`) и получить детерминированную сходимость без ручного/не-canonical recovery path._
