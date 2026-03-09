@@ -55,6 +55,30 @@ def parse_kv_file(path: Path) -> Dict[str, str]:
     return payload
 
 
+def _safe_int(raw: object, default: int = 0) -> int:
+    try:
+        return int(str(raw).strip())
+    except Exception:
+        return default
+
+
+def infer_liveness_path(summary_path: Path) -> Path | None:
+    name = summary_path.name
+    match = re.match(r"^(?P<step>.+)_run(?P<run>[0-9]+)\.summary\.txt$", name)
+    if not match:
+        return None
+    step = match.group("step")
+    run = match.group("run")
+    candidates = [
+        summary_path.with_name(f"{step}_stream_liveness_check_run{run}.txt"),
+        summary_path.with_name(f"{step}_stream_liveness_check.txt"),
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return None
+
+
 def resolve_min_free_bytes(raw: str | None = None) -> int:
     value = raw or os.environ.get("AIDD_AUDIT_MIN_FREE_BYTES", "")
     if not str(value).strip():
@@ -203,12 +227,18 @@ def analyze_run(
     run_log_path: Path | None = None,
     termination_path: Path | None = None,
     precondition_path: Path | None = None,
+    liveness_path: Path | None = None,
     preflight: Mapping[str, object] | None = None,
     aux_log_paths: List[Path] | None = None,
 ) -> Dict[str, object]:
     summary = parse_kv_file(summary_path)
     termination = parse_kv_file(termination_path) if termination_path else {}
     precondition = parse_kv_file(precondition_path) if precondition_path else {}
+    if liveness_path is None:
+        inferred = infer_liveness_path(summary_path)
+        if inferred is not None:
+            liveness_path = inferred
+    liveness = parse_kv_file(liveness_path) if liveness_path else {}
     run_log = run_log_path
     if run_log is None:
         candidate = Path(str(summary_path).replace(".summary.txt", ".log"))
@@ -236,6 +266,31 @@ def analyze_run(
         preflight=preflight,
         diagnostics_text=aux_text,
     )
+    liveness_classification = str(liveness.get("classification") or "").strip().lower()
+    liveness_active_source = str(liveness.get("active_source") or "").strip().lower()
+    liveness_valid_stream_count = _safe_int(liveness.get("valid_stream_count"), 0)
+    liveness_stagnation_seconds = _safe_int(liveness.get("stagnation_seconds"), 0)
+    liveness_run_start_epoch = _safe_int(liveness.get("run_start_epoch"), 0)
+
+    if liveness_classification == "silent_stall" and classified.classification in {"FLOW_BUG", "TELEMETRY_ONLY"}:
+        classified = contract.Classification(
+            classification="PROMPT_EXEC_ISSUE",
+            subtype="silent_stall",
+            source="liveness",
+            label="NOT_VERIFIED(silent_stall)+PROMPT_EXEC_ISSUE(silent_stall)",
+        )
+
+    if (
+        top_level_result_present
+        and liveness_classification == "no_stream_emitted"
+        and classified.classification in {"FLOW_BUG", "TELEMETRY_ONLY"}
+    ):
+        classified = contract.Classification(
+            classification="TELEMETRY_ONLY",
+            subtype="stream_path_not_emitted_by_cli",
+            source="liveness",
+            label="INFO(stream_path_not_emitted_by_cli)",
+        )
     readiness_reason = _detect_readiness_gate_reason(
         summary=summary,
         precondition=precondition,
@@ -286,10 +341,17 @@ def analyze_run(
             "invalid_fallback_paths": invalid_fallback_paths,
             "readiness_gate_failed": int(readiness_gate_failed),
             "readiness_reason": readiness_reason,
+            "liveness_classification": liveness_classification,
+            "liveness_active_source": liveness_active_source,
+            "liveness_valid_stream_count": liveness_valid_stream_count,
+            "liveness_stagnation_seconds": liveness_stagnation_seconds,
+            "liveness_run_start_epoch": liveness_run_start_epoch,
         }
     )
     if precondition:
         payload["precondition"] = dict(precondition)
+    if liveness:
+        payload["liveness"] = dict(liveness)
     return payload
 
 
@@ -307,6 +369,7 @@ def _build_parser() -> argparse.ArgumentParser:
     classify_parser.add_argument("--log")
     classify_parser.add_argument("--termination")
     classify_parser.add_argument("--precondition")
+    classify_parser.add_argument("--liveness")
     classify_parser.add_argument("--aux-log", action="append", default=[])
     classify_parser.add_argument("--project-dir")
     classify_parser.add_argument("--plugin-dir")
@@ -339,6 +402,7 @@ def main(argv: List[str] | None = None) -> int:
         run_log_path=Path(args.log) if args.log else None,
         termination_path=Path(args.termination) if args.termination else None,
         precondition_path=Path(args.precondition) if args.precondition else None,
+        liveness_path=Path(args.liveness) if args.liveness else None,
         preflight=preflight_payload,
         aux_log_paths=[Path(item) for item in args.aux_log],
     )

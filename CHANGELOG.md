@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Breaking Changes
+- Removed workspace-root auto-migration (`docs|reports|config|.cache -> aidd/*`): runtime/hooks now operate on canonical `aidd/*` only and no longer mutate root-level project paths.
 - Wave 96 shell-runtime cutover: `tools/*.sh` entrypoints are removed from public runtime API.
 - Wave 97 Python-only runtime canon: canonical runtime API is now `python3 skills/*/runtime/*.py`.
 - `skills/*/scripts/*.sh` moved to transition-only compatibility layer (deprecation window through 2026-03-31).

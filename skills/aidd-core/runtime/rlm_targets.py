@@ -365,7 +365,7 @@ def build_targets(
     if not (paths or keywords):
         raise ValueError(
             "AIDD:RESEARCH_HINTS must define Paths or Keywords "
-            f"in docs/prd/{ticket}.prd.md (or pass --paths)."
+            f"in aidd/docs/prd/{ticket}.prd.md (or pass --paths)."
         )
 
     mode_override = str(targets_mode).strip().lower() if targets_mode else ""
@@ -448,7 +448,7 @@ def build_targets(
 
 def parse_args(argv: List[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate deterministic RLM targets.")
-    parser.add_argument("--ticket", help="Ticket identifier (defaults to docs/.active.json).")
+    parser.add_argument("--ticket", help="Ticket identifier (defaults to aidd/docs/.active.json).")
     parser.add_argument("--output", help="Optional output path for rlm-targets.json.")
     parser.add_argument(
         "--paths",

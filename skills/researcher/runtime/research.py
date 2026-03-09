@@ -457,12 +457,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--ticket",
         dest="ticket",
-        help="Ticket identifier to analyse (defaults to docs/.active.json).",
+        help="Ticket identifier to analyse (defaults to aidd/docs/.active.json).",
     )
     parser.add_argument(
         "--slug-hint",
         dest="slug_hint",
-        help="Optional slug hint override used for templates (defaults to docs/.active.json).",
+        help="Optional slug hint override used for templates (defaults to aidd/docs/.active.json).",
     )
     parser.add_argument(
         "--paths",
@@ -500,7 +500,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--no-template",
         action="store_true",
-        help="Do not materialise docs/research/<ticket>.md from template.",
+        help="Do not materialise aidd/docs/research/<ticket>.md from template.",
     )
     parser.add_argument(
         "--auto",
@@ -544,7 +544,7 @@ def run(args: argparse.Namespace) -> int:
     if not (hints.paths or hints.keywords or explicit_paths or extra_keywords):
         raise RuntimeError(
             "BLOCK: AIDD:RESEARCH_HINTS must define Paths or Keywords "
-            f"in docs/prd/{ticket}.prd.md (or pass --paths/--keywords/--rlm-paths)."
+            f"in aidd/docs/prd/{ticket}.prd.md (or pass --paths/--keywords/--rlm-paths)."
         )
 
     settings = load_rlm_settings(target)
@@ -601,8 +601,8 @@ def run(args: argparse.Namespace) -> int:
         return 2
 
     links_path = target / "reports" / "research" / f"{ticket}-rlm.links.jsonl"
-    rlm_pack_rel = f"reports/research/{ticket}-rlm{_pack_extension()}"
-    rlm_pack_path = target / rlm_pack_rel
+    rlm_pack_rel = f"aidd/reports/research/{ticket}-rlm{_pack_extension()}"
+    rlm_pack_path = runtime.resolve_path_for_target(Path(rlm_pack_rel), target)
     if nodes_path.exists() and links_path.exists() and nodes_path.stat().st_size > 0 and links_path.stat().st_size > 0:
         try:
             from aidd_runtime import reports_pack as _reports_pack

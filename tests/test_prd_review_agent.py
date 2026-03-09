@@ -227,7 +227,7 @@ class PRDReviewAgentTests(unittest.TestCase):
         self.assertEqual(report.recommended_status, "pending")
         self.assertTrue(any("AIDD:OPEN_QUESTIONS" in item.title for item in report.findings))
 
-    def test_analyse_prd_does_not_overread_open_questions_past_nested_heading(self):
+    def test_analyse_prd_ignores_nested_heading_after_none_open_questions(self):
         prd = self.write_prd(
             dedent(
                 """\
@@ -235,9 +235,11 @@ class PRDReviewAgentTests(unittest.TestCase):
 
                 ## AIDD:OPEN_QUESTIONS
                 - none
-
                 ### Notes
-                - Q9: informational note outside structured section
+                - informational context only
+
+                ## AIDD:ANSWERS
+                AIDD:ANSWERS Q1=A
 
                 ## PRD Review
                 Status: READY
@@ -258,7 +260,28 @@ class PRDReviewAgentTests(unittest.TestCase):
                 # Demo
 
                 ## AIDD:ANSWERS
-                - Answer 1: A
+                - свободный ответ без Q-ключа
+
+                ## PRD Review
+                Status: READY
+                """
+            ),
+        )
+
+        report = prd_review_agent.analyse_prd("demo-feature", prd)
+
+        self.assertEqual(report.answers_format, "invalid")
+        self.assertEqual(report.recommended_status, "pending")
+        self.assertTrue(any("AIDD:ANSWERS" in item.title for item in report.findings))
+
+    def test_analyse_prd_marks_answers_format_invalid_for_placeholder_value(self):
+        prd = self.write_prd(
+            dedent(
+                """\
+                # Demo
+
+                ## AIDD:ANSWERS
+                AIDD:ANSWERS Q1=<указать позже>
 
                 ## PRD Review
                 Status: READY

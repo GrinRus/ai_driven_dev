@@ -122,6 +122,23 @@ def test_compact_answers_allow_quoted_short_text(tmp_path):
     assert summary.answered_count == 1
 
 
+def test_compact_answers_allow_quoted_q2_text(tmp_path):
+    project = tmp_path / "aidd"
+    project.mkdir(parents=True, exist_ok=True)
+    ensure_gates_config(project)
+    slug = "demo"
+    prd = """# PRD\n\n## Диалог analyst\nStatus: READY\nСсылка: docs/research/demo.md\n\nВопрос 1: Что уточнить?\nВопрос 2: Что нужно дополнительно?\n\n## AIDD:ANSWERS\nAIDD:ANSWERS Q1=A; Q2="нужен режим без кэша"\n\n## AIDD:OPEN_QUESTIONS\n- none\n"""
+    _write_prd(project, slug, prd)
+    _write_research(project, slug)
+    settings = load_settings(project)
+
+    summary = validate_prd(project, slug, settings=settings)
+
+    assert summary.status == "READY"
+    assert summary.question_count == 2
+    assert summary.answered_count == 2
+
+
 def test_missing_answer_blocks_validation(tmp_path):
     project = tmp_path / "aidd"
     project.mkdir(parents=True, exist_ok=True)
@@ -280,12 +297,12 @@ def test_draft_status_rejected(tmp_path):
     assert "draft" in str(excinfo.value).lower()
 
 
-def test_legacy_answers_alias_is_rejected(tmp_path):
+def test_non_compact_answers_payload_is_rejected(tmp_path):
     project = tmp_path / "aidd"
     project.mkdir(parents=True, exist_ok=True)
     ensure_gates_config(project)
     slug = "demo"
-    prd = """# PRD\n\n## Диалог analyst\nStatus: READY\nСсылка: docs/research/demo.md\n\nВопрос 1: Что уточнить?\n\n## AIDD:ANSWERS\n- Answer 1: B\n"""
+    prd = """# PRD\n\n## Диалог analyst\nStatus: READY\nСсылка: docs/research/demo.md\n\nВопрос 1: Что уточнить?\n\n## AIDD:ANSWERS\n- свободный ответ вне compact формата\n"""
     _write_prd(project, slug, prd)
     _write_research(project, slug)
     settings = load_settings(project)
@@ -293,7 +310,7 @@ def test_legacy_answers_alias_is_rejected(tmp_path):
     with pytest.raises(AnalystValidationError) as excinfo:
         validate_prd(project, slug, settings=settings)
 
-    assert "неканоничный формат" in str(excinfo.value)
+    assert "должен быть в compact формате" in str(excinfo.value)
 
 
 def test_compact_answers_with_tbd_are_rejected(tmp_path):
@@ -302,6 +319,22 @@ def test_compact_answers_with_tbd_are_rejected(tmp_path):
     ensure_gates_config(project)
     slug = "demo"
     prd = """# PRD\n\n## Диалог analyst\nStatus: READY\nСсылка: docs/research/demo.md\n\nВопрос 1: Что уточнить?\n\n## AIDD:ANSWERS\nAIDD:ANSWERS Q1=TBD\n"""
+    _write_prd(project, slug, prd)
+    _write_research(project, slug)
+    settings = load_settings(project)
+
+    with pytest.raises(AnalystValidationError) as excinfo:
+        validate_prd(project, slug, settings=settings)
+
+    assert "недопустимое значение" in str(excinfo.value)
+
+
+def test_compact_answers_with_placeholder_are_rejected(tmp_path):
+    project = tmp_path / "aidd"
+    project.mkdir(parents=True, exist_ok=True)
+    ensure_gates_config(project)
+    slug = "demo"
+    prd = """# PRD\n\n## Диалог analyst\nStatus: READY\nСсылка: docs/research/demo.md\n\nВопрос 1: Что уточнить?\n\n## AIDD:ANSWERS\nAIDD:ANSWERS Q1=<указать позже>\n"""
     _write_prd(project, slug, prd)
     _write_research(project, slug)
     settings = load_settings(project)

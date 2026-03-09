@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, Optional, Sequence
 
 from aidd_runtime import stage_lexicon
+from aidd_runtime.resources import DEFAULT_PROJECT_SUBDIR, resolve_project_root as resolve_workspace_root
 
 
 DEFAULT_CONFIG: Dict[str, Any] = {
@@ -190,17 +191,9 @@ def resolve_project_root(ctx: HookContext | None = None, *, cwd: str | None = No
         base = resolve_project_dir(ctx)
     else:
         base = Path.cwd().resolve()
-
-    for parent in _iter_parent_dirs(base):
-        if parent.name == "aidd" and (parent / "docs").is_dir():
-            return parent.resolve(), parent != base
-        candidate = parent / "aidd"
-        if (candidate / "docs").is_dir():
-            return candidate.resolve(), True
-
-    if (base / "docs").is_dir() and ((base / "config").is_dir() or (base / "hooks").is_dir()):
-        return base.resolve(), False
-    return base.resolve(), False
+    workspace_root, project_root = resolve_workspace_root(base, DEFAULT_PROJECT_SUBDIR)
+    resolved = project_root.resolve()
+    return resolved, resolved != base.resolve()
 
 
 def _iter_parent_dirs(path: Path) -> Iterable[Path]:
@@ -210,26 +203,12 @@ def _iter_parent_dirs(path: Path) -> Iterable[Path]:
 
 
 def resolve_aidd_root(project_dir: Path) -> Optional[Path]:
-    env_candidates = [
-        os.environ.get("CLAUDE_PLUGIN_ROOT"),
-    ]
-    for c in env_candidates:
-        if not c:
-            continue
-        p = Path(c).expanduser()
-        if not p.is_absolute():
-            p = (project_dir / p).resolve()
-        else:
-            p = p.resolve()
-        if (p / "docs").is_dir() and (p / "config").is_dir():
-            return p
-
-    for parent in _iter_parent_dirs(project_dir):
+    for parent in _iter_parent_dirs(project_dir.resolve()):
+        if parent.name == "aidd" and (parent / "docs").is_dir() and (parent / "config").is_dir():
+            return parent.resolve()
         candidate = parent / "aidd"
         if (candidate / "docs").is_dir() and (candidate / "config").is_dir():
             return candidate.resolve()
-        if (parent / "docs").is_dir() and (parent / "config").is_dir():
-            return parent.resolve()
     return None
 
 

@@ -71,6 +71,40 @@ class TasklistCheckTests(unittest.TestCase):
                 result.message,
             )
 
+    def test_tasklist_check_accepts_multiline_test_execution_tasks(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            ticket = "DEMO-3M"
+            tasklist = helpers.tasklist_ready_text(ticket).replace(
+                "- tasks: []\n",
+                "- tasks:\n"
+                "  - ./gradlew test --tests \"*GithubAnalysis*\"\n"
+                "  - npm test -- --testPathPattern=\"MCP\"\n",
+                1,
+            )
+            helpers.write_file(root, f"docs/tasklist/{ticket}.md", tasklist)
+            write_plan(root, ticket)
+            result = tasklist_check.check_tasklist(helpers._project_root(root), ticket)
+            self.assertEqual(result.status, "ok", result.message)
+            self.assertFalse(
+                any("AIDD:TEST_EXECUTION missing tasks" in entry for entry in result.details or []),
+                result.message,
+            )
+
+    def test_tasklist_check_fails_when_test_execution_tasks_key_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            ticket = "DEMO-3N"
+            tasklist = helpers.tasklist_ready_text(ticket).replace("- tasks: []\n", "", 1)
+            helpers.write_file(root, f"docs/tasklist/{ticket}.md", tasklist)
+            write_plan(root, ticket)
+            result = tasklist_check.check_tasklist(helpers._project_root(root), ticket)
+            self.assertEqual(result.status, "error")
+            self.assertTrue(
+                any("AIDD:TEST_EXECUTION missing tasks" in entry for entry in result.details or []),
+                result.message,
+            )
+
     def test_tasklist_check_fails_on_shell_chain_single_task_entry(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)

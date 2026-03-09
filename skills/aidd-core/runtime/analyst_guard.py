@@ -35,7 +35,6 @@ from aidd_runtime.feature_ids import resolve_aidd_root
 
 # Allow Markdown prefixes (headings/bullets/bold) so analyst output doesn't trip the gate.
 QUESTION_RE = re.compile(r"^\s*(?:[#>*-]+\s*)?(?:\*\*)?Вопрос\s+(\d+)\b[^:\n]*:(?:\*\*)?", re.MULTILINE)
-LEGACY_ANSWER_RE = re.compile(r"^\s*(?:[-*+]\s*)?(?:Ответ|Answer)\s+\d+\s*:", re.IGNORECASE | re.MULTILINE)
 COMPACT_ANSWER_RE = re.compile(r'\bQ(\d+)\s*=\s*(?:"([^"\n]+)"|([^\s;,#`]+))')
 STATUS_RE = re.compile(r"^\s*Status:\s*([A-Za-z]+)", re.MULTILINE)
 DIALOG_HEADING = "## Диалог analyst"
@@ -47,7 +46,9 @@ INVALID_ANSWER_VALUES = {"tbd", "todo", "none", "нет", "n/a", "na", "empty", 
 OPEN_ITEM_PREFIX_RE = re.compile(r"^(?:[-*+]\s+|\d+\.\s+)")
 CHECKBOX_PREFIX_RE = re.compile(r"^\[[ xX]\]\s*")
 ALLOWED_STATUSES = {"READY", "BLOCKED", "PENDING"}
-RESEARCH_REF_TEMPLATE = "docs/research/{ticket}.md"
+RESEARCH_REF_TEMPLATE = "aidd/docs/research/{ticket}.md"
+LEGACY_RESEARCH_REF_TEMPLATE = "docs/research/{ticket}.md"
+MARKDOWN_HEADING_RE = re.compile(r"^\s{0,3}#{1,6}\s+\S")
 
 
 class AnalystValidationError(RuntimeError):
@@ -115,7 +116,7 @@ def _extract_section(text: str, heading_prefix: str) -> str | None:
         return None
     end_idx = len(lines)
     for idx in range(start_idx, len(lines)):
-        if lines[idx].startswith("## ") and idx != start_idx:
+        if idx != start_idx and MARKDOWN_HEADING_RE.match(lines[idx]):
             end_idx = idx
             break
     return "\n".join(lines[start_idx:end_idx]).strip()
@@ -154,7 +155,14 @@ def _invalid_compact_answers(answers: dict[int, str]) -> list[int]:
     invalid: list[int] = []
     for number, value in answers.items():
         normalized = str(value).strip().lower()
+        stripped = str(value).strip()
         if normalized in INVALID_ANSWER_VALUES:
+            invalid.append(number)
+            continue
+        if stripped.startswith("<") and stripped.endswith(">"):
+            invalid.append(number)
+            continue
+        if "<" in stripped or ">" in stripped:
             invalid.append(number)
     return sorted(set(invalid))
 
@@ -209,19 +217,15 @@ def validate_prd(
     text = prd_path.read_text(encoding="utf-8")
     dialog_section = _extract_section(text, DIALOG_HEADING)
     questions_source = dialog_section or text
+    if dialog_section and not _collect_numbers(QUESTION_RE, questions_source):
+        questions_source = text
     answers_section = _extract_section(text, ANSWERS_HEADING)
     questions = _collect_numbers(QUESTION_RE, questions_source)
     answers_source = answers_section or ""
-    if LEGACY_ANSWER_RE.search(answers_source):
-        raise AnalystValidationError(
-            "BLOCK: AIDD:ANSWERS использует неканоничный формат ответов. "
-            "Используйте compact payload `AIDD:ANSWERS Q1=A; Q2=\"короткий текст\"`."
-        )
     answers_map = _collect_compact_answers(answers_source)
     if answers_source.strip() and not answers_map:
         raise AnalystValidationError(
-            "BLOCK: AIDD:ANSWERS должен быть в compact формате `Q<N>=<value>`; "
-            "пример: `AIDD:ANSWERS Q1=A; Q2=\"короткий текст\"`."
+            "BLOCK: AIDD:ANSWERS должен быть в compact формате `Q<N>=<value>`."
         )
     invalid_compact = _invalid_compact_answers(answers_map)
     if invalid_compact:
@@ -336,7 +340,8 @@ def validate_prd(
             raise AnalystValidationError("BLOCK: статус PENDING. Закройте вопросы и установите Status: READY.")
 
     research_ref = RESEARCH_REF_TEMPLATE.format(ticket=ticket)
-    if research_ref not in text:
+    legacy_ref = LEGACY_RESEARCH_REF_TEMPLATE.format(ticket=ticket)
+    if research_ref not in text and legacy_ref not in text:
         raise AnalystValidationError(
             f"BLOCK: PRD должен ссылаться на `{research_ref}` в разделе `## Диалог analyst` → добавьте ссылку на отчёт Researcher."
         )

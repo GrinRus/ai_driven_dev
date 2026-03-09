@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Shared PRD review gate logic for Claude workflow hooks.
 
-The script checks that `docs/prd/<ticket>.prd.md` contains a PRD Review section
+The script checks that `aidd/docs/prd/<ticket>.prd.md` contains a PRD Review section
 (`## PRD Review` or `## <N>. PRD Review`) with a READY status and no unresolved
 action items. Review runs after plan review and blocks implementation until
 ready. Behaviour is configured through `config/gates.json`
@@ -97,7 +97,7 @@ def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
         "--slug-hint",
         dest="slug_hint",
         default="",
-        help="Optional slug hint used for messaging (defaults to docs/.active.json).",
+        help="Optional slug hint used for messaging (defaults to aidd/docs/.active.json).",
     )
     parser.add_argument(
         "--file-path",
@@ -215,7 +215,7 @@ def format_message(
         )
     if kind == "missing_prd":
         return (
-            f"BLOCK: PRD не найден или не заполнен → откройте docs/prd/{ticket}.prd.md, допишите диалог и завершите /feature-dev-aidd:review-spec {label or ticket}."
+            f"BLOCK: PRD не найден или не заполнен → откройте aidd/docs/prd/{ticket}.prd.md, допишите диалог и завершите /feature-dev-aidd:review-spec {label or ticket}."
         )
     if kind == "blocking_status":
         return (
@@ -231,7 +231,7 @@ def format_message(
         return f"BLOCK: PRD Review не READY (Status: {human_status}) → выполните /feature-dev-aidd:review-spec {label or ticket}"
     if kind == "open_actions":
         return (
-            f"BLOCK: В PRD Review остались незакрытые action items → перенесите их в docs/tasklist/{ticket}.md и отметьте выполнение."
+            f"BLOCK: В PRD Review остались незакрытые action items → перенесите их в aidd/docs/tasklist/{ticket}.md и отметьте выполнение."
         )
     if kind == "missing_report":
         return f"BLOCK: нет отчёта PRD Review (aidd/reports/prd/{ticket}.json) → перезапустите /feature-dev-aidd:review-spec {label or ticket}"

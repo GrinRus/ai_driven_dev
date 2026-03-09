@@ -107,6 +107,7 @@
   - если не растут и `main log`, и stream — это `silent stall`.
 - Для `stream-json` каждого stage-run обязательно проверять рост и `main log`, и stream-файлов.
 - Stream path учитывать в liveness только если путь внутри `PROJECT_DIR` и физически существует; отсутствующий путь внутри `PROJECT_DIR` фиксировать как `stream_path_missing` и исключать из liveness.
+- Stream-path extraction выполнять только из `system/init` JSON payload и control-header строк (`==> streaming enabled ... stream=... log=...`); `tool_result`/artifact prose и произвольные строки run-log в extraction не включать.
 - Если primary extraction дал только `stream_path_invalid`/`stream_path_missing` или пустой валидный набор, обязателен fallback discovery в `aidd/reports/loops/<ticket>/`; при валидном top-level result и отсутствии stream после fallback фиксировать только `INFO(stream_path_not_emitted_by_cli)`.
 - Для `silent stall` один debug-retry с `ANTHROPIC_LOG=debug` перед финальной классификацией.
 - Порядок классификации:
@@ -309,6 +310,10 @@ RLM-only check:
   - перед retry проверить PRD header (`Status:` + unresolved `Q*`); если `Status != READY`, сначала выполнить findings-sync cycle (idea-new/plan-new), затем повторно проверить `Status`;
   - если после findings-sync `Status != READY`, классифицировать как `NOT VERIFIED (findings_sync_not_converged)` + `prompt-flow gap` и не выполнять retry;
   - иначе повторить `/feature-dev-aidd:tasks-new $TICKET` один раз.
+- Если `tasks-new` сообщает `AIDD:TEST_EXECUTION missing tasks`:
+  - сохранить `05_tasklist_test_execution_probe.txt` с полями `tasks_key_present`, `tasks_list_count`, `commands_key_present`, `classification`;
+  - если probe подтверждает `tasks_list_count>0` или наличие `command|commands` entries, классифицировать как `WARN(tasklist_schema_parser_mismatch_recoverable)` и продолжать downstream stages (не terminal blocker);
+  - если probe не подтверждает исполняемые test entries, оставлять классификацию как `prompt-flow blocker`.
 - Если hang/kill — fallback:
   - `python3 $PLUGIN_DIR/skills/tasks-new/runtime/tasks_new.py --ticket $TICKET`
 - Сохранить `05_tasklist_status_check.txt`.
@@ -337,6 +342,7 @@ RLM-only check:
   - `99_plugin_git_status_after.txt`
   - `99_project_git_status_after.txt`
   - `99_stash_head.txt` (если был stash)
+- Сохранить `99_workspace_layout_check.txt` с проверкой, что в workspace root нет non-canonical root путей `docs/**|reports/**|config/**|.cache/**` вне `aidd/`.
 - `stash pop` автоматически не делать.
 
 ## 5) Что не выполняется в smoke
