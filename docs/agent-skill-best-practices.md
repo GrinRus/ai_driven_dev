@@ -15,6 +15,21 @@ This guide defines a single SKILL authoring contract for repositories that are u
 - Make instruction precedence explicit (repo-level policy first, then stage/task specifics).
 - Keep references actionable: each link must say when to open it and why.
 
+## Description trigger contract
+- Every skill `description` must include:
+  - `What it does` in the opening sentence,
+  - explicit positive trigger clause with `Use when`,
+  - explicit anti-trigger clause with `Do not use when`.
+- Anti-trigger clauses must name neighboring skills or explicitly state outside-AIDD scope.
+- Keep trigger boundaries synchronized with `docs/skill-trigger-taxonomy.md`.
+- The repository lint enforces this contract for every `skills/*/SKILL.md`.
+
+## Test/measure/refine loop
+- Benchmark skill routing with `tests/repo_tools/skill_eval_run.py`.
+- Compare candidate runs against baseline with `tests/repo_tools/skill_eval_compare.py`.
+- Keep advisory/hard thresholds in `tests/repo_tools/skill_eval/policy.v1.json`.
+- Use benchmark deltas to refine `description` trigger boundaries before changing body details.
+
 ## Canonical SKILL structure in this repo
 Use this structure for user-invocable stage skills.
 

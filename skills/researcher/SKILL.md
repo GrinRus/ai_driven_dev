@@ -1,6 +1,6 @@
 ---
 name: researcher
-description: Generates or refreshes research artifacts and RLM evidence for a ticket. Use when research stage should produce or update canonical RLM outputs.
+description: Generates or refreshes research artifacts and RLM evidence for a ticket. Use when research stage should produce or update canonical RLM outputs. Do not use when the request is initial ticket bootstrap in `idea-new` or implementation planning in `plan-new`.
 argument-hint: $1 [note...] [--paths path1,path2] [--keywords kw1,kw2] [--note text]
 lang: ru
 prompt_version: 1.2.34

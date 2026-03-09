@@ -59,13 +59,33 @@ def resolve_ru_base(root: Path, kind: str) -> Path:
     return candidates[0]
 
 
+def resolve_prompt_path(root: Path, name: str, kind: str) -> Path | None:
+    ru_base = resolve_ru_base(root, kind)
+    direct = ru_base / f"{name}.md"
+    if direct.exists():
+        return direct
+
+    # Stage commands in this repository are stored as skills/<stage>/SKILL.md.
+    if kind == "command":
+        stage_skill = root / "skills" / name / "SKILL.md"
+        if stage_skill.exists():
+            return stage_skill
+
+    return None
+
+
 def process_prompt(
     root: Path, name: str, kind: str, langs: set[str], part: str, *, dry_run: bool
 ) -> int:
-    ru_base = resolve_ru_base(root, kind)
-    ru_path = ru_base / f"{name}.md"
-    if not ru_path.exists():
-        print(f"[prompt-version] RU prompt missing: {ru_path}", file=sys.stderr)
+    ru_path = resolve_prompt_path(root, name, kind)
+    if ru_path is None:
+        ru_base = resolve_ru_base(root, kind)
+        expected = ru_base / f"{name}.md"
+        fallback = root / "skills" / name / "SKILL.md"
+        print(
+            f"[prompt-version] RU prompt missing: {expected} (fallback: {fallback})",
+            file=sys.stderr,
+        )
         return 1
 
     ru_text = ru_path.read_text(encoding="utf-8")

@@ -1,6 +1,6 @@
 ---
 name: aidd-init
-description: Initializes AIDD workspace scaffolding for the current project. Use when bootstrapping canonical `aidd/` templates.
+description: Initializes AIDD workspace scaffolding for the current project. Use when bootstrapping canonical `aidd/` templates. Do not use when the request is to start feature ideation (`idea-new`) or to inspect existing ticket progress (`status`).
 argument-hint: "[--force] [--detect-build-tools]"
 lang: ru
 prompt_version: 0.1.9

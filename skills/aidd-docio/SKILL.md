@@ -1,6 +1,6 @@
 ---
 name: aidd-docio
-description: Owns shared DocIO runtime for markdown slicing/patching, actions validation/apply, and context-map expansion. Use when stage skills need canonical DocIO operations.
+description: Owns shared DocIO runtime for markdown slicing/patching, actions validation/apply, and context-map expansion. Use when stage skills need canonical DocIO operations. Do not use when the request primarily belongs to `aidd-flow-state` lifecycle updates or `aidd-core` ownership routing.
 lang: en
 model: inherit
 user-invocable: false

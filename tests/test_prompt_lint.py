@@ -132,7 +132,14 @@ def build_agent(name: str) -> str:
 
 
 def build_stage_skill(stage: str, *, lang: str = "ru") -> str:
-    description = f"Test skill for {stage}."
+    anti = "status"
+    if stage == "status":
+        anti = "aidd-observability"
+    description = (
+        f"Test skill surface for {stage}. "
+        f"Use when stage routing requires deterministic {stage} behavior in AIDD workflow. "
+        f"Do not use when request belongs to `{anti}` or outside AIDD workflow."
+    )
     argument_hint = "<TICKET>"
     prompt_version = "1.0.0"
     source_version = "1.0.0"
@@ -226,7 +233,7 @@ def build_core_skill() -> str:
             """
             ---
             name: aidd-core
-            description: Core runtime policy for skills.
+            description: Core runtime policy for skills. Use when shared runtime ownership or canonical command boundaries must be resolved. Do not use when request belongs to `aidd-policy` response formatting or `status` reporting.
             lang: en
             model: inherit
             user-invocable: false
@@ -254,7 +261,7 @@ def build_docio_skill() -> str:
             """
             ---
             name: aidd-docio
-            description: Shared DocIO ownership for markdown/actions/context runtime tools.
+            description: Shared DocIO ownership for markdown/actions/context runtime tools. Use when markdown slicing, action validation, or apply flow behavior must be resolved. Do not use when request belongs to `aidd-flow-state` lifecycle updates or `aidd-core` ownership topology.
             lang: en
             model: inherit
             user-invocable: false
@@ -282,7 +289,7 @@ def build_flow_state_skill() -> str:
             """
             ---
             name: aidd-flow-state
-            description: Shared flow/state ownership for stage state and progress lifecycle runtime tools.
+            description: Shared flow/state ownership for stage state and progress lifecycle runtime tools. Use when active stage, progress/tasklist, or stage-result lifecycle commands are required. Do not use when request belongs to `aidd-docio` actions apply details or `status` reporting only.
             lang: en
             model: inherit
             user-invocable: false
@@ -310,7 +317,7 @@ def build_observability_skill() -> str:
             """
             ---
             name: aidd-observability
-            description: Shared observability ownership for diagnostics and reporting runtime tools.
+            description: Shared observability ownership for diagnostics and reporting runtime tools. Use when diagnostics, inventory, tests-log, or DAG export commands are required. Do not use when request belongs to `status` stage summary or `aidd-core` runtime ownership mapping.
             lang: en
             model: inherit
             user-invocable: false
@@ -338,7 +345,7 @@ def build_loop_skill() -> str:
             """
             ---
             name: aidd-loop
-            description: Loop discipline for implement/review/qa.
+            description: Loop discipline for implement/review/qa. Use when loop stage-chain safety and bounded retry policy must be enforced. Do not use when request belongs to direct stage execution in `implement`, `review`, or `qa`.
             lang: en
             model: inherit
             user-invocable: false
@@ -366,7 +373,7 @@ def build_policy_skill() -> str:
             """
             ---
             name: aidd-policy
-            description: Shared policy contract for output format, read discipline, and question protocol.
+            description: Shared policy contract for output format, read discipline, and question protocol. Use when policy-level output/question/read rules must be applied across stages. Do not use when request belongs to `aidd-core` runtime ownership or `aidd-loop` orchestration execution.
             lang: en
             model: inherit
             user-invocable: false
@@ -419,7 +426,7 @@ def build_rlm_skill() -> str:
             """
             ---
             name: aidd-rlm
-            description: Shared RLM preload skill for subagents.
+            description: Shared RLM preload skill for subagents. Use when shared RLM slice/build/verify/finalize/report commands must be applied. Do not use when request belongs to stage routing in `researcher` or stage contract-only guidance in `aidd-stage-research`.
             lang: en
             model: inherit
             user-invocable: false
@@ -447,7 +454,7 @@ def build_stage_research_skill() -> str:
             """
             ---
             name: aidd-stage-research
-            description: Stage-level research reference preload.
+            description: Stage-level research reference preload. Use when researcher-stage handoff boundaries for pending RLM readiness must be clarified. Do not use when request belongs to shared RLM runtime ownership in `aidd-rlm` or direct stage execution in `researcher`.
             lang: en
             model: inherit
             user-invocable: false
@@ -1048,6 +1055,28 @@ class PromptLintTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("agent must not reference own stage slash command", result.stderr)
             self.assertIn("/feature-dev-aidd:implement", result.stderr)
+
+    def test_stage_skill_description_requires_use_and_do_not_use_clauses(self) -> None:
+        bad_skill = build_stage_skill("qa").replace("Use when", "Run when", 1)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, skill_override={"qa": bad_skill})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("description must include `use when`", result.stderr.lower())
+
+    def test_stage_skill_description_requires_neighbor_or_outside_scope(self) -> None:
+        bad_skill = build_stage_skill("qa").replace(
+            "Do not use when request belongs to `status` or outside AIDD workflow.",
+            "Do not use when this request appears unusual and very broad.",
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, skill_override={"qa": bad_skill})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("anti-trigger clause should reference neighbor skills", result.stderr.lower())
 
     def test_stage_skill_tools_allowed_tools_ref_fails(self) -> None:
         bad_skill = build_stage_skill("qa").replace(

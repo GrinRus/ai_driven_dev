@@ -35,6 +35,9 @@ REQUIRED_CONTRACT_FIELDS = [
     "failure mode:",
     "next action:",
 ]
+DESCRIPTION_USE_WHEN_TOKEN = "use when"
+DESCRIPTION_DO_NOT_USE_WHEN_TOKEN = "do not use when"
+MIN_DESCRIPTION_CLAUSE_LEN = 20
 RESEARCHER_STAGE_FORBIDDEN_RLM_TOOLS = (
     "rlm_nodes_build.py",
     "rlm_verify.py",
@@ -506,6 +509,64 @@ def _parse_bash_tool(entry: str) -> tuple[str | None, str | None]:
     return inner.strip(), None
 
 
+def validate_skill_description(
+    info: PromptFile,
+    *,
+    all_skill_names: set[str],
+) -> List[str]:
+    errors: List[str] = []
+    description = _as_string(info.front_matter.get("description")).strip()
+    if not description:
+        return errors
+
+    lowered = description.lower()
+    use_match = re.search(r"(?<!do not )use when", lowered)
+    use_idx = use_match.start() if use_match else -1
+    do_not_idx = lowered.find(DESCRIPTION_DO_NOT_USE_WHEN_TOKEN)
+
+    if use_idx == -1:
+        errors.append(
+            f"{info.path}: description must include `{DESCRIPTION_USE_WHEN_TOKEN}` trigger clause"
+        )
+    if do_not_idx == -1:
+        errors.append(
+            f"{info.path}: description must include `{DESCRIPTION_DO_NOT_USE_WHEN_TOKEN}` anti-trigger clause"
+        )
+    if use_idx == -1 or do_not_idx == -1:
+        return errors
+    if do_not_idx <= use_idx:
+        errors.append(
+            f"{info.path}: description must place `{DESCRIPTION_DO_NOT_USE_WHEN_TOKEN}` after "
+            f"`{DESCRIPTION_USE_WHEN_TOKEN}`"
+        )
+        return errors
+
+    use_clause = description[use_idx + len(DESCRIPTION_USE_WHEN_TOKEN) : do_not_idx].strip(" :;,.")
+    anti_clause = description[do_not_idx + len(DESCRIPTION_DO_NOT_USE_WHEN_TOKEN) :].strip(" :;,.")
+
+    if len(use_clause) < MIN_DESCRIPTION_CLAUSE_LEN:
+        errors.append(
+            f"{info.path}: `{DESCRIPTION_USE_WHEN_TOKEN}` clause is too short "
+            f"(min {MIN_DESCRIPTION_CLAUSE_LEN} chars)"
+        )
+    if len(anti_clause) < MIN_DESCRIPTION_CLAUSE_LEN:
+        errors.append(
+            f"{info.path}: `{DESCRIPTION_DO_NOT_USE_WHEN_TOKEN}` clause is too short "
+            f"(min {MIN_DESCRIPTION_CLAUSE_LEN} chars)"
+        )
+
+    current_skill = info.path.parent.name.lower()
+    anti_lower = anti_clause.lower()
+    neighbor_mentions = [
+        name for name in sorted(all_skill_names) if name != current_skill and name in anti_lower
+    ]
+    if not neighbor_mentions and "outside aidd" not in anti_lower and "non-aidd" not in anti_lower:
+        errors.append(
+            f"{info.path}: anti-trigger clause should reference neighbor skills or outside-AIDD scope"
+        )
+    return errors
+
+
 def _legacy_bash_policy() -> str:
     raw = os.getenv(LEGACY_BASH_POLICY_ENV, "error").strip().lower()
     if raw in LEGACY_BASH_POLICIES:
@@ -855,6 +916,8 @@ def lint_skills(root: Path) -> Tuple[List[str], List[str]]:
     if not (root / POLICY_DOC).exists():
         errors.append(f"{root / POLICY_DOC}: missing skill language policy doc")
 
+    all_skill_names = {path.parent.name for path in sorted(skills_root.glob("*/SKILL.md"))}
+
     baseline = None
     baseline_candidates = [
         root / BASELINE_JSON_PRIMARY,
@@ -922,6 +985,7 @@ def lint_skills(root: Path) -> Tuple[List[str], List[str]]:
                 ],
             )
         )
+        errors.extend(validate_skill_description(info, all_skill_names=all_skill_names))
 
         user_invocable_raw = info.front_matter.get("user-invocable")
         user_invocable = _as_string(user_invocable_raw)
