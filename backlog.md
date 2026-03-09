@@ -1,5 +1,57 @@
 # Product Backlog
 
+## Wave 107 — TST-001 e2e flow remediation (run `20260308T093331Z`)
+
+_Статус: план. Цель — закрыть причины WARN/FAIL из full-аудита `TST-001` (run: `20260308T093331Z`) и получить детерминированную сходимость без ручного/не-canonical recovery path._
+
+Evidence baseline:
+- `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-001/20260308T093331Z/05_precondition_block.txt`
+- `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-001/20260308T093331Z/05_tasks_new_run1.log`
+- `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-001/20260308T093331Z/06_implement_run1.log`
+- `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-001/20260308T093331Z/06_implement_silent_stall_diagnostics.txt`
+- `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-001/20260308T093331Z/07_loop_result_payload.json`
+- `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-001/20260308T093331Z/08_qa_run1.log`
+- `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/aidd/reports/qa/TST-001-qa-findings.json`
+
+- [ ] **W107-1 (P0)** Researcher convergence for `links_empty_warn` + non-empty context content (`skills/researcher/runtime/research.py`, `skills/aidd-rlm/runtime/rlm_links_build.py`, `skills/researcher/templates/research.template.md`, `tests/test_research_command.py`):
+  - убрать деградацию research summary в массовые `TBD` при наличии baseline RLM artifacts;
+  - стабилизировать `no_symbols` path: детерминированная диагностика what/why + bounded fallback на symbol sources;
+  - сохранить soft-readiness semantics, но с содержательным `AIDD:CONTEXT_PACK`/`AIDD:INTEGRATION_POINTS`.
+  **AC:** после `researcher --auto` research-doc не содержит placeholder-`TBD` в ключевых секциях; `links_empty_warn` остаётся telemetry, а не content collapse.
+
+- [ ] **W107-2 (P0)** Remove tasks-new runtime CLI drift (`progress_cli --message`) (`skills/tasks-new/SKILL.md`, `agents/tasklist-refiner.md`, `skills/tasks-new/runtime/tasks_new.py`, `tests/test_tasks_new.py`, `tests/repo_tools/test_e2e_prompt_contract.py`):
+  - запретить non-canonical аргументы для `progress_cli.py` в prompt/runtime path;
+  - зафиксировать canonical вызов `progress_cli.py` без `--message`;
+  - добавить drift tripwire в e2e prompt contract tests.
+  **AC:** в `tasks-new` stage logs отсутствуют `progress_cli.py: error: unrecognized arguments: --message`; stage завершает top-level result без nested contract mismatch.
+
+- [ ] **W107-3 (P0)** Implement-stage command-exec fail-fast for `command_not_found` loops (`skills/implement/runtime/implement_run.py`, `skills/implement/SKILL.md`, `agents/implementer.md`, `tests/test_implement_agent.py`, `tests/test_loop_step.py`):
+  - обнаруживать повторяющийся `Exit code 127`/`no such file or directory` (например, `./gradlew`) как terminal prompt-exec incident, а не продолжать long-running попытки;
+  - нормализовать тестовые команды на cwd-aware pattern (`backend/gradlew` when needed);
+  - обеспечить явный reason_code и canonical next action вместо silent convergence.
+  **AC:** implement stage не уходит в silent stall на повторяющемся `command_not_found`; при таком кейсе возвращает детерминированный terminal payload в рамках budget.
+
+- [ ] **W107-4 (P0)** Loop scope reconciliation + diff-boundary attribution hardening (`skills/aidd-loop/runtime/loop_step_parts/core.py`, `skills/aidd-loop/runtime/loop_run_parts/core.py`, `skills/aidd-docio/runtime/actions_apply.py`, `tests/test_loop_step.py`, `tests/test_loop_run.py`):
+  - устранить `scope_key_mismatch_warn` в happy path (authoritative scope selection consistency);
+  - в `diff_boundary_violation` учитывать pre-existing/base diff attribution, чтобы не смешивать текущие изменения итерации с посторонними;
+  - оставить `FORBIDDEN`/реальные boundary нарушения terminal по policy.
+  **AC:** при валидном scope loop не генерирует mismatch warning; boundary block содержит корректную attribution текущей итерации и не срабатывает из-за чужого/stale diff.
+
+- [ ] **W107-5 (P1)** Loop-run telemetry parity for python launcher (`tests/repo_tools/aidd_audit_runner.py`, `tests/repo_tools/test_aidd_audit_runner.py`, `tests/repo_tools/e2e_prompt/profile_full.md`):
+  - синхронизовать summary parser с nested stream/init evidence для `loop_run.py` path;
+  - исключить ложные `init_present=0/plugin_loaded=0` при валидном stream result.
+  **AC:** summary-файлы loop-run отражают корректные init/plugin markers при python launcher execution.
+
+- [ ] **W107-6 (P1)** QA stage-result reason semantics for blocked findings (`skills/qa/runtime/qa_parts/core.py`, `skills/qa/runtime/qa.py`, `skills/aidd-flow-state/runtime/stage_result.py`, `tests/test_qa_agent.py`, `tests/test_qa_exit_code.py`):
+  - для blocked QA findings выставлять canonical `reason_code=blocking_findings` (вместо пустого reason_code);
+  - сохранить `schema=aidd.stage_result.v1` и evidence links contract.
+  **AC:** `stage.qa.result.json` при blocked findings содержит непустой canonical reason_code; downstream loop/policy однозначно классифицируют блокировку.
+
+- [ ] **W107-7 (P1)** Full-profile regression suite for TST-001 WARN/FAIL signatures (`tests/repo_tools/test_e2e_prompt_contract.py`, `tests/repo_tools/smoke-workflow.sh`, `tests/repo_tools/ci-lint.sh`):
+  - добавить контрактные проверки на сигнатуры run `20260308T093331Z`: `progress_cli --message`, repeated `exit 127` loops, scope mismatch drift, empty QA reason_code;
+  - зафиксировать expected soft-warn only behavior для scoped research warn path.
+  **AC:** регрессии класса TST-001 (run 20260308) воспроизводимо ловятся в repo-tools до merge.
+
 ## Wave 104 — TST-001 e2e flow remediation (WARN/FAIL closure)
 
 _Статус: план. Цель — закрыть причины WARN/FAIL из full-аудита `TST-001` (run: `20260307T172536Z`) и получить детерминированный PASS на full profile без ручных recovery path._
