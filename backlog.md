@@ -1,5 +1,69 @@
 # Product Backlog
 
+## Wave 107 — TST-001 (2026-03-10) seed-stage failures remediation
+
+_Статус: plan. Основание — аудит `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-001/20260310T050638Z` (terminal FAIL на шаге 6, downstream `NOT VERIFIED` на шагах 7/8). Цель — убрать `watchdog_terminated + result_count=0`, зафиксировать canonical orchestration и снизить false WARN в post-run классификации._
+
+- [ ] **W107-1 (P0) Manual stage-result write hard-block + canonical-only handoff** `skills/aidd-core/runtime/stage_actions_run.py`, `skills/aidd-core/runtime/skill_contract_validate.py`, `skills/implement/SKILL.md`, `skills/review/SKILL.md`, `tests/test_stage_actions_run.py`, `tests/test_prompt_lint.py`, `tests/test_runtime_write_safety.py`:
+  - запретить manual write-path в runtime/promptах для `aidd/reports/loops/**/stage.*.result.json` и `aidd/reports/logs/**/stage.*.log` как primary recovery path;
+  - при попытке manual path возвращать canonical terminal payload (`reason_code=policy_violation_stage_result_manual_write`) вместо продолжения run;
+  - закрепить lint-tripwire на non-canonical stage-chain recovery hints.
+  **AC:** сценарий из `06_implement_run1.log` (ручные записи `stage.preflight.result.json`/`stage.result.json`) больше не воспроизводится; stage завершает run только canonical `aidd.stage_result.v1`.
+  **Deps:** -
+  **Regression/tests:** `python3 -m pytest -q tests/test_stage_actions_run.py tests/test_prompt_lint.py tests/test_runtime_write_safety.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [ ] **W107-2 (P0) Seed-stage convergence contract for `implement/review` (no top-level result guard)** `skills/implement/runtime/implement_run.py`, `skills/review/runtime/review_run.py`, `skills/aidd-loop/runtime/loop_run_parts/core.py`, `tests/test_review_run.py`, `tests/test_loop_run.py`, `tests/test_qa_exit_code.py`:
+  - ввести deterministic convergence guard: если run живой, но top-level result не эмитится в bounded window, возвращать canonical terminal payload до watchdog kill;
+  - при `task_started` без `task_completed` возвращать explicit `blocked`/`warn` reason вместо hanging до budget exhaustion;
+  - синхронизовать `exit_code/reason_code/watchdog_marker` mapping для seed stages.
+  **AC:** кейсы из `06_implement_run1.summary.txt` и `06_review_run3_debug.summary.txt` не завершаются `result_count=0`; top-level result всегда присутствует при terminal завершении стадии.
+  **Deps:** W107-1
+  **Regression/tests:** `python3 -m pytest -q tests/test_review_run.py tests/test_loop_run.py tests/test_qa_exit_code.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [ ] **W107-3 (P0) Launcher/liveness hardening for zero-byte and stream-path-not-emitted cases** `tests/repo_tools/aidd_stage_launcher.py`, `tests/repo_tools/aidd_stream_paths.py`, `tests/repo_tools/aidd_audit_runner.py`, `tests/repo_tools/test_aidd_stage_launcher.py`, `tests/repo_tools/test_aidd_audit_runner.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - стабилизировать shell-safe retry при `0 bytes` launcher anomaly (ровно один retry, с явным evidence marker);
+  - унифицировать fallback discovery для stream-path extraction при `stream_path_not_emitted_by_cli=1`;
+  - гарантировать корректную классификацию `silent stall` только при подтверждённой стагнации main+stream.
+  **AC:** сценарий из `06_review_run1.summary.txt`/`06_review_stream_paths_run2.txt` детерминированно классифицируется и не даёт ложных terminal переходов при активном stream.
+  **Deps:** W107-2
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_aidd_stage_launcher.py tests/repo_tools/test_aidd_audit_runner.py tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Effort:** S
+  **Risk:** Medium
+
+- [ ] **W107-4 (P1) `review-spec` narrative/report parity + pack-budget trimming** `skills/aidd-core/runtime/prd_review.py`, `skills/aidd-core/runtime/prd_review_section.py`, `tests/test_prd_review_agent.py`, `tests/repo_tools/aidd_audit_runner.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - убрать расхождение narrative vs structured report при `recommended_status` вычислении;
+  - стабилизировать top-N trimming для `action_items`, чтобы pack-budget exceed не приводил к contradictory verdicts;
+  - зафиксировать report payload как единственный source-of-truth для recovery decisions.
+  **AC:** `05_review_spec_report_check_run2.txt`-подобный `narrative_vs_report_mismatch=1` не воспроизводится при повторяемом run.
+  **Deps:** -
+  **Regression/tests:** `python3 -m pytest -q tests/test_prd_review_agent.py tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Effort:** S
+  **Risk:** Medium
+
+- [ ] **W107-5 (P1) Workspace-layout classifier baseline awareness (pre-existing root paths)** `tests/repo_tools/aidd_audit_runner.py`, `tests/repo_tools/test_aidd_audit_runner.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - отличать pre-existing root `docs|reports|config|.cache` от путей, созданных/изменённых в рамках текущего run;
+  - по неизменённым pre-existing путям выдавать `INFO(preexisting_noncanonical_root)` вместо WARN;
+  - сохранять WARN только для фактической мутации root non-canonical paths during run.
+  **AC:** кейс из `99_workspace_layout_check.txt` не поднимает WARN при отсутствии delta во время аудита.
+  **Deps:** -
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_aidd_audit_runner.py tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Effort:** S
+  **Risk:** Low
+
+- [ ] **W107-6 (P0) TST-001 20260310 regression fixture pack + replay checks** `tests/fixtures/audit_tst001_20260310/*`, `tests/repo_tools/test_aidd_audit_runner.py`, `tests/repo_tools/test_aidd_stage_launcher.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - добавить минимальный fixture-set из аудита 2026-03-10 (step6 summaries, termination attribution, manual stage-result write excerpts, stream-path fallback artifacts);
+  - покрыть replay-проверками классификации `watchdog_terminated`, `no_top_level_result`, `silent_stall`, `stream_path_not_emitted_by_cli`, `review_spec_report_mismatch`;
+  - включить fixture replay в CI smoke/prompt-contract checks.
+  **AC:** классификация инцидентов из TST-001 воспроизводится тестами детерминированно и ловит регрессии до e2e-аудита.
+  **Deps:** W107-2, W107-3, W107-4
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_aidd_audit_runner.py tests/repo_tools/test_aidd_stage_launcher.py tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Effort:** M
+  **Risk:** Medium
+
 ## Wave 103 — Runtime bootstrap hardening + stale cache rollout
 
 _Статус: план. Цель — полностью закрыть `ModuleNotFoundError: No module named 'aidd_runtime'` в direct runtime path (cache/install) и исключить регрессии._
