@@ -14,6 +14,7 @@ from pathlib import Path
 
 SEMVER_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
 TAG_RE = re.compile(r"^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
+SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 
 
 def _load_json(path: Path) -> dict:
@@ -66,7 +67,8 @@ def main() -> int:
     marketplace = _load_json(marketplace_path)
 
     errors: list[str] = []
-    marketplace_refs: set[str] = set()
+    warnings: list[str] = []
+    tag_refs: set[str] = set()
 
     plugin_version = _as_str(plugin.get("version"))
     if not SEMVER_RE.match(plugin_version):
@@ -93,12 +95,12 @@ def main() -> int:
 
         if not ref:
             errors.append(f"plugins[{idx}].source.ref is required")
-        elif not TAG_RE.match(ref):
+        elif not (ref == "main" or TAG_RE.match(ref) or SHA_RE.match(ref)):
             errors.append(
-                f"plugins[{idx}].source.ref must be semver tag (vX.Y.Z) for stable channel; got {ref!r}"
+                f"plugins[{idx}].source.ref must be 'main', semver tag (vX.Y.Z), or full git SHA; got {ref!r}"
             )
-        else:
-            marketplace_refs.add(ref)
+        elif TAG_RE.match(ref):
+            tag_refs.add(ref)
 
     if plugin_version and marketplace_versions and len(marketplace_versions) == 1:
         only = next(iter(marketplace_versions))
@@ -130,8 +132,19 @@ def main() -> int:
                 errors.append(
                     f"release tag build requires plugins[{idx}].source.ref == {tag_name!r}, got {ref!r}"
                 )
+    else:
+        if any(
+            isinstance(item, dict)
+            and _as_str((item.get("source") or {}).get("ref") if isinstance(item.get("source"), dict) else "")
+            == "main"
+            for item in plugins
+        ):
+            warnings.append(
+                "marketplace ref uses 'main' outside tag build; switch to release tag for immutable releases"
+            )
+
     if not errors and _should_check_remote_tags():
-        for ref in sorted(marketplace_refs):
+        for ref in sorted(tag_refs):
             exists, details = _remote_tag_exists(root, ref)
             if not exists:
                 suffix = f": {details}" if details else ""
@@ -141,6 +154,9 @@ def main() -> int:
         for error in errors:
             print(f"[release-manifest-guard] {error}", file=sys.stderr)
         return 2
+
+    for warning in warnings:
+        print(f"[release-manifest-guard] WARN: {warning}", file=sys.stderr)
 
     print("[release-manifest-guard] OK")
     return 0

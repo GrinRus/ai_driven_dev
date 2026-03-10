@@ -1,10 +1,10 @@
 {
   "submission_schema": "aidd.official_marketplace_submission.v1",
-  "generated_at": "2026-02-28",
+  "generated_at": "2026-03-10",
   "plugin": {
     "name": "feature-dev-aidd",
-    "version": "0.1.0",
-    "description_short": "AIDD workflow for Claude Code: idea, research, plan, tasks, implement, review, and QA.",
+    "version": "0.2.1",
+    "description_short": "AI-driven development workflow: idea → research → plan → review-spec → (spec-interview) → tasks → implement → review → QA.",
     "repository": "https://github.com/GrinRus/ai_driven_dev",
     "homepage": "https://github.com/GrinRus/ai_driven_dev",
     "license": "MIT",

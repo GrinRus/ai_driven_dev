@@ -33,10 +33,9 @@ Apply in GitHub repository settings:
 ## 3) Marketplace reference policy
 
 Policy:
-- Stable channel is tag-pinned only: `marketplace.json` root `plugins[].source.ref` must be `vX.Y.Z`.
-- `main` must always keep the latest already-published stable tag (never an unreleased future tag).
+- Integration PRs (non-release) keep `marketplace.json` on current published baseline (currently `main`).
+- Official release PRs must switch `source.ref` to semver tag (`vX.Y.Z`).
 - On tag builds, tag/version parity is mandatory (`tag == manifests version`).
-- Legacy `stable_0.0.x` tags are historical prehistory only; official baseline starts from `v0.1.0`.
 
 Guarded by:
 - `tests/repo_tools/release_manifest_guard.py`
@@ -60,8 +59,8 @@ Guarded by:
    - `/feature-dev-aidd:aidd-init`
 
 Rule between releases:
-- Keep `marketplace.json` on the latest already-published stable tag.
-- Never point root marketplace to unreleased commits.
+- Do not create tags or publish GitHub Release in integration PRs.
+- Keep release publish steps only in dedicated release PR.
 
 ## 5) Official Anthropic marketplace submission
 

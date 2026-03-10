@@ -1,9 +1,6 @@
 # Release Notes
 
 ## Unreleased
-- No changes yet.
-
-## v0.1.0 (2026-02-28)
 
 ### Breaking Changes
 - Prod-like hardening wave: hook runtime entrypoints migrated from `hooks/*.sh` naming to canonical `hooks/*.py` naming; legacy `.sh` hook paths removed.
@@ -105,14 +102,10 @@
 - Reviewer marker migration is centralized in `tools/runtime.py`; duplicate migration logic removed from hook/CLI paths.
 - Preflight artifacts now use canonical loop/context paths only; fallback preflight read/write compatibility paths were removed from runtime and gate checks.
 - CI now includes an always-on `smoke-workflow` job (auto-skip when runtime paths are unchanged) and PR dependency review (`actions/dependency-review-action`).
-- Marketplace metadata is pinned to stable release tags (`vX.Y.Z`); `ci-lint` blocks feature refs like `codex/wave*` and `feature/*`.
+- Marketplace metadata is pinned to stable `main` for integration PRs; `ci-lint` blocks feature refs like `codex/wave*` and `feature/*`.
 - Removed `gate-api-contract` placeholder hook and deleted tracked ad-hoc audit prompt file from the repo.
 - Updated `aidd` snapshot to match marketplace scripts and docs (removed stale `claude-workflow` references).
 - RLM bootstrap nodes option to unblock finalize when nodes are missing, plus clearer guard/linker hints.
 - Tasklist spec-required checks now cover API/DATA/E2E signals and tasklist runs `tasklist-check` post-refine.
 - QA test sourcing updated to README/CI discovery (no default smoke command), with stricter missing-tests handling.
 - Implement loop boundary violations now require BLOCKED status and out-of-scope backlog entry.
-
-### Historical prehistory (legacy, pre-official baseline)
-- `stable_0.0.1` and `stable_0.0.2` are preserved as legacy prehistory tags.
-- Official public semver baseline starts from `v0.1.0` (`2026-02-28`).

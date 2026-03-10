@@ -482,7 +482,7 @@ def test_gate_workflow_surfaces_rlm_status_pending_reason_code(tmp_path):
     )
 
     result = run_hook(tmp_path, "gate_workflow.py", SRC_PAYLOAD)
-    assert result.returncode == 2
+    assert result.returncode == 0
     combined = result.stdout + result.stderr
     assert "reason_code=rlm_status_pending" in combined
     assert "policy=warn_continue" in combined

@@ -1,2 +1,5 @@
 # runtime module waivers for line-count > error threshold
 # format: <workspace-relative path>|<reason>
+skills/aidd-core/runtime/research_guard.py|forward-port PR-1 keeps mainline implementation; split planned in follow-up
+skills/aidd-core/runtime/runtime.py|forward-port PR-1 keeps mainline implementation; split planned in follow-up
+skills/researcher/runtime/research.py|forward-port PR-1 keeps mainline implementation; split planned in follow-up

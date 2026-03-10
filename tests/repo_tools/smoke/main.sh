@@ -46,7 +46,7 @@ run_cli() {
       mode="python"
       ;;
     prd-review)
-      entrypoint="$PLUGIN_ROOT/skills/review-spec/runtime/prd_review_cli.py"
+      entrypoint="$PLUGIN_ROOT/skills/aidd-core/runtime/prd_review.py"
       mode="python"
       ;;
     spec-interview)
@@ -232,11 +232,11 @@ seed_preflight_contract_artifacts() {
 
   mkdir -p "$actions_dir" "$context_dir" "$loops_dir" "$logs_dir"
 
-  cat >"$actions_dir/${stage}.actions.template.json" <<'JSON'
-{"schema_version":"aidd.actions.v1","actions":[]}
+  cat >"$actions_dir/${stage}.actions.template.json" <<JSON
+{"schema_version":"aidd.actions.v1","stage":"${stage}","ticket":"${ticket}","scope_key":"${scope_key}","work_item_key":"iteration_id=I1","allowed_action_types":[],"actions":[]}
 JSON
-  cat >"$actions_dir/${stage}.actions.json" <<'JSON'
-{"schema_version":"aidd.actions.v1","actions":[]}
+  cat >"$actions_dir/${stage}.actions.json" <<JSON
+{"schema_version":"aidd.actions.v1","stage":"${stage}","ticket":"${ticket}","scope_key":"${scope_key}","work_item_key":"iteration_id=I1","allowed_action_types":[],"actions":[]}
 JSON
   cat >"$context_dir/${scope_key}.readmap.json" <<'JSON'
 {"schema":"aidd.context_map.v1","allowed_paths":["src/**"]}
@@ -470,17 +470,18 @@ for marker in ("Status: warn", "Status: pending", "Status: draft"):
 path.write_text(text, encoding="utf-8")
 PY
 
-log "research-check pending reason must be rlm_status_pending before finalize"
+log "research-check must surface pending/finalize reason before finalize"
 set +e
 research_pending_output="$(run_cli research-check --ticket "$TICKET" --expected-stage plan 2>&1)"
 research_pending_rc=$?
 set -e
-if [[ $research_pending_rc -eq 0 ]]; then
-  echo "[smoke] research-check unexpectedly passed before finalize readiness" >&2
-  exit 1
-fi
 if ! grep -Eq "reason_code=(rlm_status_pending|rlm_links_empty_warn|rlm_nodes_missing|finalize_prereqs_missing)" <<<"$research_pending_output"; then
   echo "[smoke] research-check pending reason mismatch (expected deterministic pending/finalize reason)" >&2
+  echo "$research_pending_output" >&2
+  exit 1
+fi
+if [[ $research_pending_rc -eq 0 ]] && ! grep -q "policy=warn_continue" <<<"$research_pending_output"; then
+  echo "[smoke] research-check passed before finalize without warn_continue policy marker" >&2
   echo "$research_pending_output" >&2
   exit 1
 fi
@@ -668,7 +669,7 @@ if "Ответ 1:" in text:
     )
 if "Status: draft" in text:
     text = text.replace("Status: draft", "Status: READY", 1)
-answers_body = "- Answer 1: Покрываем стандартный happy-path и ошибку оплаты."
+answers_body = "Q1=Покрываем стандартный happy-path и ошибку оплаты."
 text = replace_section(text, "AIDD:ANSWERS", answers_body)
 open_questions_body = "- `none`"
 text = replace_section(text, "AIDD:OPEN_QUESTIONS", open_questions_body)

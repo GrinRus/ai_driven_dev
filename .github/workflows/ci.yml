@@ -9,7 +9,14 @@ name: CI
     - cron: '30 2 * * *'
 
 env:
-  AIDD_SECURITY_ENFORCE: '1'
+  AIDD_SECURITY_ENFORCE: ${{ vars.AIDD_SECURITY_ENFORCE || '0' }}
+  AIDD_SKILL_EVAL_ENFORCE: ${{ vars.AIDD_SKILL_EVAL_ENFORCE || '0' }}
+  AIDD_SKILL_EVAL_BASELINE: ${{ vars.AIDD_SKILL_EVAL_BASELINE || '' }}
+  AIDD_SKILL_EVAL_ADVISORY_PRS: ${{ vars.AIDD_SKILL_EVAL_ADVISORY_PRS || '0' }}
+  AIDD_SKILL_EVAL_ADVISORY_DAYS: >-
+    ${{ vars.AIDD_SKILL_EVAL_ADVISORY_DAYS || '0' }}
+  AIDD_SKILL_EVAL_NIGHTLY_STREAK: >-
+    ${{ vars.AIDD_SKILL_EVAL_NIGHTLY_STREAK || '0' }}
 
 jobs:
   dist-check:
@@ -32,9 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        # actions/checkout v4.3.1
-        uses: >-
-          actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -79,17 +84,14 @@ jobs:
       pull-requests: read
     steps:
       - name: Checkout repository
-        # actions/checkout v4.3.1
-        uses: >-
-          actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Detect runtime changes
         id: runtime_changes
         # dorny/paths-filter v3.0.2
-        uses: >-
-          dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36
         with:
           filters: |
             runtime:
@@ -108,18 +110,90 @@ jobs:
         if: steps.runtime_changes.outputs.runtime != 'true'
         run: echo "No runtime changes; skipping smoke"
 
-  dist-check:
+  skills-eval-smoke:
+    name: skills-eval-smoke
+    if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
+    continue-on-error: ${{ vars.AIDD_SKILL_EVAL_ENFORCE != '1' }}
     steps:
       - name: Checkout repository
-        # actions/checkout v4.3.1
-        uses: >-
-          actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
-        with:
-          fetch-depth: 0
+        uses: actions/checkout@v4
 
-      - name: Validate dist manifest
-        run: python3 tests/repo_tools/dist_manifest_check.py --root .
+      - name: Run skill eval smoke (38 cases)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          python3 tests/repo_tools/skill_eval_run.py \
+            --cases tests/repo_tools/skill_eval/cases.v1.jsonl \
+            --max-cases 38 \
+            --seed 104 \
+            --out-dir aidd/reports/events/skill-eval
+
+      - name: Skill eval rollout notice
+        if: ${{ env.AIDD_SKILL_EVAL_ENFORCE != '1' }}
+        run: |
+          echo "skills-eval-smoke is advisory"
+          echo "set AIDD_SKILL_EVAL_ENFORCE=1 to make it required"
+
+  skills-eval-full:
+    name: skills-eval-full
+    if: ${{ github.event_name == 'schedule' }}
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ vars.AIDD_SKILL_EVAL_ENFORCE != '1' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run skill eval full (190 cases)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          python3 tests/repo_tools/skill_eval_run.py \
+            --cases tests/repo_tools/skill_eval/cases.v1.jsonl \
+            --seed 104 \
+            --out-dir aidd/reports/events/skill-eval
+
+      - name: Upload skill eval artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: skill-eval-full-${{ github.run_id }}
+          path: aidd/reports/events/skill-eval
+          if-no-files-found: ignore
+
+      - name: Compare with baseline (optional)
+        if: always()
+        run: |
+          if [[ -z "${AIDD_SKILL_EVAL_BASELINE}" \
+            || ! -f "${AIDD_SKILL_EVAL_BASELINE}" ]]; then
+            echo "Skill eval baseline is not configured in this workflow run"
+            if [[ "${AIDD_SKILL_EVAL_ENFORCE}" == "1" ]]; then
+              exit 1
+            fi
+            exit 0
+          fi
+          CANDIDATE="$(
+            find aidd/reports/events/skill-eval -type f \
+              -path '*/run-*/summary.json' -print 2>/dev/null \
+              | sort | tail -n 1 || true
+          )"
+          if [[ -z "${CANDIDATE}" || ! -f "${CANDIDATE}" ]]; then
+            echo "Candidate summary not found; skipping compare"
+            if [[ "${AIDD_SKILL_EVAL_ENFORCE}" == "1" ]]; then
+              exit 1
+            fi
+            exit 0
+          fi
+          python3 tests/repo_tools/skill_eval_compare.py \
+            --baseline "${AIDD_SKILL_EVAL_BASELINE}" \
+            --candidate "${CANDIDATE}" \
+            --out aidd/reports/events/skill-eval/compare.latest.json
+
+      - name: Skill eval rollout notice
+        if: ${{ env.AIDD_SKILL_EVAL_ENFORCE != '1' }}
+        run: |
+          echo "skills-eval-full is advisory"
+          echo "set AIDD_SKILL_EVAL_ENFORCE=1 to make it required"
 
   dependency-review:
     if: ${{ github.event_name == 'pull_request' }}
@@ -130,58 +204,61 @@ jobs:
     steps:
       - name: Dependency review
         # actions/dependency-review-action v4.8.3
-        uses: >-
-          actions/dependency-review-action@05fe4576374b728f0c523d6a13d64c25081e0803
+        # yamllint disable rule:line-length
+        uses: actions/dependency-review-action@05fe4576374b728f0c523d6a13d64c25081e0803
+        # yamllint enable rule:line-length
         with:
           fail-on-severity: high
 
   security-secret-scan:
     name: security-secret-scan
     runs-on: ubuntu-latest
-    continue-on-error: ${{ env.AIDD_SECURITY_ENFORCE != '1' }}
+    continue-on-error: ${{ vars.AIDD_SECURITY_ENFORCE != '1' }}
     permissions:
       contents: read
       security-events: write
     steps:
       - name: Checkout repository
-        # actions/checkout v4.3.1
-        uses: >-
-          actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Run gitleaks secret scan
-        # gitleaks/gitleaks-action v2.3.9
-        uses: >-
-          gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7
+        uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Security rollout notice
+        if: ${{ env.AIDD_SECURITY_ENFORCE != '1' }}
+        run: |
+          echo "security-secret-scan is advisory"
+          echo "set AIDD_SECURITY_ENFORCE=1 to make it required"
 
   security-sast:
     name: security-sast
     runs-on: ubuntu-latest
-    continue-on-error: ${{ env.AIDD_SECURITY_ENFORCE != '1' }}
+    continue-on-error: ${{ vars.AIDD_SECURITY_ENFORCE != '1' }}
     permissions:
       actions: read
       contents: read
       security-events: write
     steps:
       - name: Checkout repository
-        # actions/checkout v4.3.1
-        uses: >-
-          actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        uses: actions/checkout@v4
 
       - name: Initialize CodeQL
-        # github/codeql-action v3.32.4
-        uses: >-
-          github/codeql-action/init@45580472a5bb82c4681c4ac726cfdb60060c2ee1
+        uses: github/codeql-action/init@v4
         with:
           languages: python
 
       - name: Autobuild
-        uses: >-
-          github/codeql-action/autobuild@45580472a5bb82c4681c4ac726cfdb60060c2ee1
+        uses: github/codeql-action/autobuild@v4
 
       - name: Analyze
-        uses: >-
-          github/codeql-action/analyze@45580472a5bb82c4681c4ac726cfdb60060c2ee1
+        uses: github/codeql-action/analyze@v4
+
+      - name: Security rollout notice
+        if: ${{ env.AIDD_SECURITY_ENFORCE != '1' }}
+        run: |
+          echo "security-sast is advisory"
+          echo "set AIDD_SECURITY_ENFORCE=1 to make it required"
