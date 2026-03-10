@@ -9,7 +9,7 @@ name: CI
     - cron: '30 2 * * *'
 
 env:
-  AIDD_SECURITY_ENFORCE: ${{ vars.AIDD_SECURITY_ENFORCE || '0' }}
+  AIDD_SECURITY_ENFORCE: ${{ vars.AIDD_SECURITY_ENFORCE || '1' }}
   AIDD_SKILL_EVAL_ENFORCE: ${{ vars.AIDD_SKILL_EVAL_ENFORCE || '0' }}
   AIDD_SKILL_EVAL_BASELINE: ${{ vars.AIDD_SKILL_EVAL_BASELINE || '' }}
   AIDD_SKILL_EVAL_ADVISORY_PRS: ${{ vars.AIDD_SKILL_EVAL_ADVISORY_PRS || '0' }}
@@ -209,7 +209,7 @@ jobs:
   security-secret-scan:
     name: security-secret-scan
     runs-on: ubuntu-latest
-    continue-on-error: ${{ vars.AIDD_SECURITY_ENFORCE != '1' }}
+    continue-on-error: ${{ (vars.AIDD_SECURITY_ENFORCE || '1') != '1' }}
     permissions:
       contents: read
       security-events: write
@@ -233,7 +233,7 @@ jobs:
   security-sast:
     name: security-sast
     runs-on: ubuntu-latest
-    continue-on-error: ${{ vars.AIDD_SECURITY_ENFORCE != '1' }}
+    continue-on-error: ${{ (vars.AIDD_SECURITY_ENFORCE || '1') != '1' }}
     permissions:
       actions: read
       contents: read

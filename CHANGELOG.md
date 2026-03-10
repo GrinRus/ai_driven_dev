@@ -76,7 +76,7 @@
 
 ### Fixes
 - Runtime bootstrap hardening completed for remaining user-invocable runtime entrypoints (`research_guard`, `context_expand`, `progress`, `preflight_prepare`, `doctor`, `rlm_finalize`, `rlm_links_build`) and wired into CI via `tests/repo_tools/runtime-bootstrap-guard.py` to prevent `ModuleNotFoundError` regressions from plugin cache/direct runs.
-- Plugin manifests bumped to `0.2.1` (`.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`) to force cache refresh on upgrade.
+- Internal pre-release manifests were bumped to `0.2.1` before the public semver reset line.
 - Install docs now explicitly require the `aidd-local` marketplace path for namespaced slash commands and a Claude Code session restart after plugin update.
 - `gate-workflow` hardened reviewer fallback path resolution: no secondary crashes when `tools.runtime` import fails.
 - `aidd-init` CLI simplified: removed `--dry-run` and `--enable-ci`; supported flags are now `--force`, `--detect-build-tools`, and hidden alias `--detect-stack`.
@@ -92,7 +92,16 @@
 - QA test sourcing updated to README/CI discovery (no default smoke command), with stricter missing-tests handling.
 - Implement loop boundary violations now require BLOCKED status and out-of-scope backlog entry.
 
-## v0.1.0 (2025-02-XX)
+## 0.1.0 - 2026-03-10
 
-### New Features
-- Initial release of `claude-workflow-cli` packaging and installation instructions.
+### Release
+- First public self-hosted release of `feature-dev-aidd`.
+- Public release baseline is `0.1.0` (internal pre-release numbering is not part of the public semver line).
+- Self-hosted marketplace now uses immutable Git tags in `.claude-plugin/marketplace.json` (`source.ref=vX.Y.Z`).
+- Added tag-driven GitHub release workflow (`.github/workflows/release-self-hosted.yml`) and release parity guard (`tests/repo_tools/release_guard.py`).
+- Added one-time migration path for pre-release `0.2.x` installs (`remove/install` + Claude Code session restart).
+
+## Pre-release internal history (2025-02-XX)
+
+### Notes
+- Initial internal packaging and installation flow.

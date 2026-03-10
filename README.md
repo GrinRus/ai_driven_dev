@@ -59,8 +59,14 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 
 Важно:
 - Поддерживаемый install path для namespaced команд: только через `aidd-local` marketplace, как в примере выше.
+- Official Anthropic marketplace трек ведётся параллельно; до одобрения официальный канал не заменяет self-hosted путь.
+- Начиная с первого публичного релиза `0.1.0`, self-hosted обновления фиксируются на immutable tag refs (`vX.Y.Z`) в `marketplace.json` (без `ref=main`).
 - После `/plugin update feature-dev-aidd@aidd-local` перезапустите Claude Code session, иначе может остаться stale список slash-команд.
 - Если после update остаются ошибки вида `ModuleNotFoundError: No module named 'aidd_runtime'`, выполните cache refresh:
+  1. `/plugin remove feature-dev-aidd@aidd-local`
+  2. `/plugin install feature-dev-aidd@aidd-local`
+  3. Перезапустите Claude Code session.
+- One-time migration для pre-release установок `0.2.x`:
   1. `/plugin remove feature-dev-aidd@aidd-local`
   2. `/plugin install feature-dev-aidd@aidd-local`
   3. Перезапустите Claude Code session.

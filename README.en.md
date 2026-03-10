@@ -19,7 +19,7 @@
 - Mirror section structure, headlines, and links.
 - Update the date below whenever both files are aligned.
 
-_Last sync with `README.md`: 2026-02-21._
+_Last sync with `README.md`: 2026-03-10._
 
 ## What it is
 AIDD is AI-Driven Development: the LLM works not as "one big brain" but as a team of roles inside your SDLC. The Claude Code plugin helps you move away from vibe-coding by capturing artifacts (PRD/plan/tasklist/reports), running quality gates, and adding agents, slash commands, hooks, and the `aidd/` structure.
@@ -66,8 +66,14 @@ Key features:
 
 Important:
 - For stable namespaced commands, use the `aidd-local` marketplace install path shown above.
+- The official Anthropic marketplace track runs in parallel; until approval, self-hosted remains the primary install path.
+- Starting with the first public release `0.1.0`, self-hosted updates use immutable tag refs (`vX.Y.Z`) in `marketplace.json` (no `ref=main`).
 - After `/plugin update feature-dev-aidd@aidd-local`, restart the Claude Code session; otherwise stale slash-command lists may persist.
 - If post-update runs still fail with `ModuleNotFoundError: No module named 'aidd_runtime'`, refresh plugin cache:
+  1. `/plugin remove feature-dev-aidd@aidd-local`
+  2. `/plugin install feature-dev-aidd@aidd-local`
+  3. Restart Claude Code session.
+- One-time migration for pre-release `0.2.x` installs:
   1. `/plugin remove feature-dev-aidd@aidd-local`
   2. `/plugin install feature-dev-aidd@aidd-local`
   3. Restart Claude Code session.
