@@ -14,8 +14,10 @@
 5. Обновите `CHANGELOG.md` в секции **Unreleased** при изменении поведения.
 
 ## Что важно помнить
-- Канонические артефакты плагина: `skills/`, `agents/`, `hooks/`, `tools/`.
+- Канонические артефакты плагина: `skills/`, `agents/`, `hooks/`, `.claude-plugin/`.
 - Workspace-шаблоны: `templates/aidd/` (копируются через `/feature-dev-aidd:aidd-init`).
-- Runtime запускается как `${CLAUDE_PLUGIN_ROOT}/tools/*.sh`.
+- Canonical runtime API: `python3 skills/*/runtime/*.py`.
+- Hook entrypoints: `python3 hooks/*.py`.
+- Перед релизом прогоните `tests/repo_tools/release-readiness.sh`.
 
 Полный процесс и проверки описаны в `AGENTS.md`.

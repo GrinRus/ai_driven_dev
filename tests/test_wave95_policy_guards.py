@@ -10,7 +10,7 @@ class Wave95PolicyGuards(unittest.TestCase):
         ci_path = REPO_ROOT / ".github" / "workflows" / "ci.yml"
         text = ci_path.read_text(encoding="utf-8")
         self.assertIn("smoke-workflow:", text)
-        self.assertIn("dorny/paths-filter@v3", text)
+        self.assertRegex(text, r"dorny/paths-filter@[0-9a-f]{40}")
         self.assertIn("skills/**", text)
         self.assertIn("hooks/**", text)
         self.assertIn("tools/**", text)
@@ -22,7 +22,7 @@ class Wave95PolicyGuards(unittest.TestCase):
         ci_path = REPO_ROOT / ".github" / "workflows" / "ci.yml"
         text = ci_path.read_text(encoding="utf-8")
         self.assertIn("dependency-review:", text)
-        self.assertIn("actions/dependency-review-action@v4", text)
+        self.assertRegex(text, r"actions/dependency-review-action@[0-9a-f]{40}")
         self.assertIn("fail-on-severity: high", text)
 
     def test_marketplace_ref_is_not_feature_branch(self) -> None:

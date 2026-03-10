@@ -371,6 +371,22 @@ PY
     STATUS=1
   fi
 }
+
+run_release_manifest_guard() {
+  if ! command -v python3 >/dev/null 2>&1; then
+    warn "python3 not found; skipping release manifest guard"
+    return
+  fi
+  if [[ ! -f "tests/repo_tools/release_manifest_guard.py" ]]; then
+    warn "tests/repo_tools/release_manifest_guard.py missing; skipping"
+    return
+  fi
+  log "running release manifest guard"
+  if ! python3 tests/repo_tools/release_manifest_guard.py --root "${ROOT_DIR}"; then
+    err "release manifest guard failed"
+    STATUS=1
+  fi
+}
 run_shellcheck() {
   local root="$1"
   if ! command -v shellcheck >/dev/null 2>&1; then
@@ -570,6 +586,7 @@ run_runtime_module_guard
 run_cli_adapter_guard
 run_python_only_regression
 run_marketplace_ref_guard
+run_release_manifest_guard
 run_dist_manifest_check
 run_repo_linters
 

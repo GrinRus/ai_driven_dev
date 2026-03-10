@@ -9,14 +9,7 @@ name: CI
     - cron: '30 2 * * *'
 
 env:
-  AIDD_SECURITY_ENFORCE: ${{ vars.AIDD_SECURITY_ENFORCE || '0' }}
-  AIDD_SKILL_EVAL_ENFORCE: ${{ vars.AIDD_SKILL_EVAL_ENFORCE || '0' }}
-  AIDD_SKILL_EVAL_BASELINE: ${{ vars.AIDD_SKILL_EVAL_BASELINE || '' }}
-  AIDD_SKILL_EVAL_ADVISORY_PRS: ${{ vars.AIDD_SKILL_EVAL_ADVISORY_PRS || '0' }}
-  AIDD_SKILL_EVAL_ADVISORY_DAYS: >-
-    ${{ vars.AIDD_SKILL_EVAL_ADVISORY_DAYS || '0' }}
-  AIDD_SKILL_EVAL_NIGHTLY_STREAK: >-
-    ${{ vars.AIDD_SKILL_EVAL_NIGHTLY_STREAK || '0' }}
+  AIDD_SECURITY_ENFORCE: '1'
 
 jobs:
   dist-check:
@@ -39,7 +32,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        # actions/checkout v4.3.1
+        uses: >-
+          actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           fetch-depth: 0
 
@@ -84,13 +79,17 @@ jobs:
       pull-requests: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        # actions/checkout v4.3.1
+        uses: >-
+          actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           fetch-depth: 0
 
       - name: Detect runtime changes
         id: runtime_changes
-        uses: dorny/paths-filter@v3
+        # dorny/paths-filter v3.0.2
+        uses: >-
+          dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36
         with:
           filters: |
             runtime:
@@ -113,7 +112,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        # actions/checkout v4.3.1
+        uses: >-
+          actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           fetch-depth: 0
 
@@ -128,59 +129,59 @@ jobs:
       pull-requests: write
     steps:
       - name: Dependency review
-        uses: actions/dependency-review-action@v4
+        # actions/dependency-review-action v4.8.3
+        uses: >-
+          actions/dependency-review-action@05fe4576374b728f0c523d6a13d64c25081e0803
         with:
           fail-on-severity: high
 
   security-secret-scan:
     name: security-secret-scan
     runs-on: ubuntu-latest
-    continue-on-error: ${{ vars.AIDD_SECURITY_ENFORCE != '1' }}
+    continue-on-error: ${{ env.AIDD_SECURITY_ENFORCE != '1' }}
     permissions:
       contents: read
       security-events: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        # actions/checkout v4.3.1
+        uses: >-
+          actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           fetch-depth: 0
 
       - name: Run gitleaks secret scan
-        uses: gitleaks/gitleaks-action@v2
+        # gitleaks/gitleaks-action v2.3.9
+        uses: >-
+          gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Security rollout notice
-        if: ${{ env.AIDD_SECURITY_ENFORCE != '1' }}
-        run: |
-          echo "security-secret-scan is advisory"
-          echo "set AIDD_SECURITY_ENFORCE=1 to make it required"
 
   security-sast:
     name: security-sast
     runs-on: ubuntu-latest
-    continue-on-error: ${{ vars.AIDD_SECURITY_ENFORCE != '1' }}
+    continue-on-error: ${{ env.AIDD_SECURITY_ENFORCE != '1' }}
     permissions:
       actions: read
       contents: read
       security-events: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        # actions/checkout v4.3.1
+        uses: >-
+          actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v4
+        # github/codeql-action v3.32.4
+        uses: >-
+          github/codeql-action/init@45580472a5bb82c4681c4ac726cfdb60060c2ee1
         with:
           languages: python
 
       - name: Autobuild
-        uses: github/codeql-action/autobuild@v4
+        uses: >-
+          github/codeql-action/autobuild@45580472a5bb82c4681c4ac726cfdb60060c2ee1
 
       - name: Analyze
-        uses: github/codeql-action/analyze@v4
-
-      - name: Security rollout notice
-        if: ${{ env.AIDD_SECURITY_ENFORCE != '1' }}
-        run: |
-          echo "security-sast is advisory"
-          echo "set AIDD_SECURITY_ENFORCE=1 to make it required"
+        uses: >-
+          github/codeql-action/analyze@45580472a5bb82c4681c4ac726cfdb60060c2ee1

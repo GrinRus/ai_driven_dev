@@ -1,0 +1,29 @@
+---
+name: Feature request
+description: Propose an enhancement to the plugin/workflow.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    attributes:
+      label: Problem statement
+      description: What problem are you trying to solve?
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Proposed solution
+      description: Describe expected behavior or API.
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Alternatives considered
+      description: Optional alternatives and tradeoffs.
+
+  - type: textarea
+    attributes:
+      label: Additional context
+      description: Links to docs, examples, or related tickets.

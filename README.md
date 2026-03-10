@@ -27,11 +27,19 @@ Breaking-изменения путей и entrypoints см. в runbook:
 
 ## Быстрый старт
 
-### 1) Установите плагин
+### 1) Установите плагин (матрица каналов)
+
+Self-hosted (доступно сейчас):
 ```text
 /plugin marketplace add GrinRus/ai_driven_dev
 /plugin install feature-dev-aidd@aidd-local
 ```
+
+Official Anthropic marketplace (после одобрения):
+```text
+/plugin install <marketplace-assigned-plugin-id>@claude-plugin-directory
+```
+`<marketplace-assigned-plugin-id>` публикуется после аппрува листинга.
 
 ### 2) Инициализируйте workspace
 ```text
@@ -55,6 +63,7 @@ Breaking-изменения путей и entrypoints см. в runbook:
 - `spec-interview` опционален.
 - `/feature-dev-aidd:aidd-init` без `--force` не перезаписывает существующие файлы.
 - Пользовательский runtime-гайд появляется в workspace как `aidd/AGENTS.md`.
+- После `plugin install`/`plugin update` перезапустите Claude Code session, чтобы применились новые prompts/hooks.
 
 ## Скрипты и проверки
 
@@ -93,13 +102,17 @@ Breaking-изменения путей и entrypoints см. в runbook:
 - [AGENTS.md](AGENTS.md) - dev-policy и source-of-truth карта репозитория.
 - [README.en.md](README.en.md) - английская версия этого README.
 - [docs/runbooks/prod-like-breaking-migration.md](docs/runbooks/prod-like-breaking-migration.md) - migration runbook по breaking path changes.
+- [docs/runbooks/marketplace-release.md](docs/runbooks/marketplace-release.md) - release checklist и подготовка к official marketplace submission.
 - [docs/agent-skill-best-practices.md](docs/agent-skill-best-practices.md) - канон по авторингу skills.
 - [docs/skill-language.md](docs/skill-language.md) - language/lint политика для prompts и skills.
 - [docs/memory-v2-rfc.md](docs/memory-v2-rfc.md) - draft RFC по Memory v2.
+- [SECURITY.md](SECURITY.md) - политика disclosure и SLA по уязвимостям.
+- [SUPPORT.md](SUPPORT.md) - границы поддержки и каналы обращений.
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) - правила поведения сообщества.
 
 ## Предпосылки
 - `python3`, `rg`, `git`.
-- Claude Code с доступом к plugin marketplace.
+- Claude Code с доступом к plugin marketplace (минимально протестированная версия: `2.1.59`).
 - Для maintainer-проверок дополнительно: `shellcheck`, `markdownlint`, `yamllint`.
 
 ## Вклад

@@ -63,7 +63,7 @@ User‑гайд для workspace находится в `skills/aidd-core/templat
 - E2E smoke: `tests/repo_tools/smoke-workflow.sh`.
 - CI policy: workflow `smoke-workflow` запускается всегда и выполняет auto-skip, если runtime-пути (`skills/hooks/tools/agents/templates/.claude-plugin`) не менялись.
 - Runtime module guard: `tests/repo_tools/runtime-module-guard.py` (`>450` lines = WARN, `>700` = ERROR), waivers — `tests/repo_tools/runtime-module-guard-waivers.txt`.
-- Required-check parity: `lint-and-test`, `smoke-workflow`, `dist-check`, `dependency-review`; security checks `security-secret-scan` и `security-sast` идут staged rollout (advisory пока `AIDD_SECURITY_ENFORCE!=1`, required при `AIDD_SECURITY_ENFORCE=1`).
+- Required-check parity: `lint-and-test`, `smoke-workflow`, `dist-check`, `dependency-review`, `security-secret-scan`, `security-sast` (security checks required by default).
 - Дополнительно (если нужно): `python3 -m pytest -q tests`.
 - Диагностика окружения: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-observability/runtime/doctor.py`.
 - Bootstrap шаблонов (workspace): `/feature-dev-aidd:aidd-init`.
@@ -199,6 +199,7 @@ Agent‑first правило: сначала читаем артефакты (`a
 - Обновить `README.md`/`README.en.md` и `AGENTS.md` при изменении поведения.
 - Закрыть задачи в `backlog.md`, создать следующую волну при необходимости.
 - Прогнать `tests/repo_tools/ci-lint.sh` и `tests/repo_tools/smoke-workflow.sh`.
+- Прогнать `tests/repo_tools/release-readiness.sh` для release go/no-go.
 - Проверить prompt‑versioning и prompt‑lint (см. выше).
 - Убедиться, что dev‑only артефакты не попали в дистрибутив.
 - Обновить `CHANGELOG.md` (и release notes при необходимости).

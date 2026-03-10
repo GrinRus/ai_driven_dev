@@ -1,0 +1,44 @@
+---
+name: Bug report
+description: Report a reproducible defect in plugin behavior.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: textarea
+    attributes:
+      label: Summary
+      description: What happened and what you expected.
+    validations:
+      required: true
+
+  - type: input
+    attributes:
+      label: Claude Code version
+      placeholder: "2.1.59"
+    validations:
+      required: true
+
+  - type: input
+    attributes:
+      label: Plugin version
+      placeholder: "0.3.1"
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Reproduction steps
+      description: Minimal deterministic steps.
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Logs / output
+      description: Paste exact command output and relevant paths.
+    validations:
+      required: true

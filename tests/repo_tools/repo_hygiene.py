@@ -16,10 +16,13 @@ ALLOWED_ROOT_FILES = {
     ".pre-commit-config.yaml",
     "AGENTS.md",
     "CHANGELOG.md",
+    "CODE_OF_CONDUCT.md",
     "CONTRIBUTING.md",
     "LICENSE",
     "README.md",
     "README.en.md",
+    "SECURITY.md",
+    "SUPPORT.md",
     "backlog.md",
     "pyproject.toml",
 }

@@ -1,5 +1,8 @@
 {
   "name": "aidd-local",
+  "metadata": {
+    "description": "Self-hosted marketplace for the AI-Driven Development (AIDD) Claude Code plugin."
+  },
   "owner": {
     "name": "AI-Driven Dev"
   },
@@ -9,10 +12,10 @@
       "source": {
         "source": "github",
         "repo": "GrinRus/ai_driven_dev",
-        "ref": "main"
+        "ref": "v0.1.0"
       },
-      "description": "AI-driven development workflow: idea → research → plan → review-spec → (spec-interview) → tasks → implement → review → QA.",
-      "version": "0.3.0",
+      "description": "AIDD workflow for Claude Code: idea, research, plan, tasks, implement, review, and QA.",
+      "version": "0.1.0",
       "strict": true
     }
   ]

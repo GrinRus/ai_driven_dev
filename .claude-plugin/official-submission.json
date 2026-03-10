@@ -1,0 +1,24 @@
+{
+  "submission_schema": "aidd.official_marketplace_submission.v1",
+  "generated_at": "2026-02-28",
+  "plugin": {
+    "name": "feature-dev-aidd",
+    "version": "0.1.0",
+    "description_short": "AIDD workflow for Claude Code: idea, research, plan, tasks, implement, review, and QA.",
+    "repository": "https://github.com/GrinRus/ai_driven_dev",
+    "homepage": "https://github.com/GrinRus/ai_driven_dev",
+    "license": "MIT",
+    "author": "AI-Driven Dev"
+  },
+  "marketplace": {
+    "target": "claude-plugin-directory",
+    "submission_form": "https://clau.de/plugin-directory-submission",
+    "tracking_issue": "https://github.com/GrinRus/ai_driven_dev/issues/99",
+    "install_command_after_approval": "/plugin install <marketplace-assigned-plugin-id>@claude-plugin-directory"
+  },
+  "source_policy": {
+    "release_ref_mode": "tag",
+    "release_tag_pattern": "vMAJOR.MINOR.PATCH",
+    "development_ref": "main"
+  }
+}

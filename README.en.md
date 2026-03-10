@@ -2,7 +2,7 @@
 
 > A ready-to-use Claude Code plugin: slash commands, agents, hooks, and templates for the idea -> research -> plan -> review-spec -> spec-interview (optional) -> tasklist -> implement -> review -> qa flow.
 
-_Last sync with `README.md`: 2026-02-25._
+_Last sync with `README.md`: 2026-02-28._
 
 ## Table of Contents
 - [What it is](#what-it-is)
@@ -29,11 +29,19 @@ For breaking path and entrypoint changes, see:
 
 ## Get Started
 
-### 1) Install the plugin
+### 1) Install the plugin (channel matrix)
+
+Self-hosted (available now):
 ```text
 /plugin marketplace add GrinRus/ai_driven_dev
 /plugin install feature-dev-aidd@aidd-local
 ```
+
+Official Anthropic marketplace (available after approval):
+```text
+/plugin install <marketplace-assigned-plugin-id>@claude-plugin-directory
+```
+`<marketplace-assigned-plugin-id>` is published after listing approval.
 
 ### 2) Initialize the workspace
 ```text
@@ -57,6 +65,7 @@ Notes:
 - `spec-interview` is optional.
 - `/feature-dev-aidd:aidd-init` without `--force` keeps existing files.
 - The user runtime guide is generated in workspace as `aidd/AGENTS.md`.
+- After `plugin install`/`plugin update`, restart the Claude Code session to apply updated prompts/hooks.
 
 ## Scripts and Checks
 
@@ -95,13 +104,17 @@ For full maintainer checks, guards, and ownership map, see [AGENTS.md](AGENTS.md
 - [AGENTS.md](AGENTS.md) - repo dev policy and source-of-truth map.
 - [README.md](README.md) - Russian version of this README.
 - [docs/runbooks/prod-like-breaking-migration.md](docs/runbooks/prod-like-breaking-migration.md) - migration runbook for breaking path changes.
+- [docs/runbooks/marketplace-release.md](docs/runbooks/marketplace-release.md) - release checklist and official marketplace submission prep.
 - [docs/agent-skill-best-practices.md](docs/agent-skill-best-practices.md) - skill authoring best practices.
 - [docs/skill-language.md](docs/skill-language.md) - language and lint policy for prompts and skills.
 - [docs/memory-v2-rfc.md](docs/memory-v2-rfc.md) - draft RFC for Memory v2.
+- [SECURITY.md](SECURITY.md) - vulnerability disclosure policy and SLA.
+- [SUPPORT.md](SUPPORT.md) - support boundaries and channels.
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) - community behavior guidelines.
 
 ## Prerequisites
 - `python3`, `rg`, `git`.
-- Claude Code with plugin marketplace access.
+- Claude Code with plugin marketplace access (minimum tested version: `2.1.59`).
 - For maintainer checks: `shellcheck`, `markdownlint`, `yamllint`.
 
 ## Contributing

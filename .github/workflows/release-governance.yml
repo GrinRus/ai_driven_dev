@@ -1,0 +1,28 @@
+---
+name: Release Governance
+
+'on':
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+jobs:
+  release-governance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        # actions/checkout v4.3.1
+        uses: >-
+          actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+
+      - name: Install prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck yamllint ripgrep python3-pytest
+          npm install -g markdownlint-cli @anthropic-ai/claude-code
+
+      - name: Run release readiness checklist
+        run: tests/repo_tools/release-readiness.sh

@@ -1,0 +1,6 @@
+---
+blank_issues_enabled: false
+contact_links:
+  - name: Security issue
+    url: https://github.com/GrinRus/ai_driven_dev/security/advisories/new
+    about: Report sensitive vulnerabilities privately.

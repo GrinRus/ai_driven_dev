@@ -1,6 +1,9 @@
 # Release Notes
 
 ## Unreleased
+- No changes yet.
+
+## v0.1.0 (2026-02-28)
 
 ### Breaking Changes
 - Prod-like hardening wave: hook runtime entrypoints migrated from `hooks/*.sh` naming to canonical `hooks/*.py` naming; legacy `.sh` hook paths removed.
@@ -18,6 +21,9 @@
 - Runtime facades for `loop_step`, `loop_run`, `loop_pack`, `tasklist_check`, `tasks_derive`, `reports_pack`, and `qa` now load split implementations from `runtime/*_parts/core.py`.
 
 ### New Features
+- Public OSS governance pack: `SECURITY.md`, `CODE_OF_CONDUCT.md`, `SUPPORT.md`, `.github/CODEOWNERS`, issue templates, PR template, and Dependabot config.
+- Release hardening toolchain: `tests/repo_tools/release_manifest_guard.py`, `tests/repo_tools/release-readiness.sh`, and tag/release governance workflow `.github/workflows/release-governance.yml`.
+- Marketplace release runbook: `docs/runbooks/marketplace-release.md` with official marketplace submission checklist and GitHub settings checklist.
 - Added dist profile contract: `.claude-plugin/dist-manifest.json`.
 - Added dist integrity checker: `python3 tests/repo_tools/dist_manifest_check.py --root .`.
 - Added docs parity guard: `python3 tests/repo_tools/docs_parity_guard.py --root .`.
@@ -45,6 +51,11 @@
 - Agent-first documentation set: updated `/feature-dev-aidd:idea-new`, prompt templates (see `AGENTS.md`), PRD/tasklist/research templates, README (RU/EN), and `AGENTS.md`, ensuring agents log repository inputs and script commands before asking the user.
 
 ### Improvements
+- Security rollout completed: CI security jobs (`security-secret-scan`, `security-sast`) are required by default.
+- GitHub Actions in CI are pinned to immutable commit SHAs for stronger supply-chain guarantees.
+- Marketplace metadata hardened: added top-level marketplace description and shortened plugin listing description for official listing compatibility.
+- README RU/EN now includes installation channel matrix (self-hosted vs official-after-approval), minimum tested Claude Code version, and post-update restart note.
+- CONTRIBUTING runtime contract aligned to Python-only canon (`skills/*/runtime/*.py`, `hooks/*.py`).
 - Runtime module budget tightened: `runtime-module-guard` defaults updated to `warn>450`, `error>700` with zero WARN target.
 - Runtime oversized modules split into thin facades + `*_parts/core.py` implementation units for safer maintenance.
 - Repo tool entrypoints modularized with thin facades: `tests/repo_tools/ci-lint.sh` -> `tests/repo_tools/ci/main.sh`, `tests/repo_tools/smoke-workflow.sh` -> `tests/repo_tools/smoke/main.sh`.
@@ -94,7 +105,7 @@
 - Reviewer marker migration is centralized in `tools/runtime.py`; duplicate migration logic removed from hook/CLI paths.
 - Preflight artifacts now use canonical loop/context paths only; fallback preflight read/write compatibility paths were removed from runtime and gate checks.
 - CI now includes an always-on `smoke-workflow` job (auto-skip when runtime paths are unchanged) and PR dependency review (`actions/dependency-review-action`).
-- Marketplace metadata is pinned to stable `main`; `ci-lint` now blocks feature refs like `codex/wave*` and `feature/*`.
+- Marketplace metadata is pinned to stable release tags (`vX.Y.Z`); `ci-lint` blocks feature refs like `codex/wave*` and `feature/*`.
 - Removed `gate-api-contract` placeholder hook and deleted tracked ad-hoc audit prompt file from the repo.
 - Updated `aidd` snapshot to match marketplace scripts and docs (removed stale `claude-workflow` references).
 - RLM bootstrap nodes option to unblock finalize when nodes are missing, plus clearer guard/linker hints.
@@ -102,7 +113,6 @@
 - QA test sourcing updated to README/CI discovery (no default smoke command), with stricter missing-tests handling.
 - Implement loop boundary violations now require BLOCKED status and out-of-scope backlog entry.
 
-## v0.1.0 (2025-02-XX)
-
-### New Features
-- Initial release of `claude-workflow-cli` packaging and installation instructions.
+### Historical prehistory (legacy, pre-official baseline)
+- `stable_0.0.1` and `stable_0.0.2` are preserved as legacy prehistory tags.
+- Official public semver baseline starts from `v0.1.0` (`2026-02-28`).

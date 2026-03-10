@@ -1,0 +1,9 @@
+# Default ownership
+* @GrinRus
+
+# Critical runtime surfaces
+/skills/ @GrinRus
+/hooks/ @GrinRus
+/agents/ @GrinRus
+/.claude-plugin/ @GrinRus
+/tests/repo_tools/ @GrinRus

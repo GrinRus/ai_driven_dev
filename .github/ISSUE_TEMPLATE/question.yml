@@ -1,0 +1,19 @@
+---
+name: Question
+description: Ask a usage or behavior question.
+title: "[Question]: "
+labels: ["question"]
+body:
+  - type: textarea
+    attributes:
+      label: Question
+      description: Ask your question clearly.
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Context
+      description: Commands run, relevant files, and current behavior.
+    validations:
+      required: true
