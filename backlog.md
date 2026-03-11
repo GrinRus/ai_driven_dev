@@ -1,5 +1,9 @@
 # Product Backlog
 
+> INTERNAL/DEV-ONLY: engineering wave planning and execution tracker.
+
+_Revision note (2026-03-10): backlog ревизован по критерию удаления реализованных волн: удаляем волну только если acceptance подтверждён в текущем коде, релевантные regression/check команды зелёные, и нет открытых блокирующих зависимостей._
+
 ## Wave 107 — TST-001 (2026-03-10) seed-stage failures remediation
 
 _Статус: plan. Основание — аудит `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-001/20260310T050638Z` (terminal FAIL на шаге 6, downstream `NOT VERIFIED` на шагах 7/8). Цель — убрать `watchdog_terminated + result_count=0`, зафиксировать canonical orchestration и снизить false WARN в post-run классификации._
@@ -64,66 +68,37 @@ _Статус: plan. Основание — аудит `/Users/griogrii_riabov/g
   **Effort:** M
   **Risk:** Medium
 
-## Wave 103 — Runtime bootstrap hardening + stale cache rollout
+## Wave 108 — Loop soft-gate for Research (temporary)
 
-_Статус: план. Цель — полностью закрыть `ModuleNotFoundError: No module named 'aidd_runtime'` в direct runtime path (cache/install) и исключить регрессии._
+_Статус: plan. Цель — не блокировать loop на `research_status_invalid` во время стабилизации research, затем вернуть строгий gate после исправлений._
 
-- [ ] **W103-1 (P0)** Runtime bootstrap completion for remaining entrypoints (`skills/aidd-core/runtime/research_guard.py`, `skills/aidd-docio/runtime/context_expand.py`, `skills/aidd-flow-state/runtime/progress.py`, `skills/aidd-loop/runtime/preflight_prepare.py`, `skills/aidd-observability/runtime/doctor.py`, `skills/aidd-rlm/runtime/rlm_finalize.py`, `skills/aidd-rlm/runtime/rlm_links_build.py`):
-  - гарантировать self-bootstrap `CLAUDE_PLUGIN_ROOT`/`sys.path` до первого `from aidd_runtime ...`;
-  - не менять бизнес-логику модулей.
-  **AC:** `python3 -S <entrypoint> --help` проходит из внешнего cwd без `CLAUDE_PLUGIN_ROOT`/`PYTHONPATH`.
-
-- [ ] **W103-2 (P0)** Runtime bootstrap CI guard (`tests/repo_tools/runtime-bootstrap-guard.py`) + wiring in repo tools (`tests/repo_tools/ci-lint.sh`, `tests/repo_tools/python-only-regression.sh`):
-  - автоматический проход по `skills/*/runtime/*.py` с `__main__`;
-  - fail на любом non-zero/`ModuleNotFoundError`.
-  **AC:** регрессии bootstrap ловятся в CI до merge.
-
-- [ ] **W103-3 (P0)** Plugin version bump + stale-cache rollout playbook (`.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `README.md`, `README.en.md`):
-  - bump plugin version для cache invalidation;
-  - операторская процедура remove/install + session restart.
-  **AC:** после update/reinstall новый cache не воспроизводит runtime bootstrap ошибку.
-
-- [ ] **W103-4 (P1)** E2E/audit probe hardening (`tests/repo_tools/e2e_prompt/profile_full.md`, `tests/repo_tools/e2e_prompt/profile_smoke.md`, `docs/runbooks/tst001-audit-hardening.md`):
-  - bootstrap probes в изолированном режиме `python3 -S`;
-  - явная фиксация, что site-packages не должны маскировать дефект.
-  **AC:** audit prompts и runbook детерминированно воспроизводят/детектят bootstrap gaps.
-
-- [ ] **W103-5 (P1)** Contract cleanup for release notes (`CHANGELOG.md`):
-  - убрать некорректную формулировку про "all risk runtime entrypoints hardened";
-  - зафиксировать завершение coverage и новые guard-инварианты.
-  **AC:** changelog не расходится с фактическим runtime state.
-
-## Wave 102 — Loop soft-gate for Research (temporary)
-
-_Статус: план. Цель — не блокировать loop на `research_status_invalid` во время стабилизации research, затем вернуть строгий gate после исправлений._
-
-- [ ] **W102-1** Stabilize Researcher/RLM links for `no_symbols` cases (`skills/aidd-rlm/runtime/rlm_links_build.py`, `skills/researcher/runtime/research.py`, `tests/test_rlm_links_build.py`, `tests/test_research_command.py`):
+- [ ] **W108-1** Stabilize Researcher/RLM links for `no_symbols` cases (`skills/aidd-rlm/runtime/rlm_links_build.py`, `skills/researcher/runtime/research.py`, `tests/test_rlm_links_build.py`, `tests/test_research_command.py`):
   - снизить ложные `links_empty_reason=no_symbols` на реальных backend/frontend кодовых базах;
   - добавить диагностику (какие target files/symbol sources отброшены и почему).
   **AC:** на репрезентативных тикетах `research --auto` перестаёт массово застревать в `Status: warn` из-за `no_symbols`.
 
-- [ ] **W102-2** Add observability for loop research soft-gate usage (`skills/aidd-loop/runtime/loop_run_parts/core.py`, `tests/test_loop_run.py`):
+- [ ] **W108-2** Add observability for loop research soft-gate usage (`skills/aidd-loop/runtime/loop_run_parts/core.py`, `tests/test_loop_run.py`):
   - фиксировать отдельный telemetry marker для soft-continue на `research_status_invalid`;
   - добавить сводный отчёт частоты soft-gate с reason codes в loop artifacts.
   - Findings (2026-03-03): в policy probe `qa_tests_failed` `ralph` корректно маркирует `recoverable_blocked=1`, `retry_attempt=1`, `recovery_path=handoff_to_implement`; `strict` остаётся terminal blocked (`recoverable_blocked=0`).
     Evidence: `.aidd_audit/loop_policy/20260303T080709Z/findings_summary_20260303.md`.
   **AC:** по логам/pack можно детерминированно увидеть, где loop стартовал через soft-gate.
 
-- [ ] **W102-3** Return strict research gate after stabilization (`skills/aidd-loop/runtime/loop_run_parts/core.py`, `templates/aidd/config/gates.json`, `tests/test_loop_run.py`, `tests/repo_tools/e2e_prompt/profile_full.md`):
+- [ ] **W108-3** Return strict research gate after stabilization (`skills/aidd-loop/runtime/loop_run_parts/core.py`, `templates/aidd/config/gates.json`, `tests/test_loop_run.py`, `tests/repo_tools/e2e_prompt/profile_full.md`):
   - вернуть fail-fast блокировку `research_status_invalid` (через policy/config flag + rollout plan);
   - обновить e2e prompt contract и smoke/regression проверки.
   - Findings (2026-03-03): для non-recoverable причины (`review_pack_missing`) `strict` и `ralph` дают одинаковый terminal blocked (retry не запускается); rollback-план должен явно разделять recoverable/non-recoverable reason classes.
     Evidence: `.aidd_audit/loop_policy/20260303T080709Z/findings_summary_20260303.md`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/aidd/reports/loops/TST-001/cli.loop-run.20260303-080259.log`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/aidd/reports/loops/TST-001/cli.loop-run.20260303-080315.log`.
   **AC:** strict mode снова блокирует loop при неконсистентном research; есть подтверждённый rollout toggle и тесты.
 
-- [ ] **W102-5** Keep loop scope-mismatch as non-terminal telemetry for post-review iteration rework (`skills/aidd-loop/runtime/loop_step_parts/core.py`, `tests/test_loop_step.py`):
+- [ ] **W108-4** Keep loop scope-mismatch as non-terminal telemetry for post-review iteration rework (`skills/aidd-loop/runtime/loop_step_parts/core.py`, `tests/test_loop_step.py`):
   - сохранить soft-continue поведение при fallback `scope_key` mismatch в implement переходе;
   - фиксировать `scope_key_mismatch_warn`, `expected_scope_key`, `selected_scope_key` как обязательную telemetry поверхность.
   - Findings (2026-03-03): на `TST-001` mismatch больше не является terminal blocker; flow продолжает выполнение и упирается в downstream причину (`review_pack_missing`), что подтверждает корректность soft-mode только для mismatch gate.
     Evidence: `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/aidd/reports/loops/TST-001/cli.loop-step.20260303-080315.log`.
   **AC:** loop не падает terminal на mismatch и продолжает итерацию, а mismatch детерминированно виден в payload/логах.
 
-- [ ] **W102-6** Re-introduce strict scope mismatch transition gate after canonical scope emit hardening (`skills/aidd-loop/runtime/loop_step_parts/core.py`, `skills/aidd-loop/runtime/loop_step_stage_chain.py`, `tests/test_loop_step.py`, `tests/repo_tools/e2e_prompt/profile_full.md`):
+- [ ] **W108-5** Re-introduce strict scope mismatch transition gate after canonical scope emit hardening (`skills/aidd-loop/runtime/loop_step_parts/core.py`, `skills/aidd-loop/runtime/loop_step_stage_chain.py`, `tests/test_loop_step.py`, `tests/repo_tools/e2e_prompt/profile_full.md`):
   - после стабилизации stage_result emission вернуть fail-fast блокировку `scope_mismatch_transition_blocked` за feature-flag/policy toggle;
   - покрыть rollout тестами и e2e профилями (strict vs temporary soft mode).
   - Findings (2026-03-03): synthetic probe с `blocking_findings` на review показывает нормализацию blocked→continue и downstream terminal по `review_pack_missing`; перед возвратом strict mismatch gate нужно зафиксировать границы нормализации warn-reasons.
@@ -132,10 +107,10 @@ _Статус: план. Цель — не блокировать loop на `res
 
 ## Wave 100 — Реальная параллелизация (scheduler + claim + parallel loop-run)
 
-_Статус: план. Цель — запуск нескольких implementer/reviewer в параллель по независимым work items, безопасное распределение задач, отсутствие гонок артефактов, консолидация результатов._
+_Статус: plan. Цель — запуск нескольких implementer/reviewer в параллель по независимым work items, безопасное распределение задач, отсутствие гонок артефактов, консолидация результатов._
 
 ### EPIC P — Task Graph (DAG) как источник для планирования
-- [ ] **W100-1** `tools/task_graph.py`, `aidd/reports/taskgraph/<ticket>.json` (или `aidd/docs/taskgraph/<ticket>.yaml`):
+- [ ] **W100-1** `skills/aidd-flow-state/runtime/task_graph.py`, `aidd/reports/taskgraph/<ticket>.json` (или `aidd/docs/taskgraph/<ticket>.yaml`):
   - парсер tasklist → DAG:
     - узлы: iterations (`iteration_id`) + handoff (`id: review:* / qa:* / research:* / manual:*`);
     - поля: deps/locks/expected_paths/priority/blocking/state;
@@ -143,12 +118,12 @@ _Статус: план. Цель — запуск нескольких implemen
   - вычисление `ready/runnable` и топологическая проверка (cycles/missing deps).
   **AC:** из tasklist строится корректный DAG; есть список runnable узлов.
 
-- [ ] **W100-2** `tools/taskgraph-check.sh` (или расширение `tasklist-check.sh`):
+- [ ] **W100-2** `skills/aidd-flow-state/runtime/taskgraph_check.py` (или расширение `skills/aidd-flow-state/runtime/tasklist_check.py`):
   - валидировать: циклы, неизвестные deps, self-deps, пустые expected_paths (если требуется), конфликтующие locks (опционально).
   **AC:** CI/локальный чек ловит некорректные зависимости до запуска параллели.
 
 ### EPIC Q — Claim/Lock протокол для work items
-- [ ] **W100-3** `tools/work_item_claim.py`, `tools/work-item-claim.sh`, `aidd/reports/locks/<ticket>/<id>.lock.json`:
+- [ ] **W100-3** `skills/aidd-loop/runtime/work_item_claim.py`, `aidd/reports/locks/<ticket>/<id>.lock.json`:
   - claim/release/renew lock;
   - stale lock policy (ttl, force unlock);
   - в lock хранить `worker_id`, `created_at`, `last_seen`, `scope_key`, `branch/worktree`;
@@ -156,7 +131,7 @@ _Статус: план. Цель — запуск нескольких implemen
   **AC:** один узел не может быть взят двумя воркерами; stale locks диагностируются и снимаются по правилам; locks общие для всех воркеров.
 
 ### EPIC R — Scheduler: выбор runnable узлов под N воркеров
-- [ ] **W100-4** `tools/scheduler.py`:
+- [ ] **W100-4** `skills/aidd-loop/runtime/scheduler.py`:
   - выбрать набор runnable узлов на N воркеров:
     - учитывать deps,
     - учитывать `locks`,
@@ -164,13 +139,13 @@ _Статус: план. Цель — запуск нескольких implemen
     - сортировка: blocking → priority → plan order.
   **AC:** scheduler отдаёт набор независимых work items; не выдаёт конфликтующие по locks/paths.
 
-- [ ] **W100-5** `tools/loop_pack.py` / `loop-pack.sh`:
+- [ ] **W100-5** `skills/aidd-loop/runtime/loop_pack.py`:
   - уметь генерировать loop pack по конкретному work_item_id, а не только “следующий из NEXT_3”;
   - сохранять pack в per‑work‑item пути (Wave 87 уже подготовил).
   **AC:** можно собрать loop pack для любого узла DAG по id; pack содержит deps/locks/expected_paths/size_budget/tests для выбранного узла.
 
 ### EPIC S — Parallel loop-run (оркестрация воркеров)
-- [ ] **W100-6** `tools/loop_run.py`:
+- [ ] **W100-6** `skills/aidd-loop/runtime/loop_run.py`:
   - добавить режим `--parallel N`:
     - получить runnable узлы от scheduler,
     - claim locks,
@@ -178,7 +153,7 @@ _Статус: план. Цель — запуск нескольких implemen
     - собирать stage results и принимать решения (blocked/done/continue) по каждому узлу.
   **AC:** parallel loop-run запускает N независимых узлов и корректно реагирует на BLOCKED/DONE по каждому; определён контракт artifact root (shared vs per-worktree) и сбор результатов.
 
-- [ ] **W100-7** `tools/worktree_manager.py` (или `tests/repo_tools/worktree.sh`):
+- [ ] **W100-7** `skills/aidd-loop/runtime/worktree_manager.py` (или `tests/repo_tools/worktree.sh`):
   - подготовка isolated рабочих директорий на воркера:
     - `git worktree add` / отдельные ветки,
     - единый шаблон именования веток,
@@ -186,7 +161,7 @@ _Статус: план. Цель — запуск нескольких implemen
   **AC:** каждый воркер работает в изолированном worktree; определён способ записи артефактов (shared root или сбор из worktrees).
 
 ### EPIC T — Консолидация результатов обратно в основной tasklist
-- [ ] **W100-8** `tools/tasklist_consolidate.py`, `tools/tasklist-normalize.sh`:
+- [ ] **W100-8** `skills/aidd-flow-state/runtime/tasklist_consolidate.py`, `skills/aidd-flow-state/runtime/tasklist_normalize.py`:
   - на основе stage_result + review_pack + tests_log:
     - отметить `[x]` для завершённых узлов,
     - обновить `AIDD:NEXT_3` из DAG runnable,
@@ -194,7 +169,7 @@ _Статус: план. Цель — запуск нескольких implemen
     - перенос/дедуп handoff задач.
   **AC:** после параллельного прогона tasklist обновляется детерминированно; без дублей; NEXT_3 корректен; дедуп handoff по стабильному id.
 
-- [ ] **W100-9** `tools/reports/aggregate.py`:
+- [ ] **W100-9** `skills/aidd-observability/runtime/aggregate_report.py`:
   - агрегировать evidence в “ticket summary”:
     - ссылки на per‑work‑item tests logs,
     - список stage results,
@@ -216,7 +191,7 @@ _Статус: план. Цель — запуск нескольких implemen
 
 ## Wave 101 — Memory v2 (semantic memory + decision log)
 
-_Статус: план. Цель — полностью внедрить file-based memory layer поверх текущего pack-first/RLM pipeline: отдельный semantic pack, append-only decision log, deterministic retrieval и gate-ready интеграция._
+_Статус: plan. Цель — полностью внедрить file-based memory layer поверх текущего pack-first/RLM pipeline: отдельный semantic pack, append-only decision log, deterministic retrieval и gate-ready интеграция._
 _Rollout policy: breaking-only, без обратной совместимости и без backfill legacy артефактов._
 
 ### EPIC M1 — Canonical memory artifacts and runtime API
@@ -368,7 +343,7 @@ _Rollout policy: breaking-only, без обратной совместимост
 
 ## Wave 102 — E2E Prompt Readiness WARN Tuning
 
-_Статус: план. Цель — ослабить E2E readiness gate только для scoped research WARN, не снижая fail-fast по ENV/contract mismatch._
+_Статус: plan. Цель — ослабить E2E readiness gate только для scoped research WARN, не снижая fail-fast по ENV/contract mismatch._
 
 ### EPIC W2 — Scoped WARN policy in prompt contract
 

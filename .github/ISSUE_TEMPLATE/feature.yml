@@ -1,0 +1,35 @@
+---
+name: Feature request
+description: Propose an improvement to workflow, docs, or release tooling.
+title: "[feature] "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What problem are you trying to solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What should change?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Optional.
+    validations:
+      required: false
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact and risks
+      description: Backward compatibility, migration, or release implications.
+    validations:
+      required: false

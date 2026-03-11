@@ -1,5 +1,7 @@
 # Skill Language Policy
 
+> INTERNAL/DEV-ONLY: maintainer lint/prompt policy source of truth.
+
 This document defines the canonical prompt-language and structure policy used by `tests/repo_tools/lint-prompts.py`.
 
 ## Scope

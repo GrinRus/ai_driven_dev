@@ -1,0 +1,51 @@
+---
+name: release-self-hosted
+
+'on':
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+
+      - name: Install lint/test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck yamllint ripgrep python3-pytest
+          npm install -g markdownlint-cli
+
+      - name: Validate release parity and changelog
+        run: |
+          python3 tests/repo_tools/release_guard.py \
+            --root "${GITHUB_WORKSPACE}" \
+            --tag "${GITHUB_REF_NAME}"
+
+      - name: Run ci-lint
+        run: tests/repo_tools/ci-lint.sh
+
+      - name: Run smoke workflow
+        run: tests/repo_tools/smoke-workflow.sh
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "${GITHUB_REF_NAME}" \
+            --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            echo "Release ${GITHUB_REF_NAME} already exists; skipping create"
+            exit 0
+          fi
+          gh release create "${GITHUB_REF_NAME}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --verify-tag \
+            --generate-notes \
+            --title "${GITHUB_REF_NAME}"

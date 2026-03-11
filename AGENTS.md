@@ -1,5 +1,7 @@
 # AGENTS (Repo development guide)
 
+> INTERNAL/DEV-ONLY: maintainer guide for repository development and release process.
+
 Этот файл — единая dev‑документация репозитория. Все dev‑правила и шаблоны живут здесь.
 User‑гайд для workspace находится в `skills/aidd-core/templates/workspace-agents.md` (копируется в `aidd/AGENTS.md` при init).
 

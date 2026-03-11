@@ -19,7 +19,7 @@
 - Mirror section structure, headlines, and links.
 - Update the date below whenever both files are aligned.
 
-_Last sync with `README.md`: 2026-02-21._
+_Last sync with `README.md`: 2026-03-10._
 
 ## What it is
 AIDD is AI-Driven Development: the LLM works not as "one big brain" but as a team of roles inside your SDLC. The Claude Code plugin helps you move away from vibe-coding by capturing artifacts (PRD/plan/tasklist/reports), running quality gates, and adding agents, slash commands, hooks, and the `aidd/` structure.
@@ -49,8 +49,8 @@ Key features:
 - Stage lexicon: public stage `review-spec` acts as an umbrella for internal `review-plan` and `review-prd`.
 
 ## SKILL authoring contract
-- Cross-agent canon: `docs/agent-skill-best-practices.md`.
-- Language/lint policy: `docs/skill-language.md` + `tests/repo_tools/lint-prompts.py`.
+- Cross-agent canon and trigger-boundary policy are maintained by maintainers (see Internal/Maintainer docs).
+- Language/lint policy is enforced via `tests/repo_tools/lint-prompts.py`.
 - User-invocable stage skills must include a `## Command contracts` section (interface-only cards: `When to run`, `Inputs`, `Outputs`, `Failure mode`, `Next action`).
 - Do not retell implementation details in `SKILL.md`; move deep guidance to supporting files.
 - `## Additional resources` must implement progressive disclosure with explicit `when:` + `why:` on each resource entry.
@@ -66,6 +66,8 @@ Key features:
 
 Important:
 - For stable namespaced commands, use the `aidd-local` marketplace install path shown above.
+- The official Anthropic marketplace track runs in parallel; until approval, self-hosted remains the primary install path.
+- Self-hosted updates use immutable tag refs (`vX.Y.Z`) in `marketplace.json` (no `ref=main`).
 - After `/plugin update feature-dev-aidd@aidd-local`, restart the Claude Code session; otherwise stale slash-command lists may persist.
 - If post-update runs still fail with `ModuleNotFoundError: No module named 'aidd_runtime'`, refresh plugin cache:
   1. `/plugin remove feature-dev-aidd@aidd-local`
@@ -113,7 +115,7 @@ Notes:
 - `/feature-dev-aidd:aidd-init` without `--force` adds new artifacts and preserves existing files.
 - Use `--force` or manual template sync when you need updates.
 - Source of truth: stage content templates live in `skills/*/templates/*`; `templates/aidd/**` keeps bootstrap config/placeholders only.
-- Root `AGENTS.md` is the repo dev guide; the user workflow guide is `aidd/AGENTS.md` (copied from `skills/aidd-core/templates/workspace-agents.md`).
+- The user workflow guide is `aidd/AGENTS.md` (copied from `skills/aidd-core/templates/workspace-agents.md`).
 
 ## Scripts and Checks
 
@@ -251,10 +253,17 @@ macOS/Linux are supported. For Windows use WSL or Git Bash.
 - For a quick environment check, run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-observability/runtime/doctor.py`.
 
 ## Documentation
-- Canonical response and pack-first rules: `aidd/AGENTS.md` + `skills/aidd-policy/SKILL.md`.
-- User guide (runtime): `aidd/AGENTS.md`; repo dev guide: `AGENTS.md`.
-- Skill-first topology: `skills/aidd-core`, `skills/aidd-policy`, `skills/aidd-docio`, `skills/aidd-flow-state`, `skills/aidd-observability`, `skills/aidd-loop`, `skills/aidd-rlm`, and `skills/aidd-stage-research` (EN).
-- Russian version: `README.md`.
+### Public docs
+- `README.md` and `README.en.md` — install/update, commands, and baseline runtime usage.
+- `CHANGELOG.md` — minimal release notes (`Unreleased` + `X.Y.Z - YYYY-MM-DD`).
+- `SECURITY.md` and `SUPPORT.md` — security disclosure and support policy.
+- `CONTRIBUTING.md` and `CODE_OF_CONDUCT.md` — contribution/process contracts.
+- Runtime user guide: `aidd/AGENTS.md` + `skills/aidd-policy/SKILL.md`.
+
+### Internal/Maintainer docs
+- `AGENTS.md` and `backlog.md` — repo development process and wave planning.
+- `docs/agent-skill-best-practices.md`, `docs/skill-language.md`, `docs/skill-trigger-taxonomy.md` — internal policy references.
+- `docs/memory-v2-rfc.md`, `docs/runbooks/*`, `dev/reports/revision/*` — RFC/runbooks/revision artifacts.
 
 ## Examples
 Demo projects and helper scripts are not shipped — the repo stays language-agnostic. Keep demos outside the plugin and document them in your workspace docs if needed.

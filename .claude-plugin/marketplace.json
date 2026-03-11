@@ -1,5 +1,9 @@
 {
   "name": "aidd-local",
+  "description": "Self-hosted marketplace for AI-Driven Dev release tags (immutable refs).",
+  "metadata": {
+    "description": "Stable self-hosted release channel for AI-Driven Dev via immutable Git tags."
+  },
   "owner": {
     "name": "AI-Driven Dev"
   },
@@ -9,10 +13,10 @@
       "source": {
         "source": "github",
         "repo": "GrinRus/ai_driven_dev",
-        "ref": "main"
+        "ref": "v0.1.0"
       },
-      "description": "AI-driven development workflow: idea → research → plan → review-spec → (spec-interview) → tasks → implement → review → QA.",
-      "version": "0.2.1",
+      "description": "AI-driven dev workflow for Claude Code: idea, research, plan, tasks, implement, review, QA.",
+      "version": "0.1.0",
       "strict": true
     }
   ]

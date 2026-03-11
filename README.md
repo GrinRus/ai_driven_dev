@@ -42,8 +42,8 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 - Stage lexicon: public stage `review-spec` работает как umbrella для internal `review-plan` и `review-prd`.
 
 ## SKILL authoring contract
-- Кросс-агентный канон: `docs/agent-skill-best-practices.md`.
-- Языковые/lint правила: `docs/skill-language.md` + `tests/repo_tools/lint-prompts.py`.
+- Кросс-агентный канон и trigger-boundary policy ведутся maintainers (см. Internal/Maintainer docs).
+- Языковые/lint правила проверяются через `tests/repo_tools/lint-prompts.py`.
 - Для user-invocable stage skills обязателен раздел `## Command contracts` (interface-only карточки: `When to run`, `Inputs`, `Outputs`, `Failure mode`, `Next action`).
 - Детали реализации не дублируются в `SKILL.md`; deep guidance уходит в supporting files.
 - `## Additional resources` описывает progressive disclosure через явные `when:` + `why:` для каждого ресурса.
@@ -59,6 +59,8 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 
 Важно:
 - Поддерживаемый install path для namespaced команд: только через `aidd-local` marketplace, как в примере выше.
+- Official Anthropic marketplace трек ведётся параллельно; до одобрения официальный канал не заменяет self-hosted путь.
+- Self-hosted обновления фиксируются на immutable tag refs (`vX.Y.Z`) в `marketplace.json` (без `ref=main`).
 - После `/plugin update feature-dev-aidd@aidd-local` перезапустите Claude Code session, иначе может остаться stale список slash-команд.
 - Если после update остаются ошибки вида `ModuleNotFoundError: No module named 'aidd_runtime'`, выполните cache refresh:
   1. `/plugin remove feature-dev-aidd@aidd-local`
@@ -100,7 +102,7 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 - `/feature-dev-aidd:aidd-init` без `--force` добавляет новые артефакты и не перезаписывает существующие.
 - Для обновления шаблонов используйте `--force` или перенесите изменения вручную.
 - Source of truth: stage content templates находятся в `skills/*/templates/*`; `templates/aidd/**` хранит только bootstrap config/placeholders.
-- Root `AGENTS.md` — dev‑гайд репозитория; пользовательский канон процесса — `aidd/AGENTS.md` (копируется из `skills/aidd-core/templates/workspace-agents.md`).
+- Пользовательский канон процесса — `aidd/AGENTS.md` (копируется из `skills/aidd-core/templates/workspace-agents.md`).
 
 ## Скрипты и проверки
 
@@ -239,10 +241,17 @@ CLAUDE_PLUGIN_ROOT="/path/to/ai_driven_dev" PYTHONPATH="$CLAUDE_PLUGIN_ROOT" pyt
 - Для быстрой проверки окружения используйте `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-observability/runtime/doctor.py`.
 
 ## Документация
-- Канон ответа и pack-first: `aidd/AGENTS.md` + `skills/aidd-policy/SKILL.md`.
-- Пользовательский гайд (runtime): `aidd/AGENTS.md`; dev‑гайд репозитория: `AGENTS.md`.
-- Skill-first topology: `skills/aidd-core`, `skills/aidd-policy`, `skills/aidd-docio`, `skills/aidd-flow-state`, `skills/aidd-observability`, `skills/aidd-loop`, `skills/aidd-rlm`, `skills/aidd-stage-research` (EN).
-- Английская версия: `README.en.md`.
+### Public docs
+- `README.md` и `README.en.md` — install/update, команды, базовые runtime-сценарии.
+- `CHANGELOG.md` — минимальные release notes (`Unreleased` + `X.Y.Z - YYYY-MM-DD`).
+- `SECURITY.md` и `SUPPORT.md` — security disclosure и support policy.
+- `CONTRIBUTING.md` и `CODE_OF_CONDUCT.md` — contribution/process contracts.
+- Runtime user guide: `aidd/AGENTS.md` + `skills/aidd-policy/SKILL.md`.
+
+### Internal/Maintainer docs
+- `AGENTS.md` и `backlog.md` — репозиторный dev-процесс и wave-планирование.
+- `docs/agent-skill-best-practices.md`, `docs/skill-language.md`, `docs/skill-trigger-taxonomy.md` — внутренние policy references.
+- `docs/memory-v2-rfc.md`, `docs/runbooks/*`, `dev/reports/revision/*` — RFC/runbooks/revision artifacts.
 
 ## Примеры
 Демо‑проекты и вспомогательные скрипты не поставляются — репозиторий остаётся language‑agnostic. При необходимости держите демо‑проекты вне плагина и описывайте их в документации вашего workspace.

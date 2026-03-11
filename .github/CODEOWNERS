@@ -1,0 +1,11 @@
+# Default ownership
+* @GrinRus
+
+# CI and release
+/.github/workflows/* @GrinRus
+
+# Public plugin surface
+/.claude-plugin/* @GrinRus
+/skills/* @GrinRus
+/agents/* @GrinRus
+/hooks/* @GrinRus

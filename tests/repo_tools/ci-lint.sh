@@ -410,6 +410,38 @@ run_python_only_regression() {
   fi
 }
 
+run_release_guard() {
+  if ! command -v python3 >/dev/null 2>&1; then
+    warn "python3 not found; skipping release guard"
+    return
+  fi
+  if [[ ! -f "tests/repo_tools/release_guard.py" ]]; then
+    warn "tests/repo_tools/release_guard.py missing; skipping"
+    return
+  fi
+  log "running release guard"
+  if ! python3 tests/repo_tools/release_guard.py --root "${ROOT_DIR}"; then
+    err "release guard failed"
+    STATUS=1
+  fi
+}
+
+run_release_docs_guard() {
+  if ! command -v python3 >/dev/null 2>&1; then
+    warn "python3 not found; skipping release docs guard"
+    return
+  fi
+  if [[ ! -f "tests/repo_tools/release_docs_guard.py" ]]; then
+    warn "tests/repo_tools/release_docs_guard.py missing; skipping"
+    return
+  fi
+  log "running release docs guard"
+  if ! python3 tests/repo_tools/release_docs_guard.py --root "${ROOT_DIR}"; then
+    err "release docs guard failed"
+    STATUS=1
+  fi
+}
+
 run_marketplace_ref_guard() {
   if ! command -v python3 >/dev/null 2>&1; then
     warn "python3 not found; skipping marketplace ref guard"
@@ -433,7 +465,10 @@ except (OSError, json.JSONDecodeError) as exc:
     print(f"[marketplace-ref] invalid marketplace.json: {exc}", file=sys.stderr)
     raise SystemExit(1)
 
-blocked = re.compile(r"^(codex/wave[^/]*|feature/.+|codex/feature/.+)$")
+blocked = re.compile(
+    r"^(main|master|develop|codex/wave[^/]*|feature/.+|codex/feature/.+)$"
+)
+release_tag = re.compile(r"^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
 violations = []
 for plugin in payload.get("plugins", []) or []:
     if not isinstance(plugin, dict):
@@ -443,6 +478,13 @@ for plugin in payload.get("plugins", []) or []:
     name = str(plugin.get("name") or "unknown")
     if ref and blocked.match(ref):
         violations.append((name, ref))
+        continue
+    if not release_tag.match(ref):
+        print(
+            f"[marketplace-ref] {name}: ref must be immutable release tag vX.Y.Z (got '{ref}')",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
 
 if violations:
     for name, ref in violations:
@@ -658,6 +700,8 @@ run_runtime_module_guard
 run_runtime_bootstrap_guard
 run_cli_adapter_guard
 run_python_only_regression
+run_release_guard
+run_release_docs_guard
 run_marketplace_ref_guard
 run_repo_linters
 

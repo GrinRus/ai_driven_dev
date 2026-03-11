@@ -1,0 +1,24 @@
+---
+public_release_docs:
+  - README.md
+  - README.en.md
+  - CHANGELOG.md
+  - SECURITY.md
+  - SUPPORT.md
+  - CONTRIBUTING.md
+  - CODE_OF_CONDUCT.md
+
+runtime_contract_docs:
+  - agents/*.md
+  - skills/*/SKILL.md
+  - skills/*/templates/*.md
+
+internal_dev_docs:
+  - AGENTS.md
+  - backlog.md
+  - docs/agent-skill-best-practices.md
+  - docs/skill-language.md
+  - docs/skill-trigger-taxonomy.md
+  - docs/memory-v2-rfc.md
+  - docs/runbooks/*.md
+  - dev/reports/revision/*.md
