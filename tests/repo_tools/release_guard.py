@@ -68,8 +68,6 @@ def _iter_errors(root: Path, tag: str | None) -> Iterable[str]:
         if _as_text(item.get("name")) == plugin_name:
             plugin_entry = item
             break
-    if plugin_entry is None and len(entries) == 1 and isinstance(entries[0], dict):
-        plugin_entry = entries[0]
     if plugin_entry is None:
         yield (
             f"{marketplace_path.as_posix()}: plugin `{plugin_name}` is missing in `plugins[]`"

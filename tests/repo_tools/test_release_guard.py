@@ -76,6 +76,21 @@ class ReleaseGuardTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("version mismatch", result.stderr)
 
+    def test_fails_when_single_marketplace_entry_has_different_name(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_fixture(root, version="0.1.0", marketplace_version="0.1.0", ref="v0.1.0")
+            payload = json.loads((root / ".claude-plugin" / "marketplace.json").read_text(encoding="utf-8"))
+            payload["plugins"][0]["name"] = "wrong-plugin-name"
+            (root / ".claude-plugin" / "marketplace.json").write_text(
+                json.dumps(payload),
+                encoding="utf-8",
+            )
+            (root / "CHANGELOG.md").write_text("## Unreleased\n", encoding="utf-8")
+            result = self._run(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("is missing in `plugins[]`", result.stderr)
+
     def test_fails_when_tag_does_not_match_version(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
