@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -45,11 +46,16 @@ def _write_fixture(root: Path, *, version: str, marketplace_version: str, ref: s
 
 class ReleaseGuardTests(unittest.TestCase):
     def _run(self, root: Path, *extra: str) -> subprocess.CompletedProcess[str]:
+        env = dict(os.environ)
+        env.pop("GITHUB_REF", None)
+        env.pop("GITHUB_REF_NAME", None)
+        env.pop("GITHUB_REF_TYPE", None)
         return subprocess.run(
             [sys.executable, str(GUARD), "--root", str(root), *extra],
             cwd=REPO_ROOT,
             text=True,
             capture_output=True,
+            env=env,
             check=False,
         )
 
