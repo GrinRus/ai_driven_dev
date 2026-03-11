@@ -14,7 +14,7 @@ User‑гайд для workspace находится в `skills/aidd-core/templat
 - Canonical Python runtime живёт в `skills/*/runtime/*`; shell entrypoints допустимы только для hooks/platform glue.
 - `tools/*.py` используется только для repo-only tooling/import stubs (если каталог присутствует).
 - Backlog: `docs/backlog.md`.
-- User‑артефакты: `aidd/**` (docs/reports/config/.cache).
+- User‑артефакты: `aidd/**` (`docs/`, `reports/`, `config/`, `.cache/`).
 - Derived‑артефакты: `aidd/docs/index/`, `aidd/reports/events/`, `aidd/.cache/`.
 - Примеры: демо‑проекты и helper‑скрипты не поставляются — держите их вне плагина и документируйте в workspace.
 

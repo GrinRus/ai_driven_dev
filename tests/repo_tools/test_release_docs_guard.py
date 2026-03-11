@@ -32,7 +32,7 @@ internal_dev_docs:
   - docs/skill-trigger-taxonomy.md
   - docs/memory-v2-rfc.md
   - docs/runbooks/*.md
-  - docs/reports/revision/*.md
+  - docs/revision/*.md
 """
 
 
@@ -99,7 +99,7 @@ def _seed_valid_fixture(root: Path) -> None:
     _write(root / "docs" / "skill-trigger-taxonomy.md", "# Doc\n> INTERNAL/DEV-ONLY\n")
     _write(root / "docs" / "memory-v2-rfc.md", "# Doc\n> INTERNAL/DEV-ONLY\n")
     _write(root / "docs" / "runbooks" / "tst001-audit-hardening.md", "# Doc\n> INTERNAL/DEV-ONLY\n")
-    _write(root / "docs" / "reports" / "revision" / "repo-revision.md", "# Doc\n> INTERNAL/DEV-ONLY\n")
+    _write(root / "docs" / "revision" / "repo-revision.md", "# Doc\n> INTERNAL/DEV-ONLY\n")
 
 
 class ReleaseDocsGuardTests(unittest.TestCase):

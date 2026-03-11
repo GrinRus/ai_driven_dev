@@ -51,4 +51,4 @@ This document defines the canonical prompt-language and structure policy used by
 ## Baseline Source
 - Frontmatter parity baseline is stored in:
   - `aidd/reports/migrations/commands_to_skills_frontmatter.json`
-  - fallback: `docs/reports/migrations/commands_to_skills_frontmatter.json`
+  - fallback: `docs/migrations/commands_to_skills_frontmatter.json`

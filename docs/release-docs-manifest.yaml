@@ -21,4 +21,4 @@ internal_dev_docs:
   - docs/skill-trigger-taxonomy.md
   - docs/memory-v2-rfc.md
   - docs/runbooks/*.md
-  - docs/reports/revision/*.md
+  - docs/revision/*.md

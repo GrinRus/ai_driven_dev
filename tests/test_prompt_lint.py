@@ -584,7 +584,7 @@ class PromptLintTests(unittest.TestCase):
             "schema": "aidd.commands_to_skills_frontmatter.v1",
             "rows": rows,
         }
-        out_dir = root / "docs" / "reports" / "migrations"
+        out_dir = root / "docs" / "migrations"
         out_dir.mkdir(parents=True, exist_ok=True)
         (out_dir / "commands_to_skills_frontmatter.json").write_text(
             json.dumps(payload, indent=2) + "\n", encoding="utf-8"
