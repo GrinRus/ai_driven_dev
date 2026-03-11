@@ -32,6 +32,7 @@ The self-hosted channel updates only through immutable tag refs `vX.Y.Z`.
 ```
 
 ## Commands
+
 | Command | When to run |
 | --- | --- |
 | `/feature-dev-aidd:aidd-init` | Once per workspace or after removing `aidd/`. |
