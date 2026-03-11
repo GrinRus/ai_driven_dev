@@ -47,12 +47,6 @@ Restart the Claude Code session after update.
 - `SECURITY.md` and `SUPPORT.md` — security disclosure and support policy.
 - `CONTRIBUTING.md` and `CODE_OF_CONDUCT.md` — contribution and behavior rules.
 
-### Internal/Maintainer docs
-- `AGENTS.md` — repository maintainer guide.
-- `docs/backlog.md` — internal wave planning.
-- `docs/agent-skill-best-practices.md`, `docs/skill-language.md`, `docs/skill-trigger-taxonomy.md`.
-- `docs/memory-v2-rfc.md`, `docs/runbooks/*`, `docs/reports/revision/*`.
-
 ## Contributing
 Contribution process: `CONTRIBUTING.md`.
 

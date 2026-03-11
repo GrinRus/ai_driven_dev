@@ -56,12 +56,6 @@ def _seed_valid_fixture(root: Path) -> None:
 - `SUPPORT.md`
 - `CONTRIBUTING.md`
 - `CODE_OF_CONDUCT.md`
-- `aidd/AGENTS.md`
-
-### Internal/Maintainer docs
-- `AGENTS.md`
-- `docs/backlog.md`
-- `docs/agent-skill-best-practices.md`
 """,
     )
     _write(
@@ -77,12 +71,6 @@ def _seed_valid_fixture(root: Path) -> None:
 - `SUPPORT.md`
 - `CONTRIBUTING.md`
 - `CODE_OF_CONDUCT.md`
-- `aidd/AGENTS.md`
-
-### Internal/Maintainer docs
-- `AGENTS.md`
-- `docs/backlog.md`
-- `docs/agent-skill-best-practices.md`
 """,
     )
     _write(
@@ -151,6 +139,29 @@ class ReleaseDocsGuardTests(unittest.TestCase):
 ## Документация
 ### Public docs
 - `AGENTS.md`
+""",
+            )
+            result = self._run(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("must not appear in public README", result.stderr)
+
+    def test_fails_when_internal_subsection_is_present(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _seed_valid_fixture(root)
+            _write(
+                root / "README.en.md",
+                """# README EN
+
+## Documentation
+### Public docs
+- `README.md`
+- `README.en.md`
+- `CHANGELOG.md`
+- `SECURITY.md`
+- `SUPPORT.md`
+- `CONTRIBUTING.md`
+- `CODE_OF_CONDUCT.md`
 
 ### Internal/Maintainer docs
 - `AGENTS.md`
@@ -158,7 +169,7 @@ class ReleaseDocsGuardTests(unittest.TestCase):
             )
             result = self._run(root)
             self.assertNotEqual(result.returncode, 0)
-            self.assertIn("appears in Public docs", result.stderr)
+            self.assertIn("subsection is forbidden in public-only README", result.stderr)
 
     def test_fails_when_changelog_uses_h3_sections(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

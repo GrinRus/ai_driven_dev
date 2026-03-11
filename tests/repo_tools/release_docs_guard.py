@@ -11,6 +11,7 @@ INTERNAL_MARKER = "INTERNAL/DEV-ONLY"
 VALID_GROUPS = {"public_release_docs", "runtime_contract_docs", "internal_dev_docs"}
 SEMVER_HEADING_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*) - \d{4}-\d{2}-\d{2}$")
 TOKEN_BOUNDARY = r"[A-Za-z0-9_./-]"
+BACKTICK_TOKEN_RE = re.compile(r"`([^`]+)`")
 
 
 def _parse_manifest(path: Path) -> dict[str, list[str]]:
@@ -111,10 +112,18 @@ def _token_line_hits(lines: list[str], token: str) -> list[int]:
     return hits
 
 
+def _extract_backtick_tokens(lines: list[str], start: int, end: int) -> set[str]:
+    tokens: set[str] = set()
+    for idx in range(start + 1, end):
+        tokens.update(BACKTICK_TOKEN_RE.findall(lines[idx]))
+    return tokens
+
+
 def _validate_readme(
     *,
     path: Path,
     docs_heading: str,
+    public_tokens: set[str],
     internal_tokens: set[str],
 ) -> list[str]:
     errors: list[str] = []
@@ -130,33 +139,31 @@ def _validate_readme(
         errors.append(f"{path.as_posix()}: missing `### Public docs` subsection")
         return errors
 
-    internal_bounds = _subsection_bounds(lines, section_start, section_end, "### Internal/Maintainer docs")
-    if internal_bounds is None:
-        errors.append(f"{path.as_posix()}: missing `### Internal/Maintainer docs` subsection")
-        return errors
-
     public_start, public_end = public_bounds
-    internal_start, internal_end = internal_bounds
-    if not (public_start < internal_start):
+    for lineno, line in enumerate(lines, start=1):
+        if line.strip() == "### Internal/Maintainer docs":
+            errors.append(
+                f"{path.as_posix()}:{lineno}: `### Internal/Maintainer docs` subsection is forbidden in public-only README"
+            )
+
+    public_refs = _extract_backtick_tokens(lines, public_start, public_end)
+    missing_public = sorted(public_tokens - public_refs)
+    for token in missing_public:
         errors.append(
-            f"{path.as_posix()}: expected `### Public docs` before `### Internal/Maintainer docs`"
+            f"{path.as_posix()}: missing public doc `{token}` in `### Public docs` section"
         )
-        return errors
+
+    unexpected_public = sorted(public_refs - public_tokens)
+    for token in unexpected_public:
+        errors.append(
+            f"{path.as_posix()}: unexpected token `{token}` in `### Public docs`; expected only manifest `public_release_docs` entries"
+        )
 
     for token in sorted(internal_tokens):
-        hits = _token_line_hits(lines, token)
-        if not hits:
-            continue
-        for lineno in hits:
-            if public_start + 1 <= lineno <= public_end:
-                errors.append(
-                    f"{path.as_posix()}:{lineno}: internal doc `{token}` appears in Public docs"
-                )
-            if not (internal_start + 1 <= lineno <= internal_end):
-                if lineno < internal_start + 1 or lineno > internal_end:
-                    errors.append(
-                        f"{path.as_posix()}:{lineno}: internal doc `{token}` must be only in Internal/Maintainer docs"
-                    )
+        for lineno in _token_line_hits(lines, token):
+            errors.append(
+                f"{path.as_posix()}:{lineno}: internal doc `{token}` must not appear in public README"
+            )
     return errors
 
 
@@ -239,12 +246,14 @@ def main() -> int:
     if not readme_en.is_file():
         errors.append("README.en.md is required")
 
-    internal_tokens = set(internal_docs.keys())
+    public_tokens = set(groups["public_release_docs"])
+    internal_tokens = set(internal_docs.keys()) | set(groups["internal_dev_docs"])
     if readme_ru.is_file():
         errors.extend(
             _validate_readme(
                 path=readme_ru,
                 docs_heading="## Документация",
+                public_tokens=public_tokens,
                 internal_tokens=internal_tokens,
             )
         )
@@ -253,6 +262,7 @@ def main() -> int:
             _validate_readme(
                 path=readme_en,
                 docs_heading="## Documentation",
+                public_tokens=public_tokens,
                 internal_tokens=internal_tokens,
             )
         )

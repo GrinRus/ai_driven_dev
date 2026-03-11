@@ -47,12 +47,6 @@ Self-hosted канал обновляется только через immutable 
 - `SECURITY.md` и `SUPPORT.md` — security disclosure и support policy.
 - `CONTRIBUTING.md` и `CODE_OF_CONDUCT.md` — правила вкладов и поведения.
 
-### Internal/Maintainer docs
-- `AGENTS.md` — dev-гайд репозитория.
-- `docs/backlog.md` — внутренняя wave-приоритизация.
-- `docs/agent-skill-best-practices.md`, `docs/skill-language.md`, `docs/skill-trigger-taxonomy.md`.
-- `docs/memory-v2-rfc.md`, `docs/runbooks/*`, `docs/reports/revision/*`.
-
 ## Вклад
 Процесс вкладов: `CONTRIBUTING.md`.
 
