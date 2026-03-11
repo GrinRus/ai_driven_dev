@@ -1,5 +1,7 @@
 # Repository Revision Report
 
+> INTERNAL/DEV-ONLY: generated maintainer report for repository topology and cleanup planning.
+
 schema: `aidd.repo_revision.v1`
 generated_at: `2026-02-25T08:16:30Z`
 

@@ -2,10 +2,8 @@
 
 ## Supported Versions
 
-| Version line | Supported |
-| --- | --- |
-| `0.1.x` | Yes |
-| `<0.1.0` | No |
+Поддерживается только актуальная release-линия репозитория.
+Исторические и неактуальные сборки считаются неподдерживаемыми.
 
 ## Reporting a Vulnerability
 

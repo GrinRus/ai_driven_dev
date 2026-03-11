@@ -426,6 +426,22 @@ run_release_guard() {
   fi
 }
 
+run_release_docs_guard() {
+  if ! command -v python3 >/dev/null 2>&1; then
+    warn "python3 not found; skipping release docs guard"
+    return
+  fi
+  if [[ ! -f "tests/repo_tools/release_docs_guard.py" ]]; then
+    warn "tests/repo_tools/release_docs_guard.py missing; skipping"
+    return
+  fi
+  log "running release docs guard"
+  if ! python3 tests/repo_tools/release_docs_guard.py --root "${ROOT_DIR}"; then
+    err "release docs guard failed"
+    STATUS=1
+  fi
+}
+
 run_marketplace_ref_guard() {
   if ! command -v python3 >/dev/null 2>&1; then
     warn "python3 not found; skipping marketplace ref guard"
@@ -685,6 +701,7 @@ run_runtime_bootstrap_guard
 run_cli_adapter_guard
 run_python_only_regression
 run_release_guard
+run_release_docs_guard
 run_marketplace_ref_guard
 run_repo_linters
 

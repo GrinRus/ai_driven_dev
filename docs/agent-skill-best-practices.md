@@ -1,5 +1,7 @@
 # Cross-Agent SKILL Authoring Best Practices
 
+> INTERNAL/DEV-ONLY: maintainer policy reference for skill authoring and lint baselines.
+
 This guide defines a single SKILL authoring contract for repositories that are used with Claude Code, Codex, Cursor, and GitHub Copilot.
 
 ## Goals
