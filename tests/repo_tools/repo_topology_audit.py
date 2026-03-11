@@ -46,9 +46,6 @@ ROOT_DOC_FILES = {
     "AGENTS.md",
     "CHANGELOG.md",
     "CONTRIBUTING.md",
-    "backlog.md",
-    "aidd_test_flow_prompt_ralph_script.txt",
-    "aidd_test_flow_prompt_ralph_script_full.txt",
 }
 
 REACHABILITY_EDGE_TYPES = {
@@ -482,7 +479,7 @@ def _build_revision_payload(root: Path, *, generated_at: Optional[str] = None) -
     # Text references from hooks/doc/test -> runtime.
     text_files = list(_iter_text_files(root))
     file_text_cache = {path.relative_to(root).as_posix(): _read_text(path) for path in text_files}
-    open_backlog_doc_refs = _open_backlog_doc_refs(file_text_cache.get("backlog.md", ""))
+    open_backlog_doc_refs = _open_backlog_doc_refs(file_text_cache.get("docs/backlog.md", ""))
     for source_rel, text in sorted(file_text_cache.items()):
         source_kind = _source_kind(source_rel)
         if source_kind not in {"hook_sh", "doc", "test"}:
@@ -686,7 +683,7 @@ def _build_revision_payload(root: Path, *, generated_at: Optional[str] = None) -
         "summary": "No immediate destructive cleanup; all entries require validation before merge.",
         "actions": actions,
         "validation_commands": [
-            "python3 tests/repo_tools/repo_topology_audit.py --repo-root . --output-json dev/reports/revision/repo-revision.graph.json --output-md dev/reports/revision/repo-revision.md --output-cleanup dev/reports/revision/repo-cleanup-plan.json",
+            "python3 tests/repo_tools/repo_topology_audit.py --repo-root . --output-json docs/reports/revision/repo-revision.graph.json --output-md docs/reports/revision/repo-revision.md --output-cleanup docs/reports/revision/repo-cleanup-plan.json",
             "tests/repo_tools/ci-lint.sh",
             "tests/repo_tools/smoke-workflow.sh",
         ],
@@ -839,6 +836,8 @@ def _render_markdown(payload: Mapping[str, Any]) -> str:
 
     lines: List[str] = []
     lines.append("# Repository Revision Report")
+    lines.append("")
+    lines.append("> INTERNAL/DEV-ONLY: generated maintainer report for repository topology and cleanup planning.")
     lines.append("")
     lines.append(f"schema: `{payload.get('schema', '')}`")
     lines.append(f"generated_at: `{meta.get('generated_at', '')}`")
@@ -1000,17 +999,17 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     parser.add_argument("--repo-root", default=".", help="Repository root path.")
     parser.add_argument(
         "--output-json",
-        default="dev/reports/revision/repo-revision.graph.json",
+        default="docs/reports/revision/repo-revision.graph.json",
         help="Output JSON graph path.",
     )
     parser.add_argument(
         "--output-md",
-        default="dev/reports/revision/repo-revision.md",
+        default="docs/reports/revision/repo-revision.md",
         help="Output markdown report path.",
     )
     parser.add_argument(
         "--output-cleanup",
-        default="dev/reports/revision/repo-cleanup-plan.json",
+        default="docs/reports/revision/repo-cleanup-plan.json",
         help="Output cleanup-plan JSON path.",
     )
     return parser.parse_args(argv)

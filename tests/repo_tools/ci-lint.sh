@@ -336,7 +336,11 @@ run_research_legacy_artifact_guard() {
   fi
   log "running research legacy artifact guard"
   local legacy_paths='reports/research/[^/]+-context\.json|reports/research/[^/]+-targets\.json'
-  if rg -n "${legacy_paths}" skills hooks templates docs dev | rg -v "rlm-targets\.json" >/dev/null; then
+  local scan_roots=(skills hooks templates docs)
+  if [[ -d "dev" ]]; then
+    scan_roots+=(dev)
+  fi
+  if rg -n "${legacy_paths}" "${scan_roots[@]}" | rg -v "rlm-targets\.json" >/dev/null; then
     err "legacy research artifact refs found in runtime/docs surfaces"
     STATUS=1
   fi

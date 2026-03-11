@@ -297,7 +297,7 @@ INDEX_REQUIRED_FIELDS = [
 
 POLICY_DOC = Path("docs/skill-language.md")
 BASELINE_JSON_PRIMARY = Path("aidd/reports/migrations/commands_to_skills_frontmatter.json")
-BASELINE_JSON_FALLBACK = Path("dev/reports/migrations/commands_to_skills_frontmatter.json")
+BASELINE_JSON_FALLBACK = Path("docs/reports/migrations/commands_to_skills_frontmatter.json")
 LEGACY_BASH_POLICY_ENV = "AIDD_BASH_LEGACY_POLICY"
 LEGACY_BASH_POLICIES = {"allow", "warn", "error"}
 

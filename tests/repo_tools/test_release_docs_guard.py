@@ -26,13 +26,13 @@ runtime_contract_docs:
 
 internal_dev_docs:
   - AGENTS.md
-  - backlog.md
+  - docs/backlog.md
   - docs/agent-skill-best-practices.md
   - docs/skill-language.md
   - docs/skill-trigger-taxonomy.md
   - docs/memory-v2-rfc.md
   - docs/runbooks/*.md
-  - dev/reports/revision/*.md
+  - docs/reports/revision/*.md
 """
 
 
@@ -60,7 +60,7 @@ def _seed_valid_fixture(root: Path) -> None:
 
 ### Internal/Maintainer docs
 - `AGENTS.md`
-- `backlog.md`
+- `docs/backlog.md`
 - `docs/agent-skill-best-practices.md`
 """,
     )
@@ -81,7 +81,7 @@ def _seed_valid_fixture(root: Path) -> None:
 
 ### Internal/Maintainer docs
 - `AGENTS.md`
-- `backlog.md`
+- `docs/backlog.md`
 - `docs/agent-skill-best-practices.md`
 """,
     )
@@ -105,13 +105,13 @@ def _seed_valid_fixture(root: Path) -> None:
     _write(root / "skills" / "demo" / "templates" / "template.md", "# Template\n")
 
     _write(root / "AGENTS.md", "# AGENTS\n> INTERNAL/DEV-ONLY\n")
-    _write(root / "backlog.md", "# Backlog\n> INTERNAL/DEV-ONLY\n")
+    _write(root / "docs" / "backlog.md", "# Backlog\n> INTERNAL/DEV-ONLY\n")
     _write(root / "docs" / "agent-skill-best-practices.md", "# Doc\n> INTERNAL/DEV-ONLY\n")
     _write(root / "docs" / "skill-language.md", "# Doc\n> INTERNAL/DEV-ONLY\n")
     _write(root / "docs" / "skill-trigger-taxonomy.md", "# Doc\n> INTERNAL/DEV-ONLY\n")
     _write(root / "docs" / "memory-v2-rfc.md", "# Doc\n> INTERNAL/DEV-ONLY\n")
     _write(root / "docs" / "runbooks" / "tst001-audit-hardening.md", "# Doc\n> INTERNAL/DEV-ONLY\n")
-    _write(root / "dev" / "reports" / "revision" / "repo-revision.md", "# Doc\n> INTERNAL/DEV-ONLY\n")
+    _write(root / "docs" / "reports" / "revision" / "repo-revision.md", "# Doc\n> INTERNAL/DEV-ONLY\n")
 
 
 class ReleaseDocsGuardTests(unittest.TestCase):
