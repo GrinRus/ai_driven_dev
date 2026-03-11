@@ -26,13 +26,13 @@ runtime_contract_docs:
 
 internal_dev_docs:
   - AGENTS.md
-  - backlog.md
+  - docs/backlog.md
   - docs/agent-skill-best-practices.md
   - docs/skill-language.md
   - docs/skill-trigger-taxonomy.md
   - docs/memory-v2-rfc.md
   - docs/runbooks/*.md
-  - dev/reports/revision/*.md
+  - docs/revision/*.md
 """
 
 
@@ -56,12 +56,6 @@ def _seed_valid_fixture(root: Path) -> None:
 - `SUPPORT.md`
 - `CONTRIBUTING.md`
 - `CODE_OF_CONDUCT.md`
-- `aidd/AGENTS.md`
-
-### Internal/Maintainer docs
-- `AGENTS.md`
-- `backlog.md`
-- `docs/agent-skill-best-practices.md`
 """,
     )
     _write(
@@ -77,12 +71,6 @@ def _seed_valid_fixture(root: Path) -> None:
 - `SUPPORT.md`
 - `CONTRIBUTING.md`
 - `CODE_OF_CONDUCT.md`
-- `aidd/AGENTS.md`
-
-### Internal/Maintainer docs
-- `AGENTS.md`
-- `backlog.md`
-- `docs/agent-skill-best-practices.md`
 """,
     )
     _write(
@@ -105,13 +93,13 @@ def _seed_valid_fixture(root: Path) -> None:
     _write(root / "skills" / "demo" / "templates" / "template.md", "# Template\n")
 
     _write(root / "AGENTS.md", "# AGENTS\n> INTERNAL/DEV-ONLY\n")
-    _write(root / "backlog.md", "# Backlog\n> INTERNAL/DEV-ONLY\n")
+    _write(root / "docs" / "backlog.md", "# Backlog\n> INTERNAL/DEV-ONLY\n")
     _write(root / "docs" / "agent-skill-best-practices.md", "# Doc\n> INTERNAL/DEV-ONLY\n")
     _write(root / "docs" / "skill-language.md", "# Doc\n> INTERNAL/DEV-ONLY\n")
     _write(root / "docs" / "skill-trigger-taxonomy.md", "# Doc\n> INTERNAL/DEV-ONLY\n")
     _write(root / "docs" / "memory-v2-rfc.md", "# Doc\n> INTERNAL/DEV-ONLY\n")
     _write(root / "docs" / "runbooks" / "tst001-audit-hardening.md", "# Doc\n> INTERNAL/DEV-ONLY\n")
-    _write(root / "dev" / "reports" / "revision" / "repo-revision.md", "# Doc\n> INTERNAL/DEV-ONLY\n")
+    _write(root / "docs" / "revision" / "repo-revision.md", "# Doc\n> INTERNAL/DEV-ONLY\n")
 
 
 class ReleaseDocsGuardTests(unittest.TestCase):
@@ -151,6 +139,29 @@ class ReleaseDocsGuardTests(unittest.TestCase):
 ## Документация
 ### Public docs
 - `AGENTS.md`
+""",
+            )
+            result = self._run(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("must not appear in public README", result.stderr)
+
+    def test_fails_when_internal_subsection_is_present(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _seed_valid_fixture(root)
+            _write(
+                root / "README.en.md",
+                """# README EN
+
+## Documentation
+### Public docs
+- `README.md`
+- `README.en.md`
+- `CHANGELOG.md`
+- `SECURITY.md`
+- `SUPPORT.md`
+- `CONTRIBUTING.md`
+- `CODE_OF_CONDUCT.md`
 
 ### Internal/Maintainer docs
 - `AGENTS.md`
@@ -158,7 +169,7 @@ class ReleaseDocsGuardTests(unittest.TestCase):
             )
             result = self._run(root)
             self.assertNotEqual(result.returncode, 0)
-            self.assertIn("appears in Public docs", result.stderr)
+            self.assertIn("subsection is forbidden in public-only README", result.stderr)
 
     def test_fails_when_changelog_uses_h3_sections(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -125,7 +125,7 @@ if rg -n --pcre2 "(?<![A-Za-z0-9_])(?:\\$\\{CLAUDE_PLUGIN_ROOT\\}/)?tools/[A-Za-
   --glob '!tests/repo_tools/lint-prompts.py' \
   --glob '!tests/test_prompt_lint.py' \
   --glob '!tests/test_tools_inventory.py' \
-  --glob '!backlog.md' >/tmp/aidd-tools-shell-refs.txt 2>/dev/null; then
+  --glob '!docs/backlog.md' >/tmp/aidd-tools-shell-refs.txt 2>/dev/null; then
   err "found stale tools/*.sh references; see /tmp/aidd-tools-shell-refs.txt"
 fi
 

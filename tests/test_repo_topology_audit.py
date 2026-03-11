@@ -194,7 +194,7 @@ skills:
             "# Legacy\n\nStatus: Draft\n\n- `skills/legacy/runtime/missing.py`\n",
         )
         _write(
-            root / "backlog.md",
+            root / "docs" / "backlog.md",
             "- [ ] **W101-14** memory docs `docs/memory-v2-rfc.md`\n",
         )
         _write(

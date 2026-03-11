@@ -174,7 +174,7 @@ log() {
 }
 
 validate_wave_status_sot() {
-  python3 - "$PLUGIN_ROOT/backlog.md" <<'PY'
+  python3 - "$PLUGIN_ROOT/docs/backlog.md" <<'PY'
 import re
 import sys
 from pathlib import Path
