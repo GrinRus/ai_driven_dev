@@ -4,6 +4,45 @@
 
 _Revision note (2026-03-10): backlog ревизован по критерию удаления реализованных волн: удаляем волну только если acceptance подтверждён в текущем коде, релевантные regression/check команды зелёные, и нет открытых блокирующих зависимостей._
 
+## Wave 109 — Carry-over from PR #109 (deduped)
+
+_Статус: plan. Источник — PR #109 (`codex/w104-tst001-flow-remediation`), после дедупликации с текущими Wave 107/108/104. В секцию включены только пункты, не покрытые текущим backlog по сигнатуре проблемы + runtime/test контуру + AC._
+
+- [ ] **W109-1 (P0) Remove non-canonical `set_stage.py` drift in plan stage** `skills/plan-new/SKILL.md`, `agents/planner.md`, `skills/plan-new/runtime/*`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - убрать обращения к `skills/aidd-flow-state/runtime/set_stage.py` и legacy summary handoff;
+  - закрепить canonical routing через `set_active_stage.py` + tripwire на `can't open file ... set_stage.py`.
+  **AC:** `plan-new` логи не содержат `set_stage.py` ошибок; stage завершает top-level result без runtime path drift.
+
+- [ ] **W109-2 (P0) Remove tasks-new CLI drift (`progress_cli --message`)** `skills/tasks-new/SKILL.md`, `agents/tasklist-refiner.md`, `skills/tasks-new/runtime/tasks_new.py`, `tests/test_tasks_new.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - убрать non-canonical аргумент `--message` из prompt/runtime path для `progress_cli.py`;
+  - зафиксировать canonical вызов progress CLI и добавить regression tripwire.
+  **AC:** в `tasks-new` логах отсутствует `progress_cli.py: error: unrecognized arguments: --message`.
+
+- [ ] **W109-3 (P0) Implement-stage fail-fast for repeated `command_not_found`** `skills/implement/runtime/implement_run.py`, `skills/implement/SKILL.md`, `agents/implementer.md`, `tests/test_implement_agent.py`, `tests/test_loop_step.py`:
+  - детектировать повторяющиеся `exit 127`/`no such file or directory` (например, `./gradlew`) как terminal prompt-exec incident;
+  - возвращать явный `reason_code` и canonical next action вместо long-running stall.
+  **AC:** implement stage не уходит в silent stall при повторяющемся `command_not_found`.
+
+- [ ] **W109-4 (P0) Stage-result enum hardening for review/qa mapping** `skills/review/**`, `skills/qa/**`, `skills/aidd-flow-state/runtime/stage_result.py`, `tests/test_review_agent.py`, `tests/test_qa_exit_code.py`:
+  - запретить передачу non-canonical `--result` значений (`revise_required`, `conditional_pass`);
+  - ввести deterministic mapping user-facing verdict -> canonical result (`blocked|continue|done`) до runtime вызова.
+  **AC:** в review/qa логах отсутствует `stage_result.py: error: argument --result: invalid choice`.
+
+- [ ] **W109-5 (P1) QA blocked reason-code completeness** `skills/qa/runtime/qa_parts/core.py`, `skills/qa/runtime/qa.py`, `skills/aidd-flow-state/runtime/stage_result.py`, `tests/test_qa_agent.py`, `tests/test_qa_exit_code.py`:
+  - для blocked findings выставлять canonical `reason_code=blocking_findings`;
+  - сохранить совместимость `schema=aidd.stage_result.v1` и evidence links contract.
+  **AC:** blocked QA stage-result содержит непустой canonical reason code.
+
+- [ ] **W109-6 (P1) Readiness recovery telemetry supersede markers** `tests/repo_tools/e2e_prompt/*`, `tests/repo_tools/aidd_audit_runner.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - после успешного recovery (`readiness_gate=PASS`) помечать ранние `*_skipped_*`/`05_gate_outcome` как superseded;
+  - убрать противоречивые terminal narrative при фактическом downstream execution.
+  **AC:** итоговый step-5 audit status не содержит конфликтующих `NOT VERIFIED` при реально выполненных downstream шагах.
+
+- [ ] **W109-7 (P1) Regression guard for TST-001 runs `20260308`/`20260309`** `tests/repo_tools/test_e2e_prompt_contract.py`, `tests/repo_tools/smoke-workflow.sh`, `tests/repo_tools/ci-lint.sh`:
+  - добавить контрактные проверки на сигнатуры: `set_stage.py` drift, `progress_cli --message`, repeated `exit 127`, invalid stage-result enum, empty QA reason code, stale readiness telemetry conflict;
+  - отделить допускаемые WARN от terminal blockers в expected matrix.
+  **AC:** перечисленные сигнатуры ловятся repo-tools до merge.
+
 ## Wave 107 — TST-001 (2026-03-10) seed-stage failures remediation
 
 _Статус: plan. Основание — аудит `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-001/20260310T050638Z` (terminal FAIL на шаге 6, downstream `NOT VERIFIED` на шагах 7/8). Цель — убрать `watchdog_terminated + result_count=0`, зафиксировать canonical orchestration и снизить false WARN в post-run классификации._
