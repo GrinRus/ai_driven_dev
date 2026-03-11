@@ -1,5 +1,7 @@
 # TST-001 Audit Hardening Runbook
 
+> INTERNAL/DEV-ONLY: maintainer runbook for audit incident hardening and replay diagnostics.
+
 ## Scope
 - Incident class hardening for `06/07/08` audit fallout.
 - Runtime safety for plugin-root discovery and launcher log I/O failures.

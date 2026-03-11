@@ -1,14 +1,16 @@
 # Repository Revision Report
 
+> INTERNAL/DEV-ONLY: generated maintainer report for repository topology and cleanup planning.
+
 schema: `aidd.repo_revision.v1`
-generated_at: `2026-02-25T08:16:30Z`
+generated_at: `2026-03-11T11:45:39Z`
 
 ## Executive summary
 
-- Total nodes: **365**
-- Total edges: **893**
+- Total nodes: **412**
+- Total edges: **933**
 - User-invocable commands: **11**
-- Reachable runtimes from command chain: **89**
+- Reachable runtimes from command chain: **91**
 - Detached agents: **0**
 
 Key findings:
@@ -131,12 +133,12 @@ Key findings:
 ### `/feature-dev-aidd:review-spec`
 - Skill: `skills/review-spec/SKILL.md`
 - Runtime refs: 6
+  - `skills/aidd-core/runtime/prd_review.py`
   - `skills/aidd-flow-state/runtime/prd_check.py`
   - `skills/aidd-flow-state/runtime/progress_cli.py`
   - `skills/aidd-flow-state/runtime/set_active_feature.py`
   - `skills/aidd-flow-state/runtime/set_active_stage.py`
   - `skills/aidd-rlm/runtime/rlm_slice.py`
-  - `skills/review-spec/runtime/prd_review_cli.py`
 - Subagents: `plan-reviewer`, `prd-reviewer`
   - `plan-reviewer` preloads: `aidd-core`, `aidd-policy`, `aidd-rlm`
   - `prd-reviewer` preloads: `aidd-core`, `aidd-policy`, `aidd-rlm`
@@ -185,7 +187,7 @@ Key findings:
 ### `aidd-core`
 - Skill path: `skills/aidd-core/SKILL.md`
 - Preloaded by agents: `analyst`, `implementer`, `plan-reviewer`, `planner`, `prd-reviewer`, `qa`, `researcher`, `reviewer`, `spec-interview-writer`, `tasklist-refiner`, `validator`
-- Direct command runtime refs: `implement`, `review`
+- Direct command runtime refs: `implement`, `review`, `review-spec`
 
 ### `aidd-docio`
 - Skill path: `skills/aidd-docio/SKILL.md`
@@ -237,7 +239,7 @@ Key findings:
 - none
 
 Validation commands:
-- `python3 tests/repo_tools/repo_topology_audit.py --repo-root . --output-json dev/reports/revision/repo-revision.graph.json --output-md dev/reports/revision/repo-revision.md --output-cleanup dev/reports/revision/repo-cleanup-plan.json`
+- `python3 tests/repo_tools/repo_topology_audit.py --repo-root . --output-json docs/revision/repo-revision.graph.json --output-md docs/revision/repo-revision.md --output-cleanup docs/revision/repo-cleanup-plan.json`
 - `tests/repo_tools/ci-lint.sh`
 - `tests/repo_tools/smoke-workflow.sh`
 
@@ -253,11 +255,11 @@ Validation commands:
 - Edge types:
   - `agent_preload_skill`: 35
   - `command_subagent`: 11
-  - `doc_ref_runtime`: 292
+  - `doc_ref_runtime`: 296
   - `hook_event_to_hook`: 16
   - `hook_ref_runtime`: 5
-  - `runtime_dynamic_load`: 7
-  - `runtime_import`: 235
+  - `runtime_dynamic_load`: 8
+  - `runtime_import`: 242
   - `skill_runtime_ref`: 111
   - `skill_template_ref`: 10
-  - `test_ref_runtime`: 171
+  - `test_ref_runtime`: 199

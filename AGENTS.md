@@ -1,5 +1,7 @@
 # AGENTS (Repo development guide)
 
+> INTERNAL/DEV-ONLY: maintainer guide for repository development and release process.
+
 Этот файл — единая dev‑документация репозитория. Все dev‑правила и шаблоны живут здесь.
 User‑гайд для workspace находится в `skills/aidd-core/templates/workspace-agents.md` (копируется в `aidd/AGENTS.md` при init).
 
@@ -11,8 +13,8 @@ User‑гайд для workspace находится в `skills/aidd-core/templat
 - Stage runtime entrypoints (canonical): `skills/<stage>/runtime/*.py` (Python-only canon с 2026-02-09).
 - Canonical Python runtime живёт в `skills/*/runtime/*`; shell entrypoints допустимы только для hooks/platform glue.
 - `tools/*.py` используется только для repo-only tooling/import stubs (если каталог присутствует).
-- Backlog: `backlog.md` (корень).
-- User‑артефакты: `aidd/**` (docs/reports/config/.cache).
+- Backlog: `docs/backlog.md`.
+- User‑артефакты: `aidd/**` (`docs/`, `reports/`, `config/`, `.cache/`).
 - Derived‑артефакты: `aidd/docs/index/`, `aidd/reports/events/`, `aidd/.cache/`.
 - Примеры: демо‑проекты и helper‑скрипты не поставляются — держите их вне плагина и документируйте в workspace.
 
@@ -197,7 +199,7 @@ Agent‑first правило: сначала читаем артефакты (`a
 
 ## Release checklist (сжато)
 - Обновить `README.md`/`README.en.md` и `AGENTS.md` при изменении поведения.
-- Закрыть задачи в `backlog.md`, создать следующую волну при необходимости.
+- Закрыть задачи в `docs/backlog.md`, создать следующую волну при необходимости.
 - Прогнать `tests/repo_tools/ci-lint.sh` и `tests/repo_tools/smoke-workflow.sh`.
 - Проверить prompt‑versioning и prompt‑lint (см. выше).
 - Убедиться, что dev‑only артефакты не попали в дистрибутив.

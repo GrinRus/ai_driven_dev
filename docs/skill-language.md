@@ -1,5 +1,7 @@
 # Skill Language Policy
 
+> INTERNAL/DEV-ONLY: maintainer lint/prompt policy source of truth.
+
 This document defines the canonical prompt-language and structure policy used by `tests/repo_tools/lint-prompts.py`.
 
 ## Scope
@@ -49,4 +51,4 @@ This document defines the canonical prompt-language and structure policy used by
 ## Baseline Source
 - Frontmatter parity baseline is stored in:
   - `aidd/reports/migrations/commands_to_skills_frontmatter.json`
-  - fallback: `dev/reports/migrations/commands_to_skills_frontmatter.json`
+  - fallback: `docs/migrations/commands_to_skills_frontmatter.json`

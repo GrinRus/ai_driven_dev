@@ -15,8 +15,8 @@ PROFILE_PATHS = {
     "SMOKE": FRAGMENTS_DIR / "profile_smoke.md",
 }
 OUTPUT_PATHS = {
-    "FULL": ROOT / "aidd_test_flow_prompt_ralph_script_full.txt",
-    "SMOKE": ROOT / "aidd_test_flow_prompt_ralph_script.txt",
+    "FULL": ROOT / "docs" / "e2e" / "aidd_test_flow_prompt_ralph_script_full.txt",
+    "SMOKE": ROOT / "docs" / "e2e" / "aidd_test_flow_prompt_ralph_script.txt",
 }
 
 
