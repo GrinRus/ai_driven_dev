@@ -1,6 +1,9 @@
 {
   "name": "aidd-local",
   "description": "Self-hosted marketplace for AI-Driven Dev release tags (immutable refs).",
+  "metadata": {
+    "description": "Stable self-hosted release channel for AI-Driven Dev via immutable Git tags."
+  },
   "owner": {
     "name": "AI-Driven Dev"
   },

@@ -18,6 +18,7 @@
 ## Self-hosted release process (GitHub, tag-driven)
 1. Подготовьте release PR:
    - `version = X.Y.Z` в `.claude-plugin/plugin.json`;
+   - `metadata.description` в `.claude-plugin/marketplace.json` (обязательное поле для `claude plugin validate .` без warning);
    - `plugins[].version = X.Y.Z` и `plugins[].source.ref = vX.Y.Z` в `.claude-plugin/marketplace.json`;
    - release heading `## X.Y.Z - YYYY-MM-DD` в `CHANGELOG.md`.
 2. В `main` допускается только immutable `source.ref` формата `vX.Y.Z` (ветки `main/feature/*` запрещены).

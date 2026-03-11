@@ -49,6 +49,13 @@ def _iter_errors(root: Path, tag: str | None) -> Iterable[str]:
         yield f"failed to parse {marketplace_path.as_posix()}: {exc}"
         return
 
+    metadata = marketplace_payload.get("metadata")
+    metadata_description = ""
+    if isinstance(metadata, dict):
+        metadata_description = _as_text(metadata.get("description"))
+    if not metadata_description:
+        yield f"{marketplace_path.as_posix()}: `metadata.description` is required"
+
     plugin_name = _as_text(plugin_payload.get("name"))
     plugin_version = _as_text(plugin_payload.get("version"))
     if not plugin_name:

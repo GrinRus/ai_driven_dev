@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           fetch-depth: 0
 
@@ -39,7 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           fetch-depth: 0
 
@@ -84,13 +84,13 @@ jobs:
       pull-requests: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           fetch-depth: 0
 
       - name: Detect runtime changes
         id: runtime_changes
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36
         with:
           filters: |
             runtime:
@@ -116,7 +116,7 @@ jobs:
     continue-on-error: ${{ vars.AIDD_SKILL_EVAL_ENFORCE != '1' }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
 
       - name: Run skill eval smoke (38 cases)
         env:
@@ -141,7 +141,7 @@ jobs:
     continue-on-error: ${{ vars.AIDD_SKILL_EVAL_ENFORCE != '1' }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
 
       - name: Run skill eval full (190 cases)
         env:
@@ -154,7 +154,7 @@ jobs:
 
       - name: Upload skill eval artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: skill-eval-full-${{ github.run_id }}
           path: aidd/reports/events/skill-eval
@@ -202,7 +202,8 @@ jobs:
       pull-requests: write
     steps:
       - name: Dependency review
-        uses: actions/dependency-review-action@v4
+        uses: >-
+          actions/dependency-review-action@9129d7d40b8c12c1ed0f60400d00c92d437adcce
         with:
           fail-on-severity: high
 
@@ -215,12 +216,12 @@ jobs:
       security-events: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           fetch-depth: 0
 
       - name: Run gitleaks secret scan
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -240,18 +241,21 @@ jobs:
       security-events: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v4
+        uses: >-
+          github/codeql-action/init@0d579ffd059c29b07949a3cce3983f0780820c98
         with:
           languages: python
 
       - name: Autobuild
-        uses: github/codeql-action/autobuild@v4
+        uses: >-
+          github/codeql-action/autobuild@0d579ffd059c29b07949a3cce3983f0780820c98
 
       - name: Analyze
-        uses: github/codeql-action/analyze@v4
+        uses: >-
+          github/codeql-action/analyze@0d579ffd059c29b07949a3cce3983f0780820c98
 
       - name: Security rollout notice
         if: ${{ env.AIDD_SECURITY_ENFORCE != '1' }}
