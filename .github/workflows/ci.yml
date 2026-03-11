@@ -203,7 +203,7 @@ jobs:
     steps:
       - name: Dependency review
         uses: >-
-          actions/dependency-review-action@9129d7d40b8c12c1ed0f60400d00c92d437adcce
+          actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48
         with:
           fail-on-severity: high
 
