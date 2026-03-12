@@ -97,14 +97,24 @@ _Статус: plan. Основание — аудит `/Users/griogrii_riabov/g
   **Effort:** S
   **Risk:** Low
 
-- [ ] **W107-6 (P0) TST-001 20260310 regression fixture pack + replay checks** `tests/fixtures/audit_tst001_20260310/*`, `tests/repo_tools/test_aidd_audit_runner.py`, `tests/repo_tools/test_aidd_stage_launcher.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
-  - добавить минимальный fixture-set из аудита 2026-03-10 (step6 summaries, termination attribution, manual stage-result write excerpts, stream-path fallback artifacts);
-  - покрыть replay-проверками классификации `watchdog_terminated`, `no_top_level_result`, `silent_stall`, `stream_path_not_emitted_by_cli`, `review_spec_report_mismatch`;
+- [ ] **W107-6 (P0) TST-001 20260310/20260311 regression fixture pack + replay checks** `tests/fixtures/audit_tst001_20260310/*`, `tests/fixtures/audit_tst001_20260311/*`, `tests/repo_tools/test_aidd_audit_runner.py`, `tests/repo_tools/test_aidd_stage_launcher.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - добавить минимальный fixture-set из аудитов 2026-03-10 и 2026-03-11 (step6 summaries, termination attribution, manual stage-result write excerpts, stream-path fallback artifacts, `tasks-new` nested unknown-skill signal, tasklist parser mismatch signal);
+  - покрыть replay-проверками классификации `watchdog_terminated`, `no_top_level_result`, `silent_stall`, `stream_path_not_emitted_by_cli`, `review_spec_report_mismatch`, `prompt_flow_drift_recovered_unknown_skill_nested`, `tasklist_schema_parser_mismatch_recoverable`;
   - включить fixture replay в CI smoke/prompt-contract checks.
-  **AC:** классификация инцидентов из TST-001 воспроизводится тестами детерминированно и ловит регрессии до e2e-аудита.
+  **AC:** классификация инцидентов из TST-001 (включая nested unknown-skill drift в `tasks-new`) воспроизводится тестами детерминированно и ловит регрессии до e2e-аудита.
   **Deps:** W107-2, W107-3, W107-4
   **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_aidd_audit_runner.py tests/repo_tools/test_aidd_stage_launcher.py tests/repo_tools/test_e2e_prompt_contract.py`.
   **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W107-7 (P0) Tasks-new nested skill resolution guard (`spec-interview-writer`)** `skills/tasks-new/runtime/tasks_new.py`, `skills/tasks-new/SKILL.md`, `agents/tasklist-refiner.md`, `tests/test_tasks_new.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - устранить nested invocation drift с `Unknown skill: feature-dev-aidd:spec-interview-writer` в `tasks-new` flow (alias/registry guard + canonical fallback/abort policy);
+  - зафиксировать deterministic поведение при недоступности nested skill: без silent recovery-loop и без ложного top-level `READY` при критическом nested fail;
+  - добавить regression tripwire на nested unknown-skill сигнатуру в `tasks-new` логах.
+  **AC:** `tasks-new` happy-path по фикстуре TST-001 завершается с `unknown_skill_nested_hits=0`; при инъекции недоступного nested skill stage возвращает deterministic canonical classification.
+  **Deps:** W107-6
+  **Regression/tests:** `python3 -m pytest -q tests/test_tasks_new.py tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Effort:** S
   **Risk:** Medium
 
 ## Wave 108 — Loop soft-gate for Research (temporary)
@@ -568,7 +578,8 @@ _Статус: plan. Цель — убрать ложные WARN/telemetry noise
 - [ ] **W106-4 (P0) Tasklist hygiene WARN normalization (non-terminal by design)** `skills/aidd-flow-state/runtime/tasklist_check.py`, `skills/aidd-flow-state/runtime/tasklist_normalize.py`, `skills/tasks-new/SKILL.md`, `tests/test_tasklist_check.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
   - нормализовать и дедуплицировать hygiene WARN (`max_loc`, `expected_paths`, `NEXT_3 deps`, `PROGRESS_LOG format`);
   - сохранить terminal только для реально неисполняемого `AIDD:TEST_EXECUTION`, без отката недавнего fix на multiline `tasks`.
-  **AC:** `tasks-new` не блокируется из-за hygiene-only WARN; `missing tasks` остаётся ошибкой только при реальном отсутствии задач.
+  - явно закрепить non-terminal правило: при `tasks_key_present=1` и `tasks_list_count>0` классификация остаётся `WARN|INFO` без escalation в blocker, даже при parser mismatch telemetry.
+  **AC:** `tasks-new` не блокируется из-за hygiene-only WARN; `missing tasks` остаётся ошибкой только при реальном отсутствии задач; `tasklist_schema_parser_mismatch_recoverable` не повышается в terminal blocker при наличии исполняемых task entries.
   **Deps:** -
   **Regression/tests:** `python3 -m pytest -q tests/test_tasklist_check.py tests/repo_tools/test_e2e_prompt_contract.py`.
   **Effort:** S
