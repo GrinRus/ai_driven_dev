@@ -311,6 +311,41 @@ def build_flow_state_skill() -> str:
     )
 
 
+def build_memory_skill() -> str:
+    return (
+        dedent(
+            """
+            ---
+            name: aidd-memory
+            description: Shared memory ownership for semantic extraction and append-only decision logging runtime tools. Use when memory extraction, decisions append flow, or decisions pack generation must be resolved. Do not use when request belongs to `aidd-docio` generic markdown/actions flow or `aidd-flow-state` stage lifecycle updates.
+            lang: en
+            model: inherit
+            user-invocable: false
+            ---
+
+            ## Command contracts
+            ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-memory/runtime/memory_extract.py`
+            - When to run: after research readiness when semantic memory evidence must be generated.
+            - Inputs: ticket context and ready research artifacts.
+            - Outputs: deterministic semantic memory artifact.
+            - Failure mode: missing required research evidence.
+            - Next action: repair upstream readiness artifacts and rerun extraction.
+
+            ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-memory/runtime/memory_pack.py`
+            - When to run: after decision writes when append-only decisions pack must be rebuilt.
+            - Inputs: ticket context and decision log source.
+            - Outputs: deterministic decisions pack artifact.
+            - Failure mode: malformed or missing decisions log.
+            - Next action: repair decision log and rerun pack generation.
+
+            ## Additional resources
+            - Memory runtime notes: [runtime/memory_extract.py](runtime/memory_extract.py) (when: extraction contract/fields are unclear; why: confirm canonical semantic schema/output shape).
+            """
+        ).strip()
+        + "\n"
+    )
+
+
 def build_observability_skill() -> str:
     return (
         dedent(
@@ -514,6 +549,7 @@ class PromptLintTests(unittest.TestCase):
         (skills_root / "aidd-core" / "SKILL.md").parent.mkdir(parents=True, exist_ok=True)
         (skills_root / "aidd-docio" / "SKILL.md").parent.mkdir(parents=True, exist_ok=True)
         (skills_root / "aidd-flow-state" / "SKILL.md").parent.mkdir(parents=True, exist_ok=True)
+        (skills_root / "aidd-memory" / "SKILL.md").parent.mkdir(parents=True, exist_ok=True)
         (skills_root / "aidd-observability" / "SKILL.md").parent.mkdir(parents=True, exist_ok=True)
         (skills_root / "aidd-policy" / "SKILL.md").parent.mkdir(parents=True, exist_ok=True)
         (skills_root / "aidd-loop" / "SKILL.md").parent.mkdir(parents=True, exist_ok=True)
@@ -527,6 +563,9 @@ class PromptLintTests(unittest.TestCase):
         )
         (skills_root / "aidd-flow-state" / "SKILL.md").write_text(
             skill_override.get("aidd-flow-state", build_flow_state_skill()), encoding="utf-8"
+        )
+        (skills_root / "aidd-memory" / "SKILL.md").write_text(
+            skill_override.get("aidd-memory", build_memory_skill()), encoding="utf-8"
         )
         (skills_root / "aidd-observability" / "SKILL.md").write_text(
             skill_override.get("aidd-observability", build_observability_skill()), encoding="utf-8"

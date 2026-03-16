@@ -159,6 +159,12 @@
       "java"
     ]
   },
+  "memory": {
+    "enabled": true,
+    "mode": "soft",
+    "require_semantic_pack": false,
+    "require_decisions_pack": false
+  },
   "analyst": {
     "enabled": true,
     "branches": [

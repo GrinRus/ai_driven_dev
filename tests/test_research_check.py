@@ -554,6 +554,127 @@ class ResearchCheckTests(unittest.TestCase):
         finally:
             os.chdir(old_cwd)
 
+    def test_research_check_memory_soft_mode_allows_missing_semantic_pack(self) -> None:
+        workspace, project_root = self._setup_workspace()
+        ticket = "demo-memory-soft"
+        write_active_feature(project_root, ticket)
+        write_active_stage(project_root, "review")
+        write_json(
+            project_root,
+            "config/gates.json",
+            {
+                "researcher": {
+                    "enabled": True,
+                    "require_status": ["reviewed"],
+                    "allow_pending_baseline": True,
+                    "minimum_paths": 1,
+                    "freshness_days": 14,
+                    "downstream_gate_mode": "always_soft",
+                },
+                "rlm": {
+                    "enabled": True,
+                    "required_for_langs": ["kt"],
+                    "require_pack": True,
+                    "require_nodes": True,
+                    "require_links": True,
+                },
+                "memory": {
+                    "enabled": True,
+                    "mode": "soft",
+                    "require_semantic_pack": True,
+                    "require_decisions_pack": False,
+                },
+            },
+        )
+        self._write_base_research(project_root, ticket)
+        self._write_rlm_baseline(project_root, ticket, status="ready", entries=[])
+        write_file(
+            project_root,
+            f"reports/research/{ticket}-rlm.nodes.jsonl",
+            '{"node_kind":"file","file_id":"file-app","id":"file-app","path":"src/main/kotlin/App.kt","rev_sha":"rev-app"}\n',
+        )
+        write_file(
+            project_root,
+            f"reports/research/{ticket}-rlm.links.jsonl",
+            '{"link_kind":"import","source":"file-app","target":"file-app","id":"link-1"}\n',
+        )
+        write_json(project_root, f"reports/research/{ticket}-rlm.links.stats.json", {"links_total": 1})
+        write_json(
+            project_root,
+            f"reports/research/{ticket}-rlm.pack.json",
+            {"schema": "aidd.report.pack.v1", "type": "rlm", "status": "ready"},
+        )
+
+        args = self._make_args(ticket)
+        old_cwd = Path.cwd()
+        os.chdir(workspace)
+        try:
+            exit_code = research_check.main(args)
+        finally:
+            os.chdir(old_cwd)
+        self.assertEqual(exit_code, 0)
+
+    def test_research_check_memory_hard_mode_blocks_missing_semantic_pack(self) -> None:
+        workspace, project_root = self._setup_workspace()
+        ticket = "demo-memory-hard"
+        write_active_feature(project_root, ticket)
+        write_active_stage(project_root, "review")
+        write_json(
+            project_root,
+            "config/gates.json",
+            {
+                "researcher": {
+                    "enabled": True,
+                    "require_status": ["reviewed"],
+                    "allow_pending_baseline": True,
+                    "minimum_paths": 1,
+                    "freshness_days": 14,
+                    "downstream_gate_mode": "always_soft",
+                },
+                "rlm": {
+                    "enabled": True,
+                    "required_for_langs": ["kt"],
+                    "require_pack": True,
+                    "require_nodes": True,
+                    "require_links": True,
+                },
+                "memory": {
+                    "enabled": True,
+                    "mode": "hard",
+                    "require_semantic_pack": True,
+                    "require_decisions_pack": False,
+                },
+            },
+        )
+        self._write_base_research(project_root, ticket)
+        self._write_rlm_baseline(project_root, ticket, status="ready", entries=[])
+        write_file(
+            project_root,
+            f"reports/research/{ticket}-rlm.nodes.jsonl",
+            '{"node_kind":"file","file_id":"file-app","id":"file-app","path":"src/main/kotlin/App.kt","rev_sha":"rev-app"}\n',
+        )
+        write_file(
+            project_root,
+            f"reports/research/{ticket}-rlm.links.jsonl",
+            '{"link_kind":"import","source":"file-app","target":"file-app","id":"link-1"}\n',
+        )
+        write_json(project_root, f"reports/research/{ticket}-rlm.links.stats.json", {"links_total": 1})
+        write_json(
+            project_root,
+            f"reports/research/{ticket}-rlm.pack.json",
+            {"schema": "aidd.report.pack.v1", "type": "rlm", "status": "ready"},
+        )
+
+        args = self._make_args(ticket)
+        old_cwd = Path.cwd()
+        os.chdir(workspace)
+        try:
+            with self.assertRaises(RuntimeError) as excinfo:
+                research_check.main(args)
+        finally:
+            os.chdir(old_cwd)
+        self.assertIn("reason_code=memory_semantic_pack_missing", str(excinfo.exception))
+
 
 if __name__ == "__main__":
     unittest.main()

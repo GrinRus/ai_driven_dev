@@ -17,11 +17,14 @@ _ALLOWED_ACTION_TYPES = [
     "tasklist_ops.append_progress_log",
     "tasklist_ops.next3_recompute",
     "context_pack_ops.context_pack_update",
+    "memory_ops.decision_append",
 ]
 _CONTRACT_MISMATCH_REASON_CODE = "contract_mismatch_actions_shape"
 _ACTION_PARAM_KEYS = (
     "date",
     "source",
+    "stage",
+    "scope_key",
     "item_id",
     "kind",
     "hash",
@@ -33,6 +36,14 @@ _ACTION_PARAM_KEYS = (
     "what_to_do",
     "user_note",
     "generated_at",
+    "title",
+    "decision",
+    "rationale",
+    "decision_id",
+    "status",
+    "tags",
+    "supersedes",
+    "conflicts_with",
 )
 
 

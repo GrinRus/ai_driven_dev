@@ -32,6 +32,7 @@ def _ensure_plugin_root_on_path() -> None:
 _ensure_plugin_root_on_path()
 
 from aidd_runtime import gates
+from aidd_runtime import memory_verify
 from aidd_runtime import runtime
 from aidd_runtime.feature_ids import resolve_aidd_root
 from aidd_runtime.rlm_config import detect_lang
@@ -83,6 +84,10 @@ class ResearchSettings:
     rlm_require_pack: bool = True
     rlm_require_nodes: bool = True
     rlm_require_links: bool = True
+    memory_enabled: bool = False
+    memory_mode: str = "soft"
+    memory_require_semantic_pack: bool = False
+    memory_require_decisions_pack: bool = False
 
 
 @dataclass
@@ -104,6 +109,14 @@ def _rlm_links_cmd_hint(ticket: str) -> str:
 
 def _rlm_finalize_cmd_hint(ticket: str) -> str:
     return f"python3 ${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-rlm/runtime/rlm_finalize.py --ticket {ticket}"
+
+
+def _memory_extract_cmd_hint(ticket: str) -> str:
+    return f"python3 ${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-memory/runtime/memory_extract.py --ticket {ticket}"
+
+
+def _memory_pack_cmd_hint(ticket: str) -> str:
+    return f"python3 ${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-memory/runtime/memory_pack.py --ticket {ticket}"
 
 
 def _raise_block(reason_code: str, message: str, next_action: str) -> None:
@@ -189,6 +202,20 @@ def load_settings(root: Path) -> ResearchSettings:
             settings.rlm_require_nodes = bool(rlm_cfg.get("require_nodes"))
         if "require_links" in rlm_cfg:
             settings.rlm_require_links = bool(rlm_cfg.get("require_links"))
+
+    memory_cfg = config.get("memory") or {}
+    if isinstance(memory_cfg, dict):
+        if "enabled" in memory_cfg:
+            settings.memory_enabled = bool(memory_cfg.get("enabled"))
+        mode = str(memory_cfg.get("mode") or "").strip().lower()
+        if mode:
+            if mode not in {"soft", "hard"}:
+                raise ResearchValidationError("config/gates.json: поле memory.mode должно быть soft|hard")
+            settings.memory_mode = mode
+        if "require_semantic_pack" in memory_cfg:
+            settings.memory_require_semantic_pack = bool(memory_cfg.get("require_semantic_pack"))
+        if "require_decisions_pack" in memory_cfg:
+            settings.memory_require_decisions_pack = bool(memory_cfg.get("require_decisions_pack"))
 
     return settings
 
@@ -623,6 +650,98 @@ def _validate_rlm_evidence(
     return warnings
 
 
+def _validate_memory_evidence(
+    root: Path,
+    ticket: str,
+    *,
+    settings: ResearchSettings,
+    expected_stage: Optional[str] = None,
+) -> list[str]:
+    stage = str(expected_stage or _load_stage(root) or "").strip().lower()
+    warnings: list[str] = []
+    if not settings.memory_enabled:
+        return warnings
+    if stage not in {"plan", "review", "qa"}:
+        return warnings
+    if not settings.memory_require_semantic_pack and not settings.memory_require_decisions_pack:
+        return warnings
+
+    memory_root = root / "reports" / "memory"
+    semantic_path = memory_root / f"{ticket}.semantic.pack.json"
+    decisions_path = memory_root / f"{ticket}.decisions.pack.json"
+    mode_soft = settings.memory_mode == "soft"
+
+    def _soft_or_block(reason_code: str, message: str, next_action: str, *, soft_reason: str) -> None:
+        if mode_soft:
+            warnings.append(soft_reason)
+            print(
+                "[aidd] WARN: downstream memory gate softened "
+                f"(reason_code={reason_code}, policy=warn_continue, stage={stage}). "
+                f"Hint: `{next_action}`.",
+                file=sys.stderr,
+            )
+            return
+        _raise_block(reason_code, message, next_action)
+
+    if settings.memory_require_semantic_pack:
+        if not semantic_path.exists():
+            _soft_or_block(
+                "memory_semantic_pack_missing",
+                "required semantic memory pack is missing",
+                _memory_extract_cmd_hint(ticket),
+                soft_reason="memory_semantic_pack_missing_softened",
+            )
+        else:
+            try:
+                semantic_payload = memory_verify.load_payload(semantic_path)
+            except ValueError as exc:
+                _soft_or_block(
+                    "memory_semantic_pack_invalid",
+                    f"semantic memory pack is invalid: {exc}",
+                    _memory_extract_cmd_hint(ticket),
+                    soft_reason="memory_semantic_pack_invalid_softened",
+                )
+            else:
+                semantic_errors = memory_verify.validate_semantic_data(semantic_payload)
+                if semantic_errors:
+                    _soft_or_block(
+                        "memory_semantic_pack_invalid",
+                        f"semantic memory pack validation failed: {semantic_errors[0]}",
+                        _memory_extract_cmd_hint(ticket),
+                        soft_reason="memory_semantic_pack_invalid_softened",
+                    )
+
+    if settings.memory_require_decisions_pack:
+        if not decisions_path.exists():
+            _soft_or_block(
+                "memory_decisions_pack_missing",
+                "required decisions memory pack is missing",
+                _memory_pack_cmd_hint(ticket),
+                soft_reason="memory_decisions_pack_missing_softened",
+            )
+        else:
+            try:
+                decisions_payload = memory_verify.load_payload(decisions_path)
+            except ValueError as exc:
+                _soft_or_block(
+                    "memory_decisions_pack_invalid",
+                    f"decisions memory pack is invalid: {exc}",
+                    _memory_pack_cmd_hint(ticket),
+                    soft_reason="memory_decisions_pack_invalid_softened",
+                )
+            else:
+                decisions_errors = memory_verify.validate_decisions_pack_data(decisions_payload)
+                if decisions_errors:
+                    _soft_or_block(
+                        "memory_decisions_pack_invalid",
+                        f"decisions memory pack validation failed: {decisions_errors[0]}",
+                        _memory_pack_cmd_hint(ticket),
+                        soft_reason="memory_decisions_pack_invalid_softened",
+                    )
+
+    return warnings
+
+
 def validate_research(
     root: Path,
     ticket: str,
@@ -763,6 +882,14 @@ def validate_research(
         allow_scoped_links_empty_warn=allow_scoped_links_empty_warn,
         auto_recovery_attempted=auto_recovery_attempted,
     )
+    memory_warnings = _validate_memory_evidence(
+        root,
+        ticket,
+        settings=settings,
+        expected_stage=stage or None,
+    )
+    if memory_warnings:
+        warnings = list(warnings) + list(memory_warnings)
     if status_softened_warning:
         warnings = list(warnings)
         warnings.append(status_softened_warning)

@@ -12,6 +12,8 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 STREAM_PATHS_MODULE_PATH = REPO_ROOT / "tests" / "repo_tools" / "aidd_stream_paths.py"
 LAUNCHER_MODULE_PATH = REPO_ROOT / "tests" / "repo_tools" / "aidd_stage_launcher.py"
+FIXTURE_PACK_20260310 = REPO_ROOT / "tests" / "fixtures" / "audit_tst001_20260310"
+FIXTURE_PACK_20260311 = REPO_ROOT / "tests" / "fixtures" / "audit_tst001_20260311"
 
 
 def _load_module(path: Path, name: str):
@@ -152,6 +154,17 @@ class AiddStageLauncherTests(unittest.TestCase):
             )
             self.assertEqual(payload["classification"], "silent_stall")
             self.assertEqual(payload["active_source"], "none")
+
+    def test_tst001_fixture_packs_are_available_for_replay(self) -> None:
+        expected = [
+            FIXTURE_PACK_20260310 / "06_implement_run1.summary.txt",
+            FIXTURE_PACK_20260310 / "06_review_run1.summary.txt",
+            FIXTURE_PACK_20260311 / "08_qa_run1.summary.txt",
+            FIXTURE_PACK_20260311 / "07_loop_run_run2.summary.txt",
+        ]
+        for path in expected:
+            with self.subTest(path=path):
+                self.assertTrue(path.exists(), f"missing fixture: {path}")
 
 
 if __name__ == "__main__":

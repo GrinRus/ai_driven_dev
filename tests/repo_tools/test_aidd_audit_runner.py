@@ -8,6 +8,8 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = REPO_ROOT / "tests" / "fixtures" / "audit_tst001"
+FIXTURES_20260310 = REPO_ROOT / "tests" / "fixtures" / "audit_tst001_20260310"
+FIXTURES_20260311 = REPO_ROOT / "tests" / "fixtures" / "audit_tst001_20260311"
 RUNNER_PATH = REPO_ROOT / "tests" / "repo_tools" / "aidd_audit_runner.py"
 
 
@@ -308,6 +310,24 @@ class AiddAuditRunnerTests(unittest.TestCase):
 
             inferred = self.runner.infer_liveness_path(summary)
             self.assertEqual(inferred, run_specific)
+
+    def test_fixture_pack_20260310_replays_review_watchdog_classification(self) -> None:
+        payload = self.runner.analyze_run(
+            summary_path=FIXTURES_20260310 / "06_review_run1.summary.txt",
+            run_log_path=FIXTURES_20260310 / "06_review_run1.log",
+            termination_path=FIXTURES_20260310 / "06_review_termination_attribution.txt",
+        )
+        self.assertEqual(payload.get("classification"), "PROMPT_EXEC_ISSUE")
+        self.assertEqual(payload.get("classification_subtype"), "watchdog_terminated")
+
+    def test_fixture_pack_20260311_replays_qa_watchdog_classification(self) -> None:
+        payload = self.runner.analyze_run(
+            summary_path=FIXTURES_20260311 / "08_qa_run1.summary.txt",
+            run_log_path=FIXTURES_20260311 / "08_qa_run1.log",
+            termination_path=FIXTURES_20260311 / "08_qa_termination_attribution.txt",
+        )
+        self.assertEqual(payload.get("classification"), "PROMPT_EXEC_ISSUE")
+        self.assertEqual(payload.get("classification_subtype"), "watchdog_terminated")
 
 
 if __name__ == "__main__":

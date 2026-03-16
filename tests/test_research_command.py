@@ -56,6 +56,92 @@ class ResearchCommandTest(unittest.TestCase):
             self.assertTrue(summary_path.exists(), "Research summary should be materialised")
             self.assertNotIn("{{", summary_path.read_text(encoding="utf-8"))
 
+    def test_research_command_auto_generates_memory_semantic_pack_when_ready(self):
+        with tempfile.TemporaryDirectory(prefix="aidd-research-memory-") as tmpdir:
+            workspace = Path(tmpdir)
+            project_root = workspace / "aidd"
+            project_root.mkdir(parents=True, exist_ok=True)
+            subprocess.run(
+                cli_cmd("init"),
+                cwd=workspace,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=cli_env(),
+            )
+
+            ticket = "MEM-R-1"
+            nodes_path = project_root / "reports" / "research" / f"{ticket}-rlm.nodes.jsonl"
+            links_path = project_root / "reports" / "research" / f"{ticket}-rlm.links.jsonl"
+            nodes_path.parent.mkdir(parents=True, exist_ok=True)
+            nodes_path.write_text(
+                json.dumps(
+                    {
+                        "schema": "aidd.rlm_node.v2",
+                        "schema_version": "v2",
+                        "node_kind": "file",
+                        "file_id": "file-app",
+                        "id": "file-app",
+                        "path": "src/main/kotlin/App.kt",
+                        "rev_sha": "rev-app",
+                        "summary": "entrypoint",
+                        "lang": "kt",
+                        "prompt_version": "v1",
+                        "public_symbols": ["App"],
+                        "type_refs": [],
+                        "key_calls": [],
+                        "framework_roles": [],
+                        "test_hooks": [],
+                        "risks": [],
+                        "verification": "passed",
+                        "missing_tokens": [],
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            links_path.write_text(
+                json.dumps(
+                    {
+                        "schema": "aidd.rlm_link.v1",
+                        "schema_version": "v1",
+                        "link_id": "link-app",
+                        "src_file_id": "file-app",
+                        "dst_file_id": "file-app",
+                        "type": "calls",
+                        "evidence_ref": {
+                            "path": "src/main/kotlin/App.kt",
+                            "line_start": 1,
+                            "line_end": 1,
+                            "extractor": "regex",
+                            "match_hash": "hash",
+                        },
+                        "unverified": False,
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            subprocess.run(
+                cli_cmd(
+                    "research",
+                    "--ticket",
+                    ticket,
+                    "--auto",
+                    "--keywords",
+                    "app",
+                ),
+                cwd=workspace,
+                env=cli_env(),
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+
+            semantic_path = project_root / "reports" / "memory" / f"{ticket}.semantic.pack.json"
+            self.assertTrue(semantic_path.exists(), "research --auto should generate memory semantic pack")
+
     def test_research_command_blocks_without_research_hints(self):
         with tempfile.TemporaryDirectory(prefix="aidd-research-hints-") as tmpdir:
             workspace = Path(tmpdir) / "workspace"

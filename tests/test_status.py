@@ -59,3 +59,70 @@ def test_status_refresh_uses_rlm_pack_and_ignores_legacy_research_files():
         assert f"aidd/reports/research/{ticket}-rlm.pack.json" in reports
         assert all(not str(item).endswith(f"{ticket}{legacy_context_suffix}") for item in reports)
         assert all(not str(item).endswith(f"{ticket}{legacy_targets_suffix}") for item in reports)
+
+
+def test_status_refresh_indexes_memory_reports_when_present():
+    with tempfile.TemporaryDirectory(prefix="aidd-status-memory-") as tmpdir:
+        workspace = Path(tmpdir) / "workspace"
+        workspace.mkdir(parents=True, exist_ok=True)
+        project_root = ensure_project_root(workspace)
+        ticket = "STATUS-MEM-1"
+
+        write_active_feature(project_root, ticket)
+        write_active_stage(project_root, "review")
+        write_file(project_root, f"docs/research/{ticket}.md", "# Research\\n\\nStatus: reviewed\\n")
+        write_file(
+            project_root,
+            f"reports/research/{ticket}-rlm.pack.json",
+            json.dumps({"schema": "aidd.report.pack.v1", "type": "rlm", "status": "ready"}, ensure_ascii=False) + "\\n",
+        )
+        write_file(
+            project_root,
+            f"reports/memory/{ticket}.semantic.pack.json",
+            json.dumps(
+                {
+                    "schema": "aidd.memory.semantic.v1",
+                    "schema_version": "aidd.memory.semantic.v1",
+                    "ticket": ticket,
+                    "generated_at": "2026-03-16T00:00:00Z",
+                    "status": "ok",
+                    "source_paths": [],
+                    "sections": {"terms": [], "defaults": [], "constraints": [], "invariants": [], "open_questions": []},
+                },
+                ensure_ascii=False,
+            )
+            + "\\n",
+        )
+        write_file(
+            project_root,
+            f"reports/memory/{ticket}.decisions.pack.json",
+            json.dumps(
+                {
+                    "schema": "aidd.memory.decisions.pack.v1",
+                    "schema_version": "aidd.memory.decisions.pack.v1",
+                    "ticket": ticket,
+                    "generated_at": "2026-03-16T00:00:00Z",
+                    "status": "ok",
+                    "active": [],
+                    "superseded": [],
+                    "top": [],
+                },
+                ensure_ascii=False,
+            )
+            + "\\n",
+        )
+
+        result = subprocess.run(
+            cli_cmd("status", "--ticket", ticket, "--refresh"),
+            cwd=workspace,
+            text=True,
+            capture_output=True,
+            env=cli_env(),
+        )
+        assert result.returncode == 0, result.stderr
+
+        index_path = project_root / "docs" / "index" / f"{ticket}.json"
+        index_payload = json.loads(index_path.read_text(encoding="utf-8"))
+        reports = index_payload.get("reports") or []
+        assert f"aidd/reports/memory/{ticket}.semantic.pack.json" in reports
+        assert f"aidd/reports/memory/{ticket}.decisions.pack.json" in reports

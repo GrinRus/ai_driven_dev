@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "aidd.memory.semantic.v1",
+  "schema": "aidd.schema.v1",
+  "schema_version": "aidd.memory.semantic.v1",
+  "title": "AIDD Semantic Memory Pack v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "schema_version",
+    "ticket",
+    "generated_at",
+    "status",
+    "source_paths",
+    "sections"
+  ],
+  "properties": {
+    "schema": {
+      "const": "aidd.memory.semantic.v1"
+    },
+    "schema_version": {
+      "const": "aidd.memory.semantic.v1"
+    },
+    "ticket": {
+      "type": "string"
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ok",
+        "warn"
+      ]
+    },
+    "source_paths": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "sections": {
+      "type": "object",
+      "required": [
+        "terms",
+        "defaults",
+        "constraints",
+        "invariants",
+        "open_questions"
+      ],
+      "properties": {
+        "terms": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "defaults": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "constraints": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "invariants": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "open_questions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "budget": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": true
+}

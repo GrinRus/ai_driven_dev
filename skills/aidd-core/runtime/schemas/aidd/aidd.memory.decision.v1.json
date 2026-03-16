@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "aidd.memory.decision.v1",
+  "schema": "aidd.schema.v1",
+  "schema_version": "aidd.memory.decision.v1",
+  "title": "AIDD Decision Entry v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "schema_version",
+    "ticket",
+    "decision_id",
+    "created_at",
+    "stage",
+    "scope_key",
+    "source",
+    "title",
+    "decision",
+    "status",
+    "content_hash",
+    "entry_hash"
+  ],
+  "properties": {
+    "schema": {
+      "const": "aidd.memory.decision.v1"
+    },
+    "schema_version": {
+      "const": "aidd.memory.decision.v1"
+    },
+    "ticket": {
+      "type": "string"
+    },
+    "decision_id": {
+      "type": "string"
+    },
+    "created_at": {
+      "type": "string"
+    },
+    "stage": {
+      "type": "string"
+    },
+    "scope_key": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "decision": {
+      "type": "string"
+    },
+    "rationale": {
+      "type": "string"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "supersedes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "conflicts_with": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "superseded"
+      ]
+    },
+    "content_hash": {
+      "type": "string"
+    },
+    "prev_hash": {
+      "type": "string"
+    },
+    "entry_hash": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}

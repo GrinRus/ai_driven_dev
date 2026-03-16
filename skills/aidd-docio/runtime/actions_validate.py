@@ -52,6 +52,7 @@ KNOWN_TYPES = {
     "tasklist_ops.append_progress_log",
     "tasklist_ops.next3_recompute",
     "context_pack_ops.context_pack_update",
+    "memory_ops.decision_append",
 }
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
@@ -129,6 +130,23 @@ def _validate_context_pack_params(params: dict, errors: List[str], *, prefix: st
             errors.append(f"{prefix}{key} must be string")
 
 
+def _validate_memory_decision_params(params: dict, errors: List[str], *, prefix: str = "") -> None:
+    required = ["title", "decision"]
+    validation_helpers.require_fields(params, required, errors, prefix=prefix)
+    for key in ("title", "decision", "rationale", "decision_id", "stage", "scope_key", "source"):
+        if key in params and params.get(key) is not None and not _is_str(params.get(key)):
+            errors.append(f"{prefix}{key} must be string")
+    for key in ("tags", "supersedes", "conflicts_with"):
+        if key in params:
+            value = params.get(key)
+            if not isinstance(value, list) or not all(_is_str(item) for item in value):
+                errors.append(f"{prefix}{key} must be list[str]")
+    if "status" in params:
+        status = str(params.get("status") or "").strip().lower()
+        if status not in {"active", "superseded"}:
+            errors.append(f"{prefix}status must be active|superseded")
+
+
 def _validate_action_item(action: dict, errors: List[str], *, prefix: str, allowed_types: set[str]) -> None:
     action_type = action.get("type")
     if not action_type or not _is_str(action_type):
@@ -155,6 +173,8 @@ def _validate_action_item(action: dict, errors: List[str], *, prefix: str, allow
             errors.append(f"{prefix}params must be empty for next3_recompute")
     elif action_type == "context_pack_ops.context_pack_update":
         _validate_context_pack_params(params, errors, prefix=prefix)
+    elif action_type == "memory_ops.decision_append":
+        _validate_memory_decision_params(params, errors, prefix=prefix)
 
 
 def _validate_v0(payload: dict, errors: List[str]) -> None:

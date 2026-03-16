@@ -117,6 +117,8 @@ def _collect_reports(root: Path, ticket: str) -> List[str]:
     ]
     candidates.append(root / "reports" / "research" / f"{ticket}-rlm.pack.json")
     candidates.append(root / "reports" / "research" / f"{ticket}-rlm.worklist.pack.json")
+    candidates.append(root / "reports" / "memory" / f"{ticket}.semantic.pack.json")
+    candidates.append(root / "reports" / "memory" / f"{ticket}.decisions.pack.json")
     candidates.append(root / "reports" / "prd" / f"{ticket}.pack.json")
     candidates.append(root / "reports" / "qa" / f"{ticket}.pack.json")
     candidates.append(root / "reports" / "context" / f"{ticket}.pack.md")
