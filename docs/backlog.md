@@ -311,7 +311,7 @@ _Статус: plan. Основание — консолидация всех о
 
 _Статус: plan. Основание — консолидация всех открытых задач приоритета `P0` из текущего backlog._
 
-- [ ] **W112-1 (P0) Reopen seed-stage terminal failure `no_top_level_result` (`exit_code=143`, `result_count=0`)** `skills/implement/runtime/implement_run.py`, `skills/review/runtime/review_run.py`, `skills/aidd-loop/runtime/loop_run_parts/core.py`, `tests/test_review_run.py`, `tests/test_loop_run.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+- [x] **W112-1 (P0) Reopen seed-stage terminal failure `no_top_level_result` (`exit_code=143`, `result_count=0`)** `skills/implement/runtime/implement_run.py`, `skills/review/runtime/review_run.py`, `skills/aidd-loop/runtime/loop_run_parts/core.py`, `tests/test_review_run.py`, `tests/test_loop_run.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
   - закрыть регрессию шага 6: implement/review завершаются без top-level stage result при валидном init;
   - стабилизировать terminal mapping для `watchdog_terminated|external_terminate` и обязательный emit canonical результата;
   - добавить fixture/replay guard на сигнатуру `NOT_VERIFIED_no_top_level_result_exit143_result_count0`.
@@ -321,7 +321,7 @@ _Статус: plan. Основание — консолидация всех о
   **Effort:** M
   **Risk:** High
 
-- [ ] **W112-2 (P0) Research contract hardening: forbid tasklist/spec fallthrough** `skills/researcher/SKILL.md`, `agents/researcher.md`, `skills/researcher/runtime/research.py`, `tests/test_research_command.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+- [x] **W112-2 (P0) Research contract hardening: forbid tasklist/spec fallthrough** `skills/researcher/SKILL.md`, `agents/researcher.md`, `skills/researcher/runtime/research.py`, `tests/test_research_command.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
   - запретить на стадии `research` вызовы `tasks-new` и `tasks_derive --source prd`; разрешить только canonical handoff `tasks_derive --source research --append` при `rlm_status!=ready`;
   - добавить regression tripwire на drift-сигнатуры в research flow: `invalid choice: 'prd'`, `tasks_new.py: error: unrecognized arguments`, `spec required ... Run /feature-dev-aidd:spec-interview`;
   - закрепить deterministic next-action только в пределах research handoff (`rlm_finalize` или `/feature-dev-aidd:plan-new <ticket>`), без перехода в `spec-interview/tasklist`.
@@ -331,27 +331,27 @@ _Статус: plan. Основание — консолидация всех о
   **Effort:** S
   **Risk:** High
 
-- [ ] **W112-3 (P0) Remove non-canonical `set_stage.py` drift in plan stage** `skills/plan-new/SKILL.md`, `agents/planner.md`, `skills/plan-new/runtime/*`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+- [x] **W112-3 (P0) Remove non-canonical `set_stage.py` drift in plan stage** `skills/plan-new/SKILL.md`, `agents/planner.md`, `skills/plan-new/runtime/*`, `tests/repo_tools/test_e2e_prompt_contract.py`:
   - убрать обращения к `skills/aidd-flow-state/runtime/set_stage.py` и legacy summary handoff;
   - закрепить canonical routing через `set_active_stage.py` + tripwire на `can't open file ... set_stage.py`.
   **AC:** `plan-new` логи не содержат `set_stage.py` ошибок; stage завершает top-level result без runtime path drift.
 
-- [ ] **W112-4 (P0) Remove tasks-new CLI drift (`progress_cli --message`)** `skills/tasks-new/SKILL.md`, `agents/tasklist-refiner.md`, `skills/tasks-new/runtime/tasks_new.py`, `tests/test_tasks_new.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+- [x] **W112-4 (P0) Remove tasks-new CLI drift (`progress_cli --message`)** `skills/tasks-new/SKILL.md`, `agents/tasklist-refiner.md`, `skills/tasks-new/runtime/tasks_new.py`, `tests/test_tasks_new.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
   - убрать non-canonical аргумент `--message` из prompt/runtime path для `progress_cli.py`;
   - зафиксировать canonical вызов progress CLI и добавить regression tripwire.
   **AC:** в `tasks-new` логах отсутствует `progress_cli.py: error: unrecognized arguments: --message`.
 
-- [ ] **W112-5 (P0) Implement-stage fail-fast for repeated `command_not_found`** `skills/implement/runtime/implement_run.py`, `skills/implement/SKILL.md`, `agents/implementer.md`, `tests/test_implement_agent.py`, `tests/test_loop_step.py`:
+- [x] **W112-5 (P0) Implement-stage fail-fast for repeated `command_not_found`** `skills/implement/runtime/implement_run.py`, `skills/implement/SKILL.md`, `agents/implementer.md`, `tests/test_implement_agent.py`, `tests/test_loop_step.py`:
   - детектировать повторяющиеся `exit 127`/`no such file or directory` (например, `./gradlew`) как terminal prompt-exec incident;
   - возвращать явный `reason_code` и canonical next action вместо long-running stall.
   **AC:** implement stage не уходит в silent stall при повторяющемся `command_not_found`.
 
-- [ ] **W112-6 (P0) Stage-result enum hardening for review/qa mapping** `skills/review/**`, `skills/qa/**`, `skills/aidd-flow-state/runtime/stage_result.py`, `tests/test_review_agent.py`, `tests/test_qa_exit_code.py`:
+- [x] **W112-6 (P0) Stage-result enum hardening for review/qa mapping** `skills/review/**`, `skills/qa/**`, `skills/aidd-flow-state/runtime/stage_result.py`, `tests/test_review_agent.py`, `tests/test_qa_exit_code.py`:
   - запретить передачу non-canonical `--result` значений (`revise_required`, `conditional_pass`);
   - ввести deterministic mapping user-facing verdict -> canonical result (`blocked|continue|done`) до runtime вызова.
   **AC:** в review/qa логах отсутствует `stage_result.py: error: argument --result: invalid choice`.
 
-- [ ] **W112-7 (P0) Manual stage-result write hard-block + canonical-only handoff** `skills/aidd-core/runtime/stage_actions_run.py`, `skills/aidd-core/runtime/skill_contract_validate.py`, `skills/implement/SKILL.md`, `skills/review/SKILL.md`, `tests/test_stage_actions_run.py`, `tests/test_prompt_lint.py`, `tests/test_runtime_write_safety.py`:
+- [x] **W112-7 (P0) Manual stage-result write hard-block + canonical-only handoff** `skills/aidd-core/runtime/stage_actions_run.py`, `skills/aidd-core/runtime/skill_contract_validate.py`, `skills/implement/SKILL.md`, `skills/review/SKILL.md`, `tests/test_stage_actions_run.py`, `tests/test_prompt_lint.py`, `tests/test_runtime_write_safety.py`:
   - запретить manual write-path в runtime/promptах для `aidd/reports/loops/**/stage.*.result.json` и `aidd/reports/logs/**/stage.*.log` как primary recovery path;
   - при попытке manual path возвращать canonical terminal payload (`reason_code=policy_violation_stage_result_manual_write`) вместо продолжения run;
   - закрепить lint-tripwire на non-canonical stage-chain recovery hints.
@@ -361,7 +361,7 @@ _Статус: plan. Основание — консолидация всех о
   **Effort:** M
   **Risk:** High
 
-- [ ] **W112-8 (P0) Seed-stage convergence contract for `implement/review` (no top-level result guard)** `skills/implement/runtime/implement_run.py`, `skills/review/runtime/review_run.py`, `skills/aidd-loop/runtime/loop_run_parts/core.py`, `tests/test_review_run.py`, `tests/test_loop_run.py`, `tests/test_qa_exit_code.py`:
+- [x] **W112-8 (P0) Seed-stage convergence contract for `implement/review` (no top-level result guard)** `skills/implement/runtime/implement_run.py`, `skills/review/runtime/review_run.py`, `skills/aidd-loop/runtime/loop_run_parts/core.py`, `tests/test_review_run.py`, `tests/test_loop_run.py`, `tests/test_qa_exit_code.py`:
   - ввести deterministic convergence guard: если run живой, но top-level result не эмитится в bounded window, возвращать canonical terminal payload до watchdog kill;
   - при `task_started` без `task_completed` возвращать explicit `blocked`/`warn` reason вместо hanging до budget exhaustion;
   - синхронизовать `exit_code/reason_code/watchdog_marker` mapping для seed stages.
@@ -371,7 +371,7 @@ _Статус: plan. Основание — консолидация всех о
   **Effort:** M
   **Risk:** High
 
-- [ ] **W112-9 (P0) Launcher/liveness hardening for zero-byte and stream-path-not-emitted cases** `tests/repo_tools/aidd_stage_launcher.py`, `tests/repo_tools/aidd_stream_paths.py`, `tests/repo_tools/aidd_audit_runner.py`, `tests/repo_tools/test_aidd_stage_launcher.py`, `tests/repo_tools/test_aidd_audit_runner.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+- [x] **W112-9 (P0) Launcher/liveness hardening for zero-byte and stream-path-not-emitted cases** `tests/repo_tools/aidd_stage_launcher.py`, `tests/repo_tools/aidd_stream_paths.py`, `tests/repo_tools/aidd_audit_runner.py`, `tests/repo_tools/test_aidd_stage_launcher.py`, `tests/repo_tools/test_aidd_audit_runner.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
   - стабилизировать shell-safe retry при `0 bytes` launcher anomaly (ровно один retry, с явным evidence marker);
   - унифицировать fallback discovery для stream-path extraction при `stream_path_not_emitted_by_cli=1`;
   - гарантировать корректную классификацию `silent stall` только при подтверждённой стагнации main+stream.
@@ -381,7 +381,7 @@ _Статус: plan. Основание — консолидация всех о
   **Effort:** S
   **Risk:** Medium
 
-- [ ] **W112-10 (P0) TST-001 20260310/20260311 regression fixture pack + replay checks** `tests/fixtures/audit_tst001_20260310/*`, `tests/fixtures/audit_tst001_20260311/*`, `tests/repo_tools/test_aidd_audit_runner.py`, `tests/repo_tools/test_aidd_stage_launcher.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+- [x] **W112-10 (P0) TST-001 20260310/20260311 regression fixture pack + replay checks** `tests/fixtures/audit_tst001_20260310/*`, `tests/fixtures/audit_tst001_20260311/*`, `tests/repo_tools/test_aidd_audit_runner.py`, `tests/repo_tools/test_aidd_stage_launcher.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
   - добавить минимальный fixture-set из аудитов 2026-03-10 и 2026-03-11 (step6 summaries, termination attribution, manual stage-result write excerpts, stream-path fallback artifacts, `tasks-new` nested unknown-skill signal, tasklist parser mismatch signal);
   - покрыть replay-проверками классификации `watchdog_terminated`, `no_top_level_result`, `silent_stall`, `stream_path_not_emitted_by_cli`, `review_spec_report_mismatch`, `prompt_flow_drift_recovered_unknown_skill_nested`, `tasklist_schema_parser_mismatch_recoverable`;
   - включить fixture replay в CI smoke/prompt-contract checks.
@@ -391,7 +391,7 @@ _Статус: plan. Основание — консолидация всех о
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W112-11 (P0) Tasks-new nested skill resolution guard (`spec-interview-writer`)** `skills/tasks-new/runtime/tasks_new.py`, `skills/tasks-new/SKILL.md`, `agents/tasklist-refiner.md`, `tests/test_tasks_new.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+- [x] **W112-11 (P0) Tasks-new nested skill resolution guard (`spec-interview-writer`)** `skills/tasks-new/runtime/tasks_new.py`, `skills/tasks-new/SKILL.md`, `agents/tasklist-refiner.md`, `tests/test_tasks_new.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
   - устранить nested invocation drift с `Unknown skill: feature-dev-aidd:spec-interview-writer` в `tasks-new` flow (alias/registry guard + canonical fallback/abort policy);
   - зафиксировать deterministic поведение при недоступности nested skill: без silent recovery-loop и без ложного top-level `READY` при критическом nested fail;
   - добавить regression tripwire на nested unknown-skill сигнатуру в `tasks-new` логах.
@@ -401,7 +401,7 @@ _Статус: plan. Основание — консолидация всех о
   **Effort:** S
   **Risk:** Medium
 
-- [ ] **W112-12 (P0) Create `aidd-memory` shared skill and canonical runtime surface** `skills/aidd-memory/SKILL.md`, `skills/aidd-memory/runtime/{memory_extract.py,decision_append.py,memory_pack.py,memory_slice.py,memory_verify.py}`, `.claude-plugin/plugin.json`, `tests/repo_tools/entrypoints-bundle.txt`:
+- [x] **W112-12 (P0) Create `aidd-memory` shared skill and canonical runtime surface** `skills/aidd-memory/SKILL.md`, `skills/aidd-memory/runtime/{memory_extract.py,decision_append.py,memory_pack.py,memory_slice.py,memory_verify.py}`, `.claude-plugin/plugin.json`, `tests/repo_tools/entrypoints-bundle.txt`:
   - завести owner skill `aidd-memory` и canonical Python entrypoints;
   - подключить skill metadata в plugin inventory.
   **AC:** в inventory присутствует shared skill `aidd-memory` с canonical runtime API.
@@ -410,7 +410,7 @@ _Статус: plan. Основание — консолидация всех о
   **Effort:** S
   **Risk:** Low
 
-- [ ] **W112-13 (P0) Memory schemas + validator contract (`semantic/decisions/pack`)** `skills/aidd-core/runtime/schemas/aidd/*.json`, `skills/aidd-memory/runtime/memory_verify.py`, `tests/test_memory_verify.py`:
+- [x] **W112-13 (P0) Memory schemas + validator contract (`semantic/decisions/pack`)** `skills/aidd-core/runtime/schemas/aidd/*.json`, `skills/aidd-memory/runtime/memory_verify.py`, `tests/test_memory_verify.py`:
   - добавить схемы `aidd.memory.semantic.v1`, `aidd.memory.decision.v1`, `aidd.memory.decisions.pack.v1`;
   - реализовать schema+budget validation.
   **AC:** memory artifacts валидируются детерминированно; invalid payloads блокируются с reason codes.
@@ -419,7 +419,7 @@ _Статус: plan. Основание — консолидация всех о
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W112-14 (P0) Semantic extractor runtime (`memory_extract.py`) with deterministic pack budgets** `skills/aidd-memory/runtime/memory_extract.py`, `tests/test_memory_extract.py`:
+- [x] **W112-14 (P0) Semantic extractor runtime (`memory_extract.py`) with deterministic pack budgets** `skills/aidd-memory/runtime/memory_extract.py`, `tests/test_memory_extract.py`:
   - извлекать `terms/defaults/constraints/invariants/open_questions` из `aidd/docs/*` и `aidd/reports/context/*.pack.md`;
   - писать `aidd/reports/memory/<ticket>.semantic.pack.json` c stable ordering и trim policy.
   **AC:** semantic pack генерируется для активного ticket и укладывается в budget.
@@ -428,7 +428,7 @@ _Статус: plan. Основание — консолидация всех о
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W112-15 (P0) Append-only decision log + decisions pack assembly** `skills/aidd-memory/runtime/decision_append.py`, `skills/aidd-memory/runtime/memory_pack.py`, `tests/test_memory_decisions.py`:
+- [x] **W112-15 (P0) Append-only decision log + decisions pack assembly** `skills/aidd-memory/runtime/decision_append.py`, `skills/aidd-memory/runtime/memory_pack.py`, `tests/test_memory_decisions.py`:
   - реализовать append-only `aidd/reports/memory/<ticket>.decisions.jsonl`;
   - собирать `aidd/reports/memory/<ticket>.decisions.pack.json` (active/superseded chain, conflict summary, top-N).
   **AC:** решения сохраняются как immutable log; decision pack отражает актуальное состояние без дублей.
@@ -437,7 +437,7 @@ _Статус: plan. Основание — консолидация всех о
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W112-16 (P0) Bootstrap/config wiring for memory layer** `templates/aidd/config/conventions.json`, `templates/aidd/config/gates.json`, `skills/aidd-init/runtime/init.py`, `templates/aidd/reports/memory/.gitkeep`:
+- [x] **W112-16 (P0) Bootstrap/config wiring for memory layer** `templates/aidd/config/conventions.json`, `templates/aidd/config/gates.json`, `skills/aidd-init/runtime/init.py`, `templates/aidd/reports/memory/.gitkeep`:
   - добавить memory knobs (enable/budgets/read order hints);
   - сидировать `aidd/reports/memory/` при init.
   **AC:** новые workspace получают memory config + directories из коробки.
@@ -446,7 +446,7 @@ _Статус: plan. Основание — консолидация всех о
   **Effort:** S
   **Risk:** Low
 
-- [ ] **W112-17 (P0) Research pipeline hook: run `memory_extract` after RLM readiness** `skills/researcher/runtime/research.py`, `tests/test_research_command.py`:
+- [x] **W112-17 (P0) Research pipeline hook: run `memory_extract` after RLM readiness** `skills/researcher/runtime/research.py`, `tests/test_research_command.py`:
   - после успешной сборки RLM artifacts запускать semantic extraction;
   - фиксировать memory artifacts в event/index paths.
   **AC:** `research.py --auto` генерирует semantic memory pack без ручного шага.
@@ -455,7 +455,7 @@ _Статус: plan. Основание — консолидация всех о
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W112-18 (P0) DocOps/actions support for decision writes in loop mode** `skills/aidd-docio/runtime/actions_validate.py`, `skills/aidd-docio/runtime/actions_apply.py`, `skills/aidd-core/runtime/schemas/aidd/aidd.actions.v1.json`, `skills/implement/CONTRACT.yaml`, `skills/review/CONTRACT.yaml`, `skills/qa/CONTRACT.yaml`, `tests/test_wave93_validators.py`:
+- [x] **W112-18 (P0) DocOps/actions support for decision writes in loop mode** `skills/aidd-docio/runtime/actions_validate.py`, `skills/aidd-docio/runtime/actions_apply.py`, `skills/aidd-core/runtime/schemas/aidd/aidd.actions.v1.json`, `skills/implement/CONTRACT.yaml`, `skills/review/CONTRACT.yaml`, `skills/qa/CONTRACT.yaml`, `tests/test_wave93_validators.py`:
   - добавить action type `memory_ops.decision_append`;
   - разрешить controlled decision updates через actions path.
   **AC:** loop stage может писать decision log только через validated actions flow.
@@ -464,7 +464,7 @@ _Статус: plan. Основание — консолидация всех о
   **Effort:** M
   **Risk:** High
 
-- [ ] **W112-19 (P0) Gate support: soft/hard memory readiness for `plan/review/qa`** `skills/aidd-core/runtime/research_guard.py`, `skills/aidd-core/runtime/gate_workflow.py`, `tests/test_gate_workflow.py`, `tests/test_research_check.py`:
+- [x] **W112-19 (P0) Gate support: soft/hard memory readiness for `plan/review/qa`** `skills/aidd-core/runtime/research_guard.py`, `skills/aidd-core/runtime/gate_workflow.py`, `tests/test_gate_workflow.py`, `tests/test_research_check.py`:
   - добавить configurable memory checks (`require_semantic_pack`, `require_decisions_pack`);
   - ввести reason codes для warn/block rollout.
   **AC:** при включённой политике gate детерминированно сигнализирует memory incompleteness.
@@ -473,7 +473,7 @@ _Статус: plan. Основание — консолидация всех о
   **Effort:** M
   **Risk:** High
 
-- [ ] **W112-20 (P0) End-to-end regression coverage for Memory v2** `tests/test_memory_*.py`, `tests/test_preflight_prepare.py`, `tests/test_output_contract.py`, `tests/repo_tools/smoke-workflow.sh`, `tests/repo_tools/ci-lint.sh`:
+- [x] **W112-20 (P0) End-to-end regression coverage for Memory v2** `tests/test_memory_*.py`, `tests/test_preflight_prepare.py`, `tests/test_output_contract.py`, `tests/repo_tools/smoke-workflow.sh`, `tests/repo_tools/ci-lint.sh`:
   - покрыть unit/integration/e2e сценарии generation/read/write/gates;
   - добавить smoke steps для memory artifacts lifecycle.
   **AC:** Memory v2 покрыт regression tests и не ломает текущие stage pipelines.
@@ -482,7 +482,7 @@ _Статус: plan. Основание — консолидация всех о
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W112-21 (P0) Scoped research WARN for readiness gate (`R18/R12`)** `tests/repo_tools/e2e_prompt/profile_full.md`, `tests/repo_tools/e2e_prompt/profile_smoke.md`, `tests/repo_tools/test_e2e_prompt_contract.py`, `docs/e2e/aidd_test_flow_prompt_ralph_script_full.txt`, `docs/e2e/aidd_test_flow_prompt_ralph_script.txt`:
+- [x] **W112-21 (P0) Scoped research WARN for readiness gate (`R18/R12`)** `tests/repo_tools/e2e_prompt/profile_full.md`, `tests/repo_tools/e2e_prompt/profile_smoke.md`, `tests/repo_tools/test_e2e_prompt_contract.py`, `docs/e2e/aidd_test_flow_prompt_ralph_script_full.txt`, `docs/e2e/aidd_test_flow_prompt_ralph_script.txt`:
   - обновить readiness PASS rule: `research_status=reviewed|ok` или `research_status=warn` при scoped evidence;
   - добавить поле `research_warn_scope=<none|links_empty_non_blocking|invalid>` в contract `05_precondition_block.txt`;
   - расширить FAIL reason codes: добавить `research_warn_unscoped`;
@@ -496,7 +496,7 @@ _Статус: plan. Основание — консолидация всех о
   **Effort:** S
   **Risk:** Low
 
-- [ ] **W112-22 (P0) Plan-stage temporary soft gate for `rlm_status_pending` + usage telemetry** `skills/plan-new/runtime/research_check.py`, `tests/test_research_check.py`, `tests/repo_tools/smoke-workflow.sh`:
+- [x] **W112-22 (P0) Plan-stage temporary soft gate for `rlm_status_pending` + usage telemetry** `skills/plan-new/runtime/research_check.py`, `tests/test_research_check.py`, `tests/repo_tools/smoke-workflow.sh`:
   - поддержать временный `warn-continue` режим только для `--expected-stage plan`, если после bounded finalize-probe остаётся `reason_code=rlm_status_pending`;
   - сохранить fail-fast для остальных reason codes (`rlm_nodes_missing`, `rlm_links_empty_warn`, invalid/missing artifacts);
   - добавить явный WARN-сигнал в stderr для операторской диагностики (policy marker + finalize probe outcome).
@@ -506,7 +506,7 @@ _Статус: plan. Основание — консолидация всех о
   **Effort:** S
   **Risk:** Medium
 
-- [ ] **W112-23 (P0) Always-soft rollout для шагов 5.2/7 (runtime + prompt + tests)** `skills/aidd-core/runtime/research_guard.py`, `hooks/gate_workflow.py`, `skills/aidd-loop/runtime/loop_run_parts/core.py`, `skills/aidd-loop/runtime/loop_block_policy.py`, `templates/aidd/config/gates.json`, `tests/repo_tools/e2e_prompt/profile_{full,smoke}.md`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+- [x] **W112-23 (P0) Always-soft rollout для шагов 5.2/7 (runtime + prompt + tests)** `skills/aidd-core/runtime/research_guard.py`, `hooks/gate_workflow.py`, `skills/aidd-loop/runtime/loop_run_parts/core.py`, `skills/aidd-loop/runtime/loop_block_policy.py`, `templates/aidd/config/gates.json`, `tests/repo_tools/e2e_prompt/profile_{full,smoke}.md`, `tests/repo_tools/test_e2e_prompt_contract.py`:
   - включить `researcher.downstream_gate_mode=always_soft` и default `loop.blocked_policy=ralph`;
   - перевести `rlm_links_empty_warn|rlm_status_pending` в non-terminal soft path при minimal baseline;
   - добавить loop telemetry `research_gate_softened/reason/policy`.
@@ -516,7 +516,7 @@ _Статус: plan. Основание — консолидация всех о
   **Effort:** M
   **Risk:** High
 
-- [ ] **W112-24 (P0) Research root-cause fix (`no_symbols/no_matches`, links build stability, finalize convergence)** `skills/researcher/runtime/research.py`, `skills/aidd-rlm/runtime/rlm_links_build.py`, `skills/aidd-rlm/runtime/rlm_finalize.py`, `skills/aidd-core/runtime/research_guard.py`, `tests/test_research_command.py`, `tests/test_research_check.py`:
+- [x] **W112-24 (P0) Research root-cause fix (`no_symbols/no_matches`, links build stability, finalize convergence)** `skills/researcher/runtime/research.py`, `skills/aidd-rlm/runtime/rlm_links_build.py`, `skills/aidd-rlm/runtime/rlm_finalize.py`, `skills/aidd-core/runtime/research_guard.py`, `tests/test_research_command.py`, `tests/test_research_check.py`:
   - устранить причины пустых links в валидных code scopes;
   - стабилизировать bounded finalize и детерминированный переход `pending -> ready|warn`;
   - сократить ложные `pending` после авто-recovery.
@@ -526,7 +526,7 @@ _Статус: plan. Основание — консолидация всех о
   **Effort:** L
   **Risk:** High
 
-- [ ] **W112-25 (P0) QA convergence hardening (phase-1/phase-2)** `skills/qa/runtime/qa_parts/core.py`, `skills/aidd-docio/runtime/actions_apply.py`, `hooks/gate_workflow.py`, `skills/qa/SKILL.md`, `agents/qa.md`, `tests/test_qa_agent.py`, `tests/test_qa_exit_code.py`, `tests/test_loop_step.py`:
+- [x] **W112-25 (P0) QA convergence hardening (phase-1/phase-2)** `skills/qa/runtime/qa_parts/core.py`, `skills/aidd-docio/runtime/actions_apply.py`, `hooks/gate_workflow.py`, `skills/qa/SKILL.md`, `agents/qa.md`, `tests/test_qa_agent.py`, `tests/test_qa_exit_code.py`, `tests/test_loop_step.py`:
   - phase-1: fail-fast на `preflight_missing`/workflow-root mismatch и запрет repeated guessed retries;
   - phase-2: prevalidate actions payload до apply с unified reason code `contract_mismatch_actions_shape`, early BLOCK и canonical next action;
   - обеспечить детерминированный terminal payload в одном run без watchdog no-result цикла.
@@ -536,7 +536,7 @@ _Статус: plan. Основание — консолидация всех о
   **Effort:** M
   **Risk:** High
 
-- [ ] **W112-26 (P0) Stage actions terminalization + anti-drift guard (implement/review/qa)** `skills/aidd-core/runtime/stage_actions_run.py`, `skills/aidd-docio/runtime/actions_validate.py`, `skills/aidd-docio/runtime/actions_apply.py`, `skills/implement/SKILL.md`, `skills/review/SKILL.md`, `skills/qa/SKILL.md`, `tests/test_stage_actions_run.py`, `tests/test_wave93_validators.py`, `tests/test_prompt_lint.py`, `tests/test_gate_workflow_preflight_contract.py`:
+- [x] **W112-26 (P0) Stage actions terminalization + anti-drift guard (implement/review/qa)** `skills/aidd-core/runtime/stage_actions_run.py`, `skills/aidd-docio/runtime/actions_validate.py`, `skills/aidd-docio/runtime/actions_apply.py`, `skills/implement/SKILL.md`, `skills/review/SKILL.md`, `skills/qa/SKILL.md`, `tests/test_stage_actions_run.py`, `tests/test_wave93_validators.py`, `tests/test_prompt_lint.py`, `tests/test_gate_workflow_preflight_contract.py`:
   - при invalid `AIDD:ACTIONS` возвращать единый terminal payload с `reason_code=contract_mismatch_actions_shape` без guessed/manual recovery;
   - запретить в stage-prompts direct/non-canonical `stage_result.py` handoff как primary path;
   - зафиксировать prompt-lint tripwire на `python3 skills/.../stage_result.py` и невалидные `--result` значения.
@@ -546,7 +546,7 @@ _Статус: plan. Основание — консолидация всех о
   **Effort:** M
   **Risk:** High
 
-- [ ] **W112-27 (P0) Ralph targeted recovery for review-pack reasons** `skills/aidd-loop/runtime/loop_block_policy.py`, `templates/aidd/config/gates.json`, `tests/test_loop_run.py`:
+- [x] **W112-27 (P0) Ralph targeted recovery for review-pack reasons** `skills/aidd-loop/runtime/loop_block_policy.py`, `templates/aidd/config/gates.json`, `tests/test_loop_run.py`:
   - перевести `review_pack_missing|review_pack_stale` в `recoverable_retry` только для `blocked_policy=ralph`;
   - сохранить terminal поведение для `strict` и для ENV/contract/runtime-path hard blockers.
   **AC:** в `ralph` review-pack причины получают bounded retry; в `strict` остаются terminal blocked без recoverable path.
@@ -555,7 +555,7 @@ _Статус: plan. Основание — консолидация всех о
   **Effort:** S
   **Risk:** Medium
 
-- [ ] **W112-28 (P0) Loop iteration timeout 1h contract** `skills/aidd-loop/runtime/loop_run_parts/core.py`, `tests/repo_tools/e2e_prompt/profile_full.md`, `docs/e2e/aidd_test_flow_prompt_ralph_script_full.txt`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+- [x] **W112-28 (P0) Loop iteration timeout 1h contract** `skills/aidd-loop/runtime/loop_run_parts/core.py`, `tests/repo_tools/e2e_prompt/profile_full.md`, `docs/e2e/aidd_test_flow_prompt_ralph_script_full.txt`, `tests/repo_tools/test_e2e_prompt_contract.py`:
   - установить default `DEFAULT_LOOP_STEP_TIMEOUT_SECONDS=3600` при сохранении `DEFAULT_STAGE_BUDGET_SECONDS=3600`;
   - зафиксировать в full-flow prompt явные флаги `--step-timeout-seconds $LOOP_STEP_TIMEOUT_SECONDS` и `--stage-budget-seconds $LOOP_STAGE_BUDGET_SECONDS`.
   **AC:** runtime default и full prompt/script согласованы на 3600s; prompt-contract тесты проверяют наличие timeout flags.
@@ -564,7 +564,7 @@ _Статус: plan. Основание — консолидация всех о
   **Effort:** S
   **Risk:** Low
 
-- [ ] **W112-29 (P0) Ralph recovery for `no_tests_hard` with bounded test-derive retry** `skills/aidd-loop/runtime/loop_block_policy.py`, `skills/aidd-loop/runtime/loop_run_parts/core.py`, `skills/aidd-loop/runtime/loop_step_parts/core.py`, `skills/aidd-flow-state/runtime/tasks_derive.py`, `templates/aidd/config/gates.json`, `tests/test_loop_run.py`, `tests/test_loop_step.py`:
+- [x] **W112-29 (P0) Ralph recovery for `no_tests_hard` with bounded test-derive retry** `skills/aidd-loop/runtime/loop_block_policy.py`, `skills/aidd-loop/runtime/loop_run_parts/core.py`, `skills/aidd-loop/runtime/loop_step_parts/core.py`, `skills/aidd-flow-state/runtime/tasks_derive.py`, `templates/aidd/config/gates.json`, `tests/test_loop_run.py`, `tests/test_loop_step.py`:
   - для `blocked_policy=ralph` и `reason_code=no_tests_hard` запускать bounded recovery path `derive_tests_then_retry_review`, если tasklist подтверждает executable test entries;
   - если executable entries не подтверждены — сохранять terminal blocked с явным `ralph_recoverable_not_exercised_reason`;
   - strict policy не ослаблять.
@@ -574,7 +574,7 @@ _Статус: plan. Основание — консолидация всех о
   **Effort:** M
   **Risk:** High
 
-- [ ] **W112-30 (P0) Review-spec report/narrative convergence diagnostics** `skills/aidd-core/runtime/prd_review.py`, `tests/test_prd_review_agent.py`, `tests/repo_tools/aidd_audit_runner.py`, `tests/repo_tools/e2e_prompt/profile_full.md`, `tests/repo_tools/e2e_prompt/profile_smoke.md`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+- [x] **W112-30 (P0) Review-spec report/narrative convergence diagnostics** `skills/aidd-core/runtime/prd_review.py`, `tests/test_prd_review_agent.py`, `tests/repo_tools/aidd_audit_runner.py`, `tests/repo_tools/e2e_prompt/profile_full.md`, `tests/repo_tools/e2e_prompt/profile_smoke.md`, `tests/repo_tools/test_e2e_prompt_contract.py`:
   - синхронизовать narrative с report summary и явно маркировать `review_spec_report_mismatch` только при фактическом расхождении;
   - в audit runner закрепить приоритет report payload для recovery decision.
   **AC:** mismatch детерминированно диагностируется; recovery-решения всегда берутся из report payload.
@@ -583,7 +583,7 @@ _Статус: plan. Основание — консолидация всех о
   **Effort:** S
   **Risk:** Low
 
-- [ ] **W112-31 (P0) Tasklist hygiene WARN normalization (non-terminal by design)** `skills/aidd-flow-state/runtime/tasklist_check.py`, `skills/aidd-flow-state/runtime/tasklist_normalize.py`, `skills/tasks-new/SKILL.md`, `tests/test_tasklist_check.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+- [x] **W112-31 (P0) Tasklist hygiene WARN normalization (non-terminal by design)** `skills/aidd-flow-state/runtime/tasklist_check.py`, `skills/aidd-flow-state/runtime/tasklist_normalize.py`, `skills/tasks-new/SKILL.md`, `tests/test_tasklist_check.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
   - нормализовать и дедуплицировать hygiene WARN (`max_loc`, `expected_paths`, `NEXT_3 deps`, `PROGRESS_LOG format`);
   - сохранить terminal только для реально неисполняемого `AIDD:TEST_EXECUTION`, без отката недавнего fix на multiline `tasks`.
   - явно закрепить non-terminal правило: при `tasks_key_present=1` и `tasks_list_count>0` классификация остаётся `WARN|INFO` без escalation в blocker, даже при parser mismatch telemetry.
@@ -593,7 +593,7 @@ _Статус: plan. Основание — консолидация всех о
   **Effort:** S
   **Risk:** Low
 
-- [ ] **W112-32 (P0) Silent-stall determinism for loop/qa runners** `skills/aidd-loop/runtime/loop_run_parts/core.py`, `skills/qa/runtime/qa_parts/core.py`, `tests/test_loop_run.py`, `tests/test_qa_agent.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+- [x] **W112-32 (P0) Silent-stall determinism for loop/qa runners** `skills/aidd-loop/runtime/loop_run_parts/core.py`, `skills/qa/runtime/qa_parts/core.py`, `tests/test_loop_run.py`, `tests/test_qa_agent.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
   - стабилизировать liveness finalization в loop/qa, чтобы процесс не оставался "живым без top-level result" до budget kill;
   - возвращать детерминированный terminal payload с `reason_code=silent_stall` при подтверждённой стагнации main+stream;
   - синхронизовать классификацию watchdog/silent-stall в runtime и e2e contract.
@@ -603,7 +603,7 @@ _Статус: plan. Основание — консолидация всех о
   **Effort:** M
   **Risk:** High
 
-- [ ] **W112-33 (P0) QA status contract hardening (report ↔ top-level parity)** `skills/qa/runtime/qa_parts/core.py`, `skills/qa/runtime/qa.py`, `tests/test_qa_agent.py`, `tests/test_qa_exit_code.py`:
+- [x] **W112-33 (P0) QA status contract hardening (report ↔ top-level parity)** `skills/qa/runtime/qa_parts/core.py`, `skills/qa/runtime/qa.py`, `tests/test_qa_agent.py`, `tests/test_qa_exit_code.py`:
   - зафиксировать strict parity между `aidd/reports/qa/<ticket>.json` status и top-level stage status;
   - запретить `success` при `qa report status=BLOCKED`, оставить только `blocked|warn`;
   - документировать таблицу status mapping в runtime diagnostics.

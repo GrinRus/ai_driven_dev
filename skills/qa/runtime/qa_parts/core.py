@@ -57,6 +57,21 @@ def _qa_stage_chain_context_available(target: Path, ticket: str) -> tuple[bool, 
     return False, primary_scope
 
 
+def _resolve_qa_report_status(payload: dict[str, Any]) -> str:
+    """Return normalized QA verdict from canonical report payload.
+
+    Some QA reports expose only `overall_status` while older payloads use
+    `status`. Keep both for backward compatibility and deterministic parity.
+    """
+    if not isinstance(payload, dict):
+        return ""
+    for field in ("status", "overall_status"):
+        value = str(payload.get(field) or "").strip().upper()
+        if value:
+            return value
+    return ""
+
+
 def _active_mode(target: Path) -> str:
     path = target / "docs" / ".active_mode"
     try:
@@ -1046,13 +1061,14 @@ def main(argv: list[str] | None = None) -> int:
     elif tests_summary in {"not-run", "skipped"} and not allow_no_tests_env:
         exit_code = max(exit_code, 1)
 
+    report_payload: dict[str, Any] = {}
     report_status = ""
     if report_path.exists():
         try:
             report_payload = json.loads(report_path.read_text(encoding="utf-8"))
         except Exception:
             report_payload = {}
-        report_status = str(report_payload.get("status") or "").strip().upper()
+        report_status = _resolve_qa_report_status(report_payload)
     if report_status == "BLOCKED":
         exit_code = 2
         print("[aidd] BLOCK: QA report status is BLOCKED.", file=sys.stderr)
@@ -1112,7 +1128,9 @@ def main(argv: list[str] | None = None) -> int:
         payload = None
         report_for_event: Path | None = None
         if report_path.exists():
-            payload = json.loads(report_path.read_text(encoding="utf-8"))
+            payload = report_payload
+            if not payload:
+                payload = json.loads(report_path.read_text(encoding="utf-8"))
             report_for_event = report_path
         else:
             from aidd_runtime.reports.loader import load_report_for_path
@@ -1121,12 +1139,13 @@ def main(argv: list[str] | None = None) -> int:
             report_for_event = report_paths.pack_path if source == "pack" else report_paths.json_path
 
         if payload and report_for_event:
+            event_status = _resolve_qa_report_status(payload)
             _events.append_event(
                 target,
                 ticket=ticket,
                 slug_hint=slug_hint or None,
                 event_type="qa",
-                status=str(payload.get("status") or ""),
+                status=event_status,
                 details={"summary": payload.get("summary")},
                 report_path=Path(runtime.rel_path(report_for_event, target)),
                 source="aidd qa",

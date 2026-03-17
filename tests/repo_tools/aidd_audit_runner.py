@@ -40,6 +40,7 @@ READINESS_REASON_CODES = (
     "answers_format_invalid",
     "research_not_ready",
 )
+TRUTHY_VALUES = {"1", "true", "yes", "on"}
 
 
 def parse_kv_file(path: Path) -> Dict[str, str]:
@@ -77,6 +78,54 @@ def infer_liveness_path(summary_path: Path) -> Path | None:
         if candidate.exists():
             return candidate
     return None
+
+
+def infer_review_spec_report_check_path(summary_path: Path) -> Path | None:
+    name = summary_path.name
+    match = re.match(r"^(?P<step>.+)_run(?P<run>[0-9]+)\.summary\.txt$", name)
+    if not match:
+        return None
+    step = match.group("step")
+    if "review_spec" not in step.lower():
+        return None
+    run = match.group("run")
+    candidates = [
+        summary_path.with_name(f"{step}_report_check_run{run}.txt"),
+        summary_path.with_name(f"{step}_report_check.txt"),
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def _is_truthy(value: object) -> bool:
+    return str(value or "").strip().lower() in TRUTHY_VALUES
+
+
+def _load_review_spec_report_check(summary_path: Path, aux_log_paths: List[Path] | None) -> tuple[Dict[str, str], str]:
+    candidates: List[Path] = []
+    seen: set[Path] = set()
+    for path in aux_log_paths or []:
+        if "review_spec_report_check" not in path.name.lower():
+            continue
+        resolved = path.resolve()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        candidates.append(path)
+    inferred = infer_review_spec_report_check_path(summary_path)
+    if inferred is not None:
+        resolved = inferred.resolve()
+        if resolved not in seen:
+            seen.add(resolved)
+            candidates.append(inferred)
+
+    for path in candidates:
+        payload = parse_kv_file(path)
+        if payload:
+            return payload, str(path)
+    return {}, ""
 
 
 def resolve_min_free_bytes(raw: str | None = None) -> int:
@@ -251,6 +300,8 @@ def analyze_run(
     for path in aux_log_paths or []:
         aux_text_parts.append(read_log_text(path))
     aux_text = "\n".join(part for part in aux_text_parts if part)
+    review_spec_report_check, review_spec_report_check_path = _load_review_spec_report_check(summary_path, aux_log_paths)
+    review_spec_report_mismatch = _is_truthy(review_spec_report_check.get("narrative_vs_report_mismatch"))
 
     top_level_status = detect_top_level_status(log_text)
     if not top_level_status and aux_text:
@@ -318,6 +369,13 @@ def analyze_run(
             source="run_log",
             label="WARN(partial_success_no_top_level_result)",
         )
+    if review_spec_report_mismatch and classified.classification in {"FLOW_BUG", "TELEMETRY_ONLY"}:
+        classified = contract.Classification(
+            classification="PROMPT_EXEC_ISSUE",
+            subtype="review_spec_report_mismatch",
+            source="review_spec_report_check",
+            label="PROMPT_EXEC_ISSUE(review_spec_report_mismatch)",
+        )
 
     recoverable_ralph_observed = _detect_recoverable_ralph(aux_text)
     effective_terminal_status = classified.label
@@ -346,12 +404,19 @@ def analyze_run(
             "liveness_valid_stream_count": liveness_valid_stream_count,
             "liveness_stagnation_seconds": liveness_stagnation_seconds,
             "liveness_run_start_epoch": liveness_run_start_epoch,
+            "review_spec_report_mismatch": int(review_spec_report_mismatch),
+            "review_spec_report_check_path": review_spec_report_check_path,
+            "review_spec_report_path": str(review_spec_report_check.get("report_path") or ""),
+            "review_spec_recommended_status": str(review_spec_report_check.get("recommended_status") or ""),
+            "review_spec_recovery_source": "report_payload" if review_spec_report_check else "",
         }
     )
     if precondition:
         payload["precondition"] = dict(precondition)
     if liveness:
         payload["liveness"] = dict(liveness)
+    if review_spec_report_check:
+        payload["review_spec_report_check"] = dict(review_spec_report_check)
     return payload
 
 

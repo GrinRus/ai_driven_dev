@@ -338,6 +338,71 @@ class AiddAuditRunnerTests(unittest.TestCase):
         self.assertEqual(payload.get("classification"), "PROMPT_EXEC_ISSUE")
         self.assertEqual(payload.get("classification_subtype"), "runtime_cli_contract_mismatch")
 
+    def test_review_spec_report_mismatch_promotes_prompt_exec_issue(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            summary_path = root / "05_review_spec_run1.summary.txt"
+            log_path = root / "05_review_spec_run1.log"
+            report_check_path = root / "05_review_spec_report_check_run1.txt"
+            summary_path.write_text("exit_code=0\nresult_count=1\n", encoding="utf-8")
+            log_path.write_text('{"type":"result","status":"success"}\n', encoding="utf-8")
+            report_check_path.write_text(
+                "\n".join(
+                    [
+                        "report_path=aidd/reports/prd/TST-001.json",
+                        "recommended_status=pending",
+                        "findings_count=3",
+                        "open_questions_count=0",
+                        "spec_exists=1",
+                        "prd_findings_sync_needed=1",
+                        "plan_findings_sync_needed=0",
+                        "narrative_vs_report_mismatch=1",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(
+                summary_path=summary_path,
+                run_log_path=log_path,
+                aux_log_paths=[report_check_path],
+            )
+        self.assertEqual(payload.get("classification"), "PROMPT_EXEC_ISSUE")
+        self.assertEqual(payload.get("classification_subtype"), "review_spec_report_mismatch")
+        self.assertEqual(payload.get("review_spec_report_mismatch"), 1)
+        self.assertEqual(payload.get("review_spec_report_path"), "aidd/reports/prd/TST-001.json")
+        self.assertEqual(payload.get("review_spec_recommended_status"), "pending")
+        self.assertEqual(payload.get("review_spec_recovery_source"), "report_payload")
+
+    def test_review_spec_report_check_without_mismatch_keeps_top_level_classification(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            summary_path = root / "05_review_spec_run1.summary.txt"
+            log_path = root / "05_review_spec_run1.log"
+            report_check_path = root / "05_review_spec_report_check_run1.txt"
+            summary_path.write_text("exit_code=0\nresult_count=1\n", encoding="utf-8")
+            log_path.write_text('{"type":"result","status":"success"}\n', encoding="utf-8")
+            report_check_path.write_text(
+                "\n".join(
+                    [
+                        "report_path=aidd/reports/prd/TST-001.json",
+                        "recommended_status=ready",
+                        "narrative_vs_report_mismatch=0",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(
+                summary_path=summary_path,
+                run_log_path=log_path,
+                aux_log_paths=[report_check_path],
+            )
+        self.assertEqual(payload.get("classification"), "TELEMETRY_ONLY")
+        self.assertEqual(payload.get("classification_subtype"), "top_level_success")
+        self.assertEqual(payload.get("review_spec_report_mismatch"), 0)
+        self.assertEqual(payload.get("review_spec_recovery_source"), "report_payload")
+
 
 if __name__ == "__main__":
     unittest.main()
