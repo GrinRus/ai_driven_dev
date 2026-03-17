@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 import re
+import shlex
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -86,6 +87,19 @@ STAGE_CANONICAL_BODY_RUNTIME_ENV_REQUIRED = {
     "qa",
     "status",
 }
+QA_RUN_RUNTIME_REL = "skills/qa/runtime/qa_run.py"
+QA_RUN_ALLOWED_FLAGS = {
+    "--help",
+    "--ticket",
+    "--scope-key",
+    "--work-item-key",
+    "--stage",
+    "--actions",
+}
+QA_RUN_BODY_COMMAND_RE = re.compile(
+    r"python3\s+\$\{CLAUDE_PLUGIN_ROOT\}/skills/qa/runtime/qa_run\.py(?P<args>[^\n`]*)",
+    re.IGNORECASE,
+)
 
 LOOP_STAGES = {"implement", "review", "qa", "status"}
 NO_FORK_STAGE_SUBAGENT_COUNTS: Dict[str, int] = {
@@ -688,6 +702,35 @@ def validate_tool_mentions(info: PromptFile) -> List[str]:
     return errors
 
 
+def validate_qa_run_cli_contract(info: PromptFile) -> List[str]:
+    if info.path.parent.name != "qa":
+        return []
+    errors: List[str] = []
+    for match in QA_RUN_BODY_COMMAND_RE.finditer(info.body or ""):
+        args_blob = str(match.group("args") or "").strip()
+        if not args_blob:
+            continue
+        try:
+            tokens = shlex.split(args_blob)
+        except ValueError:
+            errors.append(
+                f"{info.path}: qa runtime CLI contract mismatch "
+                "(reason_code=runtime_cli_contract_mismatch): cannot parse qa_run.py args"
+            )
+            continue
+        for token in tokens:
+            if not token.startswith("--"):
+                continue
+            flag = token.split("=", 1)[0].strip()
+            if flag in QA_RUN_ALLOWED_FLAGS:
+                continue
+            errors.append(
+                f"{info.path}: qa runtime CLI contract mismatch "
+                f"(reason_code=runtime_cli_contract_mismatch): unsupported qa_run.py flag `{flag}`"
+            )
+    return errors
+
+
 def validate_plugin_asset_mentions(info: PromptFile, root: Path) -> List[str]:
     errors: List[str] = []
     mentions: set[str] = set()
@@ -962,6 +1005,7 @@ def lint_skills(root: Path) -> Tuple[List[str], List[str]]:
         errors.extend(validate_placeholders(info))
         errors.extend(validate_tool_mentions(info))
         errors.extend(validate_plugin_asset_mentions(info, root))
+        errors.extend(validate_qa_run_cli_contract(info))
         errors.extend(validate_output_contract(info, root))
         grammar_errors, grammar_warnings = validate_bash_tool_grammar(info)
         errors.extend(grammar_errors)

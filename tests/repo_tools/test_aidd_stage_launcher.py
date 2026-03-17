@@ -119,6 +119,29 @@ class AiddStageLauncherTests(unittest.TestCase):
             fallback = self.stream_paths.fallback_discovery(project_dir=root, ticket="", run_start_epoch=int(time.time()))
             self.assertEqual(fallback, [])
 
+    def test_fallback_discovery_excludes_loop_stream_for_non_loop_step(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            loop_root = root / "aidd" / "reports" / "loops" / "TST-001"
+            loop_root.mkdir(parents=True, exist_ok=True)
+            loop_file = loop_root / "cli.loop-run.20260317-052348.stream.log"
+            qa_file = loop_root / "cli.qa.20260317-052349.stream.log"
+            loop_file.write_text("loop", encoding="utf-8")
+            qa_file.write_text("qa", encoding="utf-8")
+            run_start = int(time.time())
+            now = run_start - 1
+            os.utime(loop_file, (now, now))
+            os.utime(qa_file, (now, now))
+
+            fallback = self.stream_paths.fallback_discovery(
+                project_dir=root,
+                ticket="TST-001",
+                run_start_epoch=run_start,
+                step="08_qa",
+            )
+            self.assertEqual(len(fallback), 1)
+            self.assertEqual(fallback[0].raw_path, str(qa_file.resolve()))
+
     def test_liveness_active_stream_when_stream_grows_and_main_stale(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

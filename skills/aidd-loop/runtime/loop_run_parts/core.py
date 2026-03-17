@@ -1715,6 +1715,15 @@ def main(argv: List[str] | None = None) -> int:
             chosen_scope = expected_scope_key_payload
         if not str(chosen_scope).strip() and runtime.is_valid_work_item_key(step_work_item):
             chosen_scope = runtime.resolve_scope_key(step_work_item, ticket)
+        if (
+            mismatch_warn
+            and scope_mismatch_non_authoritative
+            and step_status == "blocked"
+            and str(log_reason_code or "").strip().lower() not in {"scope_drift_recoverable", "stage_result_missing_or_invalid"}
+        ):
+            mismatch_warn = ""
+            if isinstance(step_payload, dict):
+                step_payload.pop("scope_key_mismatch_warn", None)
         reason_class = "not_recoverable"
         if step_status == "blocked":
             classification = loop_block_policy.classify_block_reason(

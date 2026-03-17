@@ -214,6 +214,7 @@
     "handoff_mode": "block",
     "tests": {
       "allow_skip": true,
+      "gradle_fanout_mode": "single_target",
       "discover": {
         "max_files": 20,
         "max_bytes": 200000,

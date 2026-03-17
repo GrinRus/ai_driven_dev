@@ -1341,6 +1341,20 @@ class PromptLintTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("must not use root-relative `/skills/...` runtime paths", result.stderr)
 
+    def test_qa_skill_non_canonical_qa_run_flag_fails(self) -> None:
+        bad_skill = build_stage_skill("qa").replace(
+            "### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/qa/runtime/qa_run.py`",
+            "### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/qa/runtime/qa_run.py --qa-report aidd/reports/qa/DEMO-QA.json`",
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, skill_override={"qa": bad_skill})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("runtime_cli_contract_mismatch", result.stderr)
+            self.assertIn("--qa-report", result.stderr)
+
     def test_stage_skill_context_pack_refresh_without_agent_fails(self) -> None:
         bad_skill = build_stage_skill("plan-new").replace(
             "## Steps\n1. Run subagent `feature-dev-aidd:planner`.\n2. Run subagent `feature-dev-aidd:validator`.",

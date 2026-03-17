@@ -163,6 +163,8 @@ def run_guarded(
     )
     if write_safety_message:
         level = "ERROR" if not write_safety_ok else "WARN"
+        if write_safety_ok and "reason_code=plugin_write_safety_unavailable" in write_safety_message:
+            level = "INFO"
         err_buf.write(f"[aidd] {level}: {write_safety_message}\n")
     if not write_safety_ok:
         wrapped_exit_code = RUNTIME_FAILURE_EXIT_CODE

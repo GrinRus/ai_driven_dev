@@ -10,7 +10,7 @@ from aidd_runtime import qa as qa_module
 
 
 class QaRunnerTests(unittest.TestCase):
-    def test_gradle_commands_run_in_module_cwd(self) -> None:
+    def test_gradle_commands_default_to_single_target_for_override(self) -> None:
         with tempfile.TemporaryDirectory(prefix="qa-runner-") as tmpdir:
             workspace = Path(tmpdir)
             target = ensure_project_root(workspace)
@@ -35,12 +35,41 @@ class QaRunnerTests(unittest.TestCase):
             )
 
             self.assertEqual(summary, "pass")
+            self.assertEqual(len(executed), 1)
+            self.assertEqual(executed[0].get("cwd"), "backend")
+            for entry in executed:
+                self.assertEqual(entry.get("status"), "pass")
+
+    def test_gradle_commands_fanout_when_policy_override_is_all_wrappers(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="qa-runner-") as tmpdir:
+            workspace = Path(tmpdir)
+            target = ensure_project_root(workspace)
+            report_path = target / "reports" / "qa" / "DEMO-QA-FANOUT.json"
+            for module in ("backend", "backend-mcp"):
+                module_dir = workspace / module
+                module_dir.mkdir(parents=True, exist_ok=True)
+                gradlew = module_dir / "gradlew"
+                gradlew.write_text("#!/usr/bin/env bash\necho ok\n", encoding="utf-8")
+                gradlew.chmod(0o755)
+
+            executed, summary = qa_module._run_qa_tests(
+                target,
+                workspace,
+                ticket="DEMO-QA-FANOUT",
+                slug_hint="DEMO-QA-FANOUT",
+                branch=None,
+                report_path=report_path,
+                allow_missing=True,
+                commands_override=[["./gradlew", "test"]],
+                allow_skip_override=True,
+                gradle_fanout_mode_override="all_wrappers",
+            )
+
+            self.assertEqual(summary, "pass")
             self.assertEqual(len(executed), 2)
             cwds = {entry.get("cwd") for entry in executed}
             self.assertIn("backend", cwds)
             self.assertIn("backend-mcp", cwds)
-            for entry in executed:
-                self.assertEqual(entry.get("status"), "pass")
 
     def test_missing_gradle_wrapper_reports_actionable_failure(self) -> None:
         with tempfile.TemporaryDirectory(prefix="qa-runner-") as tmpdir:
@@ -120,6 +149,52 @@ class QaRunnerTests(unittest.TestCase):
             self.assertEqual(len(executed), 1)
             self.assertEqual(executed[0].get("status"), "pass")
             self.assertTrue(str(executed[0].get("command") or "").startswith(str(external_gradlew)))
+
+    def test_npm_test_without_package_json_is_classified_as_workspace_missing(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="qa-runner-") as tmpdir:
+            workspace = Path(tmpdir)
+            target = ensure_project_root(workspace)
+            report_path = target / "reports" / "qa" / "DEMO-QA-NPM.json"
+
+            executed, summary = qa_module._run_qa_tests(
+                target,
+                workspace,
+                ticket="DEMO-QA-NPM",
+                slug_hint="DEMO-QA-NPM",
+                branch=None,
+                report_path=report_path,
+                allow_missing=True,
+                commands_override=[["npm", "test"]],
+                allow_skip_override=True,
+            )
+
+            self.assertEqual(summary, "skipped")
+            self.assertEqual(len(executed), 1)
+            self.assertEqual(executed[0].get("status"), "skipped")
+            self.assertEqual(executed[0].get("reason_code"), "test_workspace_not_found")
+
+    def test_npm_test_without_package_json_fails_when_allow_missing_disabled(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="qa-runner-") as tmpdir:
+            workspace = Path(tmpdir)
+            target = ensure_project_root(workspace)
+            report_path = target / "reports" / "qa" / "DEMO-QA-NPM-HARD.json"
+
+            executed, summary = qa_module._run_qa_tests(
+                target,
+                workspace,
+                ticket="DEMO-QA-NPM-HARD",
+                slug_hint="DEMO-QA-NPM-HARD",
+                branch=None,
+                report_path=report_path,
+                allow_missing=False,
+                commands_override=[["npm", "test"]],
+                allow_skip_override=False,
+            )
+
+            self.assertEqual(summary, "fail")
+            self.assertEqual(len(executed), 1)
+            self.assertEqual(executed[0].get("status"), "fail")
+            self.assertEqual(executed[0].get("reason_code"), "test_workspace_not_found")
 
     def test_qa_main_syncs_active_stage_to_qa_before_execution(self) -> None:
         with tempfile.TemporaryDirectory(prefix="qa-stage-sync-") as tmpdir:

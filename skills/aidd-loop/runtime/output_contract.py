@@ -55,6 +55,7 @@ FULL_DOC_PREFIXES = (
     "aidd/docs/research/",
     "aidd/docs/spec/",
 )
+_NO_TESTS_HARD_TELEMETRY_WARNINGS = {"read_log_missing", "read_order_missing_loop_pack"}
 
 
 def _normalize_line(line: str) -> str:
@@ -124,6 +125,19 @@ def _find_index(entries: List[Dict[str, str]], predicate) -> int:
         if predicate(entry):
             return idx
     return -1
+
+
+def _is_blocked_no_tests_hard(fields: Dict[str, str]) -> bool:
+    status = str(fields.get("status") or "").strip().lower()
+    if status != "blocked":
+        return False
+    probes = [
+        str(fields.get("tests") or ""),
+        str(fields.get("blockers") or ""),
+        str(fields.get("next_actions") or ""),
+    ]
+    merged = " ".join(probes).lower()
+    return "no_tests_hard" in merged
 
 
 def _expected_status(
@@ -223,6 +237,16 @@ def check_output_contract(
     if expected_status and status_output and expected_status.upper() != status_output.strip().upper():
         warnings.append("status_mismatch_stage_result")
 
+    suppressed_warnings: List[str] = []
+    if stage == "review" and _is_blocked_no_tests_hard(fields):
+        kept_warnings: List[str] = []
+        for warning in warnings:
+            if warning in _NO_TESTS_HARD_TELEMETRY_WARNINGS:
+                suppressed_warnings.append(warning)
+                continue
+            kept_warnings.append(warning)
+        warnings = kept_warnings
+
     status = "warn" if warnings or missing else "ok"
     return {
         "schema": "aidd.output_contract.v1",
@@ -236,6 +260,7 @@ def check_output_contract(
         "reason_code": "output_contract_warn" if status == "warn" else "",
         "missing_fields": missing,
         "warnings": sorted(set(warnings)),
+        "suppressed_warnings": sorted(set(suppressed_warnings)),
         "status_output": status_output,
         "status_expected": expected_status,
         "read_log": read_entries,

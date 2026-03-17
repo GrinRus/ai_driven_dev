@@ -1,0 +1,4 @@
+python3 /Users/griogrii_riabov/.claude/plugins/cache/aidd-local/feature-dev-aidd/0.1.0/skills/qa/runtime/qa_run.py --ticket TST-001 --scope-key iteration_id_I2 --qa-report aidd/reports/qa/TST-001.json --actions aidd/reports/actions/TST-001/iteration_id_I2/qa.actions.json
+usage: qa_run.py [-h] [--ticket TICKET] [--scope-key SCOPE_KEY]
+qa_run.py: error: unrecognized arguments: --qa-report aidd/reports/qa/TST-001.json
+

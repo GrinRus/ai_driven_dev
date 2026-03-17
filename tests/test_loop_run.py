@@ -980,6 +980,64 @@ class LoopRunTests(unittest.TestCase):
             self.assertEqual(last_step.get("recovery_path"), "handoff_to_implement")
             self.assertEqual(payload.get("last_recovery_path"), "handoff_to_implement")
 
+    def test_loop_run_suppresses_scope_mismatch_warn_for_non_authoritative_blocked_result(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-SCOPE-WARN-SUPPRESS"
+            write_active_state(root, ticket=ticket, stage="review", work_item="iteration_id=I1")
+
+            fake_result = subprocess.CompletedProcess(
+                args=["loop-step"],
+                returncode=20,
+                stdout=json.dumps(
+                    {
+                        "status": "blocked",
+                        "stage": "review",
+                        "scope_key": "iteration_id_I1",
+                        "work_item_key": "iteration_id=I1",
+                        "reason_code": "no_tests_hard",
+                        "reason": "tests evidence required but not found",
+                        "scope_key_mismatch_warn": "1",
+                        "scope_mismatch_non_authoritative": True,
+                        "expected_scope_key": "iteration_id_I1",
+                        "selected_scope_key": "iteration_id_I4",
+                    }
+                ),
+                stderr="",
+            )
+            captured = io.StringIO()
+            cwd = os.getcwd()
+            try:
+                os.chdir(root.parent)
+                with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
+                    with patch("aidd_runtime.loop_run.run_loop_step", return_value=fake_result):
+                        with redirect_stdout(captured):
+                            code = loop_run_module.main(
+                                [
+                                    "--ticket",
+                                    ticket,
+                                    "--work-item-key",
+                                    "iteration_id=I1",
+                                    "--max-iterations",
+                                    "1",
+                                    "--blocked-policy",
+                                    "strict",
+                                    "--recoverable-block-retries",
+                                    "0",
+                                    "--format",
+                                    "json",
+                                ]
+                            )
+            finally:
+                os.chdir(cwd)
+
+            self.assertEqual(code, 20)
+            payload = json.loads(captured.getvalue())
+            self.assertEqual(payload.get("status"), "blocked")
+            last_step = payload.get("last_step") or {}
+            self.assertIn(last_step.get("scope_key_mismatch_warn"), ("", None))
+            self.assertEqual(payload.get("scope_mismatch_non_authoritative"), True)
+
     def test_loop_run_strict_retries_no_tests_hard_when_enabled(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))

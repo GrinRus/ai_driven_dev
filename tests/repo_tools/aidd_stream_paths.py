@@ -133,11 +133,45 @@ def _iter_fallback_candidates(loop_root: Path) -> Iterator[Path]:
                 yield path.resolve()
 
 
+def _step_stage_tokens(step: str) -> set[str]:
+    normalized = str(step or "").strip().lower()
+    if not normalized:
+        return set()
+    stage = re.sub(r"^[0-9]+_", "", normalized)
+    if not stage:
+        return set()
+    tokens = {
+        stage,
+        stage.replace("_", "-"),
+        stage.replace("_", ":"),
+        stage.replace("_", ""),
+    }
+    return {token for token in tokens if token}
+
+
+def _fallback_candidate_matches_step(path: Path, step: str) -> bool:
+    normalized_step = str(step or "").strip().lower()
+    if not normalized_step:
+        return True
+    name = path.name.lower()
+    if "loop_run" in normalized_step:
+        return "cli.loop-run." in name
+    if "loop_step" in normalized_step:
+        return "cli.loop-step." in name
+    if "cli.loop-run." in name or "cli.loop-step." in name:
+        return False
+    tokens = _step_stage_tokens(normalized_step)
+    if not tokens:
+        return True
+    return any(token in name for token in tokens)
+
+
 def fallback_discovery(
     project_dir: Path,
     ticket: str,
     run_start_epoch: int,
     *,
+    step: str = "",
     max_paths: int = 4,
     freshness_epsilon_seconds: int = 5,
 ) -> List[CandidatePath]:
@@ -151,6 +185,8 @@ def fallback_discovery(
     floor = max(int(run_start_epoch) - int(freshness_epsilon_seconds), 0)
     candidates: List[tuple[float, Path]] = []
     for path in _iter_fallback_candidates(loop_root):
+        if not _fallback_candidate_matches_step(path, step):
+            continue
         try:
             mtime = path.stat().st_mtime
         except OSError:
@@ -193,6 +229,7 @@ def resolve_stream_paths(
     project_dir: Path,
     ticket: str,
     run_start_epoch: int,
+    step: str = "",
 ) -> dict:
     primary_candidates = extract_primary_paths(log_path=log_path, project_dir=project_dir)
     valid, invalid, missing = normalize_and_validate(primary_candidates, project_dir=project_dir)
@@ -203,6 +240,7 @@ def resolve_stream_paths(
             project_dir=project_dir,
             ticket=ticket,
             run_start_epoch=run_start_epoch,
+            step=step,
         )
         fb_valid, fb_invalid, fb_missing = normalize_and_validate(fallback_candidates, project_dir=project_dir)
         used_fallback = True

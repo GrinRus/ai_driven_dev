@@ -4,6 +4,7 @@
   "skill_id": "qa",
   "stage": "qa",
   "entrypoints": [
+    "skills/qa/runtime/qa.py",
     "skills/qa/runtime/qa_run.py",
     "skills/aidd-docio/runtime/actions_apply.py",
     "skills/aidd-flow-state/runtime/stage_result.py"
