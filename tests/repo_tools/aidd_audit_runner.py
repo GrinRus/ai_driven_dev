@@ -106,6 +106,12 @@ def _is_truthy(value: object) -> bool:
 def _load_review_spec_report_check(summary_path: Path, aux_log_paths: List[Path] | None) -> tuple[Dict[str, str], str]:
     candidates: List[Path] = []
     seen: set[Path] = set()
+    inferred = infer_review_spec_report_check_path(summary_path)
+    if inferred is not None:
+        resolved = inferred.resolve()
+        if resolved not in seen:
+            seen.add(resolved)
+            candidates.append(inferred)
     for path in aux_log_paths or []:
         if "review_spec_report_check" not in path.name.lower():
             continue
@@ -114,12 +120,6 @@ def _load_review_spec_report_check(summary_path: Path, aux_log_paths: List[Path]
             continue
         seen.add(resolved)
         candidates.append(path)
-    inferred = infer_review_spec_report_check_path(summary_path)
-    if inferred is not None:
-        resolved = inferred.resolve()
-        if resolved not in seen:
-            seen.add(resolved)
-            candidates.append(inferred)
 
     for path in candidates:
         payload = parse_kv_file(path)

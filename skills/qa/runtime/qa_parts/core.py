@@ -65,8 +65,14 @@ def _resolve_qa_report_status(payload: dict[str, Any]) -> str:
     """
     if not isinstance(payload, dict):
         return ""
+    values: list[str] = []
     for field in ("status", "overall_status"):
         value = str(payload.get(field) or "").strip().upper()
+        if value:
+            values.append(value)
+    if "BLOCKED" in values:
+        return "BLOCKED"
+    for value in values:
         if value:
             return value
     return ""

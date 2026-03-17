@@ -403,6 +403,41 @@ class AiddAuditRunnerTests(unittest.TestCase):
         self.assertEqual(payload.get("review_spec_report_mismatch"), 0)
         self.assertEqual(payload.get("review_spec_recovery_source"), "report_payload")
 
+    def test_review_spec_report_check_prefers_inferred_run_file_over_aux(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            summary_path = root / "05_review_spec_run1.summary.txt"
+            log_path = root / "05_review_spec_run1.log"
+            inferred_path = root / "05_review_spec_report_check_run1.txt"
+            aux_path = root / "manual_review_spec_report_check.txt"
+
+            summary_path.write_text("exit_code=0\nresult_count=1\n", encoding="utf-8")
+            log_path.write_text('{"type":"result","status":"success"}\n', encoding="utf-8")
+            inferred_path.write_text(
+                "report_path=aidd/reports/prd/TST-001.json\n"
+                "recommended_status=ready\n"
+                "narrative_vs_report_mismatch=0\n",
+                encoding="utf-8",
+            )
+            aux_path.write_text(
+                "report_path=aidd/reports/prd/TST-001-stale.json\n"
+                "recommended_status=pending\n"
+                "narrative_vs_report_mismatch=1\n",
+                encoding="utf-8",
+            )
+
+            payload = self.runner.analyze_run(
+                summary_path=summary_path,
+                run_log_path=log_path,
+                aux_log_paths=[aux_path],
+            )
+
+        self.assertEqual(payload.get("classification"), "TELEMETRY_ONLY")
+        self.assertEqual(payload.get("classification_subtype"), "top_level_success")
+        self.assertEqual(payload.get("review_spec_report_mismatch"), 0)
+        self.assertEqual(payload.get("review_spec_report_path"), "aidd/reports/prd/TST-001.json")
+        self.assertIn("05_review_spec_report_check_run1.txt", str(payload.get("review_spec_report_check_path")))
+
 
 if __name__ == "__main__":
     unittest.main()
