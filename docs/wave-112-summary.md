@@ -41,10 +41,10 @@ Mandatory certification runs:
 | W112-27 | done | `skills/aidd-loop/runtime/loop_block_policy.py`, `templates/aidd/config/gates.json` | `tests/test_loop_run.py` | d4b5c53 |
 | W112-28 | done | `skills/aidd-loop/runtime/loop_run_parts/core.py`, full-profile prompt artifacts | `tests/test_loop_run.py`, `tests/repo_tools/test_e2e_prompt_contract.py` | d4b5c53 |
 | W112-29 | done | `skills/aidd-loop/runtime/loop_block_policy.py`, `skills/aidd-loop/runtime/loop_run_parts/core.py`, `skills/aidd-loop/runtime/loop_step_parts/core.py`, `skills/aidd-flow-state/runtime/tasks_derive.py` | `tests/test_loop_run.py`, `tests/test_loop_step.py` | d4b5c53 |
-| W112-30 | done | `skills/aidd-core/runtime/prd_review.py`, `tests/repo_tools/aidd_audit_runner.py` | `tests/test_prd_review_agent.py`, `tests/repo_tools/test_aidd_audit_runner.py`, `tests/repo_tools/test_e2e_prompt_contract.py` | d4b5c53, working tree (2026-03-17) |
+| W112-30 | done | `skills/aidd-core/runtime/prd_review.py`, `tests/repo_tools/aidd_audit_runner.py` | `tests/test_prd_review_agent.py`, `tests/repo_tools/test_aidd_audit_runner.py`, `tests/repo_tools/test_e2e_prompt_contract.py` | d4b5c53, 952b2e0 |
 | W112-31 | done | `skills/aidd-flow-state/runtime/tasklist_check.py`, `skills/aidd-flow-state/runtime/tasklist_normalize.py`, `skills/tasks-new/SKILL.md` | `tests/test_tasklist_check.py`, `tests/repo_tools/test_e2e_prompt_contract.py` | d4b5c53 |
 | W112-32 | done | `skills/aidd-loop/runtime/loop_run_parts/core.py`, `skills/qa/runtime/qa_parts/core.py` | `tests/test_loop_run.py`, `tests/test_qa_agent.py`, `tests/repo_tools/test_e2e_prompt_contract.py` | d4b5c53 |
-| W112-33 | done | `skills/qa/runtime/qa_parts/core.py` (`status`/`overall_status` parity) | `tests/test_qa_exit_code.py`, `tests/test_qa_agent.py`, smoke QA block check | 108e046, working tree (2026-03-17) |
+| W112-33 | done | `skills/qa/runtime/qa_parts/core.py` (`status`/`overall_status` parity) | `tests/test_qa_exit_code.py`, `tests/test_qa_agent.py`, smoke QA block check | 108e046, 952b2e0 |
 
 ## Targeted run excerpts
 - QA parity regression (`overall_status=BLOCKED`): `python3 -m pytest -q tests/test_qa_exit_code.py` -> PASS.
