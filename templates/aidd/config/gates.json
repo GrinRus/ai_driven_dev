@@ -159,6 +159,12 @@
       "java"
     ]
   },
+  "memory": {
+    "enabled": true,
+    "mode": "soft",
+    "require_semantic_pack": false,
+    "require_decisions_pack": false
+  },
   "analyst": {
     "enabled": true,
     "branches": [
@@ -208,6 +214,7 @@
     "handoff_mode": "block",
     "tests": {
       "allow_skip": true,
+      "gradle_fanout_mode": "single_target",
       "discover": {
         "max_files": 20,
         "max_bytes": 200000,

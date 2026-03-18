@@ -228,6 +228,16 @@ class E2EPromptContractTests(unittest.TestCase):
             self.assertIn("prd_findings_sync_needed", text, msg=f"{prompt}: missing PRD findings sync marker")
             self.assertIn("plan_findings_sync_needed", text, msg=f"{prompt}: missing plan findings sync marker")
 
+    def test_prompts_treat_review_spec_mismatch_as_telemetry_when_report_payload_valid(self) -> None:
+        for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
+            text = _read(prompt)
+            self.assertIn("INFO(review_spec_report_mismatch_telemetry)", text, msg=f"{prompt}: missing telemetry-only mismatch rule")
+            self.assertIn(
+                "structured report payload",
+                text,
+                msg=f"{prompt}: missing explicit structured report payload guard",
+            )
+
     def test_prompts_require_findings_sync_cycle(self) -> None:
         for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
             text = _read(prompt)
@@ -468,6 +478,21 @@ class E2EPromptContractTests(unittest.TestCase):
                     re.search(pattern, lower),
                     msg=f"{skill_path}: direct manual recovery pattern matched: {pattern}",
                 )
+
+    def test_prompts_enforce_qa_anti_drift_and_actions_contract_fail_fast(self) -> None:
+        for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
+            text = _read(prompt)
+            self.assertIn("python3 /.../skills/*/runtime/*.py", text, msg=f"{prompt}: missing host-absolute runtime drift signature")
+            self.assertIn("policy_violation(stage_result_manual_write)", text, msg=f"{prompt}: missing manual stage_result write policy")
+            self.assertIn("contract_mismatch_actions_shape", text, msg=f"{prompt}: missing qa action contract mismatch fail-fast")
+
+    def test_prompts_define_workspace_layout_baseline_aware_classification(self) -> None:
+        full_text = _read(AUDIT_PROMPT_FULL)
+        smoke_text = _read(AUDIT_PROMPT_SMOKE)
+        self.assertIn("INFO(preexisting_noncanonical_root)", full_text)
+        self.assertIn("WARN(workspace_layout_non_canonical_root_detected)", full_text)
+        self.assertIn("INFO(preexisting_noncanonical_root)", smoke_text)
+        self.assertIn("WARN(workspace_layout_non_canonical_root_detected)", smoke_text)
 
     def test_stage_skill_guidance_avoids_legacy_stage_aliases(self) -> None:
         for skill_path in STAGE_SKILLS_FOR_ALIAS_GUARD:

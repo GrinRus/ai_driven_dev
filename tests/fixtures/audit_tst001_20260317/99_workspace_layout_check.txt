@@ -1,0 +1,4 @@
+workspace_layout_non_canonical_root_detected=1
+workspace_layout_delta_detected=0
+preexisting_noncanonical_root=1
+workspace_layout_delta_count=0

@@ -1,0 +1,14 @@
+finished_at_utc=2026-02-20T18:26:13Z
+exit_code=1
+result_count=0
+done_like_count=0
+plugin_init_hit=1
+slash_hit=1
+skills_hit=1
+unknown_skill_hit=0
+cwd_wrong_hit=0
+primary_stream_count=0
+valid_stream_count=0
+invalid_stream_count=0
+fallback_used=0
+launcher_error=no_space_left_on_device

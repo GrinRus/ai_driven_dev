@@ -615,6 +615,22 @@ def cli_cmd(*args: str) -> list[str]:
         }
         script = REPO_ROOT / "skills" / "aidd-rlm" / "runtime" / rlm_runtime_map[cmd]
         python_mode = True
+    elif cmd in {
+        "memory-extract",
+        "decision-append",
+        "memory-pack",
+        "memory-slice",
+        "memory-verify",
+    }:
+        memory_runtime_map = {
+            "memory-extract": "memory_extract.py",
+            "decision-append": "decision_append.py",
+            "memory-pack": "memory_pack.py",
+            "memory-slice": "memory_slice.py",
+            "memory-verify": "memory_verify.py",
+        }
+        script = REPO_ROOT / "skills" / "aidd-memory" / "runtime" / memory_runtime_map[cmd]
+        python_mode = True
     elif cmd in {"review-pack", "review-report", "reviewer-tests"}:
         review_runtime_map = {
             "review-pack": "review_pack.py",

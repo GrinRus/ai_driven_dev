@@ -23,6 +23,9 @@ _PLUGIN_WRITE_SAFETY_IGNORED_SUFFIXES = (".pyc", ".pyo")
 _PLUGIN_WRITE_SAFETY_IGNORED_DIR_MARKERS = ("/__pycache__/", "/.pytest_cache/")
 _PLUGIN_WRITE_SAFETY_IGNORED_PREFIXES = (".pytest_cache/",)
 _PLUGIN_WRITE_SAFETY_IGNORED_BASENAMES = (".coverage",)
+_PLUGIN_WRITE_SAFETY_UNAVAILABLE_MARKER = ".plugin_write_safety_unavailable.marker.json"
+_PLUGIN_WRITE_SAFETY_UNAVAILABLE_TTL_SECONDS = 3600
+_PLUGIN_WRITE_SAFETY_SOURCE_ROOT_RE = re.compile(r"^(?P<root>.+?)[/\\]aidd[/\\]reports[/\\]")
 
 
 try:
@@ -392,6 +395,65 @@ def _plugin_git_status_entries(plugin_root: Path) -> tuple[bool, List[str], str,
     return True, sorted_entries, "", fingerprint
 
 
+def _plugin_write_safety_marker_path(source: str) -> Optional[Path]:
+    raw_source = str(source or "").strip()
+    if not raw_source:
+        return None
+    match = _PLUGIN_WRITE_SAFETY_SOURCE_ROOT_RE.search(raw_source)
+    if not match:
+        return None
+    root_raw = str(match.group("root") or "").strip()
+    if not root_raw:
+        return None
+    root_path = Path(root_raw).expanduser()
+    if not root_path.is_absolute():
+        return None
+    return root_path / "aidd" / ".cache" / _PLUGIN_WRITE_SAFETY_UNAVAILABLE_MARKER
+
+
+def _should_emit_write_safety_unavailable_message(
+    *,
+    source: str,
+    plugin_root: str,
+    error: str,
+) -> bool:
+    marker_path = _plugin_write_safety_marker_path(source)
+    if marker_path is None:
+        return True
+
+    now_utc = dt.datetime.now(dt.timezone.utc)
+    cached_plugin_root = ""
+    cached_error = ""
+    marker_fresh = False
+    try:
+        raw_payload = json.loads(marker_path.read_text(encoding="utf-8"))
+    except Exception:
+        raw_payload = {}
+    if isinstance(raw_payload, dict):
+        cached_plugin_root = str(raw_payload.get("plugin_root") or "").strip()
+        cached_error = str(raw_payload.get("error") or "").strip()
+    try:
+        mtime = dt.datetime.fromtimestamp(marker_path.stat().st_mtime, tz=dt.timezone.utc)
+        marker_fresh = (now_utc - mtime).total_seconds() <= _PLUGIN_WRITE_SAFETY_UNAVAILABLE_TTL_SECONDS
+    except OSError:
+        marker_fresh = False
+
+    if marker_fresh and cached_plugin_root == str(plugin_root or "").strip() and cached_error == str(error or "").strip():
+        return False
+
+    payload = {
+        "plugin_root": str(plugin_root or "").strip(),
+        "error": str(error or "").strip(),
+        "updated_at": now_utc.isoformat(),
+    }
+    try:
+        marker_path.parent.mkdir(parents=True, exist_ok=True)
+        marker_path.write_text(json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
+    except OSError:
+        return True
+    return True
+
+
 def capture_plugin_write_safety_snapshot() -> Dict[str, Any]:
     snapshot: Dict[str, Any] = {
         "enabled": plugin_write_safety_enabled(),
@@ -435,6 +497,12 @@ def verify_plugin_write_safety_snapshot(
         )
         if strict_unavailable:
             return False, message
+        if not _should_emit_write_safety_unavailable_message(
+            source=source,
+            plugin_root=plugin_root_raw,
+            error=error,
+        ):
+            return True, ""
         return True, message
     plugin_root = Path(plugin_root_raw)
     before_entries = [str(item) for item in snapshot.get("entries") or [] if str(item).strip()]
@@ -447,6 +515,12 @@ def verify_plugin_write_safety_snapshot(
         )
         if strict_unavailable:
             return False, message
+        if not _should_emit_write_safety_unavailable_message(
+            source=source,
+            plugin_root=plugin_root_raw,
+            error=error,
+        ):
+            return True, ""
         return True, message
     supported, after_entries, error, after_fingerprint = _plugin_git_status_entries(plugin_root)
     if not supported:
@@ -456,6 +530,12 @@ def verify_plugin_write_safety_snapshot(
         )
         if strict_unavailable:
             return False, message
+        if not _should_emit_write_safety_unavailable_message(
+            source=source,
+            plugin_root=plugin_root_raw,
+            error=error,
+        ):
+            return True, ""
         return True, message
     before_set = set(before_entries)
     after_set = set(after_entries)

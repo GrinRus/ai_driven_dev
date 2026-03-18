@@ -113,7 +113,8 @@
 - R18.2b: Если `reason_code=research_not_ready`, допускается ровно один canonical researcher recovery/probe с последующим пересчётом `05_precondition_block.txt`.
 - R18.2c: Если `readiness_gate=PASS` достигнут через `research_status=warn|pending` при minimal RLM baseline, фиксировать `WARN(readiness_gate_research_softened)` и продолжать downstream stages.
 - R18.3: При readiness gate `FAIL` после исчерпания recovery-цикла шаги `6/7/8` помечаются как `NOT VERIFIED (upstream_readiness_gate_failed)` без запуска stage-команд.
-- R18.4: Если `review-spec` top-level narrative и `aidd/reports/prd/<ticket>.json|*.pack.json` расходятся по числу/типу findings, фиксировать `prompt-exec issue (review_spec_report_mismatch)` и принимать recovery-решение по report payload.
+- R18.4: Если `review-spec` top-level narrative и `aidd/reports/prd/<ticket>.json|*.pack.json` расходятся по числу/типу findings, а report payload валиден, фиксировать `INFO(review_spec_report_mismatch_telemetry)` и принимать recovery-решение только по report payload.
+- R18.4a: Если при `review_spec_report_mismatch` отсутствует/невалиден structured report payload, фиксировать `prompt-exec issue (review_spec_report_mismatch)`.
 - R18.5: Если `review-spec` вернул `WARN|NEEDS_REVISION`, unresolved `Q*` отсутствуют и spec-файл существует, запускать findings-sync cycle:
   - PRD findings (`aidd/reports/prd/<ticket>.json|*.pack.json`) -> один sync-retry `idea-new` с compact payload `AIDD:SYNC_FROM_REVIEW ...`;
   - Plan findings (`plan_status=NEEDS_REVISION|WARN` в review payload или plan-review report) -> один sync-retry `plan-new` с compact payload `AIDD:SYNC_FROM_REVIEW ...`;
@@ -744,6 +745,9 @@ Anti-cascade gate (до шага 8):
 - если в логе виден direct вызов non-canonical stage preflight runtime вне canonical stage-chain:
   - классифицировать как `prompt-flow drift (non-canonical stage orchestration)`;
   - не продолжать manual recovery path для текущего шага.
+- если в QA orchestration/логах виден direct host-absolute runtime path `python3 /.../skills/*/runtime/*.py` (включая nested tool-calls), классифицировать как `prompt-flow drift (non-canonical runtime path)`; использовать только `${CLAUDE_PLUGIN_ROOT}`/`$PLUGIN_DIR` canonical runtime paths.
+- если QA flow предлагает manual write path для `stage.*.result.json` или direct `stage_result.py` write как recovery, классифицировать как `policy_violation(stage_result_manual_write)` и не выполнять manual path.
+- если в QA action-flow встречается `reason_code=contract_mismatch_actions_shape`, завершать шаг terminal BLOCKED без guessed retries/manual payload edits.
 - при вопросах: retry;
 - если QA-run упал по `python3 skills/qa/runtime/qa.py` + `can't open file`:
   - классифицировать как `prompt-flow drift (non-canonical runtime path)`;
@@ -770,7 +774,8 @@ QA integrity checks:
   - `PASS`: delta отсутствует.
   - `FAIL(plugin_write_safety_violation)`: есть новые/изменённые пути в plugin repo и есть прямые runtime-evidence записи/редактирования plugin path в stage-логах.
   - `WARN(plugin_write_safety_inconclusive)`: delta есть, но прямого runtime-evidence нет (например, нулевые файлы в корне plugin repo с неочевидным источником); обязательна пометка как release-risk.
-  - `WARN(workspace_layout_non_canonical_root_detected)`: в workspace root появились non-canonical root пути вне `aidd/`; downstream результаты считать недетерминированными.
+  - `INFO(preexisting_noncanonical_root)`: non-canonical root пути (`docs|reports|config|.cache`) были pre-existing и без delta в рамках run.
+  - `WARN(workspace_layout_non_canonical_root_detected)`: в workspace root появились/изменились non-canonical root пути вне `aidd/`; downstream результаты считать недетерминированными.
 
 ## 10) Финальный отчёт в чат
 

@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import sys
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from typing import Dict, List
 
@@ -35,7 +37,9 @@ def _ensure_plugin_root_on_path() -> None:
 _ensure_plugin_root_on_path()
 
 from aidd_runtime import actions_validate
+from aidd_runtime import decision_append
 from aidd_runtime import docops
+from aidd_runtime import memory_pack
 from aidd_runtime import runtime
 from aidd_runtime.io_utils import utc_timestamp
 
@@ -81,6 +85,55 @@ def _apply_action(root: Path, ticket: str, action: Dict[str, object]) -> tuple[s
     if action_type == "context_pack_ops.context_pack_update":
         result = docops.context_pack_update(root, ticket, params)
         return result.message, result.changed, result.error
+    if action_type == "memory_ops.decision_append":
+        title = str(params.get("title") or "").strip()
+        decision = str(params.get("decision") or "").strip()
+        if not title or not decision:
+            return "memory decision append requires title and decision", False, True
+        argv: List[str] = ["--ticket", ticket, "--title", title, "--decision", decision]
+        rationale = str(params.get("rationale") or "").strip()
+        if rationale:
+            argv.extend(["--rationale", rationale])
+        decision_id = str(params.get("decision_id") or "").strip()
+        if decision_id:
+            argv.extend(["--decision-id", decision_id])
+        stage = str(params.get("stage") or "").strip()
+        if stage:
+            argv.extend(["--stage", stage])
+        scope_key = str(params.get("scope_key") or "").strip()
+        if scope_key:
+            argv.extend(["--scope-key", scope_key])
+        source = str(params.get("source") or "").strip()
+        if source:
+            argv.extend(["--source", source])
+        status = str(params.get("status") or "").strip()
+        if status:
+            argv.extend(["--status", status])
+        for field in ("tags", "supersedes", "conflicts_with"):
+            value = params.get(field)
+            if isinstance(value, list):
+                rendered = ",".join(str(item).strip() for item in value if str(item).strip())
+                if rendered:
+                    flag = "--conflicts-with" if field == "conflicts_with" else f"--{field}"
+                    argv.extend([flag, rendered])
+
+        append_stdout = io.StringIO()
+        append_stderr = io.StringIO()
+        with redirect_stdout(append_stdout), redirect_stderr(append_stderr):
+            append_rc = int(decision_append.main(argv))
+        if append_rc != 0:
+            detail = append_stderr.getvalue().strip() or append_stdout.getvalue().strip() or f"exit={append_rc}"
+            return f"memory decision append failed: {detail}", False, True
+
+        pack_stdout = io.StringIO()
+        pack_stderr = io.StringIO()
+        with redirect_stdout(pack_stdout), redirect_stderr(pack_stderr):
+            pack_rc = int(memory_pack.main(["--ticket", ticket]))
+        if pack_rc != 0:
+            detail = pack_stderr.getvalue().strip() or pack_stdout.getvalue().strip() or f"exit={pack_rc}"
+            return f"memory decision pack rebuild failed: {detail}", True, True
+
+        return "memory decision appended", True, False
 
     return f"unsupported action type: {action_type}", False, True
 

@@ -1,0 +1,8 @@
+report_path=aidd/reports/prd/TST-001.json
+recommended_status=ready
+findings_count=2
+open_questions_count=0
+spec_exists=1
+prd_findings_sync_needed=0
+plan_findings_sync_needed=0
+narrative_vs_report_mismatch=1

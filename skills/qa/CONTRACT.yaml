@@ -4,6 +4,7 @@
   "skill_id": "qa",
   "stage": "qa",
   "entrypoints": [
+    "skills/qa/runtime/qa.py",
     "skills/qa/runtime/qa_run.py",
     "skills/aidd-docio/runtime/actions_apply.py",
     "skills/aidd-flow-state/runtime/stage_result.py"
@@ -17,6 +18,8 @@
     "optional": [
       "aidd/reports/qa/{ticket}.json",
       "aidd/reports/loops/{ticket}/{scope_key}/review.latest.pack.md",
+      "aidd/reports/memory/{ticket}.semantic.pack.json",
+      "aidd/reports/memory/{ticket}.decisions.pack.json",
       "aidd/docs/tasklist/{ticket}.md@handoff:qa"
     ]
   },
@@ -83,7 +86,8 @@
       "tasklist_ops.set_iteration_done",
       "tasklist_ops.append_progress_log",
       "tasklist_ops.next3_recompute",
-      "context_pack_ops.context_pack_update"
+      "context_pack_ops.context_pack_update",
+      "memory_ops.decision_append"
     ]
   }
 }

@@ -2550,6 +2550,7 @@ def emit_result(
         "ticket": ticket,
         "stage": stage,
         "status": status_value,
+        "terminal_marker": 1,
         "exit_code": code,
         "scope_key": scope_value,
         "work_item_key": work_item_value or None,

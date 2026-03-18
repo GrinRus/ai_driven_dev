@@ -135,6 +135,22 @@
       "aidd/.cache"
     ]
   },
+  "memory": {
+    "enabled": true,
+    "read_order_hints": [
+      "aidd/reports/research/<ticket>-rlm.pack.json",
+      "aidd/reports/memory/<ticket>.semantic.pack.json",
+      "aidd/reports/memory/<ticket>.decisions.pack.json"
+    ],
+    "semantic": {
+      "max_chars": 12000,
+      "max_items_per_section": 40
+    },
+    "decisions": {
+      "top_n": 10,
+      "max_entries": 200
+    }
+  },
   "researcher": {
     "defaults": {
       "paths": [

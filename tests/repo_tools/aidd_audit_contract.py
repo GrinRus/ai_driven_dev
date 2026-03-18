@@ -17,6 +17,10 @@ INVALID_FALLBACK_RUNTIME_PATH_RE = re.compile(
     r"python3\s+/skills/[^ \n]*/runtime/[^ \n]*\.py\b",
     re.IGNORECASE,
 )
+QA_RUN_UNRECOGNIZED_ARGS_RE = re.compile(
+    r"qa_run\.py:\s*error:\s*unrecognized arguments:\s*(?P<args>.+)$",
+    re.IGNORECASE | re.MULTILINE,
+)
 READINESS_REASON_CODES = (
     "readiness_gate_failed",
     "prd_not_ready",
@@ -147,6 +151,14 @@ def classify_incident(
             subtype="launcher_tokenization_or_command_not_found",
             source="summary",
             label="PROMPT_EXEC_ISSUE(launcher_tokenization_or_command_not_found)",
+        )
+
+    if QA_RUN_UNRECOGNIZED_ARGS_RE.search(merged_text):
+        return Classification(
+            classification="PROMPT_EXEC_ISSUE",
+            subtype="runtime_cli_contract_mismatch",
+            source="run_log",
+            label="PROMPT_EXEC_ISSUE(runtime_cli_contract_mismatch)",
         )
 
     if INVALID_FALLBACK_RUNTIME_PATH_RE.search(merged_text) and (

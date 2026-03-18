@@ -226,6 +226,32 @@ class RuntimeWriteSafetyTests(unittest.TestCase):
             self.assertTrue(ok)
             self.assertIn("plugin_write_safety_unavailable", message)
 
+    def test_plugin_write_safety_unavailable_emits_once_for_workspace_log_run(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="runtime-write-safety-") as tmpdir:
+            root = Path(tmpdir)
+            plugin_root = root / "plugin"
+            workspace = root / "workspace"
+            (plugin_root / ".claude-plugin").mkdir(parents=True, exist_ok=True)
+            (workspace / "aidd" / "reports" / "logs" / "qa" / "TST-001" / "ticket").mkdir(
+                parents=True,
+                exist_ok=True,
+            )
+            source_a = workspace / "aidd" / "reports" / "logs" / "qa" / "TST-001" / "ticket" / "stage.run.a.log"
+            source_b = workspace / "aidd" / "reports" / "logs" / "qa" / "TST-001" / "ticket" / "stage.run.b.log"
+            source_a.write_text("", encoding="utf-8")
+            source_b.write_text("", encoding="utf-8")
+            os.environ["CLAUDE_PLUGIN_ROOT"] = str(plugin_root)
+
+            snapshot_a = runtime.capture_plugin_write_safety_snapshot()
+            ok_a, message_a = runtime.verify_plugin_write_safety_snapshot(snapshot_a, source=str(source_a))
+            self.assertTrue(ok_a)
+            self.assertIn("plugin_write_safety_unavailable", message_a)
+
+            snapshot_b = runtime.capture_plugin_write_safety_snapshot()
+            ok_b, message_b = runtime.verify_plugin_write_safety_snapshot(snapshot_b, source=str(source_b))
+            self.assertTrue(ok_b)
+            self.assertEqual(message_b, "")
+
     def test_plugin_write_safety_missing_plugin_root_defaults_to_warn_mode(self) -> None:
         os.environ.pop("CLAUDE_PLUGIN_ROOT", None)
         os.environ.pop("AIDD_PLUGIN_DIR", None)
