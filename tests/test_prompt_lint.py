@@ -181,17 +181,33 @@ def build_stage_skill(stage: str, *, lang: str = "ru") -> str:
         lines.append(
             "5. Retry safety: do not rerun the same failing command without new evidence."
         )
-        lines.append(
-            "6. Read order after preflight artifacts: readmap -> loop pack -> review pack -> rolling context pack."
-        )
-        lines.append(f"7. Run subagent `feature-dev-aidd:{STAGE_SUBAGENT[stage]}`.")
-        lines.append(f"8. Fill actions.json: create `aidd/reports/actions/<ticket>/<scope_key>/{stage}.actions.json`.")
-        lines.append(
-            "9. Canonical stage-chain: internal preflight -> stage runtime -> actions_apply.py/postflight -> python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py. [AIDD_LOOP_POLICY:CANONICAL_STAGE_RESULT_PATH]"
-        )
-        lines.append(
-            "10. Non-canonical stage-result path under `skills/aidd-loop/runtime/` is forbidden. [AIDD_LOOP_POLICY:NON_CANONICAL_STAGE_RESULT_FORBIDDEN]"
-        )
+        if stage == "qa":
+            lines.append(
+                "6. Actions contract hardening: if `actions-apply` returns `reason_code=contract_mismatch_actions_shape`, stop with terminal BLOCKED."
+            )
+            lines.append(
+                "7. Read order after preflight artifacts: readmap -> loop pack -> review pack -> rolling context pack."
+            )
+            lines.append(f"8. Run subagent `feature-dev-aidd:{STAGE_SUBAGENT[stage]}`.")
+            lines.append(f"9. Fill actions.json: create `aidd/reports/actions/<ticket>/<scope_key>/{stage}.actions.json`.")
+            lines.append(
+                "10. Canonical stage-chain: internal preflight -> stage runtime -> actions_apply.py/postflight -> python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py. [AIDD_LOOP_POLICY:CANONICAL_STAGE_RESULT_PATH]"
+            )
+            lines.append(
+                "11. Non-canonical stage-result path under `skills/aidd-loop/runtime/` is forbidden. [AIDD_LOOP_POLICY:NON_CANONICAL_STAGE_RESULT_FORBIDDEN]"
+            )
+        else:
+            lines.append(
+                "6. Read order after preflight artifacts: readmap -> loop pack -> review pack -> rolling context pack."
+            )
+            lines.append(f"7. Run subagent `feature-dev-aidd:{STAGE_SUBAGENT[stage]}`.")
+            lines.append(f"8. Fill actions.json: create `aidd/reports/actions/<ticket>/<scope_key>/{stage}.actions.json`.")
+            lines.append(
+                "9. Canonical stage-chain: internal preflight -> stage runtime -> actions_apply.py/postflight -> python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py. [AIDD_LOOP_POLICY:CANONICAL_STAGE_RESULT_PATH]"
+            )
+            lines.append(
+                "10. Non-canonical stage-result path under `skills/aidd-loop/runtime/` is forbidden. [AIDD_LOOP_POLICY:NON_CANONICAL_STAGE_RESULT_FORBIDDEN]"
+            )
     elif stage == "plan-new":
         lines.append("1. Run subagent `feature-dev-aidd:planner`.")
         lines.append("2. Run subagent `feature-dev-aidd:validator`.")
@@ -1341,6 +1357,22 @@ class PromptLintTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("must not use root-relative `/skills/...` runtime paths", result.stderr)
 
+    def test_stage_skill_host_absolute_runtime_path_fails(self) -> None:
+        bad_skill = build_stage_skill("qa").replace(
+            "## Steps\n1. Stage-chain-only policy: execute only via canonical stage-chain.",
+            (
+                "## Steps\n"
+                "1. Run `python3 /Users/demo/.claude/plugins/cache/aidd/skills/qa/runtime/qa.py --ticket DEMO-QA`."
+            ),
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, skill_override={"qa": bad_skill})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("host-absolute runtime paths", result.stderr)
+
     def test_qa_skill_non_canonical_qa_run_flag_fails(self) -> None:
         bad_skill = build_stage_skill("qa").replace(
             "### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/qa/runtime/qa_run.py`",
@@ -1354,6 +1386,19 @@ class PromptLintTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("runtime_cli_contract_mismatch", result.stderr)
             self.assertIn("--qa-report", result.stderr)
+
+    def test_qa_skill_missing_actions_contract_mismatch_failfast_fails(self) -> None:
+        bad_skill = build_stage_skill("qa").replace(
+            "6. Actions contract hardening: if `actions-apply` returns `reason_code=contract_mismatch_actions_shape`, stop with terminal BLOCKED.\n",
+            "",
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, skill_override={"qa": bad_skill})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("contract_mismatch_actions_shape", result.stderr)
 
     def test_stage_skill_context_pack_refresh_without_agent_fails(self) -> None:
         bad_skill = build_stage_skill("plan-new").replace(

@@ -201,14 +201,27 @@ def load_stage_result(
         selected_payload["scope_key"] = selected_scope
     selected_effective_result = stage_result_contract.effective_stage_result(selected_payload)
     expected_scope_raw = str(scope_key or "").strip()
+    expected_scope_canonical = _canonical_scope_key(expected_scope_raw)
+    selected_scope_canonical = _canonical_scope_key(selected_scope)
+    scopes_differ = False
+    if expected_scope_canonical and selected_scope_canonical:
+        scopes_differ = expected_scope_canonical != selected_scope_canonical
+    elif expected_scope_raw and selected_scope:
+        scopes_differ = expected_scope_raw != selected_scope
+    iteration_scope_mismatch = bool(
+        expected_scope_canonical.startswith("iteration_id_")
+        and selected_scope_canonical.startswith("iteration_id_")
+        and expected_scope_canonical != selected_scope_canonical
+    )
     qa_iteration_scope_required = stage == "qa" and expected_scope_raw.startswith("iteration_id_")
     if (
         expected_scope_raw
         and selected_scope
-        and selected_scope != expected_scope_raw
+        and scopes_differ
         and (
             selected_effective_result == "blocked"
             or qa_iteration_scope_required
+            or iteration_scope_mismatch
         )
     ):
         diagnostics_text = _stage_result_diagnostics(

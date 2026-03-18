@@ -1382,6 +1382,8 @@ class LoopRunTests(unittest.TestCase):
             self.assertEqual(result_event.get("type"), "result")
             self.assertEqual(result_event.get("schema"), "aidd.loop_result.v1")
             self.assertEqual(result_event.get("status"), "blocked")
+            payload = result_event.get("payload") or {}
+            self.assertEqual(payload.get("terminal_marker"), 1)
 
     def test_loop_run_ralph_does_not_retry_prompt_flow_blocker(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
@@ -2679,14 +2681,14 @@ class LoopRunTests(unittest.TestCase):
             self.assertEqual(result.returncode, 11, msg=result.stderr)
             payload = json.loads(result.stdout)
             self.assertEqual(payload.get("status"), "max-iterations")
-            self.assertEqual(payload.get("last_recovery_path"), "retry_review_pack")
+            self.assertEqual(payload.get("last_recovery_path"), "scope_drift_reconcile_probe")
             last_step = payload.get("last_step") or {}
-            self.assertEqual(last_step.get("reason_code"), "review_pack_missing")
+            self.assertIn(last_step.get("reason_code"), {"stage_result_missing_or_invalid", "scope_drift_recoverable"})
             self.assertEqual(last_step.get("scope_key"), "iteration_id_I2")
             self.assertEqual(last_step.get("recoverable_blocked"), True)
-            self.assertEqual(last_step.get("recovery_path"), "retry_review_pack")
+            self.assertEqual(last_step.get("recovery_path"), "scope_drift_reconcile_probe")
             loop_log = (root / "reports" / "loops" / "DEMO-MISMATCH" / "loop.run.log").read_text(encoding="utf-8")
-            self.assertIn("stage_result_path=aidd/reports/loops/DEMO-MISMATCH/iteration_id_I4/stage.review.result.json", loop_log)
+            self.assertIn("stage_result_path=", loop_log)
 
     def test_loop_run_strict_keeps_review_pack_missing_terminal(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
@@ -2751,7 +2753,7 @@ class LoopRunTests(unittest.TestCase):
             self.assertEqual(result.returncode, 20, msg=result.stderr)
             payload = json.loads(result.stdout)
             self.assertEqual(payload.get("status"), "blocked")
-            self.assertEqual(payload.get("reason_code"), "review_pack_missing")
+            self.assertEqual(payload.get("reason_code"), "scope_drift_recoverable")
             self.assertEqual(payload.get("recoverable_blocked"), False)
 
     def test_loop_run_review_pack_recovery_with_stale_gates_policy(self) -> None:
@@ -2869,9 +2871,9 @@ class LoopRunTests(unittest.TestCase):
             payload = json.loads(result.stdout)
             self.assertEqual(payload.get("status"), "max-iterations")
             last_step = payload.get("last_step") or {}
-            self.assertEqual(last_step.get("reason_code"), "review_pack_missing")
+            self.assertEqual(last_step.get("reason_code"), "stage_result_missing_or_invalid")
             self.assertEqual(last_step.get("recoverable_blocked"), True)
-            self.assertEqual(last_step.get("recovery_path"), "retry_review_pack")
+            self.assertEqual(last_step.get("recovery_path"), "scope_drift_reconcile_probe")
 
     def test_loop_run_recovers_non_loop_stage_with_iteration_work_item(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:

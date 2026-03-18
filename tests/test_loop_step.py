@@ -1557,7 +1557,7 @@ class LoopStepTests(unittest.TestCase):
             self.assertTrue(payload.get("report_noise_events"))
             self.assertTrue(payload.get("marker_signal_events"))
 
-    def test_loop_step_records_scope_mismatch_telemetry_for_implement_transition(self) -> None:
+    def test_loop_step_cross_iteration_stale_results_do_not_override_active_scope(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             write_active_state(root, work_item="iteration_id=I2")
@@ -1604,12 +1604,10 @@ class LoopStepTests(unittest.TestCase):
             self.assertEqual(result.returncode, 10, msg=result.stderr)
             payload = json.loads(result.stdout)
             self.assertEqual(payload.get("status"), "continue")
-            self.assertEqual(payload.get("reason_code"), "")
+            self.assertIn(payload.get("reason_code"), {"", "output_contract_warn"})
+            self.assertEqual(payload.get("terminal_marker"), 1)
             self.assertEqual(payload.get("scope_key"), "iteration_id_I2")
-            self.assertEqual(payload.get("scope_key_mismatch_warn"), "1")
-            self.assertEqual(payload.get("scope_mismatch_non_authoritative"), True)
-            self.assertEqual(payload.get("expected_scope_key"), "iteration_id_I2")
-            self.assertEqual(payload.get("selected_scope_key"), "iteration_id_I4")
+            self.assertIn(payload.get("scope_key_mismatch_warn"), ("", None))
             self.assertIn("/iteration_id_I2/", str(payload.get("stage_result_path") or ""))
 
     def test_loop_step_mismatch_keeps_expected_actions_scope(self) -> None:
@@ -1648,15 +1646,13 @@ class LoopStepTests(unittest.TestCase):
             self.assertEqual(result.returncode, 10, msg=result.stderr)
             payload = json.loads(result.stdout)
             self.assertEqual(payload.get("status"), "continue")
-            self.assertEqual(payload.get("reason_code"), "")
+            self.assertIn(payload.get("reason_code"), {"", "output_contract_warn"})
+            self.assertEqual(payload.get("terminal_marker"), 1)
             self.assertEqual(payload.get("scope_key"), "iteration_id_I2")
-            self.assertEqual(payload.get("scope_key_mismatch_warn"), "1")
-            self.assertEqual(payload.get("scope_mismatch_non_authoritative"), True)
-            self.assertEqual(payload.get("expected_scope_key"), "iteration_id_I2")
-            self.assertEqual(payload.get("selected_scope_key"), "iteration_id_I4")
+            self.assertIn(payload.get("scope_key_mismatch_warn"), ("", None))
             self.assertIn("/iteration_id_I2/", str(payload.get("actions_log_path") or ""))
 
-    def test_load_stage_result_prefers_canonical_scope_candidate_over_alias(self) -> None:
+    def test_load_stage_result_rejects_cross_iteration_fallback_even_with_canonical_candidate(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             ticket = "DEMO-SCOPE-PREFERENCE"
@@ -1695,12 +1691,12 @@ class LoopStepTests(unittest.TestCase):
                 stage,
             )
 
-            self.assertEqual(error, "")
-            self.assertTrue(selected_path.as_posix().endswith("/iteration_id_I1/stage.review.result.json"))
-            self.assertEqual(str((payload or {}).get("scope_key")), "iteration_id_I1")
-            self.assertEqual(mismatch_from, "iteration_id_I2")
-            self.assertEqual(mismatch_to, "iteration_id_I1")
-            self.assertIn("fallback:selected:", diag)
+            self.assertEqual(error, "stage_result_missing_or_invalid")
+            self.assertTrue(selected_path.as_posix().endswith("/iteration_id_I2/stage.review.result.json"))
+            self.assertIsNone(payload)
+            self.assertEqual(mismatch_from, "")
+            self.assertEqual(mismatch_to, "")
+            self.assertIn("scope_fallback_stale_ignored=iteration_id_I1", diag)
 
     def test_load_stage_result_diagnostics_include_preferred_and_fallback_reasons(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:

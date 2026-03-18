@@ -338,7 +338,40 @@ class AiddAuditRunnerTests(unittest.TestCase):
         self.assertEqual(payload.get("classification"), "PROMPT_EXEC_ISSUE")
         self.assertEqual(payload.get("classification_subtype"), "runtime_cli_contract_mismatch")
 
-    def test_review_spec_report_mismatch_promotes_prompt_exec_issue(self) -> None:
+    def test_fixture_pack_20260317_replays_review_spec_mismatch_as_telemetry_with_valid_report_payload(self) -> None:
+        payload = self.runner.analyze_run(
+            summary_path=FIXTURES_20260317 / "05_review_spec_run2.summary.txt",
+            run_log_path=FIXTURES_20260317 / "05_review_spec_run2.log",
+            aux_log_paths=[FIXTURES_20260317 / "05_review_spec_report_check_run2.txt"],
+        )
+        self.assertEqual(payload.get("classification"), "TELEMETRY_ONLY")
+        self.assertEqual(payload.get("classification_subtype"), "top_level_success")
+        self.assertEqual(payload.get("review_spec_report_mismatch"), 1)
+        self.assertEqual(payload.get("review_spec_payload_valid"), 1)
+        self.assertEqual(payload.get("review_spec_recovery_source"), "report_payload")
+
+    def test_fixture_pack_20260317_replays_loop_terminal_marker_with_scope_mismatch(self) -> None:
+        payload = self.runner.analyze_run(
+            summary_path=FIXTURES_20260317 / "07_loop_run_run2.summary.txt",
+            run_log_path=FIXTURES_20260317 / "07_loop_run_run2.log",
+        )
+        self.assertEqual(payload.get("classification"), "TELEMETRY_ONLY")
+        self.assertEqual(payload.get("classification_subtype"), "terminal_marker_present")
+        self.assertEqual(payload.get("result_count_interpretation"), "terminal_marker_present")
+        self.assertEqual(payload.get("terminal_marker_present"), 1)
+
+    def test_fixture_pack_20260317_replays_workspace_layout_preexisting_info(self) -> None:
+        payload = self.runner.analyze_run(
+            summary_path=FIXTURES_20260317 / "99_post_run_run1.summary.txt",
+            run_log_path=FIXTURES_20260317 / "99_post_run_run1.log",
+            aux_log_paths=[FIXTURES_20260317 / "99_workspace_layout_check.txt"],
+        )
+        self.assertEqual(payload.get("classification"), "TELEMETRY_ONLY")
+        self.assertEqual(payload.get("classification_subtype"), "preexisting_noncanonical_root")
+        self.assertEqual(payload.get("workspace_layout_noncanonical_detected"), 1)
+        self.assertEqual(payload.get("workspace_layout_preexisting_only"), 1)
+
+    def test_review_spec_report_mismatch_with_valid_report_payload_stays_telemetry(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             summary_path = root / "05_review_spec_run1.summary.txt"
@@ -350,11 +383,11 @@ class AiddAuditRunnerTests(unittest.TestCase):
                 "\n".join(
                     [
                         "report_path=aidd/reports/prd/TST-001.json",
-                        "recommended_status=pending",
+                        "recommended_status=ready",
                         "findings_count=3",
                         "open_questions_count=0",
                         "spec_exists=1",
-                        "prd_findings_sync_needed=1",
+                        "prd_findings_sync_needed=0",
                         "plan_findings_sync_needed=0",
                         "narrative_vs_report_mismatch=1",
                     ]
@@ -367,11 +400,12 @@ class AiddAuditRunnerTests(unittest.TestCase):
                 run_log_path=log_path,
                 aux_log_paths=[report_check_path],
             )
-        self.assertEqual(payload.get("classification"), "PROMPT_EXEC_ISSUE")
-        self.assertEqual(payload.get("classification_subtype"), "review_spec_report_mismatch")
+        self.assertEqual(payload.get("classification"), "TELEMETRY_ONLY")
+        self.assertEqual(payload.get("classification_subtype"), "top_level_success")
         self.assertEqual(payload.get("review_spec_report_mismatch"), 1)
+        self.assertEqual(payload.get("review_spec_payload_valid"), 1)
         self.assertEqual(payload.get("review_spec_report_path"), "aidd/reports/prd/TST-001.json")
-        self.assertEqual(payload.get("review_spec_recommended_status"), "pending")
+        self.assertEqual(payload.get("review_spec_recommended_status"), "ready")
         self.assertEqual(payload.get("review_spec_recovery_source"), "report_payload")
 
     def test_review_spec_report_check_without_mismatch_keeps_top_level_classification(self) -> None:
@@ -401,6 +435,7 @@ class AiddAuditRunnerTests(unittest.TestCase):
         self.assertEqual(payload.get("classification"), "TELEMETRY_ONLY")
         self.assertEqual(payload.get("classification_subtype"), "top_level_success")
         self.assertEqual(payload.get("review_spec_report_mismatch"), 0)
+        self.assertEqual(payload.get("review_spec_payload_valid"), 1)
         self.assertEqual(payload.get("review_spec_recovery_source"), "report_payload")
 
     def test_review_spec_report_check_prefers_inferred_run_file_over_aux(self) -> None:
@@ -437,6 +472,141 @@ class AiddAuditRunnerTests(unittest.TestCase):
         self.assertEqual(payload.get("review_spec_report_mismatch"), 0)
         self.assertEqual(payload.get("review_spec_report_path"), "aidd/reports/prd/TST-001.json")
         self.assertIn("05_review_spec_report_check_run1.txt", str(payload.get("review_spec_report_check_path")))
+
+    def test_review_spec_report_mismatch_without_structured_report_payload_promotes_prompt_exec_issue(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            summary_path = root / "05_review_spec_run1.summary.txt"
+            log_path = root / "05_review_spec_run1.log"
+            report_check_path = root / "05_review_spec_report_check_run1.txt"
+            summary_path.write_text("exit_code=0\nresult_count=1\n", encoding="utf-8")
+            log_path.write_text('{"type":"result","status":"success"}\n', encoding="utf-8")
+            report_check_path.write_text(
+                "narrative_vs_report_mismatch=1\n",
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(
+                summary_path=summary_path,
+                run_log_path=log_path,
+                aux_log_paths=[report_check_path],
+            )
+        self.assertEqual(payload.get("classification"), "PROMPT_EXEC_ISSUE")
+        self.assertEqual(payload.get("classification_subtype"), "review_spec_report_mismatch")
+        self.assertEqual(payload.get("review_spec_report_mismatch"), 1)
+        self.assertEqual(payload.get("review_spec_payload_valid"), 0)
+        self.assertEqual(payload.get("review_spec_recovery_source"), "")
+
+    def test_no_top_level_result_is_prompt_exec_issue_when_terminal_marker_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            summary_path = root / "07_loop_run_run1.summary.txt"
+            summary_path.write_text("exit_code=0\nresult_count=0\n", encoding="utf-8")
+            payload = self.runner.analyze_run(summary_path=summary_path)
+        self.assertEqual(payload.get("classification"), "PROMPT_EXEC_ISSUE")
+        self.assertEqual(payload.get("classification_subtype"), "no_top_level_result")
+        self.assertEqual(payload.get("terminal_marker_present"), 0)
+
+    def test_terminal_marker_allows_telemetry_classification_without_top_level_status(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            summary_path = root / "07_loop_run_run1.summary.txt"
+            log_path = root / "07_loop_run_run1.log"
+            summary_path.write_text("exit_code=0\nresult_count=0\n", encoding="utf-8")
+            log_path.write_text('{"terminal_marker":1,"reason_code":"watchdog_terminated"}\n', encoding="utf-8")
+            payload = self.runner.analyze_run(summary_path=summary_path, run_log_path=log_path)
+        self.assertEqual(payload.get("classification"), "TELEMETRY_ONLY")
+        self.assertEqual(payload.get("classification_subtype"), "terminal_marker_present")
+        self.assertEqual(payload.get("result_count_interpretation"), "terminal_marker_present")
+        self.assertEqual(payload.get("terminal_marker_present"), 1)
+
+    def test_workspace_layout_preexisting_paths_report_info_not_warn(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            summary_path = root / "99_post_run_run1.summary.txt"
+            log_path = root / "99_post_run_run1.log"
+            workspace_layout_path = root / "99_workspace_layout_check.txt"
+            summary_path.write_text("exit_code=0\nresult_count=1\n", encoding="utf-8")
+            log_path.write_text('{"type":"result","status":"success"}\n', encoding="utf-8")
+            workspace_layout_path.write_text(
+                "\n".join(
+                    [
+                        "workspace_layout_non_canonical_root_detected=1",
+                        "workspace_layout_delta_detected=0",
+                        "preexisting_noncanonical_root=1",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(
+                summary_path=summary_path,
+                run_log_path=log_path,
+                aux_log_paths=[workspace_layout_path],
+            )
+        self.assertEqual(payload.get("classification"), "TELEMETRY_ONLY")
+        self.assertEqual(payload.get("classification_subtype"), "preexisting_noncanonical_root")
+        self.assertEqual(payload.get("workspace_layout_noncanonical_detected"), 1)
+        self.assertEqual(payload.get("workspace_layout_preexisting_only"), 1)
+
+    def test_workspace_layout_delta_reports_warn(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            summary_path = root / "99_post_run_run1.summary.txt"
+            log_path = root / "99_post_run_run1.log"
+            workspace_layout_path = root / "99_workspace_layout_check.txt"
+            summary_path.write_text("exit_code=0\nresult_count=1\n", encoding="utf-8")
+            log_path.write_text('{"type":"result","status":"success"}\n', encoding="utf-8")
+            workspace_layout_path.write_text(
+                "\n".join(
+                    [
+                        "workspace_layout_non_canonical_root_detected=1",
+                        "workspace_layout_delta_detected=1",
+                        "workspace_layout_delta_count=2",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(
+                summary_path=summary_path,
+                run_log_path=log_path,
+                aux_log_paths=[workspace_layout_path],
+            )
+        self.assertEqual(payload.get("classification"), "TELEMETRY_ONLY")
+        self.assertEqual(payload.get("classification_subtype"), "workspace_layout_non_canonical_root_detected")
+        self.assertEqual(payload.get("effective_classification"), "WARN(workspace_layout_non_canonical_root_detected)")
+        self.assertEqual(payload.get("workspace_layout_noncanonical_detected"), 1)
+        self.assertEqual(payload.get("workspace_layout_preexisting_only"), 0)
+
+    def test_workspace_layout_zero_flags_do_not_trigger_detection(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            summary_path = root / "99_post_run_run1.summary.txt"
+            log_path = root / "99_post_run_run1.log"
+            workspace_layout_path = root / "99_workspace_layout_check.txt"
+            summary_path.write_text("exit_code=0\nresult_count=1\n", encoding="utf-8")
+            log_path.write_text('{"type":"result","status":"success"}\n', encoding="utf-8")
+            workspace_layout_path.write_text(
+                "\n".join(
+                    [
+                        "workspace_layout_non_canonical_root_detected=0",
+                        "workspace_layout_delta_detected=0",
+                        "preexisting_noncanonical_root=0",
+                        "workspace_layout_delta_count=0",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(
+                summary_path=summary_path,
+                run_log_path=log_path,
+                aux_log_paths=[workspace_layout_path],
+            )
+        self.assertEqual(payload.get("classification"), "TELEMETRY_ONLY")
+        self.assertEqual(payload.get("classification_subtype"), "top_level_success")
+        self.assertEqual(payload.get("workspace_layout_noncanonical_detected"), 0)
+        self.assertEqual(payload.get("workspace_layout_preexisting_only"), 0)
 
 
 if __name__ == "__main__":

@@ -167,6 +167,10 @@ STAGE_BODY_ABS_RUNTIME_RE = re.compile(
     r"python3\s+/skills/[A-Za-z0-9_.-]+/runtime/[A-Za-z0-9_.-]+\.py",
     re.IGNORECASE,
 )
+STAGE_BODY_HOST_ABS_RUNTIME_RE = re.compile(
+    r"python3\s+/(?!skills/)[^\s`]*?/skills/[A-Za-z0-9_.-]+/runtime/[A-Za-z0-9_.-]+\.py",
+    re.IGNORECASE,
+)
 LOOP_STAGE_FORBIDDEN_ALLOWED_TOOL_SNIPPETS = (
     "skills/aidd-loop/runtime/preflight_prepare.py",
     "skills/aidd-flow-state/runtime/stage_result.py",
@@ -1176,6 +1180,11 @@ def lint_skills(root: Path) -> Tuple[List[str], List[str]]:
                     errors.append(f"{info.path}: missing actions_apply.py reference")
                 if "fill actions.json" not in body_lower:
                     errors.append(f"{info.path}: missing 'Fill actions.json' step")
+                if path.parent.name == "qa" and "contract_mismatch_actions_shape" not in body_lower:
+                    errors.append(
+                        f"{info.path}: qa action-flow guidance must include "
+                        "`reason_code=contract_mismatch_actions_shape` fail-fast contract"
+                    )
                 if "runtime_path_missing_or_drift" not in body_lower:
                     errors.append(
                         f"{info.path}: loop stage guidance must include deterministic blocker code `runtime_path_missing_or_drift`"
@@ -1229,6 +1238,14 @@ def lint_skills(root: Path) -> Tuple[List[str], List[str]]:
                 errors.append(
                     f"{info.path}: stage guidance must not use root-relative `/skills/...` runtime paths; "
                     "use `${CLAUDE_PLUGIN_ROOT}`-scoped canonical runtime paths"
+                )
+            if (
+                path.parent.name in STAGE_CANONICAL_BODY_RUNTIME_ENV_REQUIRED
+                and STAGE_BODY_HOST_ABS_RUNTIME_RE.search(info.body)
+            ):
+                errors.append(
+                    f"{info.path}: stage guidance must not use host-absolute runtime paths "
+                    "(`python3 /.../skills/.../runtime/...`); use `${CLAUDE_PLUGIN_ROOT}`-scoped canonical runtime paths"
                 )
 
             context = _as_string(info.front_matter.get("context"))

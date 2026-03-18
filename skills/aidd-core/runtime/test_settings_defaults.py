@@ -244,7 +244,7 @@ def detect_build_tools(root: Path) -> set[str]:
     return detected
 
 
-def test_settings_payload(detected: set[str] | None = None) -> dict[str, list[str]]:
+def build_test_settings_payload(detected: set[str] | None = None) -> dict[str, list[str]]:
     if detected:
         patterns: list[str] = list(BASE_COMMON_PATTERNS)
         for tool in sorted(detected):

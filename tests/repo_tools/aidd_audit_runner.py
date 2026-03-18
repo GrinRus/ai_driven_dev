@@ -99,6 +99,26 @@ def infer_review_spec_report_check_path(summary_path: Path) -> Path | None:
     return None
 
 
+def infer_workspace_layout_check_path(summary_path: Path) -> Path | None:
+    name = summary_path.name
+    match = re.match(r"^(?P<step>.+)_run(?P<run>[0-9]+)\.summary\.txt$", name)
+    if not match:
+        return None
+    step = match.group("step")
+    if "99" not in step.lower() and "post" not in step.lower():
+        return None
+    run = match.group("run")
+    candidates = [
+        summary_path.with_name(f"{step}_workspace_layout_check_run{run}.txt"),
+        summary_path.with_name(f"{step}_workspace_layout_check.txt"),
+        summary_path.with_name("99_workspace_layout_check.txt"),
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return None
+
+
 def _is_truthy(value: object) -> bool:
     return str(value or "").strip().lower() in TRUTHY_VALUES
 
@@ -126,6 +146,101 @@ def _load_review_spec_report_check(summary_path: Path, aux_log_paths: List[Path]
         if payload:
             return payload, str(path)
     return {}, ""
+
+
+def _load_workspace_layout_check(summary_path: Path, aux_log_paths: List[Path] | None) -> tuple[Dict[str, str], str, str]:
+    candidates: List[Path] = []
+    seen: set[Path] = set()
+    inferred = infer_workspace_layout_check_path(summary_path)
+    if inferred is not None:
+        resolved = inferred.resolve()
+        if resolved not in seen:
+            seen.add(resolved)
+            candidates.append(inferred)
+    for path in aux_log_paths or []:
+        if "workspace_layout_check" not in path.name.lower():
+            continue
+        resolved = path.resolve()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        candidates.append(path)
+    for path in candidates:
+        raw = read_log_text(path)
+        payload = parse_kv_file(path)
+        if payload or raw.strip():
+            return payload, raw, str(path)
+    return {}, "", ""
+
+
+def _has_review_spec_report_payload(report_check: Mapping[str, str]) -> bool:
+    if not report_check:
+        return False
+    report_path = str(report_check.get("report_path") or "").strip()
+    if not report_path:
+        return False
+    recommended_status = str(report_check.get("recommended_status") or "").strip().lower()
+    if recommended_status:
+        return True
+    if _safe_int(report_check.get("findings_count"), -1) >= 0:
+        return True
+    if _safe_int(report_check.get("open_questions_count"), -1) >= 0:
+        return True
+    return False
+
+
+def _parse_workspace_layout_flags(
+    payload: Mapping[str, str],
+    raw_text: str,
+) -> tuple[bool, bool]:
+    text = str(raw_text or "").lower()
+
+    def _truthy(*keys: str) -> bool:
+        return any(_is_truthy(payload.get(key)) for key in keys)
+
+    mutated = _truthy(
+        "workspace_layout_mutated",
+        "workspace_layout_delta_detected",
+        "workspace_layout_non_canonical_root_delta",
+        "root_delta_detected",
+        "mutated_noncanonical_root",
+        "mutated_paths_detected",
+    )
+    present = _truthy(
+        "workspace_layout_non_canonical_root_detected",
+        "non_canonical_root_detected",
+        "preexisting_noncanonical_root",
+        "root_paths_present",
+    )
+
+    numeric_mutated = (
+        _safe_int(payload.get("workspace_layout_delta_count"), 0)
+        + _safe_int(payload.get("workspace_layout_mutated_count"), 0)
+        + _safe_int(payload.get("mutated_paths_count"), 0)
+    )
+    if numeric_mutated > 0:
+        mutated = True
+        present = True
+
+    if re.search(r"\bworkspace_layout_non_canonical_root_detected\s*=\s*(?:1|true|yes|on)\b", text):
+        present = True
+    if re.search(r"\bpreexisting_noncanonical_root\s*=\s*(?:1|true|yes|on)\b", text):
+        present = True
+    if re.search(r"\bworkspace_layout_delta_detected\s*=\s*(?:1|true|yes|on)\b", text):
+        mutated = True
+        present = True
+    if re.search(r"\bmutated_noncanonical_root\s*=\s*(?:1|true|yes|on)\b", text):
+        mutated = True
+        present = True
+
+    if mutated:
+        present = True
+    preexisting_only = bool(present and not mutated)
+    return bool(present), preexisting_only
+
+
+def _allow_workspace_layout_override(classification: contract.Classification) -> bool:
+    return classification.classification in {"FLOW_BUG", "TELEMETRY_ONLY"}
 
 
 def resolve_min_free_bytes(raw: str | None = None) -> int:
@@ -302,12 +417,30 @@ def analyze_run(
     aux_text = "\n".join(part for part in aux_text_parts if part)
     review_spec_report_check, review_spec_report_check_path = _load_review_spec_report_check(summary_path, aux_log_paths)
     review_spec_report_mismatch = _is_truthy(review_spec_report_check.get("narrative_vs_report_mismatch"))
+    review_spec_payload_valid = _has_review_spec_report_payload(review_spec_report_check)
+    workspace_layout_check, workspace_layout_check_raw, workspace_layout_check_path = _load_workspace_layout_check(
+        summary_path, aux_log_paths
+    )
+    workspace_layout_detected, workspace_layout_preexisting_only = _parse_workspace_layout_flags(
+        workspace_layout_check, workspace_layout_check_raw
+    )
 
     top_level_status = detect_top_level_status(log_text)
     if not top_level_status and aux_text:
         top_level_status = detect_top_level_status(aux_text)
+    terminal_marker_present = bool(
+        re.search(r'"terminal_marker"\s*:\s*(?:1|true)\b', log_text, re.IGNORECASE)
+        or re.search(r"\bterminal_marker=(?:1|true)\b", log_text, re.IGNORECASE)
+        or re.search(r"\bterminal_marker=(?:1|true)\b", aux_text, re.IGNORECASE)
+        or _is_truthy(summary.get("terminal_marker"))
+    )
     top_level_result_present = bool(top_level_status)
     result_count_interpretation = interpret_result_count(summary, top_level_present=top_level_result_present)
+    if not top_level_result_present and terminal_marker_present and result_count_interpretation in {
+        "result_count_missing",
+        "no_top_level_result_confirmed",
+    }:
+        result_count_interpretation = "terminal_marker_present"
 
     classified = contract.classify_incident(
         summary=summary,
@@ -342,6 +475,7 @@ def analyze_run(
             source="liveness",
             label="INFO(stream_path_not_emitted_by_cli)",
         )
+
     readiness_reason = _detect_readiness_gate_reason(
         summary=summary,
         precondition=precondition,
@@ -354,6 +488,29 @@ def analyze_run(
             subtype="readiness_gate_failed",
             source="precondition" if precondition else "diagnostics",
             label="NOT_VERIFIED(readiness_gate_failed)+PROMPT_EXEC_ISSUE(readiness_gate_failed)",
+        )
+    if (
+        not readiness_gate_failed
+        and result_count_interpretation == "no_top_level_result_confirmed"
+        and not terminal_marker_present
+        and classified.classification in {"FLOW_BUG", "TELEMETRY_ONLY"}
+    ):
+        classified = contract.Classification(
+            classification="PROMPT_EXEC_ISSUE",
+            subtype="no_top_level_result",
+            source="summary",
+            label="NOT_VERIFIED(no_top_level_result)+PROMPT_EXEC_ISSUE(no_top_level_result)",
+        )
+
+    if (
+        result_count_interpretation == "terminal_marker_present"
+        and classified.classification == "FLOW_BUG"
+    ):
+        classified = contract.Classification(
+            classification="TELEMETRY_ONLY",
+            subtype="terminal_marker_present",
+            source="run_log",
+            label="TELEMETRY_ONLY(terminal_marker_present)",
         )
     invalid_fallback_paths = _extract_invalid_fallback_paths(log_text, aux_text)
     tasks_new_partial_success = (
@@ -369,13 +526,32 @@ def analyze_run(
             source="run_log",
             label="WARN(partial_success_no_top_level_result)",
         )
-    if review_spec_report_mismatch and classified.classification in {"FLOW_BUG", "TELEMETRY_ONLY"}:
+    if (
+        review_spec_report_mismatch
+        and not review_spec_payload_valid
+        and classified.classification in {"FLOW_BUG", "TELEMETRY_ONLY"}
+    ):
         classified = contract.Classification(
             classification="PROMPT_EXEC_ISSUE",
             subtype="review_spec_report_mismatch",
             source="review_spec_report_check",
             label="PROMPT_EXEC_ISSUE(review_spec_report_mismatch)",
         )
+    if workspace_layout_detected and _allow_workspace_layout_override(classified):
+        if workspace_layout_preexisting_only:
+            classified = contract.Classification(
+                classification="TELEMETRY_ONLY",
+                subtype="preexisting_noncanonical_root",
+                source="workspace_layout_check",
+                label="INFO(preexisting_noncanonical_root)",
+            )
+        else:
+            classified = contract.Classification(
+                classification="TELEMETRY_ONLY",
+                subtype="workspace_layout_non_canonical_root_detected",
+                source="workspace_layout_check",
+                label="WARN(workspace_layout_non_canonical_root_detected)",
+            )
 
     recoverable_ralph_observed = _detect_recoverable_ralph(aux_text)
     effective_terminal_status = classified.label
@@ -405,10 +581,15 @@ def analyze_run(
             "liveness_stagnation_seconds": liveness_stagnation_seconds,
             "liveness_run_start_epoch": liveness_run_start_epoch,
             "review_spec_report_mismatch": int(review_spec_report_mismatch),
+            "review_spec_payload_valid": int(review_spec_payload_valid),
             "review_spec_report_check_path": review_spec_report_check_path,
             "review_spec_report_path": str(review_spec_report_check.get("report_path") or ""),
             "review_spec_recommended_status": str(review_spec_report_check.get("recommended_status") or ""),
-            "review_spec_recovery_source": "report_payload" if review_spec_report_check else "",
+            "review_spec_recovery_source": "report_payload" if review_spec_payload_valid else "",
+            "terminal_marker_present": int(terminal_marker_present),
+            "workspace_layout_check_path": workspace_layout_check_path,
+            "workspace_layout_noncanonical_detected": int(workspace_layout_detected),
+            "workspace_layout_preexisting_only": int(workspace_layout_preexisting_only),
         }
     )
     if precondition:
@@ -417,6 +598,8 @@ def analyze_run(
         payload["liveness"] = dict(liveness)
     if review_spec_report_check:
         payload["review_spec_report_check"] = dict(review_spec_report_check)
+    if workspace_layout_check:
+        payload["workspace_layout_check"] = dict(workspace_layout_check)
     return payload
 
 

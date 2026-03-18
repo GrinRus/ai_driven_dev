@@ -874,6 +874,7 @@ def run_loop_step(
         )
         payload = {
             "status": "blocked",
+            "terminal_marker": 1,
             "stage": active_stage or None,
             "scope_key": scope_key or None,
             "work_item_key": active_work_item or None,
@@ -1108,6 +1109,7 @@ def main(argv: List[str] | None = None) -> int:
         clear_active_mode(target)
         payload = {
             "status": "blocked",
+            "terminal_marker": 1,
             "iterations": 0,
             "exit_code": BLOCKED_CODE,
             "log_path": runtime.rel_path(log_path, target),
@@ -1161,6 +1163,7 @@ def main(argv: List[str] | None = None) -> int:
                 clear_active_mode(target)
                 payload = {
                     "status": "blocked",
+                    "terminal_marker": 1,
                     "iterations": 0,
                     "exit_code": BLOCKED_CODE,
                     "log_path": runtime.rel_path(log_path, target),
@@ -1312,6 +1315,7 @@ def main(argv: List[str] | None = None) -> int:
                 )
                 payload = {
                     "status": "blocked",
+                    "terminal_marker": 1,
                     "iterations": 0,
                     "exit_code": BLOCKED_CODE,
                     "log_path": runtime.rel_path(log_path, target),
@@ -1412,6 +1416,7 @@ def main(argv: List[str] | None = None) -> int:
             }
             payload = {
                 "status": "blocked",
+                "terminal_marker": 1,
                 "iterations": iteration,
                 "exit_code": BLOCKED_CODE,
                 "log_path": runtime.rel_path(log_path, target),
@@ -1540,6 +1545,7 @@ def main(argv: List[str] | None = None) -> int:
                 )
             payload = {
                 "status": status,
+                "terminal_marker": 1,
                 "iterations": iteration,
                 "exit_code": out_code,
                 "log_path": runtime.rel_path(log_path, target),
@@ -1985,6 +1991,7 @@ def main(argv: List[str] | None = None) -> int:
             clear_active_mode(target)
             payload = {
                 "status": "ship",
+                "terminal_marker": 1,
                 "iterations": iteration,
                 "exit_code": DONE_CODE,
                 "log_path": runtime.rel_path(log_path, target),
@@ -2125,6 +2132,7 @@ def main(argv: List[str] | None = None) -> int:
             )
             payload = {
                 "status": "blocked",
+                "terminal_marker": 1,
                 "iterations": iteration,
                 "exit_code": BLOCKED_CODE,
                 "log_path": runtime.rel_path(log_path, target),
@@ -2187,6 +2195,7 @@ def main(argv: List[str] | None = None) -> int:
 
     payload = {
         "status": "max-iterations",
+        "terminal_marker": 1,
         "iterations": max_iterations,
         "exit_code": MAX_ITERATIONS_CODE,
         "log_path": runtime.rel_path(log_path, target),

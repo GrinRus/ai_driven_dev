@@ -77,7 +77,10 @@ def _copy_seed_files(plugin_root: Path, project_root: Path, *, force: bool) -> l
 
 
 def _write_test_settings(workspace_root: Path, *, force: bool) -> None:
-    from aidd_runtime.test_settings_defaults import detect_build_tools, test_settings_payload
+    from aidd_runtime.test_settings_defaults import (
+        build_test_settings_payload,
+        detect_build_tools,
+    )
 
     settings_path = workspace_root / ".claude" / "settings.json"
     data: dict = {}
@@ -91,7 +94,7 @@ def _write_test_settings(workspace_root: Path, *, force: bool) -> None:
             data = {}
 
     detected = detect_build_tools(workspace_root)
-    payload = test_settings_payload(detected)
+    payload = build_test_settings_payload(detected)
     automation = data.setdefault("automation", {})
     if not isinstance(automation, dict):
         automation = {}
