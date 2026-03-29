@@ -128,6 +128,63 @@ class StageActionsRunTests(unittest.TestCase):
             persisted = json.loads(actions_path.read_text(encoding="utf-8"))
             self.assertEqual(persisted, original_payload)
 
+    def test_canonicalize_actions_payload_moves_memory_decision_fields_into_params(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="stage-actions-run-") as tmpdir:
+            root = Path(tmpdir)
+            actions_path = root / "reports" / "actions" / "DEMO-1" / "iteration_id_I1" / "implement.actions.json"
+            actions_path.parent.mkdir(parents=True, exist_ok=True)
+            actions_path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "aidd.actions.v1",
+                        "stage": "implement",
+                        "ticket": "DEMO-1",
+                        "scope_key": "iteration_id_I1",
+                        "work_item_key": "iteration_id=I1",
+                        "allowed_action_types": ["memory_ops.decision_append"],
+                        "actions": [
+                            {
+                                "type": "memory_ops.decision_append",
+                                "title": "Record decision",
+                                "decision": "Use canonical stage flow",
+                                "stage": "review",
+                                "scope_key": "iteration_id_I2",
+                                "source": "loop",
+                            }
+                        ],
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            context = launcher.LaunchContext(
+                root=root,
+                ticket="DEMO-1",
+                scope_key="iteration_id_I1",
+                work_item_key="iteration_id=I1",
+                stage="implement",
+            )
+
+            changed, reason, recovered_fields = stage_actions_run._canonicalize_actions_payload_once(
+                actions_path,
+                context=context,
+            )
+
+            self.assertTrue(changed)
+            self.assertEqual(reason, "canonicalized_once")
+            self.assertIn("actions[].params.stage", recovered_fields)
+            self.assertIn("actions[].params.scope_key", recovered_fields)
+            self.assertIn("actions[].params.source", recovered_fields)
+
+            payload = json.loads(actions_path.read_text(encoding="utf-8"))
+            action = payload["actions"][0]
+            self.assertNotIn("stage", action)
+            self.assertNotIn("scope_key", action)
+            self.assertNotIn("source", action)
+            self.assertEqual(action["params"]["stage"], "review")
+            self.assertEqual(action["params"]["scope_key"], "iteration_id_I2")
+            self.assertEqual(action["params"]["source"], "loop")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -321,6 +321,7 @@ def main() -> int:
         project_dir=project_dir,
         ticket=args.ticket,
         run_start_epoch=run_start_epoch,
+        step=args.step,
     )
 
     liveness = build_liveness_payload(

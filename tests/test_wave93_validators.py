@@ -58,6 +58,7 @@ class Wave93SchemaAndValidatorTests(unittest.TestCase):
             "actions": [],
         }
         self.assertEqual(actions_validate.validate_actions_data(v1), [])
+        self.assertIn("memory_ops.decision_append", set(actions_validate.KNOWN_TYPES))
 
         invalid = dict(v1)
         invalid.pop("allowed_action_types")

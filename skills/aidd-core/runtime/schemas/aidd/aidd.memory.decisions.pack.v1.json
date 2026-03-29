@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "aidd.memory.decisions.pack.v1",
+  "schema": "aidd.schema.v1",
+  "schema_version": "aidd.memory.decisions.pack.v1",
+  "title": "AIDD Decisions Pack v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "schema_version",
+    "ticket",
+    "generated_at",
+    "status",
+    "active",
+    "superseded",
+    "top"
+  ],
+  "properties": {
+    "schema": {
+      "const": "aidd.memory.decisions.pack.v1"
+    },
+    "schema_version": {
+      "const": "aidd.memory.decisions.pack.v1"
+    },
+    "ticket": {
+      "type": "string"
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ok",
+        "warn"
+      ]
+    },
+    "active": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "superseded": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "top": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "conflicts": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "counts": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": true
+}

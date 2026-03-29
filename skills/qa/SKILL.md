@@ -54,11 +54,11 @@ Follow `feature-dev-aidd:aidd-core` and `feature-dev-aidd:aidd-loop`.
 
 ## Command contracts
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/qa/runtime/qa_run.py`
-- When to run: as canonical QA stage runtime before postflight.
-- Inputs: ticket, scope/work-item context, QA findings, and actions payload.
-- Outputs: validated QA report artifacts and stage status payload.
-- Failure mode: non-zero exit when report/actions schema or required stage inputs are invalid.
-- Next action: fix QA findings/actions contract issues and rerun runtime validation.
+- When to run: after `qa.py` report generation, to validate canonical `qa.actions.json` before postflight apply.
+- Inputs: ticket/scope/work-item context and actions payload (`--actions`).
+- Outputs: actions-validation status for stage-chain; does not generate `aidd/reports/qa/<ticket>.json`.
+- Failure mode: non-zero exit when actions schema/contract or required stage inputs are invalid.
+- Next action: fix actions payload contract and rerun `qa_run.py`; keep report generation in `qa.py`.
 
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-docio/runtime/actions_apply.py`
 - When to run: mandatory final step in stage-chain postflight after QA actions are validated.

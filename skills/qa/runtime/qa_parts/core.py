@@ -57,6 +57,27 @@ def _qa_stage_chain_context_available(target: Path, ticket: str) -> tuple[bool, 
     return False, primary_scope
 
 
+def _resolve_qa_report_status(payload: dict[str, Any]) -> str:
+    """Return normalized QA verdict from canonical report payload.
+
+    Some QA reports expose only `overall_status` while older payloads use
+    `status`. Keep both for backward compatibility and deterministic parity.
+    """
+    if not isinstance(payload, dict):
+        return ""
+    values: list[str] = []
+    for field in ("status", "overall_status"):
+        value = str(payload.get(field) or "").strip().upper()
+        if value:
+            values.append(value)
+    if "BLOCKED" in values:
+        return "BLOCKED"
+    for value in values:
+        if value:
+            return value
+    return ""
+
+
 def _active_mode(target: Path) -> str:
     path = target / "docs" / ".active_mode"
     try:
@@ -105,6 +126,10 @@ SKIP_MARKERS = (
     "no test files",
     "nothing to test",
 )
+GRADLE_FANOUT_SINGLE_TARGET = "single_target"
+GRADLE_FANOUT_ALL_WRAPPERS = "all_wrappers"
+_GRADLE_FANOUT_MODES = {GRADLE_FANOUT_SINGLE_TARGET, GRADLE_FANOUT_ALL_WRAPPERS}
+_JS_TEST_COMMANDS = {"npm", "pnpm", "yarn", "bun"}
 
 
 def _read_text(path: Path, *, max_bytes: int = 1_000_000) -> str:
@@ -350,17 +375,49 @@ def _discover_gradle_wrappers(workspace_root: Path, max_depth: int = 4) -> list[
     return wrappers
 
 
+def _normalize_gradle_fanout_mode(raw: object, *, default: str) -> str:
+    value = str(raw or "").strip().lower()
+    if value in _GRADLE_FANOUT_MODES:
+        return value
+    return default
+
+
+def _is_js_test_command(command: list[str]) -> bool:
+    if not command:
+        return False
+    head = Path(str(command[0])).name.lower()
+    if head not in _JS_TEST_COMMANDS:
+        return False
+    tail = [str(item).strip().lower() for item in command[1:3]]
+    if not tail:
+        return False
+    if tail[0] == "test":
+        return True
+    return len(tail) > 1 and tail[0] == "run" and tail[1] == "test"
+
+
+def _js_test_workspace_missing(command: list[str], cwd: Path) -> bool:
+    if not _is_js_test_command(command):
+        return False
+    return not (cwd / "package.json").exists()
+
+
 def _command_execution_plans(
     command: list[str],
     *,
     target_root: Path,
     workspace_root: Path,
+    gradle_fanout_mode: str,
 ) -> list[tuple[list[str], Path, str]]:
     if not command:
         return []
     head = command[0]
     command_tail = command[1:]
     normalized = head.replace("\\", "/")
+    fanout_mode = _normalize_gradle_fanout_mode(
+        gradle_fanout_mode,
+        default=GRADLE_FANOUT_ALL_WRAPPERS,
+    )
 
     if normalized in {"./gradlew", "gradlew"}:
         root_gradlew = workspace_root / "gradlew"
@@ -368,6 +425,12 @@ def _command_execution_plans(
             return [([ "./gradlew", *command_tail], workspace_root, " ".join(["./gradlew", *command_tail]).strip())]
         wrappers = _discover_gradle_wrappers(workspace_root)
         if wrappers:
+            if fanout_mode == GRADLE_FANOUT_SINGLE_TARGET:
+                wrapper = wrappers[0]
+                cwd = wrapper.parent
+                rel = cwd.relative_to(workspace_root).as_posix()
+                display = f"{rel}/gradlew {' '.join(command_tail)}".strip()
+                return [(["./gradlew", *command_tail], cwd, display)]
             plans: list[tuple[list[str], Path, str]] = []
             for wrapper in wrappers:
                 cwd = wrapper.parent
@@ -394,14 +457,19 @@ def _command_execution_plans(
     return [(command, target_root, " ".join(command))]
 
 
-def _load_qa_tests_config(root: Path) -> tuple[list[list[str]], bool]:
+def _load_qa_tests_policy(root: Path) -> dict[str, object]:
     config_path = root / "config" / "gates.json"
     commands: list[list[str]] = []
     allow_skip = True
     try:
         data = json.loads(config_path.read_text(encoding="utf-8"))
     except (FileNotFoundError, json.JSONDecodeError):
-        return _default_qa_test_command(), allow_skip
+        return {
+            "commands": _default_qa_test_command(),
+            "allow_skip": allow_skip,
+            "gradle_fanout_mode": GRADLE_FANOUT_ALL_WRAPPERS,
+            "gradle_fanout_explicit": False,
+        }
 
     tests_required_mode = str(data.get("tests_required", "disabled")).strip().lower()
 
@@ -413,6 +481,12 @@ def _load_qa_tests_config(root: Path) -> tuple[list[list[str]], bool]:
     tests_cfg = qa_cfg.get("tests")
     if not isinstance(tests_cfg, dict):
         tests_cfg = {}
+    gradle_fanout_raw = tests_cfg.get("gradle_fanout_mode")
+    gradle_fanout_explicit = bool(str(gradle_fanout_raw or "").strip())
+    gradle_fanout_mode = _normalize_gradle_fanout_mode(
+        gradle_fanout_raw,
+        default=GRADLE_FANOUT_ALL_WRAPPERS,
+    )
     allow_skip = bool(tests_cfg.get("allow_skip", True))
     if tests_required_mode == "hard":
         allow_skip = False
@@ -436,11 +510,29 @@ def _load_qa_tests_config(root: Path) -> tuple[list[list[str]], bool]:
 
     if not commands and source in {"readme-ci", "readme", "ci"}:
         commands = _discover_test_commands(root, max_files=max_files, max_bytes=max_bytes, allow_paths=allow_paths)
-        return commands, allow_skip
+        return {
+            "commands": commands,
+            "allow_skip": allow_skip,
+            "gradle_fanout_mode": gradle_fanout_mode,
+            "gradle_fanout_explicit": gradle_fanout_explicit,
+        }
 
     if not commands:
         commands = _default_qa_test_command()
-    return commands, allow_skip
+    return {
+        "commands": commands,
+        "allow_skip": allow_skip,
+        "gradle_fanout_mode": gradle_fanout_mode,
+        "gradle_fanout_explicit": gradle_fanout_explicit,
+    }
+
+
+def _load_qa_tests_config(root: Path) -> tuple[list[list[str]], bool]:
+    policy = _load_qa_tests_policy(root)
+    return (
+        list(policy.get("commands") or []),
+        bool(policy.get("allow_skip", True)),
+    )
 
 
 def _run_qa_tests(
@@ -454,12 +546,26 @@ def _run_qa_tests(
     allow_missing: bool,
     commands_override: list[list[str]] | None = None,
     allow_skip_override: bool | None = None,
+    gradle_fanout_mode_override: str | None = None,
 ) -> tuple[list[dict], str]:
     if commands_override is not None:
         commands = commands_override
         allow_skip_cfg = True if allow_skip_override is None else allow_skip_override
+        if str(gradle_fanout_mode_override or "").strip():
+            gradle_fanout_mode = _normalize_gradle_fanout_mode(
+                gradle_fanout_mode_override,
+                default=GRADLE_FANOUT_SINGLE_TARGET,
+            )
+        else:
+            gradle_fanout_mode = GRADLE_FANOUT_SINGLE_TARGET
     else:
-        commands, allow_skip_cfg = _load_qa_tests_config(target)
+        policy = _load_qa_tests_policy(target)
+        commands = list(policy.get("commands") or [])
+        allow_skip_cfg = bool(policy.get("allow_skip", True))
+        gradle_fanout_mode = _normalize_gradle_fanout_mode(
+            policy.get("gradle_fanout_mode"),
+            default=GRADLE_FANOUT_ALL_WRAPPERS,
+        )
     allow_skip = allow_missing or allow_skip_cfg
 
     tests_executed: list[dict] = []
@@ -480,6 +586,7 @@ def _run_qa_tests(
             cmd,
             target_root=target,
             workspace_root=workspace_root,
+            gradle_fanout_mode=gradle_fanout_mode,
         )
         for plan_index, (plan_cmd, plan_cwd, display_cmd) in enumerate(execution_plans, start=1):
             suffix = ""
@@ -492,7 +599,26 @@ def _run_qa_tests(
             status = "fail"
             exit_code: Optional[int] = None
             output = ""
-            if plan_cmd and plan_cmd[0] in {"./gradlew", "gradlew"} and not (plan_cwd / "gradlew").exists():
+            reason_code = ""
+            details = ""
+            try:
+                cwd_rel = plan_cwd.relative_to(workspace_root).as_posix()
+            except ValueError:
+                cwd_rel = plan_cwd.as_posix()
+            if _js_test_workspace_missing(plan_cmd, plan_cwd):
+                reason_code = "test_workspace_not_found"
+                details = f"package.json not found in {cwd_rel or '.'}"
+                output = (
+                    "command skipped: JavaScript test workspace not found "
+                    f"(reason_code={reason_code} cwd={cwd_rel or '.'})"
+                )
+                if allow_skip:
+                    status = "skipped"
+                    exit_code = 0
+                else:
+                    status = "fail"
+                    exit_code = 1
+            elif plan_cmd and plan_cmd[0] in {"./gradlew", "gradlew"} and not (plan_cwd / "gradlew").exists():
                 status = "fail"
                 output = (
                     "command not found: ./gradlew "
@@ -518,11 +644,6 @@ def _run_qa_tests(
             log_path.write_text(output, encoding="utf-8")
             if status == "pass" and _output_indicates_skip(output):
                 status = "skipped"
-
-            try:
-                cwd_rel = plan_cwd.relative_to(workspace_root).as_posix()
-            except ValueError:
-                cwd_rel = plan_cwd.as_posix()
             tests_executed.append(
                 {
                     "command": display_cmd or " ".join(plan_cmd),
@@ -530,6 +651,8 @@ def _run_qa_tests(
                     "cwd": cwd_rel or ".",
                     "log": runtime.rel_path(log_path, target),
                     "exit_code": exit_code,
+                    "reason_code": reason_code or None,
+                    "details": details or None,
                 }
             )
 
@@ -710,9 +833,19 @@ def main(argv: list[str] | None = None) -> int:
         tasklist_commands = _commands_from_tasks(list(tasklist_tasks))
     commands_override = None
     allow_skip_override = None
+    tasklist_gradle_fanout_override: str | None = None
     if tasklist_exec_present:
         commands_override = [] if tasklist_profile == "none" else tasklist_commands
         allow_skip_override = tests_required_mode != "hard"
+        tests_policy = _load_qa_tests_policy(target)
+        configured_mode = _normalize_gradle_fanout_mode(
+            tests_policy.get("gradle_fanout_mode"),
+            default=GRADLE_FANOUT_SINGLE_TARGET,
+        )
+        if bool(tests_policy.get("gradle_fanout_explicit")):
+            tasklist_gradle_fanout_override = configured_mode
+        else:
+            tasklist_gradle_fanout_override = GRADLE_FANOUT_SINGLE_TARGET
 
     tests_executed: list[dict] = []
     tests_summary = "skipped" if skip_tests else "not-run"
@@ -773,6 +906,7 @@ def main(argv: list[str] | None = None) -> int:
             allow_missing=allow_no_tests,
             commands_override=commands_override,
             allow_skip_override=allow_skip_override,
+            gradle_fanout_mode_override=tasklist_gradle_fanout_override,
         )
         if tests_summary == "fail":
             print("[aidd] QA tests failed; see aidd/reports/qa/*-tests.log.", file=sys.stderr)
@@ -904,7 +1038,7 @@ def main(argv: list[str] | None = None) -> int:
     if tasklist_exec_present:
         allow_skip_cfg = True if allow_skip_override is None else allow_skip_override
     else:
-        _, allow_skip_cfg = _load_qa_tests_config(target)
+        allow_skip_cfg = bool(_load_qa_tests_policy(target).get("allow_skip", True))
     allow_no_tests_env = allow_no_tests or allow_skip_cfg
     if tests_required_mode == "hard":
         allow_no_tests_env = False
@@ -933,13 +1067,14 @@ def main(argv: list[str] | None = None) -> int:
     elif tests_summary in {"not-run", "skipped"} and not allow_no_tests_env:
         exit_code = max(exit_code, 1)
 
+    report_payload: dict[str, Any] = {}
     report_status = ""
     if report_path.exists():
         try:
             report_payload = json.loads(report_path.read_text(encoding="utf-8"))
         except Exception:
             report_payload = {}
-        report_status = str(report_payload.get("status") or "").strip().upper()
+        report_status = _resolve_qa_report_status(report_payload)
     if report_status == "BLOCKED":
         exit_code = 2
         print("[aidd] BLOCK: QA report status is BLOCKED.", file=sys.stderr)
@@ -999,7 +1134,9 @@ def main(argv: list[str] | None = None) -> int:
         payload = None
         report_for_event: Path | None = None
         if report_path.exists():
-            payload = json.loads(report_path.read_text(encoding="utf-8"))
+            payload = report_payload
+            if not payload:
+                payload = json.loads(report_path.read_text(encoding="utf-8"))
             report_for_event = report_path
         else:
             from aidd_runtime.reports.loader import load_report_for_path
@@ -1008,12 +1145,13 @@ def main(argv: list[str] | None = None) -> int:
             report_for_event = report_paths.pack_path if source == "pack" else report_paths.json_path
 
         if payload and report_for_event:
+            event_status = _resolve_qa_report_status(payload)
             _events.append_event(
                 target,
                 ticket=ticket,
                 slug_hint=slug_hint or None,
                 event_type="qa",
-                status=str(payload.get("status") or ""),
+                status=event_status,
                 details={"summary": payload.get("summary")},
                 report_path=Path(runtime.rel_path(report_for_event, target)),
                 source="aidd qa",

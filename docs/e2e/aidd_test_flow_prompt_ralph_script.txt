@@ -67,7 +67,8 @@
   - для `research_not_ready`: ровно один canonical researcher recovery/probe -> пересчёт `05_precondition_block.txt`.
 - R12.2a: Если `readiness_gate=PASS` достигнут через `research_status=warn|pending` при minimal RLM baseline, фиксировать `WARN(readiness_gate_research_softened)` и продолжать downstream stages.
 - R12.3: Если после recovery-цикла `readiness_gate` остаётся `FAIL`, шаг 5 классифицируется как `NOT VERIFIED (readiness_gate_failed)` + `prompt-flow gap`; шаг 8 помечается `NOT VERIFIED (upstream_readiness_gate_failed)` без запуска.
-- R12.4: Если `review-spec` narrative расходится с `aidd/reports/prd/<ticket>.json|*.pack.json` по числу/типу findings, фиксировать `prompt-exec issue (review_spec_report_mismatch)` и принимать recovery-решение по report payload.
+- R12.4: Если `review-spec` narrative расходится с `aidd/reports/prd/<ticket>.json|*.pack.json` по числу/типу findings при валидном structured report payload, фиксировать `INFO(review_spec_report_mismatch_telemetry)` и принимать recovery-решение только по report payload.
+- R12.4a: Если при `review_spec_report_mismatch` structured report payload отсутствует/невалиден, фиксировать `prompt-exec issue (review_spec_report_mismatch)`.
 - R12.5: Если `review-spec` вернул `WARN|NEEDS_REVISION`, unresolved `Q*` отсутствуют и spec-файл существует, запускать findings-sync cycle:
   - PRD findings (`aidd/reports/prd/<ticket>.json|*.pack.json`) -> один sync-retry `idea-new` с compact payload `AIDD:SYNC_FROM_REVIEW ...`;
   - Plan findings (`plan_status=NEEDS_REVISION|WARN` в review payload или plan-review report) -> один sync-retry `plan-new` с compact payload `AIDD:SYNC_FROM_REVIEW ...`;
@@ -329,6 +330,9 @@ RLM-only check:
 - Если в логе виден direct вызов non-canonical stage preflight runtime вне stage-chain:
   - классифицировать как `prompt-flow drift (non-canonical stage orchestration)`;
   - не продолжать manual recovery path.
+- Если в QA orchestration/логе встречается direct host-absolute runtime path `python3 /.../skills/*/runtime/*.py` (включая nested tool-calls), классифицировать как `prompt-flow drift (non-canonical runtime path)`; использовать только `${CLAUDE_PLUGIN_ROOT}`/`$PLUGIN_DIR` canonical runtime paths.
+- Если QA flow предлагает manual write path `stage.*.result.json`/direct `stage_result.py` write как recovery, классифицировать как `policy_violation(stage_result_manual_write)` и не выполнять manual path.
+- Если в QA action-flow встречается `reason_code=contract_mismatch_actions_shape`, завершать шаг terminal BLOCKED без guessed retries/manual payload edits.
 - При вопросах: retry.
 - Если hang/kill — fallback:
   - `python3 $PLUGIN_DIR/skills/qa/runtime/qa.py --ticket $TICKET`
@@ -343,6 +347,9 @@ RLM-only check:
   - `99_project_git_status_after.txt`
   - `99_stash_head.txt` (если был stash)
 - Сохранить `99_workspace_layout_check.txt` с проверкой, что в workspace root нет non-canonical root путей `docs/**|reports/**|config/**|.cache/**` вне `aidd/`.
+- Классификация workspace-layout:
+  - `INFO(preexisting_noncanonical_root)` для pre-existing root-path без delta в рамках run;
+  - `WARN(workspace_layout_non_canonical_root_detected)` только при фактической мутации в рамках run.
 - `stash pop` автоматически не делать.
 
 ## 5) Что не выполняется в smoke

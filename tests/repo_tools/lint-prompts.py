@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 import re
+import shlex
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -86,6 +87,19 @@ STAGE_CANONICAL_BODY_RUNTIME_ENV_REQUIRED = {
     "qa",
     "status",
 }
+QA_RUN_RUNTIME_REL = "skills/qa/runtime/qa_run.py"
+QA_RUN_ALLOWED_FLAGS = {
+    "--help",
+    "--ticket",
+    "--scope-key",
+    "--work-item-key",
+    "--stage",
+    "--actions",
+}
+QA_RUN_BODY_COMMAND_RE = re.compile(
+    r"python3\s+\$\{CLAUDE_PLUGIN_ROOT\}/skills/qa/runtime/qa_run\.py(?P<args>[^\n`]*)",
+    re.IGNORECASE,
+)
 
 LOOP_STAGES = {"implement", "review", "qa", "status"}
 NO_FORK_STAGE_SUBAGENT_COUNTS: Dict[str, int] = {
@@ -153,6 +167,10 @@ STAGE_BODY_ABS_RUNTIME_RE = re.compile(
     r"python3\s+/skills/[A-Za-z0-9_.-]+/runtime/[A-Za-z0-9_.-]+\.py",
     re.IGNORECASE,
 )
+STAGE_BODY_HOST_ABS_RUNTIME_RE = re.compile(
+    r"python3\s+/(?!skills/)[^\s`]*?/skills/[A-Za-z0-9_.-]+/runtime/[A-Za-z0-9_.-]+\.py",
+    re.IGNORECASE,
+)
 LOOP_STAGE_FORBIDDEN_ALLOWED_TOOL_SNIPPETS = (
     "skills/aidd-loop/runtime/preflight_prepare.py",
     "skills/aidd-flow-state/runtime/stage_result.py",
@@ -168,6 +186,7 @@ PRELOADED_SKILLS = {
     "aidd-core",
     "aidd-docio",
     "aidd-flow-state",
+    "aidd-memory",
     "aidd-observability",
     "aidd-loop",
     "aidd-rlm",
@@ -181,6 +200,7 @@ SHARED_STAGE_SCRIPT_OWNERS = {
     "aidd-policy",
     "aidd-docio",
     "aidd-flow-state",
+    "aidd-memory",
     "aidd-observability",
 }
 AGENT_REQUIRED_SHARED_SKILLS = {"feature-dev-aidd:aidd-core", "feature-dev-aidd:aidd-policy"}
@@ -234,6 +254,10 @@ SHARED_CRITICAL_CONTRACT_REFS_ANY = {
         "skills/aidd-observability/runtime/tools_inventory.py",
     ),
     "aidd-loop": ("skills/aidd-loop/runtime/loop_pack.py", "skills/aidd-loop/runtime/loop_run.py"),
+    "aidd-memory": (
+        "skills/aidd-memory/runtime/memory_extract.py",
+        "skills/aidd-memory/runtime/memory_pack.py",
+    ),
     "aidd-rlm": ("skills/aidd-rlm/runtime/rlm_slice.py", "skills/aidd-rlm/runtime/rlm_finalize.py"),
     "aidd-stage-research": ("skills/aidd-rlm/runtime/rlm_slice.py", "skills/aidd-rlm/runtime/rlm_finalize.py"),
 }
@@ -682,6 +706,35 @@ def validate_tool_mentions(info: PromptFile) -> List[str]:
     return errors
 
 
+def validate_qa_run_cli_contract(info: PromptFile) -> List[str]:
+    if info.path.parent.name != "qa":
+        return []
+    errors: List[str] = []
+    for match in QA_RUN_BODY_COMMAND_RE.finditer(info.body or ""):
+        args_blob = str(match.group("args") or "").strip()
+        if not args_blob:
+            continue
+        try:
+            tokens = shlex.split(args_blob)
+        except ValueError:
+            errors.append(
+                f"{info.path}: qa runtime CLI contract mismatch "
+                "(reason_code=runtime_cli_contract_mismatch): cannot parse qa_run.py args"
+            )
+            continue
+        for token in tokens:
+            if not token.startswith("--"):
+                continue
+            flag = token.split("=", 1)[0].strip()
+            if flag in QA_RUN_ALLOWED_FLAGS:
+                continue
+            errors.append(
+                f"{info.path}: qa runtime CLI contract mismatch "
+                f"(reason_code=runtime_cli_contract_mismatch): unsupported qa_run.py flag `{flag}`"
+            )
+    return errors
+
+
 def validate_plugin_asset_mentions(info: PromptFile, root: Path) -> List[str]:
     errors: List[str] = []
     mentions: set[str] = set()
@@ -956,6 +1009,7 @@ def lint_skills(root: Path) -> Tuple[List[str], List[str]]:
         errors.extend(validate_placeholders(info))
         errors.extend(validate_tool_mentions(info))
         errors.extend(validate_plugin_asset_mentions(info, root))
+        errors.extend(validate_qa_run_cli_contract(info))
         errors.extend(validate_output_contract(info, root))
         grammar_errors, grammar_warnings = validate_bash_tool_grammar(info)
         errors.extend(grammar_errors)
@@ -1126,6 +1180,11 @@ def lint_skills(root: Path) -> Tuple[List[str], List[str]]:
                     errors.append(f"{info.path}: missing actions_apply.py reference")
                 if "fill actions.json" not in body_lower:
                     errors.append(f"{info.path}: missing 'Fill actions.json' step")
+                if path.parent.name == "qa" and "contract_mismatch_actions_shape" not in body_lower:
+                    errors.append(
+                        f"{info.path}: qa action-flow guidance must include "
+                        "`reason_code=contract_mismatch_actions_shape` fail-fast contract"
+                    )
                 if "runtime_path_missing_or_drift" not in body_lower:
                     errors.append(
                         f"{info.path}: loop stage guidance must include deterministic blocker code `runtime_path_missing_or_drift`"
@@ -1179,6 +1238,14 @@ def lint_skills(root: Path) -> Tuple[List[str], List[str]]:
                 errors.append(
                     f"{info.path}: stage guidance must not use root-relative `/skills/...` runtime paths; "
                     "use `${CLAUDE_PLUGIN_ROOT}`-scoped canonical runtime paths"
+                )
+            if (
+                path.parent.name in STAGE_CANONICAL_BODY_RUNTIME_ENV_REQUIRED
+                and STAGE_BODY_HOST_ABS_RUNTIME_RE.search(info.body)
+            ):
+                errors.append(
+                    f"{info.path}: stage guidance must not use host-absolute runtime paths "
+                    "(`python3 /.../skills/.../runtime/...`); use `${CLAUDE_PLUGIN_ROOT}`-scoped canonical runtime paths"
                 )
 
             context = _as_string(info.front_matter.get("context"))

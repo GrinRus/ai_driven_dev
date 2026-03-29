@@ -16,6 +16,7 @@ os.environ.setdefault("CLAUDE_PLUGIN_ROOT", str(_PLUGIN_ROOT))
 if str(_PLUGIN_ROOT) not in sys.path:
     sys.path.insert(0, str(_PLUGIN_ROOT))
 
+from aidd_runtime import memory_extract
 from aidd_runtime import research_hints as prd_hints
 from aidd_runtime import rlm_finalize, rlm_manifest, rlm_nodes_build, rlm_targets, runtime, tasks_derive
 from aidd_runtime.feature_ids import write_active_state
@@ -765,6 +766,26 @@ def run(args: argparse.Namespace) -> int:
 
     handoff_appended = False
     handoff_error = ""
+    memory_semantic_pack_path = target / "reports" / "memory" / f"{ticket}.semantic.pack.json"
+    if rlm_status == "ready":
+        buffer_stdout = io.StringIO()
+        buffer_stderr = io.StringIO()
+        try:
+            with redirect_stdout(buffer_stdout), redirect_stderr(buffer_stderr):
+                memory_rc = int(memory_extract.main(["--ticket", ticket]))
+        except Exception as exc:
+            print(f"[aidd] ERROR: memory_extract failed: {exc}", file=sys.stderr)
+            return 2
+        if memory_rc != 0:
+            detail = buffer_stderr.getvalue().strip() or buffer_stdout.getvalue().strip() or f"exit_code={memory_rc}"
+            print(
+                "[aidd] ERROR: memory_extract failed after RLM readiness "
+                f"(reason_code=memory_semantic_extract_failed): {detail}",
+                file=sys.stderr,
+            )
+            return 2
+        print(f"[aidd] memory semantic pack saved to {runtime.rel_path(memory_semantic_pack_path, target)}.")
+
     if rlm_status != "ready":
         handoff_report = rlm_pack_path if pack_exists else worklist_path
         handoff_appended, handoff_error = _append_research_handoff(
@@ -806,6 +827,11 @@ def run(args: argparse.Namespace) -> int:
                 "recovery_path": str(finalize_outcome.get("recovery_path") or "") or None,
                 "handoff_appended": handoff_appended,
                 "handoff_error": handoff_error or None,
+                "memory_semantic_pack": (
+                    runtime.rel_path(memory_semantic_pack_path, target)
+                    if memory_semantic_pack_path.exists()
+                    else None
+                ),
             },
             report_path=Path(runtime.rel_path(rlm_pack_path if pack_exists else worklist_path, target)),
             source="aidd research",

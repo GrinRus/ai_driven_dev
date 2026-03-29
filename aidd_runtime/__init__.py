@@ -26,6 +26,7 @@ _RUNTIME_DIRS = (
     _REPO_ROOT / "skills" / "aidd-observability" / "runtime",
     _REPO_ROOT / "skills" / "aidd-loop" / "runtime",
     _REPO_ROOT / "skills" / "aidd-rlm" / "runtime",
+    _REPO_ROOT / "skills" / "aidd-memory" / "runtime",
     _REPO_ROOT / "skills" / "aidd-init" / "runtime",
     _REPO_ROOT / "skills" / "idea-new" / "runtime",
     _REPO_ROOT / "skills" / "plan-new" / "runtime",

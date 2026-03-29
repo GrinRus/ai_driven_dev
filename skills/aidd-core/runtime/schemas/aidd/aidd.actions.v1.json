@@ -43,7 +43,29 @@
       "uniqueItems": true
     },
     "actions": {
-      "type": "array"
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "type"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "tasklist_ops.set_iteration_done",
+              "tasklist_ops.append_progress_log",
+              "tasklist_ops.next3_recompute",
+              "context_pack_ops.context_pack_update",
+              "memory_ops.decision_append"
+            ]
+          },
+          "params": {
+            "type": "object"
+          }
+        },
+        "additionalProperties": true
+      }
     },
     "meta": {
       "type": "object"

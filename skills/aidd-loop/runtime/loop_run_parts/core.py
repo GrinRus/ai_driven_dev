@@ -874,6 +874,7 @@ def run_loop_step(
         )
         payload = {
             "status": "blocked",
+            "terminal_marker": 1,
             "stage": active_stage or None,
             "scope_key": scope_key or None,
             "work_item_key": active_work_item or None,
@@ -1108,6 +1109,7 @@ def main(argv: List[str] | None = None) -> int:
         clear_active_mode(target)
         payload = {
             "status": "blocked",
+            "terminal_marker": 1,
             "iterations": 0,
             "exit_code": BLOCKED_CODE,
             "log_path": runtime.rel_path(log_path, target),
@@ -1161,6 +1163,7 @@ def main(argv: List[str] | None = None) -> int:
                 clear_active_mode(target)
                 payload = {
                     "status": "blocked",
+                    "terminal_marker": 1,
                     "iterations": 0,
                     "exit_code": BLOCKED_CODE,
                     "log_path": runtime.rel_path(log_path, target),
@@ -1312,6 +1315,7 @@ def main(argv: List[str] | None = None) -> int:
                 )
                 payload = {
                     "status": "blocked",
+                    "terminal_marker": 1,
                     "iterations": 0,
                     "exit_code": BLOCKED_CODE,
                     "log_path": runtime.rel_path(log_path, target),
@@ -1412,6 +1416,7 @@ def main(argv: List[str] | None = None) -> int:
             }
             payload = {
                 "status": "blocked",
+                "terminal_marker": 1,
                 "iterations": iteration,
                 "exit_code": BLOCKED_CODE,
                 "log_path": runtime.rel_path(log_path, target),
@@ -1540,6 +1545,7 @@ def main(argv: List[str] | None = None) -> int:
                 )
             payload = {
                 "status": status,
+                "terminal_marker": 1,
                 "iterations": iteration,
                 "exit_code": out_code,
                 "log_path": runtime.rel_path(log_path, target),
@@ -1715,6 +1721,15 @@ def main(argv: List[str] | None = None) -> int:
             chosen_scope = expected_scope_key_payload
         if not str(chosen_scope).strip() and runtime.is_valid_work_item_key(step_work_item):
             chosen_scope = runtime.resolve_scope_key(step_work_item, ticket)
+        if (
+            mismatch_warn
+            and scope_mismatch_non_authoritative
+            and step_status == "blocked"
+            and str(log_reason_code or "").strip().lower() not in {"scope_drift_recoverable", "stage_result_missing_or_invalid"}
+        ):
+            mismatch_warn = ""
+            if isinstance(step_payload, dict):
+                step_payload.pop("scope_key_mismatch_warn", None)
         reason_class = "not_recoverable"
         if step_status == "blocked":
             classification = loop_block_policy.classify_block_reason(
@@ -1976,6 +1991,7 @@ def main(argv: List[str] | None = None) -> int:
             clear_active_mode(target)
             payload = {
                 "status": "ship",
+                "terminal_marker": 1,
                 "iterations": iteration,
                 "exit_code": DONE_CODE,
                 "log_path": runtime.rel_path(log_path, target),
@@ -2116,6 +2132,7 @@ def main(argv: List[str] | None = None) -> int:
             )
             payload = {
                 "status": "blocked",
+                "terminal_marker": 1,
                 "iterations": iteration,
                 "exit_code": BLOCKED_CODE,
                 "log_path": runtime.rel_path(log_path, target),
@@ -2178,6 +2195,7 @@ def main(argv: List[str] | None = None) -> int:
 
     payload = {
         "status": "max-iterations",
+        "terminal_marker": 1,
         "iterations": max_iterations,
         "exit_code": MAX_ITERATIONS_CODE,
         "log_path": runtime.rel_path(log_path, target),

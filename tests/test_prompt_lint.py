@@ -181,17 +181,33 @@ def build_stage_skill(stage: str, *, lang: str = "ru") -> str:
         lines.append(
             "5. Retry safety: do not rerun the same failing command without new evidence."
         )
-        lines.append(
-            "6. Read order after preflight artifacts: readmap -> loop pack -> review pack -> rolling context pack."
-        )
-        lines.append(f"7. Run subagent `feature-dev-aidd:{STAGE_SUBAGENT[stage]}`.")
-        lines.append(f"8. Fill actions.json: create `aidd/reports/actions/<ticket>/<scope_key>/{stage}.actions.json`.")
-        lines.append(
-            "9. Canonical stage-chain: internal preflight -> stage runtime -> actions_apply.py/postflight -> python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py. [AIDD_LOOP_POLICY:CANONICAL_STAGE_RESULT_PATH]"
-        )
-        lines.append(
-            "10. Non-canonical stage-result path under `skills/aidd-loop/runtime/` is forbidden. [AIDD_LOOP_POLICY:NON_CANONICAL_STAGE_RESULT_FORBIDDEN]"
-        )
+        if stage == "qa":
+            lines.append(
+                "6. Actions contract hardening: if `actions-apply` returns `reason_code=contract_mismatch_actions_shape`, stop with terminal BLOCKED."
+            )
+            lines.append(
+                "7. Read order after preflight artifacts: readmap -> loop pack -> review pack -> rolling context pack."
+            )
+            lines.append(f"8. Run subagent `feature-dev-aidd:{STAGE_SUBAGENT[stage]}`.")
+            lines.append(f"9. Fill actions.json: create `aidd/reports/actions/<ticket>/<scope_key>/{stage}.actions.json`.")
+            lines.append(
+                "10. Canonical stage-chain: internal preflight -> stage runtime -> actions_apply.py/postflight -> python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py. [AIDD_LOOP_POLICY:CANONICAL_STAGE_RESULT_PATH]"
+            )
+            lines.append(
+                "11. Non-canonical stage-result path under `skills/aidd-loop/runtime/` is forbidden. [AIDD_LOOP_POLICY:NON_CANONICAL_STAGE_RESULT_FORBIDDEN]"
+            )
+        else:
+            lines.append(
+                "6. Read order after preflight artifacts: readmap -> loop pack -> review pack -> rolling context pack."
+            )
+            lines.append(f"7. Run subagent `feature-dev-aidd:{STAGE_SUBAGENT[stage]}`.")
+            lines.append(f"8. Fill actions.json: create `aidd/reports/actions/<ticket>/<scope_key>/{stage}.actions.json`.")
+            lines.append(
+                "9. Canonical stage-chain: internal preflight -> stage runtime -> actions_apply.py/postflight -> python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py. [AIDD_LOOP_POLICY:CANONICAL_STAGE_RESULT_PATH]"
+            )
+            lines.append(
+                "10. Non-canonical stage-result path under `skills/aidd-loop/runtime/` is forbidden. [AIDD_LOOP_POLICY:NON_CANONICAL_STAGE_RESULT_FORBIDDEN]"
+            )
     elif stage == "plan-new":
         lines.append("1. Run subagent `feature-dev-aidd:planner`.")
         lines.append("2. Run subagent `feature-dev-aidd:validator`.")
@@ -305,6 +321,41 @@ def build_flow_state_skill() -> str:
 
             ## Additional resources
             - Stage lifecycle: [references/stage-lifecycle.md](references/stage-lifecycle.md) (when: stage result/status sequencing is unclear; why: confirm canonical flow-state ownership semantics).
+            """
+        ).strip()
+        + "\n"
+    )
+
+
+def build_memory_skill() -> str:
+    return (
+        dedent(
+            """
+            ---
+            name: aidd-memory
+            description: Shared memory ownership for semantic extraction and append-only decision logging runtime tools. Use when memory extraction, decisions append flow, or decisions pack generation must be resolved. Do not use when request belongs to `aidd-docio` generic markdown/actions flow or `aidd-flow-state` stage lifecycle updates.
+            lang: en
+            model: inherit
+            user-invocable: false
+            ---
+
+            ## Command contracts
+            ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-memory/runtime/memory_extract.py`
+            - When to run: after research readiness when semantic memory evidence must be generated.
+            - Inputs: ticket context and ready research artifacts.
+            - Outputs: deterministic semantic memory artifact.
+            - Failure mode: missing required research evidence.
+            - Next action: repair upstream readiness artifacts and rerun extraction.
+
+            ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-memory/runtime/memory_pack.py`
+            - When to run: after decision writes when append-only decisions pack must be rebuilt.
+            - Inputs: ticket context and decision log source.
+            - Outputs: deterministic decisions pack artifact.
+            - Failure mode: malformed or missing decisions log.
+            - Next action: repair decision log and rerun pack generation.
+
+            ## Additional resources
+            - Memory runtime notes: [runtime/memory_extract.py](runtime/memory_extract.py) (when: extraction contract/fields are unclear; why: confirm canonical semantic schema/output shape).
             """
         ).strip()
         + "\n"
@@ -514,6 +565,7 @@ class PromptLintTests(unittest.TestCase):
         (skills_root / "aidd-core" / "SKILL.md").parent.mkdir(parents=True, exist_ok=True)
         (skills_root / "aidd-docio" / "SKILL.md").parent.mkdir(parents=True, exist_ok=True)
         (skills_root / "aidd-flow-state" / "SKILL.md").parent.mkdir(parents=True, exist_ok=True)
+        (skills_root / "aidd-memory" / "SKILL.md").parent.mkdir(parents=True, exist_ok=True)
         (skills_root / "aidd-observability" / "SKILL.md").parent.mkdir(parents=True, exist_ok=True)
         (skills_root / "aidd-policy" / "SKILL.md").parent.mkdir(parents=True, exist_ok=True)
         (skills_root / "aidd-loop" / "SKILL.md").parent.mkdir(parents=True, exist_ok=True)
@@ -527,6 +579,9 @@ class PromptLintTests(unittest.TestCase):
         )
         (skills_root / "aidd-flow-state" / "SKILL.md").write_text(
             skill_override.get("aidd-flow-state", build_flow_state_skill()), encoding="utf-8"
+        )
+        (skills_root / "aidd-memory" / "SKILL.md").write_text(
+            skill_override.get("aidd-memory", build_memory_skill()), encoding="utf-8"
         )
         (skills_root / "aidd-observability" / "SKILL.md").write_text(
             skill_override.get("aidd-observability", build_observability_skill()), encoding="utf-8"
@@ -1301,6 +1356,49 @@ class PromptLintTests(unittest.TestCase):
             result = self.run_lint(root)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("must not use root-relative `/skills/...` runtime paths", result.stderr)
+
+    def test_stage_skill_host_absolute_runtime_path_fails(self) -> None:
+        bad_skill = build_stage_skill("qa").replace(
+            "## Steps\n1. Stage-chain-only policy: execute only via canonical stage-chain.",
+            (
+                "## Steps\n"
+                "1. Run `python3 /Users/demo/.claude/plugins/cache/aidd/skills/qa/runtime/qa.py --ticket DEMO-QA`."
+            ),
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, skill_override={"qa": bad_skill})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("host-absolute runtime paths", result.stderr)
+
+    def test_qa_skill_non_canonical_qa_run_flag_fails(self) -> None:
+        bad_skill = build_stage_skill("qa").replace(
+            "### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/qa/runtime/qa_run.py`",
+            "### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/qa/runtime/qa_run.py --qa-report aidd/reports/qa/DEMO-QA.json`",
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, skill_override={"qa": bad_skill})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("runtime_cli_contract_mismatch", result.stderr)
+            self.assertIn("--qa-report", result.stderr)
+
+    def test_qa_skill_missing_actions_contract_mismatch_failfast_fails(self) -> None:
+        bad_skill = build_stage_skill("qa").replace(
+            "6. Actions contract hardening: if `actions-apply` returns `reason_code=contract_mismatch_actions_shape`, stop with terminal BLOCKED.\n",
+            "",
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, skill_override={"qa": bad_skill})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("contract_mismatch_actions_shape", result.stderr)
 
     def test_stage_skill_context_pack_refresh_without_agent_fails(self) -> None:
         bad_skill = build_stage_skill("plan-new").replace(

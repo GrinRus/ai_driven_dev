@@ -46,6 +46,7 @@ class InitAiddTests(unittest.TestCase):
             "docs/loops/template.loop-pack.md",
             "reports/prd/.gitkeep",
             "reports/loops/.gitkeep",
+            "reports/memory/.gitkeep",
             "reports/context/template.context-pack.md",
             "AGENTS.md",
         ]
