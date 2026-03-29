@@ -180,15 +180,16 @@ class MemoryDecisionsTests(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            result = subprocess.run(
-                cli_cmd("actions-apply", "--actions", str(actions_path), "--root", str(project_root)),
-                cwd=workspace,
-                env=cli_env(),
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                check=False,
-            )
+            with tempfile.TemporaryDirectory(prefix="memory-actions-runner-") as runner_tmp:
+                result = subprocess.run(
+                    cli_cmd("actions-apply", "--actions", str(actions_path), "--root", str(project_root)),
+                    cwd=Path(runner_tmp),
+                    env=cli_env(),
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    check=False,
+                )
             self.assertEqual(result.returncode, 0, msg=f"stdout={result.stdout}\nstderr={result.stderr}")
 
             decisions_log = project_root / "reports" / "memory" / f"{ticket}.decisions.jsonl"

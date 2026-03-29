@@ -6,14 +6,11 @@ from __future__ import annotations
 import argparse
 import io
 import json
-import sys
-from contextlib import redirect_stderr, redirect_stdout
-from pathlib import Path
-from typing import Dict, List
-
 import os
 import sys
+from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from pathlib import Path
+from typing import Dict, Iterator, List
 
 
 def _ensure_plugin_root_on_path() -> None:
@@ -54,6 +51,16 @@ def _derive_ticket_from_actions_path(path: Path) -> str:
             if value:
                 return value
     return ""
+
+
+@contextmanager
+def _pushd(path: Path) -> Iterator[None]:
+    previous = Path.cwd()
+    os.chdir(path)
+    try:
+        yield
+    finally:
+        os.chdir(previous)
 
 
 def _apply_action(root: Path, ticket: str, action: Dict[str, object]) -> tuple[str, bool, bool]:
@@ -117,21 +124,22 @@ def _apply_action(root: Path, ticket: str, action: Dict[str, object]) -> tuple[s
                     flag = "--conflicts-with" if field == "conflicts_with" else f"--{field}"
                     argv.extend([flag, rendered])
 
-        append_stdout = io.StringIO()
-        append_stderr = io.StringIO()
-        with redirect_stdout(append_stdout), redirect_stderr(append_stderr):
-            append_rc = int(decision_append.main(argv))
-        if append_rc != 0:
-            detail = append_stderr.getvalue().strip() or append_stdout.getvalue().strip() or f"exit={append_rc}"
-            return f"memory decision append failed: {detail}", False, True
+        with _pushd(root):
+            append_stdout = io.StringIO()
+            append_stderr = io.StringIO()
+            with redirect_stdout(append_stdout), redirect_stderr(append_stderr):
+                append_rc = int(decision_append.main(argv))
+            if append_rc != 0:
+                detail = append_stderr.getvalue().strip() or append_stdout.getvalue().strip() or f"exit={append_rc}"
+                return f"memory decision append failed: {detail}", False, True
 
-        pack_stdout = io.StringIO()
-        pack_stderr = io.StringIO()
-        with redirect_stdout(pack_stdout), redirect_stderr(pack_stderr):
-            pack_rc = int(memory_pack.main(["--ticket", ticket]))
-        if pack_rc != 0:
-            detail = pack_stderr.getvalue().strip() or pack_stdout.getvalue().strip() or f"exit={pack_rc}"
-            return f"memory decision pack rebuild failed: {detail}", True, True
+            pack_stdout = io.StringIO()
+            pack_stderr = io.StringIO()
+            with redirect_stdout(pack_stdout), redirect_stderr(pack_stderr):
+                pack_rc = int(memory_pack.main(["--ticket", ticket]))
+            if pack_rc != 0:
+                detail = pack_stderr.getvalue().strip() or pack_stdout.getvalue().strip() or f"exit={pack_rc}"
+                return f"memory decision pack rebuild failed: {detail}", True, True
 
         return "memory decision appended", True, False
 
