@@ -52,6 +52,22 @@ def _is_type_symbol(symbol: str) -> bool:
         tail = tail.split(".")[-1]
     return bool(_PASCAL_RE.match(tail))
 
+
+def _add_symbol(
+    symbol: str,
+    source: str,
+    *,
+    seen_symbols: set[str],
+    symbols: List[str],
+    symbol_sources: Dict[str, str],
+) -> bool:
+    if not symbol or symbol in seen_symbols:
+        return False
+    seen_symbols.add(symbol)
+    symbols.append(symbol)
+    symbol_sources[symbol] = source
+    return True
+
 def _iter_nodes(path: Path) -> Iterable[Dict[str, object]]:
     if not path.exists():
         return []
@@ -482,32 +498,54 @@ def _build_links(
         symbols: List[str] = []
         seen_symbols: set[str] = set()
 
-        def _add_symbol(symbol: str, source: str) -> bool:
-            if not symbol or symbol in seen_symbols:
-                return False
-            seen_symbols.add(symbol)
-            symbols.append(symbol)
-            symbol_sources[symbol] = source
-            return True
-
         fallback_symbols: List[str] = []
         if key_calls_source == "public_symbols":
             for item in raw_public_symbols:
-                _add_symbol(item, "public_symbols")
+                _add_symbol(
+                    item,
+                    "public_symbols",
+                    seen_symbols=seen_symbols,
+                    symbols=symbols,
+                    symbol_sources=symbol_sources,
+                )
         elif key_calls_source == "both":
             for item in raw_key_calls:
-                _add_symbol(item, "key_calls")
+                _add_symbol(
+                    item,
+                    "key_calls",
+                    seen_symbols=seen_symbols,
+                    symbols=symbols,
+                    symbol_sources=symbol_sources,
+                )
             for item in raw_public_symbols:
-                _add_symbol(item, "public_symbols")
+                _add_symbol(
+                    item,
+                    "public_symbols",
+                    seen_symbols=seen_symbols,
+                    symbols=symbols,
+                    symbol_sources=symbol_sources,
+                )
         else:
             for item in raw_key_calls:
-                _add_symbol(item, "key_calls")
+                _add_symbol(
+                    item,
+                    "key_calls",
+                    seen_symbols=seen_symbols,
+                    symbols=symbols,
+                    symbol_sources=symbol_sources,
+                )
             if not symbols and raw_public_symbols:
                 fallback_symbols = list(raw_public_symbols)
                 if fallback_mode == "types_only":
                     fallback_symbols = [sym for sym in fallback_symbols if _is_type_symbol(sym)]
                 for item in fallback_symbols:
-                    _add_symbol(item, "fallback_public_symbols")
+                    _add_symbol(
+                        item,
+                        "fallback_public_symbols",
+                        seen_symbols=seen_symbols,
+                        symbols=symbols,
+                        symbol_sources=symbol_sources,
+                    )
 
         if type_refs_mode == "only":
             symbols = []
@@ -515,7 +553,13 @@ def _build_links(
             seen_symbols = set()
             fallback_symbols = []
             for item in raw_type_refs:
-                _add_symbol(item, "type_refs")
+                _add_symbol(
+                    item,
+                    "type_refs",
+                    seen_symbols=seen_symbols,
+                    symbols=symbols,
+                    symbol_sources=symbol_sources,
+                )
         elif type_refs_mode == "additive" and raw_type_refs:
             if type_refs_priority == "prefer" and fallback_symbols:
                 symbols = [sym for sym in symbols if symbol_sources.get(sym) != "fallback_public_symbols"]
@@ -527,7 +571,13 @@ def _build_links(
                 seen_symbols = set(symbols)
                 fallback_symbols = []
             for item in raw_type_refs:
-                _add_symbol(item, "type_refs")
+                _add_symbol(
+                    item,
+                    "type_refs",
+                    seen_symbols=seen_symbols,
+                    symbols=symbols,
+                    symbol_sources=symbol_sources,
+                )
 
         stats["symbols_total"] += len(symbols)
         symbols_to_scan = list(symbols)

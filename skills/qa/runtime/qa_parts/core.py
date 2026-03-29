@@ -9,7 +9,7 @@ import subprocess
 import sys
 from fnmatch import fnmatch
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 _PLUGIN_ROOT = Path(__file__).resolve().parents[3]
 os.environ.setdefault("CLAUDE_PLUGIN_ROOT", str(_PLUGIN_ROOT))
@@ -20,6 +20,13 @@ from aidd_runtime import qa_agent as _qa_agent
 from aidd_runtime import runtime
 from aidd_runtime import tasklist_parser
 from aidd_runtime.feature_ids import write_active_state
+
+_TRACE_SWALLOWED_VALUES = {"1", "true", "yes", "on"}
+
+
+def _trace_swallowed_exception(context: str, exc: Exception) -> None:
+    if str(os.environ.get("AIDD_TRACE_SWALLOWED_EXCEPTIONS") or "").strip().lower() in _TRACE_SWALLOWED_VALUES:
+        print(f"[aidd qa] WARN: swallowed exception in {context}: {exc}", file=sys.stderr)
 
 
 def _default_qa_test_command() -> list[list[str]]:
@@ -1003,8 +1010,8 @@ def main(argv: list[str] | None = None) -> int:
             source="qa",
             cwd=str(target),
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        _trace_swallowed_exception("append_tests_log", exc)
 
     qa_args: list[str] = []
     if args.gate:
@@ -1156,8 +1163,8 @@ def main(argv: list[str] | None = None) -> int:
                 report_path=Path(runtime.rel_path(report_for_event, target)),
                 source="aidd qa",
             )
-    except Exception:
-        pass
+    except Exception as exc:
+        _trace_swallowed_exception("append_event", exc)
 
     if not args.dry_run:
         runtime.maybe_sync_index(target, ticket, slug_hint or None, reason="qa")

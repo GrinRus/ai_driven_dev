@@ -1,10 +1,8 @@
 import datetime as dt
-import json
 from pathlib import Path
 
 from .helpers import (
     DEFAULT_GATES_CONFIG,
-    REPO_ROOT,
     ensure_gates_config,
     run_hook,
     write_active_feature,

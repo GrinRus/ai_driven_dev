@@ -57,8 +57,8 @@ def _extract_latest_mainchain_tokens(transcript_path: str) -> Optional[int]:
         if not isinstance(usage, dict):
             continue
 
-        def _as_int(key: str) -> int:
-            value = usage.get(key, 0)
+        def _as_int(key: str, usage_dict: dict[str, object] = usage) -> int:
+            value = usage_dict.get(key, 0)
             try:
                 return int(value or 0)
             except Exception:

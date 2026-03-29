@@ -1638,10 +1638,9 @@ def main() -> int:
 
     errors: List[str] = []
     warnings: List[str] = []
-    agent_errors, agent_warnings, agent_files = lint_agents(root)
+    agent_errors, agent_warnings, _agent_files = lint_agents(root)
     errors.extend(agent_errors)
     warnings.extend(agent_warnings)
-    agent_ids = {info.front_matter.get("name", info.stem) for info in agent_files.values()}
 
     skill_errors, skill_warnings = lint_skills(root)
     errors.extend(skill_errors)

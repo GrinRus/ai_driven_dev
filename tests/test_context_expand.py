@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tests.helpers import REPO_ROOT, cli_cmd, cli_env, ensure_project_root, write_active_state, write_json, write_tasklist_ready
+from tests.helpers import cli_cmd, cli_env, ensure_project_root, write_active_state, write_json, write_tasklist_ready
 
 
 class ContextExpandTests(unittest.TestCase):

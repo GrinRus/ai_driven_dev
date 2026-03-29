@@ -79,7 +79,7 @@ class InitAiddTests(unittest.TestCase):
         target.write_text("custom placeholder", encoding="utf-8")
 
         # run without force: file should remain untouched
-        result_no_force = self.run_script(workdir)
+        self.run_script(workdir)
         content = target.read_text(encoding="utf-8")
         self.assertTrue(content.startswith("custom placeholder"))
 

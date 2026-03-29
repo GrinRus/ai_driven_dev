@@ -19,7 +19,7 @@ def _write_plan(root, ticket: str) -> None:
         root,
         f"docs/plan/{ticket}.md",
         dedent(
-            f"""\
+            """\
             Status: READY
 
             ## AIDD:ITERATIONS

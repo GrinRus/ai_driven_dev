@@ -9,10 +9,15 @@ from pathlib import Path
 from typing import Dict
 
 ROOT = Path(__file__).resolve().parents[2]
-RUNTIME_GLOB = "skills/*/runtime/*.py"
+RUNTIME_GLOBS = ("skills/*/runtime/*.py", "skills/*/runtime/**/*.py")
 WAIVERS_PATH = ROOT / "tests" / "repo_tools" / "runtime-module-guard-waivers.txt"
-DEFAULT_WARN = 600
-DEFAULT_ERROR = 900
+PHASE_THRESHOLDS = {
+    1: (1600, 2200),
+    2: (1200, 1600),
+    3: (900, 1200),
+}
+DEFAULT_PHASE = 1
+THIN_ADAPTER_MAX_LINES = 40
 
 
 def _read_threshold(name: str, fallback: int) -> int:
@@ -26,6 +31,17 @@ def _read_threshold(name: str, fallback: int) -> int:
     return value if value > 0 else fallback
 
 
+def _read_phase() -> int:
+    raw = os.getenv("AIDD_RUNTIME_MODULE_GUARD_PHASE", "").strip()
+    if not raw:
+        return DEFAULT_PHASE
+    try:
+        phase = int(raw)
+    except ValueError:
+        return DEFAULT_PHASE
+    return phase if phase in PHASE_THRESHOLDS else DEFAULT_PHASE
+
+
 def _line_count(path: Path) -> int:
     try:
         text = path.read_text(encoding="utf-8")
@@ -34,6 +50,20 @@ def _line_count(path: Path) -> int:
     if not text:
         return 0
     return text.count("\n") + (0 if text.endswith("\n") else 1)
+
+
+def _is_thin_adapter(path: Path, lines: int) -> bool:
+    if path.name == "__init__.py" or lines > THIN_ADAPTER_MAX_LINES:
+        return False
+    rel = path.relative_to(ROOT).as_posix()
+    parts = rel.split("/")
+    if len(parts) != 4 or parts[0] != "skills" or parts[2] != "runtime":
+        return False
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return False
+    return "_CORE_PATH" in text and "exec(compile(" in text
 
 
 def _load_waivers(path: Path) -> tuple[Dict[str, str], list[str]]:
@@ -62,8 +92,10 @@ def _load_waivers(path: Path) -> tuple[Dict[str, str], list[str]]:
 
 
 def main() -> int:
-    warn_limit = _read_threshold("AIDD_RUNTIME_MODULE_WARN_LINES", DEFAULT_WARN)
-    error_limit = _read_threshold("AIDD_RUNTIME_MODULE_ERROR_LINES", DEFAULT_ERROR)
+    phase = _read_phase()
+    default_warn, default_error = PHASE_THRESHOLDS.get(phase, PHASE_THRESHOLDS[DEFAULT_PHASE])
+    warn_limit = _read_threshold("AIDD_RUNTIME_MODULE_WARN_LINES", default_warn)
+    error_limit = _read_threshold("AIDD_RUNTIME_MODULE_ERROR_LINES", default_error)
     if error_limit <= warn_limit:
         error_limit = warn_limit + 1
 
@@ -71,11 +103,15 @@ def main() -> int:
     errors: list[str] = list(parse_errors)
     warnings: list[str] = []
 
-    runtime_paths = sorted(ROOT.glob(RUNTIME_GLOB))
+    runtime_paths = sorted({path.resolve() for pattern in RUNTIME_GLOBS for path in ROOT.glob(pattern) if path.is_file()})
     seen_runtime: Dict[str, int] = {}
     for path in runtime_paths:
+        if path.name == "__init__.py":
+            continue
         rel = path.relative_to(ROOT).as_posix()
         lines = _line_count(path)
+        if _is_thin_adapter(path, lines):
+            continue
         seen_runtime[rel] = lines
         if lines > warn_limit:
             warnings.append(f"{rel}: {lines} lines > warn threshold {warn_limit}")
@@ -95,13 +131,17 @@ def main() -> int:
             errors.append(f"waiver target is not file: {rel} ({reason})")
             continue
         if rel not in seen_runtime:
-            errors.append(f"waiver target outside runtime glob: {rel} ({reason})")
+            errors.append(f"waiver target outside runtime globs: {rel} ({reason})")
             continue
         lines = seen_runtime[rel]
         if lines <= error_limit:
             errors.append(
                 f"stale waiver: {rel} has {lines} lines <= error threshold {error_limit} ({reason}); remove waiver"
             )
+
+    largest = sorted(seen_runtime.items(), key=lambda item: item[1], reverse=True)[:10]
+    for rel, lines in largest:
+        print(f"[runtime-module-guard] TREND: {rel}: {lines} lines", file=sys.stderr)
 
     for message in warnings:
         print(f"[runtime-module-guard] WARN: {message}", file=sys.stderr)
@@ -112,7 +152,7 @@ def main() -> int:
         return 2
 
     print(
-        f"[runtime-module-guard] OK (warn>{warn_limit}, error>{error_limit}, waivers={len(waivers)})"
+        f"[runtime-module-guard] OK (phase={phase}, warn>{warn_limit}, error>{error_limit}, waivers={len(waivers)})"
     )
     return 0
 

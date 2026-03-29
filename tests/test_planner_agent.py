@@ -1,5 +1,4 @@
 import unittest
-from pathlib import Path
 
 from .helpers import REPO_ROOT
 

@@ -1,3 +1,2 @@
 # runtime module waivers for line-count > error threshold
 # format: <workspace-relative path>|<reason>
-skills/aidd-core/runtime/research_guard.py|wave112-memory-gates-integration-pending-split

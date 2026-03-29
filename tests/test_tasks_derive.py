@@ -284,6 +284,150 @@ def test_tasks_derive_prefers_pack_for_research(tmp_path):
     assert "Research: from json" not in content
 
 
+def test_tasks_derive_research_uses_json_when_prefer_pack_disabled(tmp_path):
+    project_root = ensure_project_root(tmp_path)
+    write_active_feature(project_root, "demo-checkout")
+    write_file(project_root, "docs/tasklist/demo-checkout.md", _base_tasklist())
+
+    write_json(
+        project_root,
+        "reports/research/demo-checkout-rlm.json",
+        {
+            "integration_points": [{"file_id": "json-a", "path": "src/json_only.py", "summary": "json summary"}],
+            "test_hooks": [],
+            "risks": [],
+        },
+    )
+    write_json(
+        project_root,
+        "reports/research/demo-checkout-rlm.pack.json",
+        {
+            "integration_points": [{"file_id": "pack-a", "path": "src/pack_only.py", "summary": "pack summary"}],
+            "test_hooks": [],
+            "risks": [],
+        },
+    )
+
+    result = subprocess.run(
+        cli_cmd(
+            "tasks-derive",
+            "--source",
+            "research",
+            "--ticket",
+            "demo-checkout",
+            "--report",
+            "aidd/reports/research/demo-checkout-rlm.json",
+        ),
+        cwd=project_root,
+        text=True,
+        capture_output=True,
+        env=cli_env(),
+    )
+
+    assert result.returncode == 0, result.stderr
+    content = (project_root / "docs/tasklist/demo-checkout.md").read_text(encoding="utf-8")
+    assert "RLM integration: src/json_only.py" in content
+    assert "RLM integration: src/pack_only.py" not in content
+    assert "Report: aidd/reports/research/demo-checkout-rlm.json" in content
+
+
+def test_tasks_derive_research_uses_pack_when_prefer_pack_enabled(tmp_path):
+    project_root = ensure_project_root(tmp_path)
+    write_active_feature(project_root, "demo-checkout")
+    write_file(project_root, "docs/tasklist/demo-checkout.md", _base_tasklist())
+
+    write_json(
+        project_root,
+        "reports/research/demo-checkout-rlm.json",
+        {
+            "integration_points": [{"file_id": "json-a", "path": "src/json_only.py", "summary": "json summary"}],
+            "test_hooks": [],
+            "risks": [],
+        },
+    )
+    write_json(
+        project_root,
+        "reports/research/demo-checkout-rlm.pack.json",
+        {
+            "integration_points": [{"file_id": "pack-a", "path": "src/pack_only.py", "summary": "pack summary"}],
+            "test_hooks": [],
+            "risks": [],
+        },
+    )
+
+    result = subprocess.run(
+        cli_cmd(
+            "tasks-derive",
+            "--source",
+            "research",
+            "--ticket",
+            "demo-checkout",
+            "--report",
+            "aidd/reports/research/demo-checkout-rlm.json",
+            "--prefer-pack",
+        ),
+        cwd=project_root,
+        text=True,
+        capture_output=True,
+        env=cli_env(),
+    )
+
+    assert result.returncode == 0, result.stderr
+    content = (project_root / "docs/tasklist/demo-checkout.md").read_text(encoding="utf-8")
+    assert "RLM integration: src/pack_only.py" in content
+    assert "RLM integration: src/json_only.py" not in content
+    assert "Report: aidd/reports/research/demo-checkout-rlm.pack.json" in content
+
+
+def test_tasks_derive_research_uses_pack_when_env_requests_pack_first(tmp_path):
+    project_root = ensure_project_root(tmp_path)
+    write_active_feature(project_root, "demo-checkout")
+    write_file(project_root, "docs/tasklist/demo-checkout.md", _base_tasklist())
+
+    write_json(
+        project_root,
+        "reports/research/demo-checkout-rlm.json",
+        {
+            "integration_points": [{"file_id": "json-a", "path": "src/json_only.py", "summary": "json summary"}],
+            "test_hooks": [],
+            "risks": [],
+        },
+    )
+    write_json(
+        project_root,
+        "reports/research/demo-checkout-rlm.pack.json",
+        {
+            "integration_points": [{"file_id": "pack-a", "path": "src/pack_only.py", "summary": "pack summary"}],
+            "test_hooks": [],
+            "risks": [],
+        },
+    )
+
+    env = cli_env()
+    env["AIDD_PACK_FIRST"] = "1"
+    result = subprocess.run(
+        cli_cmd(
+            "tasks-derive",
+            "--source",
+            "research",
+            "--ticket",
+            "demo-checkout",
+            "--report",
+            "aidd/reports/research/demo-checkout-rlm.json",
+        ),
+        cwd=project_root,
+        text=True,
+        capture_output=True,
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    content = (project_root / "docs/tasklist/demo-checkout.md").read_text(encoding="utf-8")
+    assert "RLM integration: src/pack_only.py" in content
+    assert "RLM integration: src/json_only.py" not in content
+    assert "Report: aidd/reports/research/demo-checkout-rlm.pack.json" in content
+
+
 def test_tasks_derive_from_review_report(tmp_path):
     project_root = ensure_project_root(tmp_path)
     write_active_feature(project_root, "demo-checkout")

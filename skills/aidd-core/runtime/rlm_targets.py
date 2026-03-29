@@ -8,11 +8,9 @@ import os
 import re
 import subprocess
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Dict, Iterable, List, Optional, Sequence
 
-import os
 import sys
-from pathlib import Path
 
 
 def _ensure_plugin_root_on_path() -> None:

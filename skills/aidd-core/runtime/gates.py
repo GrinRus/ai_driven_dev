@@ -23,7 +23,7 @@ def load_gates_config(target: Path) -> dict:
     try:
         return json.loads(path.read_text(encoding="utf-8"))
     except Exception as exc:
-        raise ValueError(f"не удалось прочитать {path}: {exc}")
+        raise ValueError(f"не удалось прочитать {path}: {exc}") from exc
 
 
 def load_gate_section(target: Path, section: str) -> dict:
