@@ -51,17 +51,17 @@ def _handler_label(handler: ast.ExceptHandler) -> str:
         return handler.type.__class__.__name__
 
 
-def _scan_file(path: Path) -> List[Tuple[int, str]]:
+def _scan_file(path: Path) -> tuple[List[Tuple[int, str]], List[str]]:
     try:
         source = path.read_text(encoding="utf-8")
     except OSError:
-        return []
+        return [], []
 
     try:
         tree = ast.parse(source, filename=str(path))
     except SyntaxError as exc:
-        print(f"[silent-except-guard] ERROR: failed to parse {path.relative_to(ROOT).as_posix()}: {exc}", file=sys.stderr)
-        return []
+        rel = path.relative_to(ROOT).as_posix()
+        return [], [f"failed to parse {rel}: {exc}"]
 
     findings: List[Tuple[int, str]] = []
     for node in ast.walk(tree):
@@ -70,7 +70,7 @@ def _scan_file(path: Path) -> List[Tuple[int, str]]:
         for handler in node.handlers:
             if _handler_is_silent_pass(handler):
                 findings.append((handler.lineno, _handler_label(handler)))
-    return findings
+    return findings, []
 
 
 def _load_allowlist(path: Path) -> tuple[Dict[str, str], List[str]]:
@@ -109,7 +109,9 @@ def main() -> int:
 
     for path in _iter_target_files():
         rel = path.relative_to(ROOT).as_posix()
-        for lineno, label in _scan_file(path):
+        file_violations, file_errors = _scan_file(path)
+        errors.extend(file_errors)
+        for lineno, label in file_violations:
             key = f"{rel}:{lineno}"
             violations[key] = label
 
