@@ -4,6 +4,104 @@
 
 _Revision note (2026-03-10): backlog ревизован по критерию удаления реализованных волн: удаляем волну только если acceptance подтверждён в текущем коде, релевантные regression/check команды зелёные, и нет открытых блокирующих зависимостей._
 
+## Wave 117 — E2E quality follow-ups for TST-002 (2026-03-29)
+
+Статус: plan. Основание — результаты quality e2e run 20260329T172731Z по тикету TST-002; цель — повысить качество кода и артефактов, генерируемых AIDD.
+
+### Source run
+- Audit dir: `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260329T172731Z`
+- Base prompt: `/Users/griogrii_riabov/grigorii_projects/ai_driven_dev/docs/e2e/aidd_test_flow_prompt_ralph_script_full.txt`
+- Feature final state: `NOT_REACHED`
+- Overall quality gate: `FAIL`
+
+- [ ] **W117-1 (P0) Enforce terminal stage result emission for idea-new** `skills/idea-new/SKILL.md`, `tests/repo_tools/aidd_audit_runner.py`, `tests/repo_tools/aidd_stage_launcher.py`:
+  - добавить fail-fast ветку для `result_count=0` с deterministic terminal payload вместо зависания/tool-only sequence;
+  - зафиксировать non-interactive contract для stage command completion (`done|blocked` с top-level result);
+  - добавить regression fixture на сценарий `idea-new` с отсутствующим terminal result.
+  **AC:** `idea-new` всегда эмитит terminal top-level result в stream-json run; `no_top_level_result` для этого сценария не воспроизводится.
+  **Deps:** ->
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_aidd_audit_runner.py tests/repo_tools/test_aidd_stage_launcher.py tests/repo_tools/test_e2e_prompt_contract.py`
+  **Evidence:** `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260329T172731Z/05_idea_new_run1.summary.txt`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260329T172731Z/05_idea_new_run2.summary.txt`
+  **Effort:** M
+  **Risk:** High
+
+- [ ] **W117-2 (P1) Fix idea-new tool-use execution error path in non-interactive mode** `skills/idea-new/SKILL.md`, `agents/analyst.md`, `skills/aidd-flow-state/runtime/set_active_feature.py`:
+  - исключить path, где stage остаётся в tool-use loop с `Sibling tool call errored` без terminal stage response;
+  - добавить bounded retry policy для preflight tool actions внутри stage orchestration;
+  - расширить diagnostics (`reason_code`, `tool_error_fingerprint`) для classifiable runner outcomes.
+  **AC:** при tool execution error stage завершается deterministic BLOCKED payload, а не бесконечным stream/thinking.
+  **Deps:** W117-1
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py tests/test_prompt_lint.py`
+  **Evidence:** `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260329T172731Z/05_idea_new_run2.log`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260329T172731Z/05_stage_terminal_status.txt`
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W117-3 (P1) Keep aidd-init slash orchestration self-contained (no external shell handoff)** `skills/aidd-init/SKILL.md`, `skills/aidd-init/runtime/init.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - убрать operator guidance, требующий выход из Claude и запуск внешнего shell script;
+  - гарантировать completion `aidd-init` в canonical stage command path;
+  - покрыть regression-проверкой на отсутствие external-shell handoff текста в stage terminal response.
+  **AC:** `/feature-dev-aidd:aidd-init` выполняется end-to-end в non-interactive runner без external-terminal инструкции.
+  **Deps:** ->
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py tests/test_prompt_lint.py`
+  **Evidence:** `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260329T172731Z/04_aidd_init_run1.log`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260329T172731Z/04_aidd_init_fallback_marker.txt`
+  **Effort:** S
+  **Risk:** Medium
+
+## Wave 116 — E2E quality follow-ups for TST-002 (2026-03-29)
+
+Статус: plan. Основание — результаты quality e2e run 20260329T135533Z по тикету TST-002; цель — повысить качество кода и артефактов, генерируемых AIDD.
+
+### Source run
+- Audit dir: /Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260329T135533Z
+- Base prompt: /Users/griogrii_riabov/grigorii_projects/ai_driven_dev/docs/e2e/aidd_test_flow_prompt_ralph_script_full.txt
+- Feature final state: NOT_REACHED
+- Overall quality gate: FAIL
+
+- [ ] **W116-1 (P0) Stop non-converging seed stage command loops** skills/implement/SKILL.md, skills/implement/runtime/implement_run.py, tests/repo_tools/aidd_audit_runner.py:
+  - детектировать повтор одного и того же command+stderr fingerprint в seed stage и завершать run fail-fast до исчерпания budget;
+  - добавить module-aware cwd correction для gradle wrappers (backend-mcp/gradlew, backend/gradlew) либо deterministic terminal fail с reason_code;
+  - гарантировать top-level stage result при terminal fail (result_count>=1 или canonical blocked payload).
+  **AC:** шаг 6 не уходит в watchdog-only termination при повторяемой deterministic ошибке; no_top_level_result не воспроизводится для данного класса сбоев.
+  **Deps:** -
+  **Regression/tests:** python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py tests/repo_tools/test_aidd_audit_runner.py.
+  **Evidence:** /Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260329T135533Z/06_implement_run1.diagnostics.txt, /Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260329T135533Z/06_implement_termination_attribution.txt
+  **Effort:** M
+  **Risk:** High
+
+- [ ] **W116-2 (P1) Enforce anti-stall runner policy for repeated deterministic errors** skills/aidd-loop/runtime/loop_step.py, skills/implement/runtime/implement_run.py, tests/repo_tools/test_e2e_prompt_contract.py:
+  - ввести anti-stall threshold для repeated deterministic stderr/signature;
+  - фиксировать explicit reason_code (например, seed_stage_non_converging_command) и recovery hint без бесконечных попыток;
+  - отделить recoverable retry path от terminal no-progress path.
+  **AC:** repeated deterministic errors классифицируются в bounded retries; run останавливается с явным reason_code без watchdog timeout.
+  **Deps:** W116-1
+  **Regression/tests:** python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py.
+  **Evidence:** /Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260329T135533Z/06_implement_run1.log, /Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260329T135533Z/06_implement_run1.diagnostics.txt
+  **Effort:** S
+  **Risk:** Medium
+
+- [ ] **W116-3 (P1) Tighten research readiness quality gate (no-TBD policy)** skills/researcher/templates/research.template.md, skills/researcher/runtime/research.py, templates/aidd/config/gates.json, tests/test_research_command.py:
+  - добавить mandatory-section completeness checks (запрет placeholder TBD для ключевых блоков);
+  - при placeholder-only output выставлять deterministic research_not_ready вместо downstream PASS;
+  - обновить diagnostics для soft-warn, чтобы ready не выставлялся при пустом содержимом.
+  **AC:** readiness gate не допускает downstream READY при research с placeholder-only секциями.
+  **Deps:** -
+  **Regression/tests:** python3 -m pytest -q tests/test_research_command.py tests/repo_tools/test_e2e_prompt_contract.py.
+  **Evidence:** /Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/aidd/docs/research/TST-002.md, /Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260329T135533Z/05_precondition_block.txt
+  **Effort:** S
+  **Risk:** Medium
+
+- [ ] **W116-4 (P2) Enforce tasklist report-pointer consistency and module-aware command hints** skills/tasks-new/templates/tasklist.template.md, skills/tasks-new/runtime/tasks_new.py, skills/implement/SKILL.md, skills/review/SKILL.md:
+  - валидировать report pointers (reviewer, qa) перед выставлением READY;
+  - для multi-module repos генерировать module-aware command hints вместо repo-root ./gradlew;
+  - добавить explicit diagnostics в tasklist status check при несоответствии ссылок/команд.
+  **AC:** tasklist READY не содержит ссылок на отсутствующие mandatory reports; build commands корректны для module-local wrappers.
+  **Deps:** -
+  **Regression/tests:** python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py tests/test_prompt_lint.py.
+  **Evidence:** /Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/aidd/docs/tasklist/TST-002.md, /Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260329T135533Z/08_qa_status.txt
+  **Effort:** S
+  **Risk:** Medium
+
+
 ## Closed waves archive
 
 - **Wave 112 (closed, archived 2026-03-29)**:
