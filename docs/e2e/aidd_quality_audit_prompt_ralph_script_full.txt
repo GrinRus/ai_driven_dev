@@ -1,0 +1,426 @@
+# AIDD E2E Quality Audit Prompt (TST-002, FULL)
+
+Задача: **AIDD E2E Quality Audit (TST-002) + Final-state gate + Code/Artifact quality scoring + Backlog wave planning**  
+База канона: **skill-first, python-only runtime, RLM-only research, no-fork stage orchestration, evidence-first quality audit**.
+
+Роль: ты — один quality-аудитор-агент. Выполни **один полный** e2e цикл AIDD в одном целевом репозитории, доведи flow до terminal состояния через canonical path, затем оцени качество итогового кода и quality артефактов.
+
+Этот prompt наследует базовый full-flow prompt и использует его как execution spine. Все правила base prompt обязательны, если ниже явно не задан override.
+
+## 0) Базовый prompt и приоритет
+
+Обязательно прочитай и выполни как базовый сценарий:
+- `$PLUGIN_DIR/docs/e2e/aidd_test_flow_prompt_ralph_script_full.txt`
+
+Правила наследования:
+- `base prompt` = execution spine для шагов `0..8` и базовых env/launcher/flow правил;
+- этот prompt override-ит base prompt для quality-evaluation, final-state definition, backlog-wave drafting/writing и write-safety после quality-phase;
+- при конфликте между base prompt и этим prompt приоритет у этого prompt;
+- если numbering base prompt менялась, всё равно выполни semantic flow base prompt и вставь новый шаг `9` (Quality Gate) перед post-run write-safety.
+
+## 1) Канон и границы
+
+- Base flow SoT: `$PLUGIN_DIR/docs/e2e/aidd_test_flow_prompt_ralph_script_full.txt`
+- Stage content templates (SoT): `$PLUGIN_DIR/skills/*/templates/*`
+- Workspace bootstrap source: `$PLUGIN_DIR/templates/aidd/**`
+- Runtime workspace memory: `$PROJECT_DIR/aidd/**`
+- Runtime API (canonical): `$PLUGIN_DIR/skills/*/runtime/*.py`
+- Hooks/platform glue: `$PLUGIN_DIR/hooks/**`
+- Product backlog file: `$PLUGIN_DIR/docs/backlog.md`
+
+Quality audit boundaries:
+- не делать ручные правки `aidd/docs/**` или `aidd/reports/**` ради quality-score;
+- не исправлять target project в quality phase;
+- единственный разрешённый plugin-side write: `BACKLOG_PATH`;
+- запись в `BACKLOG_PATH` разрешена только после готового `AUDIT_DIR/09_quality_gate.txt`.
+
+## 2) Переменные
+
+Наследуй базовые переменные из full-flow prompt и добавь:
+
+- `BASE_PROMPT=$PLUGIN_DIR/docs/e2e/aidd_test_flow_prompt_ralph_script_full.txt`
+- `BACKLOG_PATH=$PLUGIN_DIR/docs/backlog.md`
+- `PROFILE=full|smoke` (default: `full`)
+- `QUALITY_GATE_POLICY=strict` (default: `strict`)
+- `WAVE_WRITE_MODE=disabled|on-findings|always` (default: `on-findings`)
+- `BACKLOG_SCOPE=aidd-only|mixed` (default: `aidd-only`)
+- `QUALITY_SCORE_SCALE=0..3`
+- `QUALITY_TOP_FINDINGS_LIMIT=<int>` (default: `10`)
+- `QUALITY_BACKLOG_ITEM_LIMIT=<int>` (default: `7`)
+- `ALLOW_PLUGIN_BACKLOG_WRITE=1`
+- `BACKLOG_NEW_WAVE=<auto>`
+- `QUALITY_FINAL_MARKER=QUALITY_AUDIT_COMPLETE`
+
+## 3) Режимы
+
+- `PROFILE=smoke`
+  - Используй smoke flow из base prompt.
+  - Шаг 9 выполнять в `artifact-lite` режиме:
+    - только artifact consistency,
+    - без deep code review,
+    - без записи в backlog.
+  - Принудительно установить `WAVE_WRITE_MODE=disabled`.
+  - Итог: `wave_created=0`.
+
+- `PROFILE=full`
+  - Выполнить полный flow base prompt.
+  - Шаг 9 — полный quality audit:
+    - code quality,
+    - artifact quality,
+    - root-cause map,
+    - user improvement plan,
+    - backlog wave write (если есть systemic findings и это разрешено политикой).
+
+## 4) Дополнительные ключевые правила quality-аудита
+
+- Q0: сначала выполнить inherited base flow, потом quality gate.
+- Q1: quality-аудит основан только на evidence из logs/artifacts/code/tests.
+- Q2: findings делить на классы:
+  - `systemic_aidd_gap`;
+  - `product_output_gap`;
+  - `env_or_runner_gap`.
+- Q3: для `BACKLOG_SCOPE=aidd-only` в backlog попадают только `systemic_aidd_gap` и допустимые `env_or_runner_gap`, которые требуют изменений в AIDD repo.
+- Q4: product-specific findings без AIDD root-cause не писать в `BACKLOG_PATH`.
+- Q5: при `WAVE_WRITE_MODE=on-findings` и `systemic_candidates=0` новую wave не создавать.
+- Q6: backlog items обязаны ссылаться на plugin repo paths (`skills/**`, `templates/**`, `tests/**`, `docs/**`, `hooks/**`, `agents/**`, `aidd_runtime/**`).
+- Q7: не создавать шумовые backlog items по style-only nit.
+- Q8: дубли findings мержить в один wave item.
+- Q9: severity map:
+  - `P0`: terminal quality blocker;
+  - `P1`: serious quality gap;
+  - `P2`: important non-terminal improvement;
+  - `P3`: low priority (в backlog по умолчанию не писать).
+- Q10: backlog wave write допускается ровно один раз за run.
+- Q11: post-run write-safety должен считать изменение `BACKLOG_PATH` allowed delta, если wave корректна.
+- Q12: старые waves не удалять и не переписывать; только вставка новой wave.
+- Q13: номер новой wave = `max(Wave NNN)+1`.
+- Q14: новую wave вставлять сразу после title/revision-note блока в начале `BACKLOG_PATH`.
+
+## 5) Что считать terminal feature state
+
+После inherited шагов `0..8` сформируй `AUDIT_DIR/09_final_state_check.txt` с полями:
+
+- `step5_status=<PASS|WARN|FAIL|NOT_VERIFIED>`
+- `step6_status=<PASS|WARN|FAIL|SKIPPED|NOT_VERIFIED>`
+- `step7_status=<PASS|WARN|FAIL|SKIPPED|NOT_VERIFIED>`
+- `step8_status=<PASS|WARN|FAIL|NOT_VERIFIED>`
+- `qa_report_status=<PASS|WARN|BLOCKED|missing>`
+- `loop_terminal_status=<done|blocked|killed|missing|skipped>`
+- `feature_final_state=<REACHED|NOT_REACHED>`
+- `reason_code=<->`
+
+`feature_final_state=REACHED` только если:
+- inherited flow дошёл до terminal точки без unresolved terminal env/contract blockers;
+- есть terminal QA evidence по canonical path;
+- отсутствуют unresolved terminal причины (`watchdog_terminated`, `no_top_level_result`, `upstream_*_failed`, `readiness_gate_failed`, `findings_sync_not_converged`, `plugin_not_loaded`) без downstream recovery.
+
+Если `feature_final_state=NOT_REACHED`:
+- всё равно выполнить quality audit в partial режиме;
+- `overall_quality_gate` не может быть выше `FAIL`.
+
+## 6) Quality rubric
+
+Сохрани scorecards:
+
+- `AUDIT_DIR/09_code_scorecard.json`
+- `AUDIT_DIR/09_artifact_scorecard.json`
+
+Формат записи:
+
+```json
+{
+  "dimension": "acceptance_coverage",
+  "score": 0,
+  "verdict": "FAIL",
+  "summary": "...",
+  "evidence_paths": ["..."],
+  "finding_ids": ["QF-01"]
+}
+```
+
+Шкала:
+- `3` = strong/pass
+- `2` = acceptable/warn-low
+- `1` = weak/warn-high
+- `0` = fail/blocker
+
+Code quality dimensions:
+- `acceptance_coverage`
+- `correctness_and_regression`
+- `contract_consistency`
+- `maintainability`
+- `robustness`
+- `observability`
+
+Artifact quality dimensions:
+- `prd_quality`
+- `research_quality`
+- `plan_quality`
+- `tasklist_quality`
+- `review_quality`
+- `qa_quality`
+- `cross_artifact_alignment`
+- `operator_readability`
+
+## 7) MUST-READ
+
+Перед стартом прочитай:
+
+- `$PLUGIN_DIR/skills/aidd-core/templates/workspace-agents.md`
+- `$PLUGIN_DIR/skills/aidd-core/templates/stage-lexicon.md`
+- `$PLUGIN_DIR/skills/tasks-new/templates/tasklist.template.md`
+- `$PLUGIN_DIR/skills/aidd-loop/templates/loop-pack.template.md`
+- `$PLUGIN_DIR/skills/researcher/templates/research.template.md`
+- `$PLUGIN_DIR/templates/aidd/config/gates.json`
+- `$PLUGIN_DIR/templates/aidd/config/conventions.json`
+- `$PLUGIN_DIR/skills/aidd-core/SKILL.md`
+- `$PLUGIN_DIR/skills/aidd-loop/SKILL.md`
+- `$PLUGIN_DIR/skills/researcher/SKILL.md`
+- `$PLUGIN_DIR/skills/aidd-stage-research/SKILL.md`
+- `$PLUGIN_DIR/skills/spec-interview/SKILL.md`
+- `$PLUGIN_DIR/skills/implement/SKILL.md`
+- `$PLUGIN_DIR/skills/review/SKILL.md`
+- `$PLUGIN_DIR/skills/qa/SKILL.md`
+
+## 8) Выполнение inherited full flow
+
+Сделай:
+1. Прочитай `BASE_PROMPT`.
+2. Выполни шаги `0..8` по inherited правилам.
+3. Сохрани артефакты и классификации base prompt без перезаписи истории.
+4. Не завершай run после step 8.
+5. Не выполняй base step 99 до завершения quality step 9.
+
+Если base prompt завершил flow ранним terminal stop:
+- зафиксируй inherited статус;
+- переходи к шагу 9 в partial quality mode.
+
+## 9) Quality Gate + User Improvement Plan + Backlog Wave Planning
+
+### 9.1 Evidence inventory
+
+Сохрани `AUDIT_DIR/09_quality_sources.txt`:
+- артефакты шагов `03_*`, `05_*`, `06_*`, `07_*`, `08_*`;
+- PRD/plan/tasklist/review/QA артефакты по тикету;
+- git diff/status target project после run;
+- test logs/evidence из review/qa;
+- loop/stage results;
+- `BACKLOG_PATH` parse evidence (если читался backlog).
+
+### 9.2 Final-state convergence check
+
+Сформируй `AUDIT_DIR/09_final_state_check.txt` по секции 5.
+
+### 9.3 Code quality evaluation
+
+Сформируй:
+- `AUDIT_DIR/09_code_scorecard.json`
+- `AUDIT_DIR/09_code_findings.md`
+- `AUDIT_DIR/09_acceptance_trace.md`
+
+`09_acceptance_trace.md` должен трассировать:
+- acceptance criterion -> code paths/tests/evidence -> verdict.
+
+### 9.4 Artifact quality evaluation
+
+Сформируй:
+- `AUDIT_DIR/09_artifact_scorecard.json`
+- `AUDIT_DIR/09_artifact_findings.md`
+
+### 9.5 Root-cause map
+
+Сформируй:
+- `AUDIT_DIR/09_quality_findings.md`
+- `AUDIT_DIR/09_quality_findings.json`
+
+Для каждого finding обязательны поля:
+- `finding_id` (`QF-01`, ...)
+- `title`
+- `severity` (`P0|P1|P2|P3`)
+- `class` (`systemic_aidd_gap|product_output_gap|env_or_runner_gap`)
+- `quality_domain` (`code|artifact|flow|runner|docs`)
+- `summary`
+- `evidence_paths`
+- `candidate_plugin_paths`
+- `backlog_candidate` (`0|1`)
+
+### 9.6 User improvement plan
+
+Сформируй `AUDIT_DIR/09_user_improvement_plan.md`:
+- `Top systemic AIDD improvements`
+- `Top product output improvements`
+- `What to fix first`
+- `What can wait`
+
+Максимум `QUALITY_TOP_FINDINGS_LIMIT` пунктов.
+
+### 9.7 Backlog wave drafting
+
+Выполняется только если:
+- `PROFILE=full`;
+- `WAVE_WRITE_MODE!=disabled`;
+- (`systemic_candidates>0` или `WAVE_WRITE_MODE=always`).
+
+Сначала сохранить:
+- `AUDIT_DIR/09_backlog_before_head.txt`
+- `AUDIT_DIR/09_backlog_parse.txt`
+
+`09_backlog_parse.txt` поля:
+- `backlog_exists=0|1`
+- `max_wave_id=<int|->`
+- `new_wave_id=<int|->`
+- `write_allowed=0|1`
+- `systemic_candidates=<int>`
+- `wave_created=0|1`
+- `reason_code=<->`
+
+Если `systemic_candidates=0` и `WAVE_WRITE_MODE=on-findings`:
+- `wave_created=0`
+- backlog не менять
+- сохранить `AUDIT_DIR/09_backlog_wave_write.txt` с `reason_code=no_systemic_findings`
+
+Если wave создаётся:
+1. `BACKLOG_NEW_WAVE = max(Wave NNN)+1`
+2. Сгенерируй `AUDIT_DIR/09_backlog_wave_draft.md`
+3. Вставь draft в `BACKLOG_PATH` сразу после title/revision-note блока
+4. Сохрани `AUDIT_DIR/09_backlog_after_head.txt`
+5. Сохрани `AUDIT_DIR/09_backlog_wave_write.txt`:
+   - `wave_created=1`
+   - `wave_id=W<NNN>`
+   - `items_written=<int>`
+   - `insert_mode=after_revision_note`
+   - `allowed_plugin_write=BACKLOG_PATH`
+
+Wave format:
+
+```md
+## Wave <NNN> — E2E quality follow-ups for <TICKET> (<YYYY-MM-DD>)
+
+Статус: plan. Основание — результаты quality e2e run <RUN_TS> по тикету <TICKET>; цель — повысить качество кода и артефактов, генерируемых AIDD.
+
+### Source run
+- Audit dir: `<AUDIT_DIR>`
+- Base prompt: `<BASE_PROMPT>`
+- Feature final state: `<REACHED|NOT_REACHED>`
+- Overall quality gate: `<PASS|WARN|FAIL>`
+
+- [ ] **W<NNN>-1 (P1) <short title>** `<plugin/path1>`, `<plugin/path2>`:
+  - <concrete fix 1>
+  - <concrete fix 2>
+  - <concrete fix 3>
+  **AC:** <acceptance criteria>
+  **Deps:** <wave/task ids or ->>
+  **Regression/tests:** `<commands>`
+  **Evidence:** `<AUDIT_DIR/...>`
+  **Effort:** S|M|L
+  **Risk:** Low|Medium|High
+```
+
+Wave item rules:
+- `<= QUALITY_BACKLOG_ITEM_LIMIT` items;
+- только `P0|P1|P2`;
+- сортировка `P0 -> P1 -> P2`;
+- обязательны поля `AC`, `Deps`, `Regression/tests`, `Evidence`, `Effort`, `Risk`.
+
+### 9.8 Quality gate calculation
+
+Сохрани `AUDIT_DIR/09_quality_gate.txt`:
+- `feature_final_state=<REACHED|NOT_REACHED>`
+- `code_quality_gate=<PASS|WARN|FAIL>`
+- `artifact_quality_gate=<PASS|WARN|FAIL>`
+- `systemic_aidd_findings=<int>`
+- `product_output_findings=<int>`
+- `env_or_runner_findings=<int>`
+- `backlog_candidates=<int>`
+- `wave_created=<0|1>`
+- `wave_id=<WNNN|->`
+- `overall_quality_gate=<PASS|WARN|FAIL>`
+- `reason_code=<->`
+
+Gate rules:
+- `overall_quality_gate=PASS` только если `feature_final_state=REACHED`, code/artifact gates = `PASS`, и нет unresolved `P0|P1`.
+- `overall_quality_gate=WARN` только если `feature_final_state=REACHED`, нет `P0|P1`, но есть `P2` и/или non-terminal systemic improvements.
+- `overall_quality_gate=FAIL` если `feature_final_state=NOT_REACHED`, либо есть `P0|P1`, либо backlog write должен был произойти, но failed.
+
+### 9.9 Runner contract и финальный отчёт
+
+В отчёте после шага 9 вывести:
+- inherited step matrix (`0..8` + `99`);
+- quality matrix (final state, code gate, artifact gate, overall gate);
+- top systemic findings;
+- top product findings;
+- `wave_id` и item ids (если wave создана);
+- пути к key artifacts (`09_*` + base audit dir).
+
+Финальные machine-friendly строки (dual marker policy):
+- `QUALITY_AUDIT_COMPLETE <TICKET> status=<PASS|WARN|FAIL> wave=<WNNN|none> feature_final_state=<REACHED|NOT_REACHED>`
+- `AUDIT_COMPLETE <TICKET>`
+
+## 10) Override для post-run write-safety (base step 99)
+
+После шага 9 выполни base step 99 с override-правилами.
+
+Сохрани:
+- `AUDIT_DIR/99_plugin_allowed_delta.txt`
+- `AUDIT_DIR/99_backlog_wave_integrity_check.txt`
+
+`99_plugin_allowed_delta.txt`:
+- `allowed_plugin_paths=$BACKLOG_PATH`
+- `wave_created=<0|1>`
+- `unexpected_plugin_delta=<0|1>`
+- `classification=<...>`
+
+`99_backlog_wave_integrity_check.txt`:
+- `wave_created=<0|1>`
+- `wave_id=<WNNN|->`
+- `items_count=<int>`
+- `all_item_ids_match_wave=0|1`
+- `required_fields_present=0|1`
+- `classification=<PASS|WARN|FAIL>`
+
+Write-safety classification override:
+- `PASS(no_plugin_delta)`
+- `PASS(backlog_wave_written)`
+- `WARN(backlog_wave_malformed)`
+- `WARN(backlog_expected_but_missing)`
+- `FAIL(plugin_write_safety_violation)`
+- `FAIL(backlog_write_unexpected_delta)`
+
+## 11) Что считается успешным результатом
+
+Успешный run:
+- inherited e2e flow выполнен и задокументирован;
+- рассчитан terminal feature state;
+- собраны scorecards (`09_code_scorecard.json`, `09_artifact_scorecard.json`);
+- findings разделены на systemic/product/env;
+- пользователю выдан improvement plan;
+- при systemic findings в `PROFILE=full` создана новая backlog wave;
+- write-safety подтверждает ограничение plugin write до `BACKLOG_PATH`.
+
+## 12) Минимальный набор артефактов шага 9
+
+Обязательные:
+- `09_quality_sources.txt`
+- `09_final_state_check.txt`
+- `09_code_scorecard.json`
+- `09_artifact_scorecard.json`
+- `09_acceptance_trace.md`
+- `09_quality_findings.md`
+- `09_quality_findings.json`
+- `09_user_improvement_plan.md`
+- `09_quality_gate.txt`
+
+Условно-обязательные (если wave создаётся):
+- `09_backlog_parse.txt`
+- `09_backlog_before_head.txt`
+- `09_backlog_wave_draft.md`
+- `09_backlog_after_head.txt`
+- `09_backlog_wave_write.txt`
+
+## 13) Политика отказа от guessed recovery
+
+- не улучшать score ручными post-hoc edits;
+- не переписывать generated artifacts «для красоты»;
+- не писать backlog wave по findings без evidence;
+- не переносить product bugs в AIDD backlog без root-cause map;
+- не пропускать quality gate только потому, что inherited flow формально завершился.
