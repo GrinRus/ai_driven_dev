@@ -32,6 +32,13 @@ _ensure_plugin_root_on_path()
 from aidd_runtime import progress as _progress
 from aidd_runtime import runtime
 
+_TRACE_SWALLOWED_VALUES = {"1", "true", "yes", "on"}
+
+
+def _trace_swallowed_exception(context: str, exc: Exception) -> None:
+    if str(os.environ.get("AIDD_TRACE_SWALLOWED_EXCEPTIONS") or "").strip().lower() in _TRACE_SWALLOWED_VALUES:
+        print(f"[aidd progress] WARN: swallowed exception in {context}: {exc}", file=sys.stderr)
+
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -108,13 +115,13 @@ def main(argv: list[str] | None = None) -> int:
             },
             source="aidd progress",
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        _trace_swallowed_exception("append_event", exc)
     try:
         if result.status == "ok":
             runtime.maybe_write_test_checkpoint(target, ticket, context.slug_hint, args.source)
-    except Exception:
-        pass
+    except Exception as exc:
+        _trace_swallowed_exception("maybe_write_test_checkpoint", exc)
     runtime.maybe_sync_index(target, ticket, context.slug_hint, reason="progress")
 
     if args.json:

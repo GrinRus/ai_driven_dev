@@ -72,6 +72,14 @@ NONE_VALUES = {"none", "нет", "n/a", "na"}
 OPEN_ITEM_PREFIX_RE = re.compile(r"^(?:[-*+]\s+|\d+\.\s+)")
 CHECKBOX_PREFIX_RE = re.compile(r"^\[[ xX]\]\s*")
 MARKDOWN_HEADING_RE = re.compile(r"^\s{0,3}#{1,6}\s+\S")
+_TRACE_SWALLOWED_VALUES = {"1", "true", "yes", "on"}
+
+
+def _trace_swallowed_exception(context: str, exc: Exception) -> None:
+    raw = str(os.environ.get("AIDD_TRACE_SWALLOWED_EXCEPTIONS", "")).strip().lower()
+    if raw not in _TRACE_SWALLOWED_VALUES:
+        return
+    print(f"[prd-review] WARN: swallowed_exception context={context}: {exc}", file=sys.stderr)
 
 
 def _normalize_output_path(root: Path, path: Path) -> Path:
@@ -527,8 +535,8 @@ def run(args: argparse.Namespace) -> int:
         if not same_target:
             try:
                 output_path.unlink()
-            except OSError:
-                pass
+            except OSError as exc:
+                _trace_swallowed_exception("pack_only_unlink_output_path", exc)
     if getattr(args, "require_ready", False) and report.recommended_status != "ready":
         print(
             "[prd-review] ERROR: report is not ready "

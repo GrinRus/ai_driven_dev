@@ -35,6 +35,13 @@ _ensure_plugin_root_on_path()
 from aidd_runtime import runtime
 from aidd_runtime import stage_result_contract
 
+_TRACE_SWALLOWED_VALUES = {"1", "true", "yes", "on"}
+
+
+def _trace_swallowed_exception(context: str, exc: Exception) -> None:
+    if str(os.environ.get("AIDD_TRACE_SWALLOWED_EXCEPTIONS") or "").strip().lower() in _TRACE_SWALLOWED_VALUES:
+        print(f"[aidd status-summary] WARN: swallowed exception in {context}: {exc}", file=sys.stderr)
+
 
 def _last_loop_reason_code(root: Path, ticket: str) -> str:
     log_path = root / "reports" / "loops" / ticket / "loop.run.log"
@@ -182,8 +189,8 @@ def main(argv: list[str] | None = None) -> int:
         tests_reason_code = summary_reason_code
         if tests_path and tests_path.exists():
             tests_log_rel = runtime.rel_path(tests_path, target)
-    except Exception:
-        pass
+    except Exception as exc:
+        _trace_swallowed_exception("_tests_log.latest_summary", exc)
 
     summary = {
         "schema": "aidd.status_summary.v1",

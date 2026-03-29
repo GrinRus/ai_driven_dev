@@ -37,6 +37,12 @@ from aidd_runtime import runtime
 from aidd_runtime.io_utils import dump_yaml, parse_front_matter, utc_timestamp
 
 DEFAULT_REVIEWER_MARKER = "aidd/reports/reviewer/{ticket}/{scope_key}.tests.json"
+_TRACE_SWALLOWED_VALUES = {"1", "true", "yes", "on"}
+
+
+def _trace_swallowed_exception(context: str, exc: Exception) -> None:
+    if str(os.environ.get("AIDD_TRACE_SWALLOWED_EXCEPTIONS") or "").strip().lower() in _TRACE_SWALLOWED_VALUES:
+        print(f"[aidd stage-result] WARN: swallowed exception in {context}: {exc}", file=sys.stderr)
 
 
 def _split_items(values: Iterable[str] | None) -> List[str]:
@@ -433,8 +439,8 @@ def main(argv: list[str] | None = None) -> int:
             )
             tests_link = runtime.rel_path(_tests_log.tests_log_path(target, ticket, scope_key), target)
             evidence_links.setdefault("tests_log", tests_link)
-        except Exception:
-            pass
+        except Exception as exc:
+            _trace_swallowed_exception("_tests_log.append_log", exc)
     skip_reason_code = ""
     skip_reason = ""
     tests_failed = False

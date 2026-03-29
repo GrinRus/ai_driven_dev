@@ -1,0 +1,2 @@
+# silent except allowlist (runtime/hooks only)
+# format: <workspace-relative path>:<line>|<reason>

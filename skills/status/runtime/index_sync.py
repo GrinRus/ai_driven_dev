@@ -13,6 +13,15 @@ from typing import Dict, Iterable, List, Optional
 import os
 import sys
 
+_TRACE_SWALLOWED_VALUES = {"1", "true", "yes", "on"}
+
+
+def _trace_swallowed_exception(context: str, exc: Exception) -> None:
+    raw = str(os.environ.get("AIDD_TRACE_SWALLOWED_EXCEPTIONS", "")).strip().lower()
+    if raw not in _TRACE_SWALLOWED_VALUES:
+        return
+    print(f"[status:index-sync] warn: swallowed_exception context={context}: {exc}", file=sys.stderr)
+
 
 def _ensure_plugin_root_on_path() -> None:
     env_root = os.environ.get("CLAUDE_PLUGIN_ROOT", "").strip()
@@ -214,8 +223,8 @@ def _collect_checks(root: Path, ticket: str) -> List[Dict[str, str]]:
             if prd_doc_status:
                 record["doc_status"] = prd_doc_status
             checks.append(record)
-        except json.JSONDecodeError:
-            pass
+        except json.JSONDecodeError as exc:
+            _trace_swallowed_exception("collect_checks:prd-review", exc)
 
     qa_path = _find_report_variant(root / "reports" / "qa" / f"{ticket}.json")
     if qa_path:
@@ -226,8 +235,8 @@ def _collect_checks(root: Path, ticket: str) -> List[Dict[str, str]]:
                 "status": payload.get("status") or "",
                 "path": _rel_path(root, qa_path),
             })
-        except json.JSONDecodeError:
-            pass
+        except json.JSONDecodeError as exc:
+            _trace_swallowed_exception("collect_checks:qa", exc)
 
     reviewer_path = root / "reports" / "reviewer" / f"{ticket}.json"
     if reviewer_path.exists():

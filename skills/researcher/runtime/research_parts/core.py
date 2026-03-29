@@ -23,6 +23,12 @@ from aidd_runtime.feature_ids import write_active_state
 from aidd_runtime.rlm_config import load_rlm_settings
 
 _TEMPLATE_MARKER_RE = re.compile(r"\{\{[^{}]+\}\}")
+_TRACE_SWALLOWED_VALUES = {"1", "true", "yes", "on"}
+
+
+def _trace_swallowed_exception(context: str, exc: Exception) -> None:
+    if str(os.environ.get("AIDD_TRACE_SWALLOWED_EXCEPTIONS") or "").strip().lower() in _TRACE_SWALLOWED_VALUES:
+        print(f"[aidd research] WARN: swallowed exception in {context}: {exc}", file=sys.stderr)
 
 
 def _render_template(template_text: str, replacements: dict[str, str]) -> str:
@@ -836,8 +842,8 @@ def run(args: argparse.Namespace) -> int:
             report_path=Path(runtime.rel_path(rlm_pack_path if pack_exists else worklist_path, target)),
             source="aidd research",
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        _trace_swallowed_exception("append_event", exc)
 
     runtime.maybe_sync_index(target, ticket, feature_context.slug_hint, reason="research")
     return 0

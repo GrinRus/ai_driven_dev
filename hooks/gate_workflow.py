@@ -12,6 +12,7 @@ from typing import Optional
 
 
 HOOK_PREFIX = "[gate-workflow]"
+_TRACE_SWALLOWED_VALUES = {"1", "true", "yes", "on"}
 
 
 def _bootstrap() -> None:
@@ -39,6 +40,11 @@ def _log_stderr(message: str) -> None:
 
     if message:
         print(hooklib.prefix_lines(HOOK_PREFIX, message), file=sys.stderr)
+
+
+def _trace_swallowed_exception(context: str, exc: Exception) -> None:
+    if str(os.environ.get("AIDD_TRACE_SWALLOWED_EXCEPTIONS") or "").strip().lower() in _TRACE_SWALLOWED_VALUES:
+        _log_stderr(f"WARN: swallowed exception in {context}: {exc}")
 
 
 def _select_file_path(paths: list[str]) -> str:
@@ -109,8 +115,8 @@ def _fallback_scope_key(root: Path, ticket: str) -> str:
         state = json.loads((root / "docs" / ".active.json").read_text(encoding="utf-8"))
         if isinstance(state, dict):
             raw_scope = str(state.get("work_item") or raw_scope)
-    except Exception:
-        pass
+    except Exception as exc:
+        _trace_swallowed_exception("_fallback_scope_key", exc)
     cleaned = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in raw_scope)
     return cleaned.strip("._-") or "ticket"
 
@@ -459,8 +465,8 @@ def _handoff_block(root: Path, ticket: str, slug_hint: str, branch: str, tasklis
             state = json.loads((root / "docs" / ".active.json").read_text(encoding="utf-8"))
             if isinstance(state, dict):
                 raw_scope = str(state.get("work_item") or raw_scope)
-        except Exception:
-            pass
+        except Exception as exc:
+            _trace_swallowed_exception("_required_handoff_hint_report_path", exc)
         cleaned_scope = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in raw_scope).strip("._-") or "ticket"
         raw_path = (
             str(review_template)

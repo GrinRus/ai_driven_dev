@@ -49,6 +49,12 @@ _STATUS_ALIASES = {
     "error": "BLOCKED",
     "blocker": "BLOCKED",
 }
+_TRACE_SWALLOWED_VALUES = {"1", "true", "yes", "on"}
+
+
+def _trace_swallowed_exception(context: str, exc: Exception) -> None:
+    if str(os.environ.get("AIDD_TRACE_SWALLOWED_EXCEPTIONS") or "").strip().lower() in _TRACE_SWALLOWED_VALUES:
+        print(f"[aidd review-report] WARN: swallowed exception in {context}: {exc}", file=sys.stderr)
 
 
 def _normalize_status(value: object) -> str:
@@ -414,8 +420,8 @@ def main(argv: list[str] | None = None) -> int:
                 record.setdefault("tests_reason_code", reason_code)
             if tests_path and tests_path.exists():
                 record.setdefault("tests_log_path", runtime.rel_path(tests_path, target))
-        except Exception:
-            pass
+        except Exception as exc:
+            _trace_swallowed_exception("_tests_log.latest_summary", exc)
     findings_payload: List[Dict] = []
     if new_findings:
         findings_payload = _normalize_findings(new_findings)

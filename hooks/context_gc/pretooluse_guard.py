@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import shlex
+import sys
 import time
 from datetime import datetime
 from pathlib import Path
@@ -22,6 +24,13 @@ from hooks.hooklib import (
 )
 from aidd_runtime import stage_lexicon
 from aidd_runtime.diff_boundary_check import extract_boundaries, matches_pattern, parse_front_matter
+
+_TRACE_SWALLOWED_VALUES = {"1", "true", "yes", "on"}
+
+
+def _trace_swallowed_exception(context: str, exc: Exception) -> None:
+    if str(os.environ.get("AIDD_TRACE_SWALLOWED_EXCEPTIONS") or "").strip().lower() in _TRACE_SWALLOWED_VALUES:
+        print(f"[context-gc] WARN: swallowed exception in {context}: {exc}", file=sys.stderr)
 
 
 def _resolve_log_dir(project_dir: Path, aidd_root: Optional[Path], rel_log_dir: str) -> Path:
@@ -266,8 +275,8 @@ def _raw_targets_legacy_shadow(path_value: str, project_dir: Path, aidd_root: Op
         try:
             project_dir.resolve().relative_to(aidd_root.resolve())
             return False
-        except Exception:
-            pass
+        except Exception as exc:
+            _trace_swallowed_exception("_raw_targets_legacy_shadow:aidd_root_check", exc)
     return normalized in LEGACY_SHADOW_NAMES or normalized.startswith(LEGACY_SHADOW_PREFIXES)
 
 
@@ -343,16 +352,16 @@ def _path_candidates(path: Path, project_dir: Path, aidd_root: Optional[Path]) -
         _add(rel_project)
         if project_dir.name == "aidd":
             _add(f"aidd/{rel_project}")
-    except Exception:
-        pass
+    except Exception as exc:
+        _trace_swallowed_exception("_normalize_permission_path:project_relative", exc)
 
     if aidd_root:
         try:
             rel_aidd = path.relative_to(aidd_root).as_posix()
             _add(rel_aidd)
             _add(f"aidd/{rel_aidd}")
-        except Exception:
-            pass
+        except Exception as exc:
+            _trace_swallowed_exception("_normalize_permission_path:aidd_relative", exc)
 
     return normalized
 

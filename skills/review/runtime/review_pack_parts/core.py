@@ -36,6 +36,12 @@ from aidd_runtime import runtime
 from aidd_runtime.io_utils import dump_yaml, parse_front_matter, utc_timestamp
 
 DEFAULT_REVIEWER_MARKER = "aidd/reports/reviewer/{ticket}/{scope_key}.tests.json"
+_TRACE_SWALLOWED_VALUES = {"1", "true", "yes", "on"}
+
+
+def _trace_swallowed_exception(context: str, exc: Exception) -> None:
+    if str(os.environ.get("AIDD_TRACE_SWALLOWED_EXCEPTIONS") or "").strip().lower() in _TRACE_SWALLOWED_VALUES:
+        print(f"[aidd review-pack] WARN: swallowed exception in {context}: {exc}", file=sys.stderr)
 
 
 def read_text(path: Path) -> str:
@@ -622,8 +628,8 @@ def main(argv: list[str] | None = None) -> int:
         )
         if tests_path and tests_path.exists():
             evidence_links.append(runtime.rel_path(tests_path, target))
-    except Exception:
-        pass
+    except Exception as exc:
+        _trace_swallowed_exception("_tests_log.latest_entry:evidence_links", exc)
     evidence_links = list(dict.fromkeys(evidence_links))
 
     tests_summary = ""
@@ -642,8 +648,8 @@ def main(argv: list[str] | None = None) -> int:
         tests_reason_code = reason_code
         if tests_path and tests_path.exists():
             tests_log_rel = runtime.rel_path(tests_path, target)
-    except Exception:
-        pass
+    except Exception as exc:
+        _trace_swallowed_exception("_tests_log.latest_summary", exc)
 
     loop_pack_path = target / "reports" / "loops" / ticket / f"{scope_key}.loop.pack.md"
     boundaries = parse_loop_pack_boundaries(loop_pack_path)

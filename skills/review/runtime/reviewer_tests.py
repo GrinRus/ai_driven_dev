@@ -36,6 +36,14 @@ DEFAULT_REVIEWER_MARKER = "aidd/reports/reviewer/{ticket}/{scope_key}.tests.json
 DEFAULT_REVIEWER_FIELD = "tests"
 DEFAULT_REVIEWER_REQUIRED = ("required",)
 DEFAULT_REVIEWER_OPTIONAL = ("optional", "skipped", "not-required")
+_TRACE_SWALLOWED_VALUES = {"1", "true", "yes", "on"}
+
+
+def _trace_swallowed_exception(context: str, exc: Exception) -> None:
+    raw = str(os.environ.get("AIDD_TRACE_SWALLOWED_EXCEPTIONS", "")).strip().lower()
+    if raw not in _TRACE_SWALLOWED_VALUES:
+        return
+    print(f"[reviewer-tests] WARN: swallowed_exception context={context}: {exc}", file=sys.stderr)
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -122,8 +130,8 @@ def main(argv: list[str] | None = None) -> int:
             if fallback_path.exists():
                 try:
                     fallback_path.unlink()
-                except OSError:
-                    pass
+                except OSError as exc:
+                    _trace_swallowed_exception("clear_fallback_marker", exc)
         runtime.maybe_sync_index(target, ticket, context.slug_hint, reason="reviewer-tests")
         return 0
 
@@ -185,8 +193,8 @@ def main(argv: list[str] | None = None) -> int:
             continue
         try:
             fallback_path.unlink()
-        except OSError:
-            pass
+        except OSError as exc:
+            _trace_swallowed_exception("sync_fallback_marker", exc)
 
     state_label = "required" if status in required_values else status
     print(f"[aidd] reviewer marker updated ({rel_marker} → {state_label}).")

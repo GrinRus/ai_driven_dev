@@ -57,6 +57,14 @@ DEFAULT_BLOCKERS = ("blocker", "critical")
 DEFAULT_WARNINGS = ("major", "minor")
 SEVERITY_ORDER = ["blocker", "critical", "major", "minor", "info"]
 MANUAL_MARKERS = ("manual", "ручн")
+_TRACE_SWALLOWED_VALUES = {"1", "true", "yes", "on"}
+
+
+def _trace_swallowed_exception(context: str, exc: Exception) -> None:
+    raw = str(os.environ.get("AIDD_TRACE_SWALLOWED_EXCEPTIONS", "")).strip().lower()
+    if raw not in _TRACE_SWALLOWED_VALUES:
+        return
+    print(f"[qa-agent] WARN: swallowed_exception context={context}: {exc}", file=sys.stderr)
 
 
 def _normalize_id_text(value: str) -> str:
@@ -586,8 +594,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         if pack_only and pack_path and pack_path.exists():
             try:
                 args.report.unlink()
-            except OSError:
-                pass
+            except OSError as exc:
+                _trace_swallowed_exception("pack_only_unlink_report", exc)
 
     if not args.gate or args.emit_json:
         if args.format == "json":

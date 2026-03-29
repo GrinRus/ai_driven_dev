@@ -370,6 +370,54 @@ run_runtime_module_guard() {
   fi
 }
 
+run_runtime_module_size_trends() {
+  if ! command -v python3 >/dev/null 2>&1; then
+    warn "python3 not found; skipping runtime module size trends report"
+    return
+  fi
+  if [[ ! -f "tests/repo_tools/runtime-module-size-trends.py" ]]; then
+    warn "tests/repo_tools/runtime-module-size-trends.py missing; skipping"
+    return
+  fi
+  log "running runtime module size trends report"
+  if ! python3 tests/repo_tools/runtime-module-size-trends.py --top 12; then
+    err "runtime module size trends report failed"
+    STATUS=1
+  fi
+}
+
+run_silent_except_guard() {
+  if ! command -v python3 >/dev/null 2>&1; then
+    warn "python3 not found; skipping silent except guard"
+    return
+  fi
+  if [[ ! -f "tests/repo_tools/silent-except-guard.py" ]]; then
+    warn "tests/repo_tools/silent-except-guard.py missing; skipping"
+    return
+  fi
+  log "running silent except guard (runtime/hooks)"
+  if ! python3 tests/repo_tools/silent-except-guard.py; then
+    err "silent except guard failed"
+    STATUS=1
+  fi
+}
+
+run_python_inventory_audit() {
+  if ! command -v python3 >/dev/null 2>&1; then
+    warn "python3 not found; skipping python inventory audit"
+    return
+  fi
+  if [[ ! -f "tests/repo_tools/python_inventory_audit.py" ]]; then
+    warn "tests/repo_tools/python_inventory_audit.py missing; skipping"
+    return
+  fi
+  log "running python inventory audit"
+  if ! python3 tests/repo_tools/python_inventory_audit.py; then
+    err "python inventory audit failed"
+    STATUS=1
+  fi
+}
+
 run_runtime_bootstrap_guard() {
   if ! command -v python3 >/dev/null 2>&1; then
     warn "python3 not found; skipping runtime bootstrap guard"
@@ -713,6 +761,9 @@ run_schema_guards
 run_runtime_path_regression
 run_research_legacy_artifact_guard
 run_runtime_module_guard
+run_runtime_module_size_trends
+run_silent_except_guard
+run_python_inventory_audit
 run_runtime_bootstrap_guard
 run_cli_adapter_guard
 run_ruff_quality
