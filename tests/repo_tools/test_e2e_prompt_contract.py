@@ -75,7 +75,15 @@ def _body(path: Path) -> str:
 class E2EPromptContractTests(unittest.TestCase):
     def test_prompt_builder_and_fragments_exist(self) -> None:
         self.assertTrue(PROMPT_BUILDER.exists(), msg=f"missing prompt builder: {PROMPT_BUILDER}")
-        for rel in ("base_contract.md", "profile_full.md", "profile_smoke.md", "must_read_manifest.md"):
+        for rel in (
+            "base_contract.md",
+            "profile_full.md",
+            "profile_smoke.md",
+            "quality_base_contract.md",
+            "quality_profile_full.md",
+            "quality_profile_smoke.md",
+            "must_read_manifest.md",
+        ):
             path = PROMPT_FRAGMENTS_DIR / rel
             self.assertTrue(path.exists(), msg=f"missing prompt fragment: {path}")
 

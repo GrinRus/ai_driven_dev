@@ -8,15 +8,31 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 FRAGMENTS_DIR = ROOT / "tests" / "repo_tools" / "e2e_prompt"
-BASE_PATH = FRAGMENTS_DIR / "base_contract.md"
 MUST_READ_PATH = FRAGMENTS_DIR / "must_read_manifest.md"
-PROFILE_PATHS = {
-    "FULL": FRAGMENTS_DIR / "profile_full.md",
-    "SMOKE": FRAGMENTS_DIR / "profile_smoke.md",
-}
-OUTPUT_PATHS = {
-    "FULL": ROOT / "docs" / "e2e" / "aidd_test_flow_prompt_ralph_script_full.txt",
-    "SMOKE": ROOT / "docs" / "e2e" / "aidd_test_flow_prompt_ralph_script.txt",
+
+PROMPT_FAMILIES = {
+    "audit": {
+        "base": FRAGMENTS_DIR / "base_contract.md",
+        "profiles": {
+            "FULL": FRAGMENTS_DIR / "profile_full.md",
+            "SMOKE": FRAGMENTS_DIR / "profile_smoke.md",
+        },
+        "outputs": {
+            "FULL": ROOT / "docs" / "e2e" / "aidd_test_flow_prompt_ralph_script_full.txt",
+            "SMOKE": ROOT / "docs" / "e2e" / "aidd_test_flow_prompt_ralph_script.txt",
+        },
+    },
+    "quality": {
+        "base": FRAGMENTS_DIR / "quality_base_contract.md",
+        "profiles": {
+            "FULL": FRAGMENTS_DIR / "quality_profile_full.md",
+            "SMOKE": FRAGMENTS_DIR / "quality_profile_smoke.md",
+        },
+        "outputs": {
+            "FULL": ROOT / "docs" / "e2e" / "aidd_quality_audit_prompt_ralph_script_full.txt",
+            "SMOKE": ROOT / "docs" / "e2e" / "aidd_quality_audit_prompt_ralph_script.txt",
+        },
+    },
 }
 
 
@@ -34,30 +50,33 @@ def _render(profile_title: str, profile_body: str, must_read: str, base_template
     return _normalize(rendered)
 
 
-def build() -> dict[str, str]:
-    base_template = _read(BASE_PATH)
+def build() -> dict[Path, str]:
     must_read = _read(MUST_READ_PATH)
-    rendered: dict[str, str] = {}
-    for profile_title, profile_path in PROFILE_PATHS.items():
-        rendered[profile_title] = _render(
-            profile_title=profile_title,
-            profile_body=_read(profile_path),
-            must_read=must_read,
-            base_template=base_template,
-        )
+    rendered: dict[Path, str] = {}
+    for family in PROMPT_FAMILIES.values():
+        base_template = _read(family["base"])
+        profile_paths: dict[str, Path] = family["profiles"]
+        output_paths: dict[str, Path] = family["outputs"]
+        for profile_title, profile_path in profile_paths.items():
+            rendered[output_paths[profile_title]] = _render(
+                profile_title=profile_title,
+                profile_body=_read(profile_path),
+                must_read=must_read,
+                base_template=base_template,
+            )
     return rendered
 
 
-def write_outputs(rendered: dict[str, str]) -> None:
-    for title, output_path in OUTPUT_PATHS.items():
-        output_path.write_text(rendered[title], encoding="utf-8")
+def write_outputs(rendered: dict[Path, str]) -> None:
+    for output_path in sorted(rendered, key=lambda item: item.as_posix()):
+        output_path.write_text(rendered[output_path], encoding="utf-8")
         print(f"[e2e-prompt-build] wrote {output_path}")
 
 
-def check_outputs(rendered: dict[str, str]) -> int:
+def check_outputs(rendered: dict[Path, str]) -> int:
     failed = False
-    for title, output_path in OUTPUT_PATHS.items():
-        expected = rendered[title]
+    for output_path in sorted(rendered, key=lambda item: item.as_posix()):
+        expected = rendered[output_path]
         actual = _read(output_path) if output_path.exists() else ""
         if actual != expected:
             failed = True
