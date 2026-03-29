@@ -11,11 +11,9 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import Iterable, List, Tuple
+from typing import List, Tuple
 
 import os
-import sys
-from pathlib import Path
 
 
 def _ensure_plugin_root_on_path() -> None:

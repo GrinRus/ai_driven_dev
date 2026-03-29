@@ -514,7 +514,7 @@ def _handoff_block(root: Path, ticket: str, slug_hint: str, branch: str, tasklis
 
     text = read_tasklist_section(lines)
     missing: list[tuple[str, str]] = []
-    for name, report_path, marker in reports:
+    for name, _report_path, marker in reports:
         marker_lower = marker.lower()
         alt_marker = marker_lower.replace("aidd/", "")
         source_hint = f"source: {name.lower()}"

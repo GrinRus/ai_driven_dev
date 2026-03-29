@@ -9,7 +9,7 @@ import subprocess
 import sys
 from fnmatch import fnmatch
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 _PLUGIN_ROOT = Path(__file__).resolve().parents[3]
 os.environ.setdefault("CLAUDE_PLUGIN_ROOT", str(_PLUGIN_ROOT))

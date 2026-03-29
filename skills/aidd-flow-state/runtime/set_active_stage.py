@@ -46,7 +46,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     resolved = positional or alias
     if not resolved:
         parser.error("stage is required (positional or --stage)")
-    setattr(args, "resolved_stage", resolved)
+    args.resolved_stage = resolved
     return args
 
 

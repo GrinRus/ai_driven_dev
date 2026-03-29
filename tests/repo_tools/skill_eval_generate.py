@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List
 
-from skill_eval_common import CASE_SCHEMA, NO_SKILL, anthropic_messages_create, load_json, utc_now, write_jsonl
+from skill_eval_common import CASE_SCHEMA, anthropic_messages_create, load_json, utc_now, write_jsonl
 
 GEN_SYSTEM = """You generate one short user request for skill-routing evaluation.
 Return only plain text (single line), no numbering, no markdown.

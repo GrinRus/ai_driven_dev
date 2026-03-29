@@ -2,16 +2,13 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import json
 import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, List, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
-import os
 import sys
-from pathlib import Path
 
 
 def _ensure_plugin_root_on_path() -> None:
@@ -988,10 +985,11 @@ def main(argv: list[str] | None = None) -> int:
         return payload, runtime.rel_path(label_path, target)
 
     is_pack_path = report_path.name.endswith(".pack.json")
+    prefer_pack_first = prefer_pack or is_pack_path
     if source == "research":
-        payload, report_label = _load_with_pack(report_path, prefer_pack_first=True)
-    elif source == "qa" and (is_pack_path or not report_path.exists()):
-        payload, report_label = _load_with_pack(report_path, prefer_pack_first=True)
+        payload, report_label = _load_with_pack(report_path, prefer_pack_first=prefer_pack_first)
+    elif source == "qa" and (is_pack_path or not report_path.exists() or prefer_pack):
+        payload, report_label = _load_with_pack(report_path, prefer_pack_first=prefer_pack_first)
     else:
         report_label = runtime.rel_path(report_path, target)
         if not report_path.exists():

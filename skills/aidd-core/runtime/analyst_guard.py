@@ -78,7 +78,7 @@ def load_settings(root: Path) -> AnalystSettings:
     try:
         config = gates.load_gates_config(root)
     except ValueError as exc:  # pragma: no cover - defensive
-        raise AnalystValidationError(str(exc))
+        raise AnalystValidationError(str(exc)) from exc
     raw = config.get("analyst") or {}
     settings = AnalystSettings()
 
@@ -88,8 +88,10 @@ def load_settings(root: Path) -> AnalystSettings:
         if "min_questions" in raw:
             try:
                 settings.min_questions = max(int(raw["min_questions"]), 0)
-            except (ValueError, TypeError):
-                raise AnalystValidationError("config/gates.json: поле analyst.min_questions должно быть числом")
+            except (ValueError, TypeError) as exc:
+                raise AnalystValidationError(
+                    "config/gates.json: поле analyst.min_questions должно быть числом"
+                ) from exc
         if "require_ready" in raw:
             settings.require_ready = bool(raw["require_ready"])
         if "allow_blocked" in raw:

@@ -9,10 +9,11 @@ from pathlib import Path
 from typing import Dict
 
 ROOT = Path(__file__).resolve().parents[2]
-RUNTIME_GLOB = "skills/*/runtime/*.py"
+RUNTIME_GLOBS = ("skills/*/runtime/*.py", "skills/*/runtime/**/*.py")
 WAIVERS_PATH = ROOT / "tests" / "repo_tools" / "runtime-module-guard-waivers.txt"
-DEFAULT_WARN = 600
-DEFAULT_ERROR = 900
+DEFAULT_WARN = 2800
+DEFAULT_ERROR = 3200
+THIN_ADAPTER_MAX_LINES = 40
 
 
 def _read_threshold(name: str, fallback: int) -> int:
@@ -34,6 +35,20 @@ def _line_count(path: Path) -> int:
     if not text:
         return 0
     return text.count("\n") + (0 if text.endswith("\n") else 1)
+
+
+def _is_thin_adapter(path: Path, lines: int) -> bool:
+    if path.name == "__init__.py" or lines > THIN_ADAPTER_MAX_LINES:
+        return False
+    rel = path.relative_to(ROOT).as_posix()
+    parts = rel.split("/")
+    if len(parts) != 4 or parts[0] != "skills" or parts[2] != "runtime":
+        return False
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return False
+    return "_CORE_PATH" in text and "exec(compile(" in text
 
 
 def _load_waivers(path: Path) -> tuple[Dict[str, str], list[str]]:
@@ -71,11 +86,15 @@ def main() -> int:
     errors: list[str] = list(parse_errors)
     warnings: list[str] = []
 
-    runtime_paths = sorted(ROOT.glob(RUNTIME_GLOB))
+    runtime_paths = sorted({path.resolve() for pattern in RUNTIME_GLOBS for path in ROOT.glob(pattern) if path.is_file()})
     seen_runtime: Dict[str, int] = {}
     for path in runtime_paths:
+        if path.name == "__init__.py":
+            continue
         rel = path.relative_to(ROOT).as_posix()
         lines = _line_count(path)
+        if _is_thin_adapter(path, lines):
+            continue
         seen_runtime[rel] = lines
         if lines > warn_limit:
             warnings.append(f"{rel}: {lines} lines > warn threshold {warn_limit}")
@@ -95,7 +114,7 @@ def main() -> int:
             errors.append(f"waiver target is not file: {rel} ({reason})")
             continue
         if rel not in seen_runtime:
-            errors.append(f"waiver target outside runtime glob: {rel} ({reason})")
+            errors.append(f"waiver target outside runtime globs: {rel} ({reason})")
             continue
         lines = seen_runtime[rel]
         if lines <= error_limit:

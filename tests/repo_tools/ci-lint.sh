@@ -402,6 +402,18 @@ run_cli_adapter_guard() {
   fi
 }
 
+run_ruff_quality() {
+  if ! command -v ruff >/dev/null 2>&1; then
+    warn "ruff not found; skipping ruff bug check"
+    return
+  fi
+  log "running ruff bug check (F/E9/B)"
+  if ! ruff check skills hooks aidd_runtime tests tests/repo_tools --select F,E9,B; then
+    err "ruff bug check failed"
+    STATUS=1
+  fi
+}
+
 run_python_only_regression() {
   if [[ ! -f "tests/repo_tools/python-only-regression.sh" ]]; then
     warn "tests/repo_tools/python-only-regression.sh missing; skipping"
@@ -703,6 +715,7 @@ run_research_legacy_artifact_guard
 run_runtime_module_guard
 run_runtime_bootstrap_guard
 run_cli_adapter_guard
+run_ruff_quality
 run_python_only_regression
 run_release_guard
 run_release_docs_guard

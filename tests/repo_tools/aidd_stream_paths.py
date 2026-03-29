@@ -5,7 +5,7 @@ import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Iterator, List, Sequence, Tuple
+from typing import Iterator, List, Sequence, Tuple
 
 
 STREAM_SUFFIX_RE = re.compile(r"\.stream\.(?:jsonl|log)$", re.IGNORECASE)

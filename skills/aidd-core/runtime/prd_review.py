@@ -333,8 +333,8 @@ def collect_placeholders(content: str) -> Iterable[str]:
 def analyse_prd(slug: str, prd_path: Path, *, ticket: Optional[str] = None) -> Report:
     try:
         content = prd_path.read_text(encoding="utf-8")
-    except FileNotFoundError:
-        raise SystemExit(f"[prd-review] PRD not found: {prd_path}")
+    except FileNotFoundError as exc:
+        raise SystemExit(f"[prd-review] PRD not found: {prd_path}") from exc
 
     status, action_items = extract_review_section(content)
     findings: List[Finding] = []

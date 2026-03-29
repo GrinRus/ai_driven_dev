@@ -1761,10 +1761,10 @@ def main(argv: List[str] | None = None) -> int:
         stream_path_invalid: List[str] = []
         stream_path_stale: List[str] = []
 
-        def _stale_stream(path: Optional[Path]) -> bool:
+        def _stale_stream(path: Optional[Path], _iteration_started_at: float = iteration_started_at) -> bool:
             if path is None or not path.exists():
                 return False
-            return _safe_mtime(path) + 1.0 < iteration_started_at
+            return _safe_mtime(path) + 1.0 < _iteration_started_at
         if stream_mode and stream_log_path and step_stream_log:
             step_stream_log_path, invalid_path = _resolve_path_within_target(
                 target,
