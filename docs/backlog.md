@@ -4,6 +4,92 @@
 
 _Revision note (2026-03-10): backlog ревизован по критерию удаления реализованных волн: удаляем волну только если acceptance подтверждён в текущем коде, релевантные regression/check команды зелёные, и нет открытых блокирующих зависимостей._
 
+## Wave 120 — E2E quality follow-ups for TST-002 (2026-03-30)
+
+Статус: plan. Основание — результаты quality e2e run 20260330T081411Z по тикету TST-002; цель — повысить качество кода и артефактов, генерируемых AIDD.
+
+### Source run
+- Audit dir: `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260330T081411Z`
+- Base prompt: `/Users/griogrii_riabov/grigorii_projects/ai_driven_dev/docs/e2e/aidd_test_flow_prompt_ralph_script_full.txt`
+- Feature final state: `NOT_REACHED`
+- Overall quality gate: `FAIL`
+
+- [ ] **W120-1 (P0) Enforce bounded terminalization for plan-new stream runs** `tests/repo_tools/aidd_stage_launcher.py`, `docs/e2e/aidd_test_flow_prompt_ralph_script_full.txt`, `skills/plan-new/SKILL.md`:
+  - detect prolonged no-terminal-result plan stage and finalize with deterministic BLOCKED top-level outcome;
+  - encode stage-budget timeout policy with explicit `reason_code=seed_stage_budget_exhausted` (or successor canonical code);
+  - persist terminal attribution artifacts automatically without operator manual kill.
+  **AC:** plan-new in non-interactive audit path always returns one canonical terminal top-level result (`done|blocked`) within bounded runtime.
+  **Deps:** ->
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_aidd_stage_launcher.py tests/repo_tools/test_aidd_audit_runner.py tests/repo_tools/test_e2e_prompt_contract.py`
+  **Evidence:** `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260330T081411Z/05_plan_new_run1.summary.txt`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260330T081411Z/05_plan_new_termination_attribution.txt`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260330T081411Z/09_quality_findings.json`
+  **Effort:** M
+  **Risk:** High
+
+- [ ] **W120-2 (P1) Reduce template-heavy research output in warn-state completions** `skills/researcher/SKILL.md`, `skills/researcher/templates/research.template.md`, `skills/aidd-stage-research/SKILL.md`:
+  - tighten completion criteria so warn-state research output still includes minimally populated evidence sections instead of placeholder-heavy content;
+  - add explicit placeholder budget checks in researcher stage output contract;
+  - add regression guard for high `TBD` density in terminal research artifacts.
+  **AC:** research stage terminal artifacts provide actionable evidence sections with bounded placeholder density when status is `warn`.
+  **Deps:** W120-1
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py tests/test_prompt_lint.py`
+  **Evidence:** `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/aidd/docs/research/TST-002.md`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260330T081411Z/05_research_head.txt`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260330T081411Z/05_research_rlm_check.txt`
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W120-3 (P2) Improve runner convergence diagnostics for verbose stream-json sessions** `tests/repo_tools/aidd_stage_launcher.py`, `docs/e2e/aidd_test_flow_prompt_ralph_script_full.txt`:
+  - add progress/convergence heartbeat classification for long stream outputs;
+  - emit deterministic early warning marker before hard kill threshold;
+  - document operator policy for long-running active-stream sessions in base e2e prompt.
+  **AC:** long-running stage sessions emit deterministic convergence diagnostics and terminalization guidance before watchdog kill is needed.
+  **Deps:** W120-1
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_aidd_stage_launcher.py tests/repo_tools/test_e2e_quality_prompt_contract.py`
+  **Evidence:** `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260330T081411Z/05_plan_new_run1.log`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260330T081411Z/05_plan_new_termination_attribution.txt`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260330T081411Z/09_quality_findings.md`
+  **Effort:** S
+  **Risk:** Medium
+
+## Wave 119 — E2E quality follow-ups for TST-002 (2026-03-30)
+
+Статус: plan. Основание — результаты quality e2e run 20260330T073513Z по тикету TST-002; цель — повысить качество кода и артефактов, генерируемых AIDD.
+
+### Source run
+- Audit dir: `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260330T073513Z`
+- Base prompt: `/Users/griogrii_riabov/grigorii_projects/ai_driven_dev/docs/e2e/aidd_test_flow_prompt_ralph_script_full.txt`
+- Feature final state: `NOT_REACHED`
+- Overall quality gate: `FAIL`
+
+- [ ] **W119-1 (P0) Remove retired wrapper bootstrap path from status-stage execution** `skills/status/SKILL.md`, `skills/status/runtime/status.py`, `agents/*.md`, `tests/repo_tools/aidd_stage_launcher.py`:
+  - eliminate references to `skills/feature-dev-aidd/skill_env.sh` in status-stage execution path and enforce canonical python runtime launch;
+  - add fail-fast check for missing wrapper path with deterministic terminal BLOCKED payload;
+  - add regression fixture for healthcheck run where wrapper bootstrap is unavailable.
+  **AC:** `/feature-dev-aidd:status <ticket>` emits one deterministic top-level terminal result (`done|blocked`) without wrapper-path dependency.
+  **Deps:** ->
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_aidd_stage_launcher.py tests/repo_tools/test_aidd_audit_runner.py tests/repo_tools/test_e2e_prompt_contract.py`
+  **Evidence:** `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260330T073513Z/01_healthcheck_run1.log`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260330T073513Z/09_quality_findings.json`
+  **Effort:** M
+  **Risk:** High
+
+- [ ] **W119-2 (P1) Add bounded terminalization for preflight healthcheck no-convergence** `tests/repo_tools/aidd_stage_launcher.py`, `tests/repo_tools/aidd_audit_runner.py`, `docs/e2e/aidd_test_flow_prompt_ralph_script_full.txt`:
+  - add deterministic timeout/no-result terminal path for healthcheck runner with explicit `reason_code`;
+  - persist summary/init/liveness artifacts even when process is externally terminated;
+  - encode retry/stop policy for active-stream no-convergence in preflight step contract.
+  **AC:** preflight healthcheck never requires operator kill to produce classifiable terminal artifacts.
+  **Deps:** W119-1
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_aidd_stage_launcher.py tests/repo_tools/test_aidd_audit_runner.py tests/repo_tools/test_e2e_quality_prompt_contract.py`
+  **Evidence:** `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260330T073513Z/01_healthcheck_termination_attribution.txt`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260330T073513Z/01_healthcheck_classification.json`
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W119-3 (P2) Harden nested Bash command quoting in non-interactive stage runs** `skills/status/SKILL.md`, `agents/statusline-setup.md`, `tests/repo_tools/aidd_stage_launcher.py`:
+  - normalize shell command serialization for nested tool calls to prevent malformed `: "...` payloads;
+  - add diagnostics fingerprint for quote-syntax failures (`unmatched` class);
+  - add smoke regression to assert no malformed quoted commands in status healthcheck path.
+  **AC:** nested Bash calls in healthcheck path do not emit quote-syntax errors under non-interactive runner.
+  **Deps:** W119-2
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py tests/repo_tools/test_aidd_stage_launcher.py`
+  **Evidence:** `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260330T073513Z/01_healthcheck_run1.log`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260330T073513Z/09_quality_findings.md`
+  **Effort:** S
+  **Risk:** Medium
+
 ## Wave 118 — E2E quality follow-ups for TST-002 (2026-03-29)
 
 Статус: plan. Основание — результаты quality e2e run 20260329T180741Z по тикету TST-002; цель — повысить качество кода и артефактов, генерируемых AIDD.
