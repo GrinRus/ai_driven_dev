@@ -4,6 +4,60 @@
 
 _Revision note (2026-03-10): backlog ревизован по критерию удаления реализованных волн: удаляем волну только если acceptance подтверждён в текущем коде, релевантные regression/check команды зелёные, и нет открытых блокирующих зависимостей._
 
+## Wave 118 — E2E quality follow-ups for TST-002 (2026-03-29)
+
+Статус: plan. Основание — результаты quality e2e run 20260329T180741Z по тикету TST-002; цель — повысить качество кода и артефактов, генерируемых AIDD.
+
+### Source run
+- Audit dir: `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260329T180741Z`
+- Base prompt: `/Users/griogrii_riabov/grigorii_projects/ai_driven_dev/docs/e2e/aidd_test_flow_prompt_ralph_script_full.txt`
+- Feature final state: `NOT_REACHED`
+- Overall quality gate: `FAIL`
+
+- [ ] **W118-1 (P0) Enforce deterministic terminalization for seed implement no-result stalls** `skills/implement/SKILL.md`, `skills/implement/runtime/implement_run.py`, `tests/repo_tools/aidd_stage_launcher.py`, `tests/repo_tools/aidd_audit_runner.py`:
+  - detect no-progress + missing top-level result in seed stage and emit deterministic terminal payload before prolonged hangs;
+  - add explicit fail-fast reason_code path for stalled seed-stage orchestration;
+  - add regression fixture for `implement` run with missing terminal result and stalled log growth.
+  **AC:** step-6 implement always ends with deterministic top-level terminal result (`done|blocked`) and no manual kill is required for this failure class.
+  **Deps:** ->
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_aidd_stage_launcher.py tests/repo_tools/test_aidd_audit_runner.py tests/repo_tools/test_e2e_prompt_contract.py`
+  **Evidence:** `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260329T180741Z/06_implement_run1.summary.txt`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260329T180741Z/06_implement_silent_stall_check.txt`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260329T180741Z/06_implement_silent_stall_diag_prekill.txt`
+  **Effort:** M
+  **Risk:** High
+
+- [ ] **W118-2 (P1) Stabilize implement-stage test command synthesis and retry policy** `skills/implement/SKILL.md`, `skills/implement/runtime/implement_run.py`, `skills/aidd-policy/SKILL.md`:
+  - prevent invalid test-filter generation that yields `No tests found` when stage intent is targeted verification;
+  - bind retries to deterministic command fingerprints and stop repeating non-converging command variants;
+  - surface normalized command + failure fingerprint in stage diagnostics for auditability.
+  **AC:** implement stage test commands are deterministic and valid; non-converging command loops are bounded with explicit terminal reason_code.
+  **Deps:** W118-1
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py tests/test_prompt_lint.py`
+  **Evidence:** `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260329T180741Z/06_implement_run1.log`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260329T180741Z/09_code_tests_check.txt`
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W118-3 (P2) Align review-spec narrative telemetry with structured report SoT** `skills/review-spec/SKILL.md`, `skills/review-spec/runtime/review_spec.py`, `skills/aidd-docio/runtime/md_reports.py`:
+  - reconcile narrative output fields with structured report payload for findings/status/open_questions;
+  - add mismatch guard that emits explicit telemetry when narrative diverges from structured report;
+  - extend tests for `review_spec_report_mismatch` handling path.
+  **AC:** when structured report is valid, narrative mirrors core status/finding counters or emits deterministic mismatch marker with no operator ambiguity.
+  **Deps:** ->
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py tests/repo_tools/test_prompt_exec_contract.py`
+  **Evidence:** `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260329T180741Z/05_review_spec_report_check_run1.txt`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260329T180741Z/09_quality_findings.json`
+  **Effort:** S
+  **Risk:** Medium
+
+- [ ] **W118-4 (P2) Improve stream-path emission and fallback liveness diagnostics** `tests/repo_tools/aidd_stream_paths.py`, `tests/repo_tools/aidd_stage_launcher.py`, `docs/e2e/aidd_test_flow_prompt_ralph_script_full.txt`:
+  - expand stream-path extraction coverage for valid stream-json init/header patterns;
+  - enrich fallback diagnostics with explicit source attribution and confidence level;
+  - add tests for `stream_path_not_emitted_by_cli` scenarios with deterministic liveness classification.
+  **AC:** launcher emits actionable stream-path diagnostics with clear source attribution and stable liveness classification when CLI omits stream paths.
+  **Deps:** ->
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_aidd_stream_paths.py tests/repo_tools/test_aidd_stage_launcher.py`
+  **Evidence:** `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260329T180741Z/06_implement_stream_paths_run1.txt`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260329T180741Z/06_implement_stream_liveness_check_run1.txt`
+  **Effort:** S
+  **Risk:** Low
+
 ## Wave 117 — E2E quality follow-ups for TST-002 (2026-03-29)
 
 Статус: plan. Основание — результаты quality e2e run 20260329T172731Z по тикету TST-002; цель — повысить качество кода и артефактов, генерируемых AIDD.
