@@ -28,9 +28,17 @@ def parse_args(argv: list[str] | None = None):
 def _resolve_review_report_path(context: launcher.LaunchContext) -> Path:
     feature_context = runtime.resolve_feature_context(context.root, ticket=context.ticket)
     slug = (feature_context.slug_hint or context.ticket).strip() or context.ticket
-    report_template = runtime.review_report_template(context.root)
-    if "{scope_key}" not in report_template:
-        report_template = runtime.DEFAULT_REVIEW_REPORT
+    existing_path, checked = runtime.resolve_existing_review_report_path(
+        context.root,
+        ticket=context.ticket,
+        slug_hint=slug,
+        scope_key=context.scope_key,
+    )
+    if existing_path is not None:
+        return existing_path
+    if checked:
+        return checked[0]
+    report_template = runtime.DEFAULT_REVIEW_REPORT
     report_rel = (
         str(report_template)
         .replace("{ticket}", context.ticket)
@@ -51,11 +59,23 @@ def main(argv: list[str] | None = None) -> int:
     )
     report_path = _resolve_review_report_path(context)
     if not report_path.exists():
+        feature_context = runtime.resolve_feature_context(context.root, ticket=context.ticket)
+        slug = (feature_context.slug_hint or context.ticket).strip() or context.ticket
+        _, checked = runtime.resolve_existing_review_report_path(
+            context.root,
+            ticket=context.ticket,
+            slug_hint=slug,
+            scope_key=context.scope_key,
+        )
         report_rel = runtime.rel_path(report_path, context.root)
+        checked_rel = ",".join(runtime.rel_path(path, context.root) for path in checked[:8])
         print("[aidd] ERROR: reason_code=review_report_missing", file=sys.stderr)
         print(f"[aidd] ERROR: report_path={report_rel}", file=sys.stderr)
         print(
-            "[aidd] ERROR: diagnostics=canonical_review_report_required",
+            (
+                "[aidd] ERROR: diagnostics=canonical_review_report_required"
+                + (f" checked_paths={checked_rel}" if checked_rel else "")
+            ),
             file=sys.stderr,
         )
         return 2

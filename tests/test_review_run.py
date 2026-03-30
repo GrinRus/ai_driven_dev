@@ -68,6 +68,29 @@ class ReviewRunTests(unittest.TestCase):
             self.assertEqual(code, 0)
             stage_actions_main.assert_called_once()
 
+    def test_main_accepts_legacy_loop_review_report_alias(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="review-run-") as tmpdir:
+            root = Path(tmpdir)
+            context = launcher.LaunchContext(
+                root=root,
+                ticket="DEMO-LEGACY",
+                scope_key="iteration_id_I1",
+                work_item_key="iteration_id=I1",
+                stage="review",
+            )
+            legacy_report = root / "reports" / "loops" / "DEMO-LEGACY" / "I1.review.json"
+            legacy_report.parent.mkdir(parents=True, exist_ok=True)
+            legacy_report.write_text("{}", encoding="utf-8")
+
+            with (
+                patch("aidd_runtime.review_run.launcher.resolve_context", return_value=context),
+                patch("aidd_runtime.review_run.stage_actions_run.main", return_value=0) as stage_actions_main,
+            ):
+                code = review_run.main(["--ticket", "DEMO-LEGACY"])
+
+            self.assertEqual(code, 0)
+            stage_actions_main.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()

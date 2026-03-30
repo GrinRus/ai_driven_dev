@@ -1341,6 +1341,22 @@ class PromptLintTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("deprecated runtime alias `set_stage.py`", result.stderr)
 
+    def test_stage_skill_malformed_slash_alias_fails(self) -> None:
+        bad_skill = build_stage_skill("qa").replace(
+            "## Steps\n1. Stage-chain-only policy: execute only via canonical stage-chain.",
+            (
+                "## Steps\n"
+                "1. If blocked, run `/feature-dev-aidd::qa DEMO-1`."
+            ),
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, skill_override={"qa": bad_skill})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("malformed slash alias", result.stderr)
+
     def test_stage_skill_absolute_skills_runtime_path_fails(self) -> None:
         bad_skill = build_stage_skill("plan-new").replace(
             "## Steps\n1. Run subagent `feature-dev-aidd:planner`.\n2. Run subagent `feature-dev-aidd:validator`.",

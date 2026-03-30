@@ -222,6 +222,7 @@ AGENT_SELF_STAGE_COMMAND_MAP: Dict[str, str] = {
     "qa": "qa",
 }
 AGENT_STAGE_COMMAND_REF_RE = re.compile(r"/feature-dev-aidd:([a-z0-9-]+)", re.IGNORECASE)
+MALFORMED_STAGE_ALIAS_RE = re.compile(r"/(?:feature-dev-aidd:)?:[a-z0-9-]+", re.IGNORECASE)
 AGENT_LOOP_PATH_LEVEL_POLICY_RE = (
     re.compile(r"stage\.(?:implement|review|qa)\.result\.json", re.IGNORECASE),
 )
@@ -1154,6 +1155,12 @@ def lint_skills(root: Path) -> Tuple[List[str], List[str]]:
                         f"{info.path}: stage guidance uses legacy stage alias `{legacy_alias}`; "
                         f"use `{canonical_alias}`"
                     )
+            malformed_alias_match = MALFORMED_STAGE_ALIAS_RE.search(info.body)
+            if malformed_alias_match:
+                errors.append(
+                    f"{info.path}: stage guidance contains malformed slash alias "
+                    f"`{malformed_alias_match.group(0)}`"
+                )
             for alias_token in DEPRECATED_ACTIVE_STATE_ALIAS_TOKENS:
                 for line in info.body.splitlines():
                     lowered = line.lower()

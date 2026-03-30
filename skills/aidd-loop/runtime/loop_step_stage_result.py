@@ -284,15 +284,37 @@ def parse_timestamp(value: str) -> dt.datetime | None:
         return None
 
 
-def resolve_review_report_path(root: Path, ticket: str, slug_hint: str, scope_key: str) -> Path:
-    template = runtime.review_report_template(root)
-    rel_text = (
-        str(template)
-        .replace("{ticket}", ticket)
-        .replace("{slug}", slug_hint or ticket)
-        .replace("{scope_key}", scope_key)
+def resolve_review_report_path_with_diagnostics(
+    root: Path,
+    ticket: str,
+    slug_hint: str,
+    scope_key: str,
+) -> Tuple[Path | None, List[str]]:
+    path, checked = runtime.resolve_existing_review_report_path(
+        root,
+        ticket=ticket,
+        slug_hint=slug_hint or ticket,
+        scope_key=scope_key,
     )
-    return runtime.resolve_path_for_target(Path(rel_text), root)
+    checked_rel = [runtime.rel_path(item, root) for item in checked[:12]]
+    return path, checked_rel
+
+
+def resolve_review_report_path(root: Path, ticket: str, slug_hint: str, scope_key: str) -> Path:
+    path, checked_rel = resolve_review_report_path_with_diagnostics(
+        root,
+        ticket=ticket,
+        slug_hint=slug_hint,
+        scope_key=scope_key,
+    )
+    if path is not None:
+        return path
+    if checked_rel:
+        return runtime.resolve_path_for_target(Path(checked_rel[0]), root)
+    return runtime.resolve_path_for_target(
+        Path("aidd/reports/reviewer/{ticket}/{scope_key}.json".format(ticket=ticket, scope_key=scope_key)),
+        root,
+    )
 
 
 def _maybe_regen_review_pack(
@@ -302,8 +324,15 @@ def _maybe_regen_review_pack(
     slug_hint: str,
     scope_key: str,
 ) -> Tuple[bool, str]:
-    report_path = resolve_review_report_path(root, ticket, slug_hint, scope_key)
-    if not report_path.exists():
+    report_path, checked_rel = resolve_review_report_path_with_diagnostics(
+        root,
+        ticket=ticket,
+        slug_hint=slug_hint,
+        scope_key=scope_key,
+    )
+    if report_path is None:
+        if checked_rel:
+            return False, f"review report missing; expected={checked_rel[0]} checked={','.join(checked_rel)}"
         return False, "review report missing"
     loop_pack_path = root / "reports" / "loops" / ticket / f"{scope_key}.loop.pack.md"
     if not loop_pack_path.exists():
@@ -365,8 +394,13 @@ def validate_review_pack(
         fix_plan_path = root / "reports" / "loops" / ticket / scope_key / "review.fix_plan.json"
         if not fix_plan_path.exists():
             return False, "review fix plan missing", "review_fix_plan_missing"
-    report_path = resolve_review_report_path(root, ticket, slug_hint, scope_key)
-    if report_path.exists():
+    report_path, _checked_rel = resolve_review_report_path_with_diagnostics(
+        root,
+        ticket=ticket,
+        slug_hint=slug_hint,
+        scope_key=scope_key,
+    )
+    if report_path is not None and report_path.exists():
         try:
             report = json.loads(report_path.read_text(encoding="utf-8"))
         except json.JSONDecodeError:

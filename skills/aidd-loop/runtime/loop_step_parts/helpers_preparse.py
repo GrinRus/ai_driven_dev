@@ -81,6 +81,14 @@ _CANT_OPEN_RUNTIME_RE = re.compile(
     r"can't open file [\"']?[^\"'\n]*?/skills/[^\"'\n]*/runtime/[^\"'\n]*",
     re.IGNORECASE,
 )
+_NON_CANONICAL_REL_RUNTIME_CMD_RE = re.compile(
+    r"python3\s+(?:\./)?skills/[^\s]*/runtime/[^\s`]+",
+    re.IGNORECASE,
+)
+_DEPRECATED_SET_STAGE_CMD_RE = re.compile(
+    r"python3\s+[^\n]*skills/aidd-flow-state/runtime/(?:set_stage|stage_set)\.py\b",
+    re.IGNORECASE,
+)
 _MANUAL_PREFLIGHT_PREPARE_CMD_RE = re.compile(
     r"python3\s+[^\n]*skills/aidd-loop/runtime/preflight_prepare\.py\b",
     re.IGNORECASE,
@@ -90,6 +98,10 @@ _NON_CANONICAL_STAGE_PREFLIGHT_CMD_RE = re.compile(
     re.IGNORECASE,
 )
 _JSON_COMMAND_RE = re.compile(r'"command"\s*:\s*"([^"]+)"')
+_MALFORMED_STAGE_ALIAS_RE = re.compile(
+    r"(?:unknown skill|command not found):\s*:(?!status\b)([a-z0-9_-]+)",
+    re.IGNORECASE,
+)
 
 
 def _approval_allowed() -> bool:
@@ -219,13 +231,31 @@ def _detect_runtime_path_tripwire(
         reason = f"runtime path drift detected: {evidence}"
         return True, RUNTIME_PATH_DRIFT_REASON_CODE, reason, []
 
+    malformed_alias_match = _MALFORMED_STAGE_ALIAS_RE.search(combined)
+    if malformed_alias_match:
+        evidence = malformed_alias_match.group(0).strip()
+        reason = f"prompt alias drift detected: {evidence}"
+        return True, RUNTIME_PATH_DRIFT_REASON_CODE, reason, []
+
     telemetry_events: List[str] = []
     for command_line in _iter_python_command_lines(combined):
         normalized = command_line.strip()
         if _MANUAL_PREFLIGHT_PREPARE_CMD_RE.search(normalized):
             telemetry_events.append(f"manual_preflight_runtime_call={normalized}")
+            reason = f"non-canonical stage orchestration drift detected: {normalized}"
+            return True, RUNTIME_PATH_DRIFT_REASON_CODE, reason, telemetry_events
         if _NON_CANONICAL_STAGE_PREFLIGHT_CMD_RE.search(normalized):
             telemetry_events.append(f"non_canonical_stage_preflight_runtime_call={normalized}")
+            reason = f"non-canonical stage preflight runtime detected: {normalized}"
+            return True, RUNTIME_PATH_DRIFT_REASON_CODE, reason, telemetry_events
+        if _DEPRECATED_SET_STAGE_CMD_RE.search(normalized):
+            telemetry_events.append(f"deprecated_set_stage_runtime_call={normalized}")
+            reason = f"deprecated stage alias runtime detected: {normalized}"
+            return True, RUNTIME_PATH_DRIFT_REASON_CODE, reason, telemetry_events
+        if _NON_CANONICAL_REL_RUNTIME_CMD_RE.search(normalized):
+            telemetry_events.append(f"non_canonical_relative_runtime_call={normalized}")
+            reason = f"non-canonical runtime path detected: {normalized}"
+            return True, RUNTIME_PATH_DRIFT_REASON_CODE, reason, telemetry_events
     return False, "", "", telemetry_events
 
 

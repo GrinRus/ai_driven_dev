@@ -50,6 +50,10 @@ CANONICAL_RUNTIME_CALL_RE = re.compile(
     r"skills/(?:implement/runtime/implement_run\.py|review/runtime/review_run\.py|qa/runtime/qa_run\.py|aidd-docio/runtime/actions_apply\.py|aidd-flow-state/runtime/stage_result\.py)\b",
     re.IGNORECASE,
 )
+MALFORMED_STAGE_ALIAS_RE = re.compile(
+    r"(?:unknown skill|command not found):\s*:(?!status\b)([a-z0-9_-]+)",
+    re.IGNORECASE,
+)
 
 
 def parse_kv_file(path: Path) -> Dict[str, str]:
@@ -483,6 +487,12 @@ def analyze_run(
         text=telemetry_text,
         pattern=CANONICAL_RUNTIME_CALL_RE,
     )
+    malformed_stage_alias_count = _summary_count_or_scan(
+        summary=summary,
+        key="malformed_stage_alias_count",
+        text=telemetry_text,
+        pattern=MALFORMED_STAGE_ALIAS_RE,
+    )
     summary_reason_code = str(summary.get("reason_code") or "").strip().lower()
     seed_stage_context = _is_seed_stage_context(summary, summary_path)
     seed_stage_non_converging_command = int(
@@ -666,6 +676,7 @@ def analyze_run(
             "status_alias_error_count": int(status_alias_error_count),
             "sibling_tool_error_count": int(sibling_tool_error_count),
             "canonical_runtime_call_count": int(canonical_runtime_call_count),
+            "malformed_stage_alias_count": int(malformed_stage_alias_count),
             "seed_stage_non_converging_command": int(seed_stage_non_converging_command),
             "workspace_layout_check_path": workspace_layout_check_path,
             "workspace_layout_noncanonical_detected": int(workspace_layout_detected),

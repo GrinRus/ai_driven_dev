@@ -19,6 +19,8 @@ from aidd_runtime.resources import DEFAULT_PROJECT_SUBDIR, resolve_project_root 
 
 DEFAULT_REVIEW_REPORT = "aidd/reports/reviewer/{ticket}/{scope_key}.json"
 _SCOPE_KEY_RE = re.compile(r"[^A-Za-z0-9_.-]+")
+_ITERATION_SCOPE_CANONICAL_RE = re.compile(r"^iteration_id_([IM]\d+)$", re.IGNORECASE)
+_ITERATION_SCOPE_ALIAS_RE = re.compile(r"^[IM]\d+$", re.IGNORECASE)
 _PLUGIN_WRITE_SAFETY_IGNORED_SUFFIXES = (".pyc", ".pyo")
 _PLUGIN_WRITE_SAFETY_IGNORED_DIR_MARKERS = ("/__pycache__/", "/.pytest_cache/")
 _PLUGIN_WRITE_SAFETY_IGNORED_PREFIXES = (".pytest_cache/",)
@@ -741,6 +743,106 @@ def review_report_template(target: Path) -> str:
     if "{scope_key}" not in template:
         return DEFAULT_REVIEW_REPORT
     return template
+
+
+def review_scope_aliases(scope_key: str) -> List[str]:
+    """Return deterministic scope-key aliases for review report compatibility lookup."""
+    raw = sanitize_scope_key(scope_key or "")
+    if not raw:
+        return []
+    aliases = [raw]
+    canonical_match = _ITERATION_SCOPE_CANONICAL_RE.match(raw)
+    if canonical_match:
+        aliases.append(canonical_match.group(1).upper())
+    elif _ITERATION_SCOPE_ALIAS_RE.match(raw):
+        aliases.append(f"iteration_id_{raw.upper()}")
+    dedup: List[str] = []
+    seen: set[str] = set()
+    for item in aliases:
+        key = str(item).strip()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        dedup.append(key)
+    return dedup
+
+
+def resolve_review_report_candidates(
+    target: Path,
+    *,
+    ticket: str,
+    slug_hint: str,
+    scope_key: str,
+) -> List[Path]:
+    """Build canonical+compatibility review-report candidates in deterministic priority order."""
+    normalized_ticket = str(ticket or "").strip()
+    if not normalized_ticket:
+        return []
+    normalized_slug = (str(slug_hint or "").strip() or normalized_ticket)
+    scopes = review_scope_aliases(scope_key)
+    if not scopes:
+        scopes = [sanitize_scope_key(scope_key or normalized_ticket)]
+    templates: List[str] = []
+    canonical_template = review_report_template(target)
+    if "{scope_key}" not in canonical_template:
+        canonical_template = DEFAULT_REVIEW_REPORT
+    templates.append(canonical_template)
+    if canonical_template != DEFAULT_REVIEW_REPORT:
+        templates.append(DEFAULT_REVIEW_REPORT)
+
+    candidates: List[Path] = []
+    for template in templates:
+        for scope in scopes:
+            rel = (
+                str(template)
+                .replace("{ticket}", normalized_ticket)
+                .replace("{slug}", normalized_slug)
+                .replace("{scope_key}", scope)
+            )
+            candidates.append(resolve_path_for_target(Path(rel), target))
+
+    loop_root = target / "reports" / "loops" / normalized_ticket
+    for scope in scopes:
+        candidates.extend(
+            [
+                loop_root / f"{scope}.review.json",
+                loop_root / f"{scope}.final.review.json",
+                loop_root / f"{scope}.json",
+                loop_root / scope / "review.json",
+                loop_root / scope / "final.review.json",
+                loop_root / scope / "review.report.json",
+            ]
+        )
+
+    deduped: List[Path] = []
+    seen_paths: set[Path] = set()
+    for candidate in candidates:
+        resolved = candidate.resolve()
+        if resolved in seen_paths:
+            continue
+        seen_paths.add(resolved)
+        deduped.append(resolved)
+    return deduped
+
+
+def resolve_existing_review_report_path(
+    target: Path,
+    *,
+    ticket: str,
+    slug_hint: str,
+    scope_key: str,
+) -> tuple[Optional[Path], List[Path]]:
+    """Return first existing review report path and full checked candidate list."""
+    candidates = resolve_review_report_candidates(
+        target,
+        ticket=ticket,
+        slug_hint=slug_hint,
+        scope_key=scope_key,
+    )
+    for path in candidates:
+        if path.exists():
+            return path, candidates
+    return None, candidates
 
 
 def is_relative_to(path: Path, ancestor: Path) -> bool:

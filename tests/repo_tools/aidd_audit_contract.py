@@ -30,6 +30,10 @@ CANONICAL_RUNTIME_CALL_RE = re.compile(
     r"skills/(?:implement/runtime/implement_run\.py|review/runtime/review_run\.py|qa/runtime/qa_run\.py|aidd-docio/runtime/actions_apply\.py|aidd-flow-state/runtime/stage_result\.py)\b",
     re.IGNORECASE,
 )
+MALFORMED_STAGE_ALIAS_RE = re.compile(
+    r"(?:unknown skill|command not found):\s*:(?!status\b)([a-z0-9_-]+)",
+    re.IGNORECASE,
+)
 READINESS_REASON_CODES = (
     "readiness_gate_failed",
     "prd_not_ready",
@@ -148,6 +152,22 @@ def classify_incident(
             subtype="watchdog_terminated",
             source="termination_attribution",
             label="NOT_VERIFIED(killed)+PROMPT_EXEC_ISSUE(watchdog_terminated)",
+        )
+
+    if "launcher_prompt_contract_mismatch" in merged_text:
+        return Classification(
+            classification="PROMPT_EXEC_ISSUE",
+            subtype="launcher_prompt_contract_mismatch",
+            source="summary" if "reason_code=launcher_prompt_contract_mismatch" in summary_text else "run_log",
+            label="PROMPT_EXEC_ISSUE(launcher_prompt_contract_mismatch)",
+        )
+
+    if MALFORMED_STAGE_ALIAS_RE.search(merged_text):
+        return Classification(
+            classification="PROMPT_EXEC_ISSUE",
+            subtype="launcher_prompt_contract_mismatch",
+            source="run_log",
+            label="PROMPT_EXEC_ISSUE(launcher_prompt_contract_mismatch)",
         )
 
     status_alias_error_count = _safe_int(summary.get("status_alias_error_count"), default=-1)

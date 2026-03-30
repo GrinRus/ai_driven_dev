@@ -123,6 +123,20 @@ class TasklistCheckTests(unittest.TestCase):
                 result.message,
             )
 
+    def test_tasklist_check_ignores_shell_chain_tokens_in_test_execution_prose_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            ticket = "DEMO-3P"
+            tasklist = helpers.tasklist_ready_text(ticket).replace(
+                "- reason: docs-only\n",
+                '- reason: "notes: use A && B in prose; do not execute"\n',
+                1,
+            )
+            helpers.write_file(root, f"docs/tasklist/{ticket}.md", tasklist)
+            write_plan(root, ticket)
+            result = tasklist_check.check_tasklist(helpers._project_root(root), ticket)
+            self.assertEqual(result.status, "ok", result.message)
+
     def test_tasklist_check_fails_when_next3_contains_checked_item(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)

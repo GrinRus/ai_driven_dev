@@ -159,7 +159,7 @@ class LoopStepTests(unittest.TestCase):
             self.assertIn("can't open file", str(payload.get("reason") or ""))
             self.assertEqual(payload.get("runner_source"), "cli_arg")
 
-    def test_loop_step_collects_manual_preflight_prepare_as_telemetry_only(self) -> None:
+    def test_loop_step_blocks_manual_preflight_prepare_runtime_call(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-tripwire-manual-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             ticket = "DEMO-TRIPWIRE-PREFLIGHT"
@@ -197,13 +197,102 @@ class LoopStepTests(unittest.TestCase):
                 cwd=root,
                 env=env,
             )
-            self.assertNotEqual(result.returncode, 127, msg=result.stderr)
+            self.assertEqual(result.returncode, 20, msg=result.stderr)
             payload = json.loads(result.stdout)
-            self.assertNotEqual(payload.get("status"), "blocked")
-            self.assertNotEqual(payload.get("reason_code"), "runtime_path_missing_or_drift")
-            self.assertEqual(payload.get("drift_tripwire_hit"), False)
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertEqual(payload.get("reason_code"), "runtime_path_missing_or_drift")
+            self.assertEqual(payload.get("drift_tripwire_hit"), True)
             telemetry = payload.get("drift_telemetry_events") or []
             self.assertTrue(any("manual_preflight_runtime_call=" in str(item) for item in telemetry), telemetry)
+
+    def test_loop_step_blocks_deprecated_set_stage_runtime_alias(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-tripwire-set-stage-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-TRIPWIRE-SET-STAGE"
+            write_active_state(root, ticket=ticket, work_item="iteration_id=I1")
+            self._seed_stage_chain_baseline(root, ticket)
+            runner_script = root.parent / "runner_tripwire_set_stage.sh"
+            runner_script.write_text(
+                "\n".join(
+                    [
+                        "#!/usr/bin/env bash",
+                        "set -euo pipefail",
+                        "echo \"$*\" >> \"${AIDD_LOOP_RUNNER_LOG:?}\"",
+                        "echo \"$ python3 /tmp/work/skills/aidd-flow-state/runtime/set_stage.py --stage review\"",
+                        "exit 0",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            runner_script.chmod(0o755)
+            log_path = root / "runner.log"
+            env = cli_env({"AIDD_LOOP_RUNNER_LOG": str(log_path)})
+            result = subprocess.run(
+                cli_cmd(
+                    "loop-step",
+                    "--ticket",
+                    ticket,
+                    "--runner",
+                    f"bash {runner_script}",
+                    "--format",
+                    "json",
+                ),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=env,
+            )
+            self.assertEqual(result.returncode, 20, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertEqual(payload.get("reason_code"), "runtime_path_missing_or_drift")
+            telemetry = payload.get("drift_telemetry_events") or []
+            self.assertTrue(any("deprecated_set_stage_runtime_call=" in str(item) for item in telemetry), telemetry)
+
+    def test_loop_step_blocks_malformed_stage_alias_in_runner_output(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-tripwire-alias-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-TRIPWIRE-ALIAS"
+            write_active_state(root, ticket=ticket, work_item="iteration_id=I1")
+            self._seed_stage_chain_baseline(root, ticket)
+            runner_script = root.parent / "runner_tripwire_alias.sh"
+            runner_script.write_text(
+                "\n".join(
+                    [
+                        "#!/usr/bin/env bash",
+                        "set -euo pipefail",
+                        "echo \"$*\" >> \"${AIDD_LOOP_RUNNER_LOG:?}\"",
+                        "echo \"Unknown skill: :qa\"",
+                        "exit 1",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            runner_script.chmod(0o755)
+            log_path = root / "runner.log"
+            env = cli_env({"AIDD_LOOP_RUNNER_LOG": str(log_path)})
+            result = subprocess.run(
+                cli_cmd(
+                    "loop-step",
+                    "--ticket",
+                    ticket,
+                    "--runner",
+                    f"bash {runner_script}",
+                    "--format",
+                    "json",
+                ),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=env,
+            )
+            self.assertEqual(result.returncode, 20, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertEqual(payload.get("reason_code"), "runtime_path_missing_or_drift")
+            self.assertIn("prompt alias drift detected", str(payload.get("reason") or ""))
 
     def test_loop_step_ignore_legacy_skip_flag_in_strict_mode(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
@@ -820,6 +909,44 @@ class LoopStepTests(unittest.TestCase):
                 )
             finally:
                 os.chdir(cwd)
+            self.assertTrue(ok, msg=f"{code}: {message}")
+
+    def test_validate_review_pack_accepts_legacy_review_report_name(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-LEGACY-REVIEW-REPORT"
+            write_active_state(root, ticket=ticket, stage="review", work_item="iteration_id=I1")
+            write_file(
+                root,
+                f"reports/loops/{ticket}/iteration_id_I1/review.latest.pack.md",
+                (
+                    "---\n"
+                    "schema: aidd.review_pack.v2\n"
+                    "updated_at: 2024-01-03T00:00:00Z\n"
+                    "verdict: SHIP\n"
+                    "scope_key: iteration_id_I1\n"
+                    "---\n"
+                ),
+            )
+            write_file(
+                root,
+                f"reports/loops/{ticket}/I1.review.json",
+                json.dumps(
+                    {
+                        "schema": "aidd.review_report.v1",
+                        "ticket": ticket,
+                        "scope_key": "iteration_id_I1",
+                        "status": "READY",
+                        "updated_at": "2024-01-03T00:00:00Z",
+                    }
+                ),
+            )
+            ok, message, code = loop_step_module.validate_review_pack(
+                root,
+                ticket=ticket,
+                slug_hint=ticket,
+                scope_key="iteration_id_I1",
+            )
             self.assertTrue(ok, msg=f"{code}: {message}")
 
     def test_loop_step_blocked_without_review_pack(self) -> None:

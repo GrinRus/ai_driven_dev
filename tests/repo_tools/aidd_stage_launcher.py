@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import json
 import os
 import re
@@ -30,6 +31,11 @@ CANONICAL_RUNTIME_CALL_RE = re.compile(
     r"skills/(?:implement/runtime/implement_run\.py|review/runtime/review_run\.py|qa/runtime/qa_run\.py|aidd-docio/runtime/actions_apply\.py|aidd-flow-state/runtime/stage_result\.py)\b",
     re.IGNORECASE,
 )
+MALFORMED_STAGE_ALIAS_RE = re.compile(
+    r"(?:unknown skill|command not found):\s*:(?!status\b)([a-z0-9_-]+)",
+    re.IGNORECASE,
+)
+STAGE_COMMAND_RE = re.compile(r"/feature-dev-aidd:([a-z0-9-]+)", re.IGNORECASE)
 
 
 def build_paths(audit_dir: Path, step: str, run: int) -> Dict[str, Path]:
@@ -136,10 +142,12 @@ def _extract_prompt_exec_telemetry(log_text: str) -> Dict[str, int]:
     status_alias_error_count = sum(len(pattern.findall(log_text)) for pattern in STATUS_ALIAS_ERROR_PATTERNS)
     sibling_tool_error_count = len(SIBLING_TOOL_ERROR_RE.findall(log_text))
     canonical_runtime_call_count = len(CANONICAL_RUNTIME_CALL_RE.findall(log_text))
+    malformed_stage_alias_count = len(MALFORMED_STAGE_ALIAS_RE.findall(log_text))
     return {
         "status_alias_error_count": int(status_alias_error_count),
         "sibling_tool_error_count": int(sibling_tool_error_count),
         "canonical_runtime_call_count": int(canonical_runtime_call_count),
+        "malformed_stage_alias_count": int(malformed_stage_alias_count),
     }
 
 
@@ -160,6 +168,82 @@ def _detect_seed_stage_non_converging_command(
     if int(telemetry.get("canonical_runtime_call_count") or 0) > 0:
         return 0
     return 1
+
+
+def _infer_stage_name(*, stage_command: str, step_hint: str) -> str:
+    match = STAGE_COMMAND_RE.search(str(stage_command or ""))
+    if match:
+        return str(match.group(1) or "").strip().lower()
+    stage = re.sub(r"^[0-9]+_", "", str(step_hint or "").strip().lower())
+    return stage.replace("_", "-") if stage else "unknown"
+
+
+def _synthetic_reason_code(*, exit_code: int, log_text: str) -> str:
+    if MALFORMED_STAGE_ALIAS_RE.search(log_text):
+        return "launcher_prompt_contract_mismatch"
+    if int(exit_code) == 143:
+        return "parent_terminated_or_external_terminate"
+    if int(exit_code) == 127:
+        return "launcher_tokenization_or_command_not_found"
+    return "stage_command_exit_nonzero"
+
+
+def _synthetic_classification(reason_code: str) -> str:
+    if reason_code == "parent_terminated_or_external_terminate":
+        return "ENV_MISCONFIG(parent_terminated_or_external_terminate)"
+    if reason_code == "launcher_tokenization_or_command_not_found":
+        return "PROMPT_EXEC_ISSUE(launcher_tokenization_or_command_not_found)"
+    if reason_code == "launcher_prompt_contract_mismatch":
+        return "PROMPT_EXEC_ISSUE(launcher_prompt_contract_mismatch)"
+    return "PROMPT_EXEC_ISSUE(stage_command_exit_nonzero)"
+
+
+def _maybe_append_synthetic_terminal_result(
+    *,
+    log_path: Path,
+    exit_code: int,
+    ticket: str,
+    stage: str,
+) -> Dict[str, object]:
+    if int(exit_code) == 0:
+        return {}
+    current = log_path.read_text(encoding="utf-8", errors="replace") if log_path.exists() else ""
+    if _detect_top_level_result(current):
+        return {}
+    reason_code = _synthetic_reason_code(exit_code=exit_code, log_text=current)
+    classification = _synthetic_classification(reason_code)
+    signal = "SIGTERM" if int(exit_code) == 143 else ""
+    updated_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    normalized_ticket = str(ticket or "").strip()
+    normalized_stage = str(stage or "").strip().lower() or "unknown"
+    event = {
+        "type": "result",
+        "schema": "aidd.stage_result.v1",
+        "schema_version": "aidd.stage_result.v1",
+        "ticket": normalized_ticket,
+        "stage": normalized_stage,
+        "result": "blocked",
+        "updated_at": updated_at,
+        "status": "blocked",
+        "terminal_marker": 1,
+        "synthetic": True,
+        "exit_code": int(exit_code),
+        "reason_code": reason_code,
+        "classification": classification,
+        "termination_attribution": {
+            "exit_code": int(exit_code),
+            "signal": signal,
+            "killed_flag": 0,
+            "watchdog_marker": 0,
+            "classification": classification,
+        },
+    }
+    append = json.dumps(event, ensure_ascii=False)
+    with log_path.open("a", encoding="utf-8") as handle:
+        if current and not current.endswith("\n"):
+            handle.write("\n")
+        handle.write(append + "\n")
+    return event
 
 
 def parse_init(log_text: str) -> Dict[str, int]:
@@ -335,6 +419,12 @@ def main() -> int:
         heartbeat_path=paths["heartbeat"],
         poll_seconds=args.poll_seconds,
     )
+    synthetic_event = _maybe_append_synthetic_terminal_result(
+        log_path=paths["log"],
+        exit_code=exit_code,
+        ticket=args.ticket,
+        stage=_infer_stage_name(stage_command=args.stage_command, step_hint=args.step),
+    )
 
     log_text = paths["log"].read_text(encoding="utf-8", errors="replace") if paths["log"].exists() else ""
     paths["head"].write_text("\n".join(log_text.splitlines()[:200]) + ("\n" if log_text else ""), encoding="utf-8")
@@ -386,6 +476,7 @@ def main() -> int:
         f"status_alias_error_count={prompt_exec_telemetry['status_alias_error_count']}",
         f"sibling_tool_error_count={prompt_exec_telemetry['sibling_tool_error_count']}",
         f"canonical_runtime_call_count={prompt_exec_telemetry['canonical_runtime_call_count']}",
+        f"malformed_stage_alias_count={prompt_exec_telemetry['malformed_stage_alias_count']}",
         f"seed_stage_non_converging_command={seed_stage_non_converging_command}",
         f"primary_stream_count={stream_result['primary_candidates']}",
         f"valid_stream_count={stream_result['valid_count']}",
@@ -393,7 +484,23 @@ def main() -> int:
         f"missing_stream_count={stream_result['missing_count']}",
         f"fallback_used={stream_result['used_fallback']}",
         f"stream_path_not_emitted_by_cli={stream_result['cli_not_emitted']}",
+        f"synthetic_terminal_result={1 if synthetic_event else 0}",
     ]
+    if synthetic_event:
+        reason_code = str(synthetic_event.get("reason_code") or "")
+        term = synthetic_event.get("termination_attribution") or {}
+        summary_lines.extend(
+            [
+                "terminal_marker=1",
+                "status=blocked",
+                f"reason_code={reason_code}",
+                f"termination_exit_code={term.get('exit_code', '')}",
+                f"termination_signal={term.get('signal', '')}",
+                f"killed_flag={term.get('killed_flag', 0)}",
+                f"watchdog_marker={term.get('watchdog_marker', 0)}",
+                f"termination_classification={term.get('classification', reason_code)}",
+            ]
+        )
     if seed_stage_non_converging_command:
         summary_lines.extend(
             [

@@ -162,6 +162,53 @@ class AiddAuditRunnerTests(unittest.TestCase):
         self.assertEqual(payload.get("classification_subtype"), "fallback_path_assembly_bug")
         self.assertEqual(payload.get("invalid_fallback_path_count"), 1)
 
+    def test_malformed_stage_alias_classified_as_launcher_prompt_contract_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "08_qa_run1.summary.txt"
+            log_path = Path(tmp) / "08_qa_run1.log"
+            summary_path.write_text(
+                "\n".join(
+                    [
+                        "step=08_qa",
+                        "result_count=0",
+                        "exit_code=1",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            log_path.write_text(
+                "\n".join(
+                    [
+                        "Unknown skill: :qa",
+                        "command not found: :qa",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(summary_path=summary_path, run_log_path=log_path)
+        self.assertEqual(payload.get("classification"), "PROMPT_EXEC_ISSUE")
+        self.assertEqual(payload.get("classification_subtype"), "launcher_prompt_contract_mismatch")
+        self.assertEqual(payload.get("malformed_stage_alias_count"), 2)
+
+    def test_summary_reason_code_launcher_prompt_contract_mismatch_classified_without_log_alias_trace(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "08_qa_run1.summary.txt"
+            log_path = Path(tmp) / "08_qa_run1.log"
+            summary_path.write_text(
+                "\n".join(
+                    [
+                        "step=08_qa",
+                        "exit_code=1",
+                        "reason_code=launcher_prompt_contract_mismatch",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            log_path.write_text("runner failed\n", encoding="utf-8")
+            payload = self.runner.analyze_run(summary_path=summary_path, run_log_path=log_path)
+        self.assertEqual(payload.get("classification"), "PROMPT_EXEC_ISSUE")
+        self.assertEqual(payload.get("classification_subtype"), "launcher_prompt_contract_mismatch")
+
     def test_seed_stage_non_converging_command_detected_from_log_fingerprint_without_summary_fields(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             summary_path = Path(tmp) / "06_implement_run1.summary.txt"

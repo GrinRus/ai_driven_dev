@@ -193,6 +193,18 @@ class AiddStageLauncherTests(unittest.TestCase):
         self.assertEqual(telemetry["status_alias_error_count"], 2)
         self.assertEqual(telemetry["sibling_tool_error_count"], 1)
         self.assertEqual(telemetry["canonical_runtime_call_count"], 2)
+        self.assertEqual(telemetry["malformed_stage_alias_count"], 0)
+
+    def test_extract_prompt_exec_telemetry_counts_malformed_stage_alias(self) -> None:
+        telemetry = self.launcher._extract_prompt_exec_telemetry(
+            "\n".join(
+                [
+                    "Unknown skill: :qa",
+                    "command not found: :review",
+                ]
+            )
+        )
+        self.assertEqual(telemetry["malformed_stage_alias_count"], 2)
 
     def test_detect_seed_stage_non_converging_command_requires_alias_and_sibling_without_canonical_chain(self) -> None:
         positive = self.launcher._detect_seed_stage_non_converging_command(
@@ -215,6 +227,57 @@ class AiddStageLauncherTests(unittest.TestCase):
             },
         )
         self.assertEqual(negative, 0)
+
+    def test_append_synthetic_terminal_result_for_nonzero_without_top_level(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            log_path = root / "run.log"
+            log_path.write_text("runner exited\n", encoding="utf-8")
+            event = self.launcher._maybe_append_synthetic_terminal_result(
+                log_path=log_path,
+                exit_code=143,
+                ticket="TST-001",
+                stage="implement",
+            )
+            self.assertTrue(event)
+            self.assertEqual(event.get("reason_code"), "parent_terminated_or_external_terminate")
+            self.assertEqual(event.get("schema"), "aidd.stage_result.v1")
+            self.assertEqual(event.get("ticket"), "TST-001")
+            self.assertEqual(event.get("stage"), "implement")
+            self.assertEqual(event.get("result"), "blocked")
+            text = log_path.read_text(encoding="utf-8")
+            self.assertIn('"schema": "aidd.stage_result.v1"', text)
+            self.assertIn('"terminal_marker": 1', text)
+
+    def test_append_synthetic_terminal_result_skips_when_top_level_exists(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            log_path = root / "run.log"
+            log_path.write_text('{"type":"result","status":"blocked"}\n', encoding="utf-8")
+            event = self.launcher._maybe_append_synthetic_terminal_result(
+                log_path=log_path,
+                exit_code=1,
+                ticket="TST-001",
+                stage="qa",
+            )
+            self.assertEqual(event, {})
+
+    def test_append_synthetic_terminal_result_marks_malformed_stage_alias_contract_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            log_path = root / "run.log"
+            log_path.write_text("Unknown skill: :qa\n", encoding="utf-8")
+            event = self.launcher._maybe_append_synthetic_terminal_result(
+                log_path=log_path,
+                exit_code=1,
+                ticket="TST-001",
+                stage="qa",
+            )
+            self.assertEqual(event.get("reason_code"), "launcher_prompt_contract_mismatch")
+            self.assertEqual(
+                event.get("classification"),
+                "PROMPT_EXEC_ISSUE(launcher_prompt_contract_mismatch)",
+            )
 
     def test_tst001_fixture_packs_are_available_for_replay(self) -> None:
         expected = [

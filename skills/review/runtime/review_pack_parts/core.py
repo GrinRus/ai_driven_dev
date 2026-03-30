@@ -551,17 +551,21 @@ def main(argv: list[str] | None = None) -> int:
     if not scope_key:
         scope_key = runtime.resolve_scope_key(work_item_key, ticket)
 
-    report_template = runtime.review_report_template(target)
     slug_hint = (context.slug_hint or ticket or "").strip()
-    report_text = (
-        str(report_template)
-        .replace("{ticket}", ticket)
-        .replace("{slug}", slug_hint or ticket)
-        .replace("{scope_key}", scope_key)
+    report_path, checked_paths = runtime.resolve_existing_review_report_path(
+        target,
+        ticket=ticket,
+        slug_hint=slug_hint or ticket,
+        scope_key=scope_key,
     )
-    report_path = runtime.resolve_path_for_target(Path(report_text), target)
-    if not report_path.exists():
-        raise FileNotFoundError(f"review report not found at {runtime.rel_path(report_path, target)}")
+    if report_path is None:
+        report_rel = runtime.rel_path(checked_paths[0], target) if checked_paths else "aidd/reports/reviewer/<ticket>/<scope_key>.json"
+        checked_rel = ", ".join(runtime.rel_path(path, target) for path in checked_paths[:8])
+        if checked_rel:
+            raise FileNotFoundError(
+                f"review report not found at {report_rel} (checked={checked_rel})"
+            )
+        raise FileNotFoundError(f"review report not found at {report_rel}")
 
     payload = json.loads(report_path.read_text(encoding="utf-8"))
     report_updated_at = str(payload.get("updated_at") or payload.get("generated_at") or "")
