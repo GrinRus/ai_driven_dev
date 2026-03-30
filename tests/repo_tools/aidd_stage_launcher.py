@@ -21,6 +21,15 @@ import aidd_stream_paths
 
 DEFAULT_MIN_FREE_BYTES = 1_073_741_824
 STALL_SECONDS = 20 * 60
+STATUS_ALIAS_ERROR_PATTERNS = (
+    re.compile(r"unknown skill:\s*:status", re.IGNORECASE),
+    re.compile(r"command not found:\s*:status", re.IGNORECASE),
+)
+SIBLING_TOOL_ERROR_RE = re.compile(r"sibling tool call errored", re.IGNORECASE)
+CANONICAL_RUNTIME_CALL_RE = re.compile(
+    r"skills/(?:implement/runtime/implement_run\.py|review/runtime/review_run\.py|qa/runtime/qa_run\.py|aidd-docio/runtime/actions_apply\.py|aidd-flow-state/runtime/stage_result\.py)\b",
+    re.IGNORECASE,
+)
 
 
 def build_paths(audit_dir: Path, step: str, run: int) -> Dict[str, Path]:
@@ -121,6 +130,36 @@ def _detect_top_level_result(log_text: str) -> int:
     if re.search(r"\bstatus=(blocked|done|ship|success|error|continue)\b", log_text, re.IGNORECASE):
         return 1
     return 0
+
+
+def _extract_prompt_exec_telemetry(log_text: str) -> Dict[str, int]:
+    status_alias_error_count = sum(len(pattern.findall(log_text)) for pattern in STATUS_ALIAS_ERROR_PATTERNS)
+    sibling_tool_error_count = len(SIBLING_TOOL_ERROR_RE.findall(log_text))
+    canonical_runtime_call_count = len(CANONICAL_RUNTIME_CALL_RE.findall(log_text))
+    return {
+        "status_alias_error_count": int(status_alias_error_count),
+        "sibling_tool_error_count": int(sibling_tool_error_count),
+        "canonical_runtime_call_count": int(canonical_runtime_call_count),
+    }
+
+
+def _detect_seed_stage_non_converging_command(
+    *,
+    result_count: str,
+    top_level_result: int,
+    telemetry: Dict[str, int],
+) -> int:
+    if int(top_level_result or 0) != 0:
+        return 0
+    if str(result_count).strip() not in {"", "0"}:
+        return 0
+    if int(telemetry.get("status_alias_error_count") or 0) <= 0:
+        return 0
+    if int(telemetry.get("sibling_tool_error_count") or 0) <= 0:
+        return 0
+    if int(telemetry.get("canonical_runtime_call_count") or 0) > 0:
+        return 0
+    return 1
 
 
 def parse_init(log_text: str) -> Dict[str, int]:
@@ -331,10 +370,23 @@ def main() -> int:
     )
     write_liveness_report(liveness, paths["stream_liveness"])
 
+    result_count = _detect_result_count(log_text)
+    top_level_result = _detect_top_level_result(log_text)
+    prompt_exec_telemetry = _extract_prompt_exec_telemetry(log_text)
+    seed_stage_non_converging_command = _detect_seed_stage_non_converging_command(
+        result_count=result_count,
+        top_level_result=top_level_result,
+        telemetry=prompt_exec_telemetry,
+    )
+
     summary_lines = [
         f"exit_code={exit_code}",
-        f"result_count={_detect_result_count(log_text)}",
-        f"top_level_result={_detect_top_level_result(log_text)}",
+        f"result_count={result_count}",
+        f"top_level_result={top_level_result}",
+        f"status_alias_error_count={prompt_exec_telemetry['status_alias_error_count']}",
+        f"sibling_tool_error_count={prompt_exec_telemetry['sibling_tool_error_count']}",
+        f"canonical_runtime_call_count={prompt_exec_telemetry['canonical_runtime_call_count']}",
+        f"seed_stage_non_converging_command={seed_stage_non_converging_command}",
         f"primary_stream_count={stream_result['primary_candidates']}",
         f"valid_stream_count={stream_result['valid_count']}",
         f"invalid_stream_count={stream_result['invalid_count']}",
@@ -342,6 +394,14 @@ def main() -> int:
         f"fallback_used={stream_result['used_fallback']}",
         f"stream_path_not_emitted_by_cli={stream_result['cli_not_emitted']}",
     ]
+    if seed_stage_non_converging_command:
+        summary_lines.extend(
+            [
+                "terminal_marker=1",
+                "status=blocked",
+                "reason_code=seed_stage_non_converging_command",
+            ]
+        )
     paths["summary"].write_text("\n".join(summary_lines) + "\n", encoding="utf-8")
     return int(exit_code)
 

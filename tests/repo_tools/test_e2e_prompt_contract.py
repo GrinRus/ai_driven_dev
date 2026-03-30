@@ -14,6 +14,8 @@ PROMPT_BUILDER = REPO_ROOT / "tests" / "repo_tools" / "build_e2e_prompts.py"
 PROMPT_FRAGMENTS_DIR = REPO_ROOT / "tests" / "repo_tools" / "e2e_prompt"
 RESEARCHER_AGENT = REPO_ROOT / "agents" / "researcher.md"
 RESEARCHER_SKILL = REPO_ROOT / "skills" / "researcher" / "SKILL.md"
+IMPLEMENT_SKILL = REPO_ROOT / "skills" / "implement" / "SKILL.md"
+IMPLEMENTER_AGENT = REPO_ROOT / "agents" / "implementer.md"
 
 LOOP_STAGE_SKILLS = [
     REPO_ROOT / "skills" / "implement" / "SKILL.md",
@@ -507,6 +509,26 @@ class E2EPromptContractTests(unittest.TestCase):
             text = _read(skill_path)
             for alias in LEGACY_STAGE_ALIASES:
                 self.assertNotIn(alias, text, msg=f"{skill_path}: contains legacy alias {alias}")
+
+    def test_implement_prompts_enforce_seed_stage_non_convergence_tripwires(self) -> None:
+        implement_text = _read(IMPLEMENT_SKILL).lower()
+        implementer_text = _read(IMPLEMENTER_AGENT).lower()
+
+        self.assertIn("set_active_feature.py", implement_text)
+        self.assertIn("set_active_stage.py", implement_text)
+        self.assertIn("loop_pack.py", implement_text)
+        self.assertIn("--stage implement --pick-next", implement_text)
+        self.assertIn("skill(:status)", implement_text)
+        self.assertIn("bash(:status ...)", implement_text)
+        self.assertIn("seed_stage_non_converging_command", implement_text)
+        self.assertIn("terminal_marker=1", implement_text)
+        self.assertIn("implement_run.py -> actions_apply.py -> stage_result.py", implement_text)
+
+        self.assertIn("skill(:status)", implementer_text)
+        self.assertIn("bash(:status ...)", implementer_text)
+        self.assertIn("seed_stage_non_converging_command", implementer_text)
+        self.assertIn("terminal_marker=1", implementer_text)
+        self.assertIn("implement_run.py -> actions_apply.py -> stage_result.py", implementer_text)
 
 
 if __name__ == "__main__":  # pragma: no cover

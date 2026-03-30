@@ -10,6 +10,11 @@ class ImplementerPromptTests(unittest.TestCase):
         self.assertIn("feature-dev-aidd:aidd-core", text)
         self.assertIn("feature-dev-aidd:aidd-loop", text)
         self.assertIn("Output follows aidd-core skill", text)
+        self.assertIn("set_active_feature -> set_active_stage(implement) -> loop_pack --stage implement --pick-next", text)
+        self.assertIn("Skill(:status)", text)
+        self.assertIn("Bash(:status ...)", text)
+        self.assertIn("seed_stage_non_converging_command", text)
+        self.assertIn("implement_run.py -> actions_apply.py -> stage_result.py", text)
 
 
 if __name__ == "__main__":

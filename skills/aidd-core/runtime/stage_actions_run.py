@@ -20,6 +20,7 @@ _ALLOWED_ACTION_TYPES = [
     "memory_ops.decision_append",
 ]
 _CONTRACT_MISMATCH_REASON_CODE = "contract_mismatch_actions_shape"
+_PREFLIGHT_CONTEXT_MISSING_REASON_CODE = "seed_stage_preflight_context_missing"
 _ACTION_PARAM_KEYS = (
     "date",
     "source",
@@ -357,13 +358,21 @@ def main(
     description: str,
 ) -> int:
     args = parse_args(argv, default_stage=default_stage, description=description)
-    context = launcher.resolve_context(
-        ticket=args.ticket,
-        scope_key=args.scope_key,
-        work_item_key=args.work_item_key,
-        stage=args.stage,
-        default_stage=default_stage,
-    )
+    try:
+        context = launcher.resolve_context(
+            ticket=args.ticket,
+            scope_key=args.scope_key,
+            work_item_key=args.work_item_key,
+            stage=args.stage,
+            default_stage=default_stage,
+        )
+    except Exception as exc:
+        print("terminal_marker=1")
+        print("status=blocked")
+        print(f"reason_code={_PREFLIGHT_CONTEXT_MISSING_REASON_CODE}")
+        print("summary=stage preflight/context resolution failed")
+        print(f"[aidd] ERROR: diagnostics=resolve_context_failed:{exc}", file=sys.stderr)
+        return launcher.RUNTIME_FAILURE_EXIT_CODE
     log_path = launcher.log_path(context.root, context.stage, context.ticket, context.scope_key, "run")
     result = launcher.run_guarded(
         lambda: _run(args, context=context, log_path=log_path),

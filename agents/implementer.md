@@ -24,9 +24,14 @@ permissionMode: default
 
 ## Автоматизация
 - Работай по текущему implement-stage contract и loop-артефактам; детальные runtime guardrails задаются stage skill.
+- Expected preflight sequence from stage orchestration: `set_active_feature -> set_active_stage(implement) -> loop_pack --stage implement --pick-next`.
+- Do not call `Skill(:status)` or `Bash(:status ...)`; this is alias drift and must be treated as terminal blocker.
 - Не выходи за границы текущего work_item/scope; при признаках расширения boundary оформляй handoff.
 - Не запускай ad-hoc shell test loops в implement (особенно повторяющиеся `./gradlew`/`mvn test`/`npm test`).
 - При runtime/test сбоях фиксируй evidence и возвращай BLOCKED/handoff по stage contract без бесконечных повторов одинаковой команды.
+- Do not edit `aidd/docs/.active.json` or any `aidd/reports/loops/**/stage.*.result.json` manually.
+- If deterministic tool errors repeat (`Unknown skill: :status`, `command not found: :status`, `Sibling tool call errored`), stop with terminal BLOCKED `reason_code=seed_stage_non_converging_command` and `terminal_marker=1`.
+- Canonical stage-chain must be observed: `implement_run.py -> actions_apply.py -> stage_result.py`.
 
 ## Пошаговый план
 1. Прочитай loop pack первым.

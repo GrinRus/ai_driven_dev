@@ -11,6 +11,7 @@ FIXTURES = REPO_ROOT / "tests" / "fixtures" / "audit_tst001"
 FIXTURES_20260310 = REPO_ROOT / "tests" / "fixtures" / "audit_tst001_20260310"
 FIXTURES_20260311 = REPO_ROOT / "tests" / "fixtures" / "audit_tst001_20260311"
 FIXTURES_20260317 = REPO_ROOT / "tests" / "fixtures" / "audit_tst001_20260317"
+FIXTURES_20260330 = REPO_ROOT / "tests" / "fixtures" / "audit_tst001_20260330"
 RUNNER_PATH = REPO_ROOT / "tests" / "repo_tools" / "aidd_audit_runner.py"
 
 
@@ -160,6 +161,111 @@ class AiddAuditRunnerTests(unittest.TestCase):
         self.assertEqual(payload.get("classification"), "PROMPT_EXEC_ISSUE")
         self.assertEqual(payload.get("classification_subtype"), "fallback_path_assembly_bug")
         self.assertEqual(payload.get("invalid_fallback_path_count"), 1)
+
+    def test_seed_stage_non_converging_command_detected_from_log_fingerprint_without_summary_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "06_implement_run1.summary.txt"
+            log_path = Path(tmp) / "06_implement_run1.log"
+            summary_path.write_text(
+                "\n".join(
+                    [
+                        "step=06_implement",
+                        "result_count=0",
+                        "exit_code=1",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            log_path.write_text(
+                "\n".join(
+                    [
+                        "Unknown skill: :status",
+                        "command not found: :status",
+                        "Sibling tool call errored",
+                        "Unknown skill: :status",
+                        "Sibling tool call errored",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(summary_path=summary_path, run_log_path=log_path)
+        self.assertEqual(payload.get("classification"), "PROMPT_EXEC_ISSUE")
+        self.assertEqual(payload.get("classification_subtype"), "seed_stage_non_converging_command")
+        self.assertEqual(payload.get("status_alias_error_count"), 3)
+        self.assertEqual(payload.get("sibling_tool_error_count"), 2)
+        self.assertEqual(payload.get("canonical_runtime_call_count"), 0)
+        self.assertEqual(payload.get("seed_stage_non_converging_command"), 1)
+
+    def test_seed_stage_non_converging_command_does_not_override_env_misconfig_143_priority(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "06_implement_run1.summary.txt"
+            log_path = Path(tmp) / "06_implement_run1.log"
+            termination_path = Path(tmp) / "06_implement_termination_attribution.txt"
+            summary_path.write_text(
+                "\n".join(
+                    [
+                        "step=06_implement",
+                        "result_count=0",
+                        "exit_code=143",
+                        "seed_stage_non_converging_command=1",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            log_path.write_text(
+                "\n".join(
+                    [
+                        "Unknown skill: :status",
+                        "command not found: :status",
+                        "Sibling tool call errored",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            termination_path.write_text(
+                "\n".join(
+                    [
+                        "exit_code=143",
+                        "killed_flag=0",
+                        "watchdog_marker=0",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(
+                summary_path=summary_path,
+                run_log_path=log_path,
+                termination_path=termination_path,
+            )
+        self.assertEqual(payload.get("classification"), "ENV_MISCONFIG")
+        self.assertEqual(payload.get("classification_subtype"), "parent_terminated_or_external_terminate")
+
+    def test_non_seed_stage_context_does_not_raise_seed_stage_non_converging_command_from_log_only(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "08_qa_run1.summary.txt"
+            log_path = Path(tmp) / "08_qa_run1.log"
+            summary_path.write_text(
+                "\n".join(
+                    [
+                        "step=08_qa",
+                        "result_count=0",
+                        "exit_code=0",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            log_path.write_text(
+                "\n".join(
+                    [
+                        "Unknown skill: :status",
+                        "command not found: :status",
+                        "Sibling tool call errored",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(summary_path=summary_path, run_log_path=log_path)
+        self.assertNotEqual(payload.get("classification_subtype"), "seed_stage_non_converging_command")
 
     def test_precondition_readiness_gate_failure_is_classified_as_prompt_exec_issue(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -359,6 +465,19 @@ class AiddAuditRunnerTests(unittest.TestCase):
         self.assertEqual(payload.get("classification_subtype"), "terminal_marker_present")
         self.assertEqual(payload.get("result_count_interpretation"), "terminal_marker_present")
         self.assertEqual(payload.get("terminal_marker_present"), 1)
+
+    def test_fixture_pack_20260330_replays_seed_stage_non_converging_command(self) -> None:
+        payload = self.runner.analyze_run(
+            summary_path=FIXTURES_20260330 / "06_implement_run1.summary.txt",
+            run_log_path=FIXTURES_20260330 / "06_implement_run1.log",
+        )
+        self.assertEqual(payload.get("classification"), "PROMPT_EXEC_ISSUE")
+        self.assertEqual(payload.get("classification_subtype"), "seed_stage_non_converging_command")
+        self.assertEqual(payload.get("effective_classification"), "PROMPT_EXEC_ISSUE(seed_stage_non_converging_command)")
+        self.assertEqual(payload.get("seed_stage_non_converging_command"), 1)
+        self.assertEqual(payload.get("status_alias_error_count"), 4)
+        self.assertEqual(payload.get("sibling_tool_error_count"), 5)
+        self.assertEqual(payload.get("canonical_runtime_call_count"), 0)
 
     def test_fixture_pack_20260317_replays_workspace_layout_preexisting_info(self) -> None:
         payload = self.runner.analyze_run(

@@ -3,7 +3,7 @@ import json
 import tempfile
 import unittest
 from argparse import Namespace
-from contextlib import redirect_stderr
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
@@ -12,6 +12,31 @@ from aidd_runtime import stage_actions_run
 
 
 class StageActionsRunTests(unittest.TestCase):
+    def test_main_emits_terminal_blocked_when_context_resolution_fails(self) -> None:
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        parsed_args = Namespace(
+            ticket=None,
+            scope_key=None,
+            work_item_key=None,
+            stage=None,
+            actions=None,
+        )
+        with (
+            patch("aidd_runtime.stage_actions_run.parse_args", return_value=parsed_args),
+            patch("aidd_runtime.stage_actions_run.launcher.resolve_context", side_effect=RuntimeError("missing active context")),
+            redirect_stdout(stdout),
+            redirect_stderr(stderr),
+        ):
+            code = stage_actions_run.main([], default_stage="implement", description="test")
+
+        self.assertEqual(code, launcher.RUNTIME_FAILURE_EXIT_CODE)
+        out = stdout.getvalue()
+        self.assertIn("terminal_marker=1", out)
+        self.assertIn("status=blocked", out)
+        self.assertIn("reason_code=seed_stage_preflight_context_missing", out)
+        self.assertIn("resolve_context_failed:missing active context", stderr.getvalue())
+
     def test_main_emits_launcher_reason_marker(self) -> None:
         with tempfile.TemporaryDirectory(prefix="stage-actions-run-") as tmpdir:
             root = Path(tmpdir)

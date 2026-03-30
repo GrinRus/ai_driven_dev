@@ -21,6 +21,15 @@ QA_RUN_UNRECOGNIZED_ARGS_RE = re.compile(
     r"qa_run\.py:\s*error:\s*unrecognized arguments:\s*(?P<args>.+)$",
     re.IGNORECASE | re.MULTILINE,
 )
+STATUS_ALIAS_ERROR_RE = re.compile(
+    r"(unknown skill:\s*:status|command not found:\s*:status)",
+    re.IGNORECASE,
+)
+SIBLING_TOOL_ERROR_RE = re.compile(r"sibling tool call errored", re.IGNORECASE)
+CANONICAL_RUNTIME_CALL_RE = re.compile(
+    r"skills/(?:implement/runtime/implement_run\.py|review/runtime/review_run\.py|qa/runtime/qa_run\.py|aidd-docio/runtime/actions_apply\.py|aidd-flow-state/runtime/stage_result\.py)\b",
+    re.IGNORECASE,
+)
 READINESS_REASON_CODES = (
     "readiness_gate_failed",
     "prd_not_ready",
@@ -40,6 +49,26 @@ class Classification:
 
 def _truthy(value: object) -> bool:
     return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _safe_int(value: object, default: int = 0) -> int:
+    try:
+        return int(str(value).strip())
+    except Exception:
+        return default
+
+
+def _is_seed_stage_context(summary: Mapping[str, object]) -> bool:
+    hint = "\n".join(
+        [
+            str(summary.get("step") or ""),
+            str(summary.get("stage") or ""),
+            str(summary.get("stage_name") or ""),
+            str(summary.get("command") or ""),
+            str(summary.get("stage_command") or ""),
+        ]
+    ).lower()
+    return "implement" in hint or "seed" in hint
 
 
 def _as_text(values: Mapping[str, object]) -> str:
@@ -119,6 +148,40 @@ def classify_incident(
             subtype="watchdog_terminated",
             source="termination_attribution",
             label="NOT_VERIFIED(killed)+PROMPT_EXEC_ISSUE(watchdog_terminated)",
+        )
+
+    status_alias_error_count = _safe_int(summary.get("status_alias_error_count"), default=-1)
+    sibling_tool_error_count = _safe_int(summary.get("sibling_tool_error_count"), default=-1)
+    canonical_runtime_call_count = _safe_int(summary.get("canonical_runtime_call_count"), default=-1)
+    alias_hits = status_alias_error_count if status_alias_error_count >= 0 else len(STATUS_ALIAS_ERROR_RE.findall(merged_text))
+    sibling_hits = (
+        sibling_tool_error_count if sibling_tool_error_count >= 0 else len(SIBLING_TOOL_ERROR_RE.findall(merged_text))
+    )
+    canonical_hits = (
+        canonical_runtime_call_count if canonical_runtime_call_count >= 0 else len(CANONICAL_RUNTIME_CALL_RE.findall(merged_text))
+    )
+    summary_reason_code = str(summary.get("reason_code") or "").strip().lower()
+    seed_stage_context = _is_seed_stage_context(summary)
+    non_converging_marker = (
+        _truthy(summary.get("seed_stage_non_converging_command"))
+        or summary_reason_code == "seed_stage_non_converging_command"
+        or "reason_code=seed_stage_non_converging_command" in merged_text
+        or (
+            seed_stage_context
+            and alias_hits > 0
+            and sibling_hits > 0
+            and canonical_hits == 0
+            and top_level not in {"blocked", "done", "ship", "success", "error", "continue"}
+        )
+    )
+    if non_converging_marker:
+        return Classification(
+            classification="PROMPT_EXEC_ISSUE",
+            subtype="seed_stage_non_converging_command",
+            source="summary"
+            if (_truthy(summary.get("seed_stage_non_converging_command")) or summary_reason_code == "seed_stage_non_converging_command")
+            else "run_log",
+            label="PROMPT_EXEC_ISSUE(seed_stage_non_converging_command)",
         )
 
     readiness_source = ""

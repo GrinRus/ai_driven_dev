@@ -14,6 +14,7 @@ STREAM_PATHS_MODULE_PATH = REPO_ROOT / "tests" / "repo_tools" / "aidd_stream_pat
 LAUNCHER_MODULE_PATH = REPO_ROOT / "tests" / "repo_tools" / "aidd_stage_launcher.py"
 FIXTURE_PACK_20260310 = REPO_ROOT / "tests" / "fixtures" / "audit_tst001_20260310"
 FIXTURE_PACK_20260311 = REPO_ROOT / "tests" / "fixtures" / "audit_tst001_20260311"
+FIXTURE_PACK_20260330 = REPO_ROOT / "tests" / "fixtures" / "audit_tst001_20260330"
 
 
 def _load_module(path: Path, name: str):
@@ -178,12 +179,50 @@ class AiddStageLauncherTests(unittest.TestCase):
             self.assertEqual(payload["classification"], "silent_stall")
             self.assertEqual(payload["active_source"], "none")
 
+    def test_extract_prompt_exec_telemetry_counts_alias_sibling_and_canonical_calls(self) -> None:
+        log_text = "\n".join(
+            [
+                "Unknown skill: :status",
+                "command not found: :status",
+                "Sibling tool call errored",
+                "python3 /tmp/plugin/skills/implement/runtime/implement_run.py --ticket TST-001",
+                "python3 /tmp/plugin/skills/aidd-docio/runtime/actions_apply.py --actions /tmp/a.json",
+            ]
+        )
+        telemetry = self.launcher._extract_prompt_exec_telemetry(log_text)
+        self.assertEqual(telemetry["status_alias_error_count"], 2)
+        self.assertEqual(telemetry["sibling_tool_error_count"], 1)
+        self.assertEqual(telemetry["canonical_runtime_call_count"], 2)
+
+    def test_detect_seed_stage_non_converging_command_requires_alias_and_sibling_without_canonical_chain(self) -> None:
+        positive = self.launcher._detect_seed_stage_non_converging_command(
+            result_count="0",
+            top_level_result=0,
+            telemetry={
+                "status_alias_error_count": 2,
+                "sibling_tool_error_count": 3,
+                "canonical_runtime_call_count": 0,
+            },
+        )
+        self.assertEqual(positive, 1)
+        negative = self.launcher._detect_seed_stage_non_converging_command(
+            result_count="0",
+            top_level_result=0,
+            telemetry={
+                "status_alias_error_count": 2,
+                "sibling_tool_error_count": 3,
+                "canonical_runtime_call_count": 1,
+            },
+        )
+        self.assertEqual(negative, 0)
+
     def test_tst001_fixture_packs_are_available_for_replay(self) -> None:
         expected = [
             FIXTURE_PACK_20260310 / "06_implement_run1.summary.txt",
             FIXTURE_PACK_20260310 / "06_review_run1.summary.txt",
             FIXTURE_PACK_20260311 / "08_qa_run1.summary.txt",
             FIXTURE_PACK_20260311 / "07_loop_run_run2.summary.txt",
+            FIXTURE_PACK_20260330 / "06_implement_run1.summary.txt",
         ]
         for path in expected:
             with self.subTest(path=path):

@@ -41,6 +41,15 @@ READINESS_REASON_CODES = (
     "research_not_ready",
 )
 TRUTHY_VALUES = {"1", "true", "yes", "on"}
+STATUS_ALIAS_ERROR_RE = re.compile(
+    r"(unknown skill:\s*:status|command not found:\s*:status)",
+    re.IGNORECASE,
+)
+SIBLING_TOOL_ERROR_RE = re.compile(r"sibling tool call errored", re.IGNORECASE)
+CANONICAL_RUNTIME_CALL_RE = re.compile(
+    r"skills/(?:implement/runtime/implement_run\.py|review/runtime/review_run\.py|qa/runtime/qa_run\.py|aidd-docio/runtime/actions_apply\.py|aidd-flow-state/runtime/stage_result\.py)\b",
+    re.IGNORECASE,
+)
 
 
 def parse_kv_file(path: Path) -> Dict[str, str]:
@@ -121,6 +130,33 @@ def infer_workspace_layout_check_path(summary_path: Path) -> Path | None:
 
 def _is_truthy(value: object) -> bool:
     return str(value or "").strip().lower() in TRUTHY_VALUES
+
+
+def _summary_count_or_scan(
+    *,
+    summary: Mapping[str, str],
+    key: str,
+    text: str,
+    pattern: re.Pattern[str],
+) -> int:
+    value = _safe_int(summary.get(key), -1)
+    if value >= 0:
+        return value
+    return len(pattern.findall(text))
+
+
+def _is_seed_stage_context(summary: Mapping[str, str], summary_path: Path) -> bool:
+    hint = "\n".join(
+        [
+            summary_path.name,
+            str(summary.get("step") or ""),
+            str(summary.get("stage") or ""),
+            str(summary.get("stage_name") or ""),
+            str(summary.get("command") or ""),
+            str(summary.get("stage_command") or ""),
+        ]
+    ).lower()
+    return "implement" in hint or "seed" in hint
 
 
 def _load_review_spec_report_check(summary_path: Path, aux_log_paths: List[Path] | None) -> tuple[Dict[str, str], str]:
@@ -428,6 +464,39 @@ def analyze_run(
     top_level_status = detect_top_level_status(log_text)
     if not top_level_status and aux_text:
         top_level_status = detect_top_level_status(aux_text)
+    telemetry_text = "\n".join(part for part in [log_text, aux_text] if part)
+    status_alias_error_count = _summary_count_or_scan(
+        summary=summary,
+        key="status_alias_error_count",
+        text=telemetry_text,
+        pattern=STATUS_ALIAS_ERROR_RE,
+    )
+    sibling_tool_error_count = _summary_count_or_scan(
+        summary=summary,
+        key="sibling_tool_error_count",
+        text=telemetry_text,
+        pattern=SIBLING_TOOL_ERROR_RE,
+    )
+    canonical_runtime_call_count = _summary_count_or_scan(
+        summary=summary,
+        key="canonical_runtime_call_count",
+        text=telemetry_text,
+        pattern=CANONICAL_RUNTIME_CALL_RE,
+    )
+    summary_reason_code = str(summary.get("reason_code") or "").strip().lower()
+    seed_stage_context = _is_seed_stage_context(summary, summary_path)
+    seed_stage_non_converging_command = int(
+        _is_truthy(summary.get("seed_stage_non_converging_command"))
+        or summary_reason_code == "seed_stage_non_converging_command"
+        or (
+            seed_stage_context
+            and
+            status_alias_error_count > 0
+            and sibling_tool_error_count > 0
+            and canonical_runtime_call_count == 0
+            and not top_level_status
+        )
+    )
     terminal_marker_present = bool(
         re.search(r'"terminal_marker"\s*:\s*(?:1|true)\b', log_text, re.IGNORECASE)
         or re.search(r"\bterminal_marker=(?:1|true)\b", log_text, re.IGNORECASE)
@@ -450,6 +519,13 @@ def analyze_run(
         preflight=preflight,
         diagnostics_text=aux_text,
     )
+    if seed_stage_non_converging_command and classified.classification in {"FLOW_BUG", "TELEMETRY_ONLY"}:
+        classified = contract.Classification(
+            classification="PROMPT_EXEC_ISSUE",
+            subtype="seed_stage_non_converging_command",
+            source="summary" if _is_truthy(summary.get("seed_stage_non_converging_command")) else "run_log",
+            label="PROMPT_EXEC_ISSUE(seed_stage_non_converging_command)",
+        )
     liveness_classification = str(liveness.get("classification") or "").strip().lower()
     liveness_active_source = str(liveness.get("active_source") or "").strip().lower()
     liveness_valid_stream_count = _safe_int(liveness.get("valid_stream_count"), 0)
@@ -587,6 +663,10 @@ def analyze_run(
             "review_spec_recommended_status": str(review_spec_report_check.get("recommended_status") or ""),
             "review_spec_recovery_source": "report_payload" if review_spec_payload_valid else "",
             "terminal_marker_present": int(terminal_marker_present),
+            "status_alias_error_count": int(status_alias_error_count),
+            "sibling_tool_error_count": int(sibling_tool_error_count),
+            "canonical_runtime_call_count": int(canonical_runtime_call_count),
+            "seed_stage_non_converging_command": int(seed_stage_non_converging_command),
             "workspace_layout_check_path": workspace_layout_check_path,
             "workspace_layout_noncanonical_detected": int(workspace_layout_detected),
             "workspace_layout_preexisting_only": int(workspace_layout_preexisting_only),

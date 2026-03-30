@@ -48,24 +48,27 @@ user-invocable: true
 Follow `feature-dev-aidd:aidd-core` and `feature-dev-aidd:aidd-loop`.
 
 ## Steps
-1. Inputs: resolve active `<ticket>/<scope_key>` and confirm loop artifacts are present for implement stage.
+1. Inputs: resolve active `<ticket>/<scope_key>` and run canonical preflight sequence in this order: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_feature.py --ticket <ticket>` -> `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_stage.py --ticket <ticket> --stage implement` -> `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/loop_pack.py --ticket <ticket> --stage implement --pick-next`.
 2. Stage-chain policy: execute via canonical stage-chain orchestration through stage runtime entrypoint; internal preflight/postflight are orchestration details and not operator commands.
-3. Manual write/create of `stage.implement.result.json` is forbidden; stage-result files are produced only by stage-chain postflight. `[AIDD_LOOP_POLICY:MANUAL_STAGE_RESULT_FORBIDDEN]`
-4. Runtime-path safety: use only runtime commands from this skill contracts. If stdout/stderr contains `can't open file .../skills/.../runtime/...`, stop with immediate BLOCKED `runtime_path_missing_or_drift`; one runtime-path error is terminal for current run, do not invent alternate filenames, and do not retry guessed commands.
-5. Retry safety: do not rerun the same failing shell command more than once without new evidence/artifacts. For cwd/build mismatches, stop with blocker and handoff instead of looped retries.
-6. Read order after stage-chain preflight artifacts: `readmap.md` -> loop pack -> review pack (if exists) -> rolling context pack; do not perform broad repo scan before these artifacts.
-7. Run subagent `feature-dev-aidd:implementer`.
-8. Orchestration: use the existing rolling context pack (do not regenerate it), Fill actions.json (v1) at `aidd/reports/actions/<ticket>/<scope_key>/implement.actions.json`, keep action types strictly in `{tasklist_ops.set_iteration_done, tasklist_ops.append_progress_log, tasklist_ops.next3_recompute, context_pack_ops.context_pack_update}`, and validate schema via `python3 ${CLAUDE_PLUGIN_ROOT}/skills/implement/runtime/implement_run.py`.
-9. Canonical stage-chain: internal preflight -> stage runtime -> actions_apply.py/postflight -> `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py`; it must produce `aidd/reports/loops/<ticket>/<scope_key>/stage.implement.result.json`. `[AIDD_LOOP_POLICY:CANONICAL_STAGE_RESULT_PATH]`
-10. Non-canonical stage-result path under `skills/aidd-loop/runtime/` is forbidden (treat as prompt-flow drift). `[AIDD_LOOP_POLICY:NON_CANONICAL_STAGE_RESULT_FORBIDDEN]`
-11. Output: return stage contract + updated artifacts with explicit handoff/next action.
+3. Manual write/create of `stage.implement.result.json` is forbidden; stage-result files are produced only by stage-chain postflight. Manual edits of `aidd/docs/.active.json` are forbidden. `[AIDD_LOOP_POLICY:MANUAL_STAGE_RESULT_FORBIDDEN]`
+4. Alias/runtime drift is forbidden: do not call `Skill(:status)` and do not run `Bash(:status ...)`; treat these as prompt-flow drift.
+5. Fail-fast deterministic tool errors: when the same run shows deterministic fingerprint (`Unknown skill: :status`, `command not found: :status`, or `Sibling tool call errored`), stop immediately with terminal BLOCKED `reason_code=seed_stage_non_converging_command`, emit `terminal_marker=1`, and do not continue guessed retries.
+6. Runtime-path safety: use only runtime commands from this skill contracts. If stdout/stderr contains `can't open file .../skills/.../runtime/...`, stop with immediate BLOCKED `runtime_path_missing_or_drift`; one runtime-path error is terminal for current run, do not invent alternate filenames, and do not retry guessed commands.
+7. Retry safety: do not rerun the same failing shell command more than once without new evidence/artifacts. For cwd/build mismatches, stop with blocker and handoff instead of looped retries.
+8. Read order after stage-chain preflight artifacts: `readmap.md` -> loop pack -> review pack (if exists) -> rolling context pack; do not perform broad repo scan before these artifacts.
+9. Run subagent `feature-dev-aidd:implementer`.
+10. Orchestration: use the existing rolling context pack (do not regenerate it), Fill actions.json (v1) at `aidd/reports/actions/<ticket>/<scope_key>/implement.actions.json`, keep action types strictly in `{tasklist_ops.set_iteration_done, tasklist_ops.append_progress_log, tasklist_ops.next3_recompute, context_pack_ops.context_pack_update}`, and validate schema via `python3 ${CLAUDE_PLUGIN_ROOT}/skills/implement/runtime/implement_run.py`.
+11. Canonical stage-chain must be observed exactly as runtime command sequence `implement_run.py -> actions_apply.py -> stage_result.py`. If this chain is not observed, return terminal BLOCKED `reason_code=seed_stage_non_converging_command`.
+12. Canonical stage-chain: internal preflight -> stage runtime -> actions_apply.py/postflight -> `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py`; it must produce `aidd/reports/loops/<ticket>/<scope_key>/stage.implement.result.json`. `[AIDD_LOOP_POLICY:CANONICAL_STAGE_RESULT_PATH]`
+13. Non-canonical stage-result path under `skills/aidd-loop/runtime/` is forbidden (treat as prompt-flow drift). `[AIDD_LOOP_POLICY:NON_CANONICAL_STAGE_RESULT_FORBIDDEN]`
+14. Output: return stage contract + updated artifacts with explicit handoff/next action.
 
 ## Command contracts
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/implement/runtime/implement_run.py`
 - When to run: as canonical implement stage runtime before postflight.
 - Inputs: ticket, scope/work-item context, and validated actions payload.
 - Outputs: stage validation artifacts and status payload for downstream postflight.
-- Failure mode: non-zero exit for invalid actions schema or missing stage prerequisites.
+- Failure mode: non-zero exit for invalid actions schema or missing stage prerequisites; deterministic non-converging command class must map to terminal BLOCKED `reason_code=seed_stage_non_converging_command`.
 - Next action: fix actions/preconditions and rerun runtime validation before postflight.
 
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-docio/runtime/actions_apply.py`
