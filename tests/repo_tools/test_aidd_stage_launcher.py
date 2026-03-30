@@ -228,6 +228,13 @@ class AiddStageLauncherTests(unittest.TestCase):
         )
         self.assertEqual(negative, 0)
 
+    def test_seed_stage_step_detection_scopes_marker_to_implement(self) -> None:
+        self.assertTrue(self.launcher._is_seed_stage_step("06_implement"))
+        self.assertTrue(self.launcher._is_seed_stage_step("implement"))
+        self.assertTrue(self.launcher._is_seed_stage_step("seed_stage"))
+        self.assertFalse(self.launcher._is_seed_stage_step("08_qa"))
+        self.assertFalse(self.launcher._is_seed_stage_step("05_review_spec"))
+
     def test_append_synthetic_terminal_result_for_nonzero_without_top_level(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

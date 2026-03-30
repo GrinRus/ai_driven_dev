@@ -170,6 +170,16 @@ def _detect_seed_stage_non_converging_command(
     return 1
 
 
+def _is_seed_stage_step(step: str) -> bool:
+    normalized = str(step or "").strip().lower()
+    if not normalized:
+        return False
+    stage = re.sub(r"^[0-9]+_", "", normalized)
+    if "seed" in stage:
+        return True
+    return stage.startswith("implement")
+
+
 def _infer_stage_name(*, stage_command: str, step_hint: str) -> str:
     match = STAGE_COMMAND_RE.search(str(stage_command or ""))
     if match:
@@ -463,11 +473,13 @@ def main() -> int:
     result_count = _detect_result_count(log_text)
     top_level_result = _detect_top_level_result(log_text)
     prompt_exec_telemetry = _extract_prompt_exec_telemetry(log_text)
-    seed_stage_non_converging_command = _detect_seed_stage_non_converging_command(
-        result_count=result_count,
-        top_level_result=top_level_result,
-        telemetry=prompt_exec_telemetry,
-    )
+    seed_stage_non_converging_command = 0
+    if _is_seed_stage_step(args.step):
+        seed_stage_non_converging_command = _detect_seed_stage_non_converging_command(
+            result_count=result_count,
+            top_level_result=top_level_result,
+            telemetry=prompt_exec_telemetry,
+        )
 
     summary_lines = [
         f"exit_code={exit_code}",
@@ -501,7 +513,7 @@ def main() -> int:
                 f"termination_classification={term.get('classification', reason_code)}",
             ]
         )
-    if seed_stage_non_converging_command:
+    if _is_seed_stage_step(args.step) and seed_stage_non_converging_command:
         summary_lines.extend(
             [
                 "terminal_marker=1",
