@@ -100,10 +100,11 @@ _Revision note (2026-03-10): backlog ревизован по критерию у
 - Feature final state: `NOT_REACHED`
 - Overall quality gate: `FAIL`
 
-- [ ] **W118-1 (P0) Enforce deterministic terminalization for seed implement no-result stalls** `skills/implement/SKILL.md`, `skills/implement/runtime/implement_run.py`, `tests/repo_tools/aidd_stage_launcher.py`, `tests/repo_tools/aidd_audit_runner.py`:
+- [x] **W118-1 (P0) Enforce deterministic terminalization for seed implement no-result stalls** `skills/implement/SKILL.md`, `skills/implement/runtime/implement_run.py`, `tests/repo_tools/aidd_stage_launcher.py`, `tests/repo_tools/aidd_audit_runner.py`:
   - detect no-progress + missing top-level result in seed stage and emit deterministic terminal payload before prolonged hangs;
   - add explicit fail-fast reason_code path for stalled seed-stage orchestration;
   - add regression fixture for `implement` run with missing terminal result and stalled log growth.
+  - **Closed (2026-03-30):** covered by Wave 121 delivery (`da19bf6`, `2d41796`, `ed111d4`), including seed-stage non-converging terminal marker and synthetic canonical top-level result emission.
   **AC:** step-6 implement always ends with deterministic top-level terminal result (`done|blocked`) and no manual kill is required for this failure class.
   **Deps:** ->
   **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_aidd_stage_launcher.py tests/repo_tools/test_aidd_audit_runner.py tests/repo_tools/test_e2e_prompt_contract.py`
@@ -248,17 +249,24 @@ _Revision note (2026-03-10): backlog ревизован по критерию у
   - acceptance подтверждён по коду + test-contract evidence (`docs/wave-112-summary.md`);
   - повторная валидация на `main` (2026-03-29): `tests/repo_tools/ci-lint.sh` PASS, `tests/repo_tools/smoke-workflow.sh` PASS, `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py` PASS.
   - source-of-truth report: `docs/wave-112-summary.md`.
+- **Wave 121 (closed, archived 2026-03-30)**:
+  - scope закрыт в ветке `codex/implement-seed-nonconverging-fix`, commits: `da19bf6`, `2d41796`, `ed111d4`;
+  - реализованы и выведены из активного backlog: `W121-1`, `W121-2`, `W121-3`, `W121-4`, `W121-5`, `W121-6`;
+  - подтверждённые regression-runs: `python3 -m pytest -q tests/repo_tools/test_aidd_stage_launcher.py tests/repo_tools/test_aidd_audit_runner.py` (PASS), `python3 -m pytest -q tests/test_loop_step.py tests/test_review_run.py tests/test_prompt_lint.py tests/test_tasklist_check.py tests/test_stage_actions_run.py` (PASS), PR checks #131 PASS.
 
-## P0-now — Risk-first queue (2026-03-29)
+## P0-now — Risk-first queue (2026-03-30, post-W121 cleanup)
 
-- `W113-1`
-- `W113-8`
+- `W120-1`
+- `W119-1`
+- `W119-2`
 - `W113-24`
 - `W113-26`
 - `W113-27`
 - `W114-1`
-- `W114-2`
 - `W113-9`
+- `W114-2`
+- `W113-8`
+- `W113-1`
 - `W113-3`
 - `W113-4`
 - `W114-3`
@@ -566,69 +574,6 @@ _Статус: plan. Основание — mixed priority backlog: `P0-now` д�
   **AC:** ложный stall из-за пустого primary stream-path extraction не воспроизводится при живом stream/fallback evidence.
   **Deps:** -
   **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py`.
-  **Effort:** S
-  **Risk:** Medium
-
-## Wave 121 — TST-001 FAIL/WARN remediation
-
-_Статус: in-progress. Основание — full e2e аудит TST-001: terminal/no-top-level gaps, loop review artifact mismatch, prompt-flow drift и stream/readiness telemetry stability._
-
-- [ ] **W121-1 (P0-now) Stage launcher terminal top-level determinism + external terminate attribution** `tests/repo_tools/aidd_stage_launcher.py`, `tests/repo_tools/test_aidd_stage_launcher.py`, `tests/repo_tools/aidd_audit_contract.py`, `tests/repo_tools/test_aidd_audit_runner.py`:
-  - synthetic terminal result event для non-zero exit при отсутствии top-level payload;
-  - `exit_code=143` без watchdog marker классифицировать только как `ENV_MISCONFIG(parent_terminated_or_external_terminate)`;
-  - фиксировать termination attribution поля (`exit_code`, `signal`, `killed_flag`, `watchdog_marker`, `classification`) в summary telemetry.
-  **AC:** `external_143_no_kill` больше не деградирует в `no_top_level_result`; классификация стабильна как `ENV_MISCONFIG(...)`.
-  **Deps:** W117-1, W118-1, W118-2
-  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_aidd_stage_launcher.py tests/repo_tools/test_aidd_audit_runner.py`.
-  **Effort:** S
-  **Risk:** Medium
-
-- [ ] **W121-2 (P0-now) Loop review artifact contract alignment (canonical + legacy naming)** `skills/aidd-core/runtime/runtime.py`, `skills/review/runtime/review_run.py`, `skills/review/runtime/review_pack_parts/core.py`, `skills/aidd-loop/runtime/loop_step_stage_result.py`, `tests/test_review_run.py`, `tests/test_loop_step.py`:
-  - единый resolver review-report candidates с canonical приоритетом и compatibility fallback (`iteration_id_I<n>.json`, `I<n>.review.json`, `I<n>.final.review.json`, legacy loop variants);
-  - детерминированная diagnostics строка `expected/checked` при отсутствии report;
-  - исключить ложные `review_report_missing/actions_missing` при наличии валидного legacy report artifact.
-  **AC:** loop/review path не падает `review_report_missing`, если report существует в compatibility именовании; missing-case содержит `checked` list.
-  **Deps:** W113-19, W113-21, W113-22
-  **Regression/tests:** `python3 -m pytest -q tests/test_review_run.py tests/test_loop_step.py tests/test_loop_run.py`.
-  **Effort:** M
-  **Risk:** Medium
-
-- [ ] **W121-3 (P0-now) Prompt-flow drift guardrails (runtime + lint)** `skills/aidd-loop/runtime/loop_step_parts/helpers_preparse.py`, `tests/test_loop_step.py`, `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`, `tests/repo_tools/aidd_audit_contract.py`:
-  - fail-fast drift на `python3 skills/.../runtime/...`, `set_stage.py|stage_set.py`, direct non-canonical preflight entrypoints;
-  - классификация malformed slash alias (`Unknown skill: :qa`/`command not found: :qa`) как unified launcher/prompt contract mismatch;
-  - prompt-lint tripwire для malformed slash aliases в stage guidance.
-  **AC:** drift паттерны детерминированно дают `runtime_path_missing_or_drift`/`launcher_prompt_contract_mismatch`; manual/non-canonical recovery path не предлагается.
-  **Deps:** W113-7
-  **Regression/tests:** `python3 -m pytest -q tests/test_loop_step.py tests/test_prompt_lint.py tests/repo_tools/test_aidd_audit_runner.py`.
-  **Effort:** S
-  **Risk:** Medium
-
-- [ ] **W121-4 (P1) Review-spec/readiness parity stabilization** `tests/repo_tools/aidd_audit_runner.py`, `tests/repo_tools/test_aidd_audit_runner.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
-  - сохранять structured report payload как source-of-truth при narrative mismatch;
-  - закрепить telemetry-маркеры softened readiness (`research_status=warn|pending` при minimal baseline).
-  **AC:** `review_spec_report_mismatch` остаётся telemetry-only при валидном report payload; readiness softening фиксируется явно и не терминализует downstream.
-  **Deps:** W113-8, W108-1, W108-2
-  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_aidd_audit_runner.py tests/repo_tools/test_e2e_prompt_contract.py`.
-  **Effort:** S
-  **Risk:** Low
-
-- [ ] **W121-5 (P1) Stream-aware liveness hardening parity** `tests/repo_tools/aidd_stream_paths.py`, `tests/repo_tools/aidd_stage_launcher.py`, `tests/repo_tools/aidd_audit_runner.py`, `tests/repo_tools/test_aidd_stage_launcher.py`, `tests/repo_tools/test_aidd_audit_runner.py`:
-  - fallback discovery обязателен при пустом/invalid primary наборе;
-  - `stream_path_invalid|stream_path_missing` остаются telemetry-only и не участвуют в stall math;
-  - `stream_path_not_emitted_by_cli` фиксируется как non-terminal info при валидном top-level result.
-  **AC:** no false silent-stall при активном stream/fallback evidence; stream-path noise не переводит run в terminal incident.
-  **Deps:** W114-1, W113-26, W113-27
-  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_aidd_stage_launcher.py tests/repo_tools/test_aidd_audit_runner.py`.
-  **Effort:** S
-  **Risk:** Medium
-
-- [ ] **W121-6 (P2) QA command hygiene parser hardening** `skills/aidd-core/runtime/tasklist_parser.py`, `skills/qa/runtime/qa_parts/core.py`, `tests/test_tasklist_normalize.py`, `tests/test_tasklist_check.py`, `tests/test_loop_step.py`:
-  - shell-chain validation только в command/task fields секции `AIDD:TEST_EXECUTION`;
-  - prose/notes tokens (`&&`, `||`, `;`) трактуются как report noise;
-  - malformed alias/prompt formatting failures маппятся в единый contract reason_code для audit telemetry.
-  **AC:** false-positive tasklist hygiene из prose не воспроизводится; реальный malformed command entry остаётся deterministic blocker.
-  **Deps:** W118-2
-  **Regression/tests:** `python3 -m pytest -q tests/test_tasklist_normalize.py tests/test_tasklist_check.py tests/test_loop_step.py`.
   **Effort:** S
   **Risk:** Medium
 
