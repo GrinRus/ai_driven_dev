@@ -197,6 +197,59 @@ class MemoryDecisionsTests(unittest.TestCase):
             self.assertTrue(decisions_log.exists())
             self.assertTrue(decisions_pack.exists())
 
+    def test_actions_apply_rejects_legacy_unknown_cli_arguments(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="memory-actions-cli-") as tmpdir:
+            workspace = Path(tmpdir)
+            project_root = workspace / "aidd"
+            project_root.mkdir(parents=True, exist_ok=True)
+            subprocess.run(
+                cli_cmd("init"),
+                cwd=workspace,
+                env=cli_env(),
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            ticket = "MEM-ACT-CLI"
+            actions_path = project_root / "reports" / "actions" / ticket / "iteration_id_I1" / "qa.actions.json"
+            actions_path.parent.mkdir(parents=True, exist_ok=True)
+            actions_path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "aidd.actions.v1",
+                        "stage": "qa",
+                        "ticket": ticket,
+                        "scope_key": "iteration_id_I1",
+                        "work_item_key": "iteration_id=I1",
+                        "allowed_action_types": [],
+                        "actions": [],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            result = subprocess.run(
+                cli_cmd(
+                    "actions-apply",
+                    "--actions",
+                    str(actions_path),
+                    "--root",
+                    str(project_root),
+                    "--scope_key",
+                    "iteration_id_I1",
+                ),
+                cwd=workspace,
+                env=cli_env(),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("reason_code=runtime_cli_contract_mismatch", result.stderr)
+            self.assertIn("--scope_key", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

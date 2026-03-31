@@ -949,6 +949,49 @@ class LoopStepTests(unittest.TestCase):
             )
             self.assertTrue(ok, msg=f"{code}: {message}")
 
+    def test_validate_review_pack_returns_review_report_missing_reason_code(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-MISSING-REVIEW-REPORT"
+            write_active_state(root, ticket=ticket, stage="review", work_item="iteration_id=I1")
+            write_file(
+                root,
+                f"reports/loops/{ticket}/iteration_id_I1.loop.pack.md",
+                (
+                    "---\n"
+                    "schema: aidd.loop_pack.v1\n"
+                    "updated_at: 2024-01-01T00:00:00Z\n"
+                    f"ticket: {ticket}\n"
+                    "scope_key: iteration_id_I1\n"
+                    "---\n"
+                ),
+            )
+            ok, message, code = loop_step_module.validate_review_pack(
+                root,
+                ticket=ticket,
+                slug_hint=ticket,
+                scope_key="iteration_id_I1",
+            )
+            self.assertFalse(ok)
+            self.assertEqual(code, "review_report_missing")
+            self.assertIn("review report missing", message.lower())
+
+    def test_validate_review_pack_normalizes_missing_reason_case(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-REGEN-CASE"
+            write_active_state(root, ticket=ticket, stage="review", work_item="iteration_id=I1")
+            with patch("aidd_runtime.loop_step_stage_result._maybe_regen_review_pack", return_value=(False, "Review Pack Missing")):
+                ok, message, code = loop_step_module.validate_review_pack(
+                    root,
+                    ticket=ticket,
+                    slug_hint=ticket,
+                    scope_key="iteration_id_I1",
+                )
+            self.assertFalse(ok)
+            self.assertEqual(message, "Review Pack Missing")
+            self.assertEqual(code, "review_pack_missing")
+
     def test_loop_step_blocked_without_review_pack(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
@@ -1683,6 +1726,69 @@ class LoopStepTests(unittest.TestCase):
             self.assertEqual(payload.get("active_stage_sync_applied"), False)
             self.assertTrue(payload.get("report_noise_events"))
             self.assertTrue(payload.get("marker_signal_events"))
+
+    def test_loop_step_stage_chain_run_failure_preserves_review_report_missing_reason(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-stage-chain-run-fail-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-REVIEW-REPORT-MISSING"
+            write_active_state(root, ticket=ticket, work_item="iteration_id=I1")
+            captured = io.StringIO()
+            cwd = os.getcwd()
+            try:
+                os.chdir(root.parent)
+                with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
+                    with patch("aidd_runtime.loop_step.validate_command_available", return_value=(True, "", "")):
+                        with patch("aidd_runtime.loop_step.resolve_runner", return_value=(["fake-runner"], "fake-runner", "")):
+                            with patch("aidd_runtime.loop_step.should_run_stage_chain", return_value=True):
+                                with patch(
+                                    "aidd_runtime.loop_step.run_stage_chain",
+                                    return_value=(
+                                        False,
+                                        {},
+                                        "run stage-chain failed: reason_code=review_report_missing canonical review report required",
+                                    ),
+                                ):
+                                    with patch("aidd_runtime.loop_step.run_command", return_value=0):
+                                        with redirect_stdout(captured):
+                                            code = loop_step_module.main(["--ticket", ticket, "--format", "json"])
+            finally:
+                os.chdir(cwd)
+
+            self.assertEqual(code, 20)
+            payload = json.loads(captured.getvalue())
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertEqual(payload.get("reason_code"), "review_report_missing")
+
+    def test_loop_step_blocks_with_prompt_budget_reason_when_runner_reports_prompt_too_long(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-prompt-budget-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-PROMPT-BUDGET"
+            write_active_state(root, ticket=ticket, work_item="iteration_id=I1")
+
+            def _fake_run_command(command: list[str], cwd: Path, log_path: Path, env: dict | None = None) -> int:
+                _ = command, cwd, env
+                log_path.parent.mkdir(parents=True, exist_ok=True)
+                log_path.write_text("Error: Prompt is too long for this model.\n", encoding="utf-8")
+                return 1
+
+            captured = io.StringIO()
+            cwd = os.getcwd()
+            try:
+                os.chdir(root.parent)
+                with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
+                    with patch("aidd_runtime.loop_step.validate_command_available", return_value=(True, "", "")):
+                        with patch("aidd_runtime.loop_step.resolve_runner", return_value=(["fake-runner"], "fake-runner", "")):
+                            with patch("aidd_runtime.loop_step.should_run_stage_chain", return_value=False):
+                                with patch("aidd_runtime.loop_step.run_command", side_effect=_fake_run_command):
+                                    with redirect_stdout(captured):
+                                        code = loop_step_module.main(["--ticket", ticket, "--format", "json"])
+            finally:
+                os.chdir(cwd)
+
+            self.assertEqual(code, 20)
+            payload = json.loads(captured.getvalue())
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertEqual(payload.get("reason_code"), "prompt_budget_exhausted")
 
     def test_loop_step_cross_iteration_stale_results_do_not_override_active_scope(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:

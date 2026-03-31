@@ -415,6 +415,8 @@ def _derive_dominant_root_cause(
     malformed_stage_alias_count: int,
     tool_command_missing_count: int,
 ) -> str:
+    if classification_subtype == "prompt_budget_exhausted":
+        return "prompt_budget_exhausted"
     if int(no_convergence_fingerprint) > 0:
         return "prompt_exec_no_convergence"
     if malformed_stage_alias_count > 0:

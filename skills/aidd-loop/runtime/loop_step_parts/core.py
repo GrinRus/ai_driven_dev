@@ -104,6 +104,7 @@ if not __package__: sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from .helpers_preparse import (
     _approval_allowed,
     _build_loop_runner_env,
+    _detect_prompt_budget_exhaustion,
     _detect_runner_permission_mismatch,
     _detect_runtime_path_tripwire,
     _extract_stage_chain_reason_code,
@@ -139,6 +140,7 @@ from .helpers_preparse import (
     write_active_stage,
     write_active_ticket,
     write_active_work_item,
+    PROMPT_BUDGET_REASON_CODE,
 )
 __all__ = ["main", "_scan_marker_semantics"]
 
@@ -951,6 +953,38 @@ def main(argv: list[str] | None = None) -> int:
             **stage_sync_kwargs,
         )
     if returncode != 0:
+        prompt_budget_hit, prompt_budget_reason = _detect_prompt_budget_exhaustion(
+            raw_log_path=log_path,
+            stream_jsonl_path=stream_jsonl_path,
+            stream_log_path=stream_log_path,
+        )
+        if prompt_budget_hit:
+            return emit_result(
+                args.format,
+                ticket,
+                next_stage,
+                "blocked",
+                BLOCKED_CODE,
+                log_path,
+                prompt_budget_reason,
+                PROMPT_BUDGET_REASON_CODE,
+                scope_key=runtime.resolve_scope_key(runtime.read_active_work_item(target), ticket),
+                stage_result_path="",
+                runner=runner_raw,
+                runner_effective=runner_effective,
+                runner_notice=runner_notice,
+                repair_reason_code=repair_reason_code,
+                repair_scope_key=repair_scope_key,
+                stream_log_path=stream_log_rel,
+                stream_jsonl_path=stream_jsonl_rel,
+                cli_log_path=cli_log_path,
+                question_retry_attempt=question_retry_attempt,
+                question_retry_applied=question_retry_applied,
+                question_answers=question_answers_compact,
+                question_questions_path=question_questions_path,
+                question_answers_path=question_answers_path,
+                **stage_sync_kwargs,
+            )
         status = "error"
         code = ERROR_CODE
         reason = f"runner exited with {returncode}"
@@ -1020,6 +1054,10 @@ def main(argv: list[str] | None = None) -> int:
             actions_path=actions_log_rel,
         )
         if not ok_stage_chain:
+            stage_chain_reason_code = _extract_stage_chain_reason_code(
+                stage_chain_error,
+                "actions_missing",
+            )
             return emit_result(
                 args.format,
                 ticket,
@@ -1028,7 +1066,7 @@ def main(argv: list[str] | None = None) -> int:
                 BLOCKED_CODE,
                 log_path,
                 stage_chain_error,
-                "actions_missing",
+                stage_chain_reason_code,
                 scope_key=stage_chain_scope_key,
                 runner=runner_raw,
                 runner_effective=runner_effective,
@@ -1168,6 +1206,38 @@ def main(argv: list[str] | None = None) -> int:
                     **stage_sync_kwargs,
                 )
             if returncode != 0:
+                prompt_budget_hit, prompt_budget_reason = _detect_prompt_budget_exhaustion(
+                    raw_log_path=log_path,
+                    stream_jsonl_path=stream_jsonl_path,
+                    stream_log_path=stream_log_path,
+                )
+                if prompt_budget_hit:
+                    return emit_result(
+                        args.format,
+                        ticket,
+                        next_stage,
+                        "blocked",
+                        BLOCKED_CODE,
+                        log_path,
+                        prompt_budget_reason,
+                        PROMPT_BUDGET_REASON_CODE,
+                        scope_key=runtime.resolve_scope_key(runtime.read_active_work_item(target), ticket),
+                        stage_result_path="",
+                        runner=runner_raw,
+                        runner_effective=runner_effective,
+                        runner_notice=runner_notice,
+                        repair_reason_code=repair_reason_code,
+                        repair_scope_key=repair_scope_key,
+                        stream_log_path=stream_log_rel,
+                        stream_jsonl_path=stream_jsonl_rel,
+                        cli_log_path=cli_log_path,
+                        question_retry_attempt=question_retry_attempt,
+                        question_retry_applied=question_retry_applied,
+                        question_answers=question_answers_compact,
+                        question_questions_path=question_questions_path,
+                        question_answers_path=question_answers_path,
+                        **stage_sync_kwargs,
+                    )
                 return emit_result(
                     args.format,
                     ticket,

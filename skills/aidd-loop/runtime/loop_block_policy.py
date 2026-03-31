@@ -18,6 +18,7 @@ DEFAULT_HARD_BLOCK_REASONS: Set[str] = {
     "loop_runner_permissions",
     "user_approval_required",
     "diff_boundary_violation",
+    "prompt_budget_exhausted",
     "preflight_contract_mismatch",
     "plugin_root_missing",
     "command_unavailable",
@@ -27,6 +28,7 @@ DEFAULT_HARD_BLOCK_REASONS: Set[str] = {
     "prompt_flow_blocker",
     "contract_mismatch_stage_result_shape",
     "contract_mismatch_actions_shape",
+    "review_report_missing",
 }
 
 DEFAULT_RECOVERABLE_REASONS: Set[str] = {

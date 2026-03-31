@@ -40,6 +40,10 @@ TOOL_COMMAND_MISSING_RE = re.compile(
     re.IGNORECASE,
 )
 STAGE_COMMAND_RE = re.compile(r"/feature-dev-aidd:([a-z0-9-]+)", re.IGNORECASE)
+PROMPT_BUDGET_RE = re.compile(
+    r"(prompt is too long|prompt too long|input is too long|maximum context length|max context length|context length exceeded)",
+    re.IGNORECASE,
+)
 
 
 def build_paths(audit_dir: Path, step: str, run: int) -> Dict[str, Path]:
@@ -197,6 +201,8 @@ def _infer_stage_name(*, stage_command: str, step_hint: str) -> str:
 def _synthetic_reason_code(*, exit_code: int, log_text: str) -> str:
     if MALFORMED_STAGE_ALIAS_RE.search(log_text):
         return "launcher_prompt_contract_mismatch"
+    if PROMPT_BUDGET_RE.search(log_text):
+        return "prompt_budget_exhausted"
     if int(exit_code) == 143:
         return "parent_terminated_or_external_terminate"
     if int(exit_code) == 127:
@@ -211,6 +217,8 @@ def _synthetic_classification(reason_code: str) -> str:
         return "PROMPT_EXEC_ISSUE(launcher_tokenization_or_command_not_found)"
     if reason_code == "launcher_prompt_contract_mismatch":
         return "PROMPT_EXEC_ISSUE(launcher_prompt_contract_mismatch)"
+    if reason_code == "prompt_budget_exhausted":
+        return "PROMPT_EXEC_ISSUE(prompt_budget_exhausted)"
     return "PROMPT_EXEC_ISSUE(stage_command_exit_nonzero)"
 
 
@@ -479,6 +487,7 @@ def main() -> int:
     result_count = _detect_result_count(log_text)
     top_level_result = _detect_top_level_result(log_text)
     prompt_exec_telemetry = _extract_prompt_exec_telemetry(log_text)
+    prompt_budget_exhausted = int(PROMPT_BUDGET_RE.search(log_text) is not None)
     seed_stage_non_converging_command = 0
     if _is_seed_stage_step(args.step):
         seed_stage_non_converging_command = _detect_seed_stage_non_converging_command(
@@ -496,6 +505,7 @@ def main() -> int:
         f"canonical_runtime_call_count={prompt_exec_telemetry['canonical_runtime_call_count']}",
         f"malformed_stage_alias_count={prompt_exec_telemetry['malformed_stage_alias_count']}",
         f"tool_command_missing_count={prompt_exec_telemetry['tool_command_missing_count']}",
+        f"prompt_budget_exhausted={prompt_budget_exhausted}",
         f"seed_stage_non_converging_command={seed_stage_non_converging_command}",
         f"primary_stream_count={stream_result['primary_candidates']}",
         f"valid_stream_count={stream_result['valid_count']}",

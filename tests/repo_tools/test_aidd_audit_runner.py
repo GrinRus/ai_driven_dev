@@ -210,6 +210,26 @@ class AiddAuditRunnerTests(unittest.TestCase):
         self.assertEqual(payload.get("classification"), "PROMPT_EXEC_ISSUE")
         self.assertEqual(payload.get("classification_subtype"), "launcher_prompt_contract_mismatch")
 
+    def test_prompt_budget_exhausted_is_classified_as_prompt_exec_issue(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "08_qa_run1.summary.txt"
+            log_path = Path(tmp) / "08_qa_run1.log"
+            summary_path.write_text(
+                "\n".join(
+                    [
+                        "step=08_qa",
+                        "exit_code=1",
+                        "reason_code=prompt_budget_exhausted",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            log_path.write_text("Error: Prompt is too long.\n", encoding="utf-8")
+            payload = self.runner.analyze_run(summary_path=summary_path, run_log_path=log_path)
+        self.assertEqual(payload.get("classification"), "PROMPT_EXEC_ISSUE")
+        self.assertEqual(payload.get("classification_subtype"), "prompt_budget_exhausted")
+        self.assertEqual(payload.get("dominant_root_cause"), "prompt_budget_exhausted")
+
     def test_seed_stage_non_converging_command_detected_from_log_fingerprint_without_summary_fields(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             summary_path = Path(tmp) / "06_implement_run1.summary.txt"

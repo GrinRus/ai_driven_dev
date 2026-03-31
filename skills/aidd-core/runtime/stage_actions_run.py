@@ -247,6 +247,7 @@ def _canonicalize_actions_payload_once(
         return False, "actions_not_list", recovered_fields
 
     normalized_actions: list[Any] = []
+    observed_action_types: list[str] = []
     for raw_action in actions:
         if not isinstance(raw_action, dict):
             normalized_actions.append(raw_action)
@@ -267,11 +268,34 @@ def _canonicalize_actions_payload_once(
             action["params"] = normalized_params
             changed = True
             recovered_fields.append("actions[].params")
+        action_type = str(action.get("type") or "").strip()
+        if action_type in _ALLOWED_ACTION_TYPES and action_type not in observed_action_types:
+            observed_action_types.append(action_type)
+        if action_type == "tasklist_ops.next3_recompute":
+            current_params = action.get("params")
+            if not isinstance(current_params, dict):
+                action["params"] = {}
+                changed = True
+                recovered_fields.append("actions[].params.next3_recompute")
+            elif current_params:
+                action["params"] = {}
+                changed = True
+                recovered_fields.append("actions[].params.next3_recompute")
         normalized_actions.append(action)
     if normalized_actions != actions:
         payload["actions"] = normalized_actions
         changed = True
         recovered_fields.append("actions")
+    merged_allowed = payload.get("allowed_action_types")
+    if isinstance(merged_allowed, list):
+        normalized_merged: list[str] = [item for item in merged_allowed if isinstance(item, str)]
+        for action_type in observed_action_types:
+            if action_type not in normalized_merged:
+                normalized_merged.append(action_type)
+                changed = True
+                recovered_fields.append("allowed_action_types")
+        if normalized_merged != merged_allowed:
+            payload["allowed_action_types"] = normalized_merged
 
     if not changed:
         return False, "no_changes_applied", sorted(set(recovered_fields))

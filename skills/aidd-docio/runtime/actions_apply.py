@@ -202,16 +202,29 @@ def _apply_actions(root: Path, payload: Dict[str, object], apply_log: Path) -> L
     return results
 
 
-def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> tuple[argparse.Namespace, list[str]]:
     parser = argparse.ArgumentParser(description="Apply AIDD actions via DocOps.")
     parser.add_argument("--actions", required=True, help="Path to actions.json file")
     parser.add_argument("--apply-log", default=None, help="Override apply log path")
     parser.add_argument("--root", default=None, help="Workflow root (aidd/) override")
-    return parser.parse_args(argv)
+    args, unknown = parser.parse_known_args(argv)
+    return args, list(unknown)
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = parse_args(argv)
+    args, unknown_args = parse_args(argv)
+    if unknown_args:
+        rendered = " ".join(str(item) for item in unknown_args if str(item).strip())
+        if not rendered:
+            rendered = "<empty>"
+        print(
+            "[actions-apply] BLOCK: invalid cli arguments "
+            "(reason_code=runtime_cli_contract_mismatch): "
+            f"unrecognized arguments: {rendered}. "
+            "Allowed flags: --actions, --apply-log, --root.",
+            file=sys.stderr,
+        )
+        return 2
     actions_path = Path(args.actions)
     ticket_hint = _derive_ticket_from_actions_path(actions_path)
     next_action_hint = (

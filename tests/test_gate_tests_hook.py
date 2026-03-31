@@ -169,3 +169,26 @@ class GateTestsEventTests(unittest.TestCase):
             last_event = json.loads(events_path.read_text(encoding="utf-8").splitlines()[-1])
             self.assertEqual(last_event.get("type"), "gate-tests")
             self.assertEqual(last_event.get("status"), "warn")
+
+    def test_gate_tests_dedups_warn_events_with_marker(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            ensure_gates_config(tmp_path, {"tests_required": "soft"})
+            write_active_feature(tmp_path, "gate-dedup")
+            write_active_stage(tmp_path, "review")
+            write_file(tmp_path, "src/main/kotlin/service/RuleEngine.kt", "class RuleEngine")
+            env = {"AIDD_HOOK_EVENT_DEDUP_WINDOW_SECONDS": "3600"}
+
+            result1 = run_hook(tmp_path, "gate-tests.sh", SRC_PAYLOAD, extra_env=env)
+            result2 = run_hook(tmp_path, "gate-tests.sh", SRC_PAYLOAD, extra_env=env)
+            result3 = run_hook(tmp_path, "gate-tests.sh", SRC_PAYLOAD, extra_env=env)
+
+            self.assertEqual(result1.returncode, 0, result1.stderr)
+            self.assertEqual(result2.returncode, 0, result2.stderr)
+            self.assertEqual(result3.returncode, 0, result3.stderr)
+            events_path = tmp_path / "aidd" / "reports" / "events" / "gate-dedup.jsonl"
+            self.assertTrue(events_path.exists())
+            lines = events_path.read_text(encoding="utf-8").splitlines()
+            self.assertEqual(len(lines), 2)
+            marker_event = json.loads(lines[-1])
+            self.assertEqual(marker_event.get("details", {}).get("dedup_drop_marker"), 1)

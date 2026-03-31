@@ -20,6 +20,8 @@ from collections import deque
 from pathlib import Path
 from typing import Dict, Iterable, List, Tuple
 
+_EVENT_DEDUP_STATUSES = {"warn", "skipped"}
+
 def _require_plugin_root() -> Path:
     raw = os.environ.get("CLAUDE_PLUGIN_ROOT")
     if not raw:
@@ -66,11 +68,108 @@ def append_event(
         payload["details"] = details
     path = root / "reports" / "events" / f"{ticket}.jsonl"
     path.parent.mkdir(parents=True, exist_ok=True)
+    dedup_window = _event_dedup_window_seconds()
+    if str(status or "").strip().lower() in _EVENT_DEDUP_STATUSES:
+        duplicate_found, emit_drop_marker = _event_dedup_duplicate_state(path, payload, dedup_window)
+        if duplicate_found and emit_drop_marker:
+            marker_payload = dict(payload)
+            marker_details = dict(details or {})
+            marker_details.update(
+                {
+                    "dedup_drop_marker": 1,
+                    "dedup_window_seconds": dedup_window,
+                    "dedup_key": _event_dedup_key(payload),
+                }
+            )
+            marker_payload["details"] = marker_details
+            _write_event_line(path, marker_payload)
+            return
+        if duplicate_found:
+            return
+    _write_event_line(path, payload)
+
+
+def _write_event_line(path: Path, payload: Dict[str, object]) -> None:
     try:
         with path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
     except OSError:
         return
+
+
+def _event_dedup_window_seconds() -> int:
+    raw = os.environ.get("AIDD_HOOK_EVENT_DEDUP_WINDOW_SECONDS", "120")
+    try:
+        value = int(str(raw).strip())
+    except ValueError:
+        return 120
+    return max(1, value)
+
+
+def _event_dedup_scope_key(payload: Dict[str, object]) -> str:
+    details = payload.get("details")
+    if isinstance(details, dict):
+        for key in ("scope_key", "work_item_key"):
+            value = details.get(key)
+            if value is not None:
+                text = str(value).strip()
+                if text:
+                    return text
+    return ""
+
+
+def _event_dedup_key(payload: Dict[str, object]) -> str:
+    ticket = str(payload.get("ticket") or "").strip()
+    event_type = str(payload.get("type") or "").strip()
+    status = str(payload.get("status") or "").strip()
+    scope_key = _event_dedup_scope_key(payload)
+    return f"{ticket}:{event_type}:{status}:{scope_key}"
+
+
+def _parse_iso_ts(value: str) -> dt.datetime | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        parsed = dt.datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=dt.timezone.utc)
+    return parsed.astimezone(dt.timezone.utc)
+
+
+def _event_dedup_duplicate_state(path: Path, payload: Dict[str, object], window_seconds: int) -> tuple[bool, bool]:
+    if not path.exists():
+        return False, False
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return False, False
+    dedup_key = _event_dedup_key(payload)
+    now = _parse_iso_ts(str(payload.get("ts") or "")) or dt.datetime.now(dt.timezone.utc)
+    for raw in reversed(lines[-200:]):
+        try:
+            event = json.loads(raw)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(event, dict):
+            continue
+        if _event_dedup_key(event) != dedup_key:
+            continue
+        prev_ts = _parse_iso_ts(str(event.get("ts") or ""))
+        if prev_ts is None:
+            continue
+        age = (now - prev_ts).total_seconds()
+        if age > float(window_seconds):
+            return False, False
+        details = event.get("details")
+        if isinstance(details, dict) and str(details.get("dedup_drop_marker", "0")).strip() in {"1", "true"}:
+            return True, False
+        return True, True
+    return False, False
 
 LOG_PREFIX = "[format-and-test]"
 

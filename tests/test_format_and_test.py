@@ -718,6 +718,34 @@ class FormatAndTestEventTests(unittest.TestCase):
             self.assertEqual(last_entry.get("reason_code"), "tests_forbidden")
             self.assertTrue(last_entry.get("reason"))
 
+    def test_format_and_test_event_dedup_for_skipped_status(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project = Path(tmpdir) / "aidd"
+            project.mkdir(parents=True, exist_ok=True)
+            git_init(project)
+            settings = write_settings(project, {})
+            write_active_feature(project, "fmt-dedup")
+            write_active_stage(project, "implement")
+            write_active_state(project, work_item="iteration_id=I1")
+            (project / "src/main/kotlin/app").mkdir(parents=True, exist_ok=True)
+            (project / "src/main/kotlin/app/App.kt").write_text("class App", encoding="utf-8")
+
+            env = {
+                "AIDD_TEST_PROFILE": "none",
+                "AIDD_HOOK_EVENT_DEDUP_WINDOW_SECONDS": "3600",
+            }
+            run_hook(project, settings, env=env)
+            run_hook(project, settings, env=env)
+
+            events_path = project / "reports" / "events" / "fmt-dedup.jsonl"
+            self.assertTrue(events_path.exists())
+            lines = events_path.read_text(encoding="utf-8").splitlines()
+            self.assertEqual(len(lines), 2)
+            first = json.loads(lines[0])
+            second = json.loads(lines[1])
+            self.assertEqual(first.get("status"), "skipped")
+            self.assertEqual(second.get("details", {}).get("dedup_drop_marker"), 1)
+
     def test_format_and_test_clears_missing_test_evidence(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             project = Path(tmpdir) / "aidd"

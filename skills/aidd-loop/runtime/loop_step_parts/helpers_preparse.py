@@ -76,6 +76,7 @@ _QUESTION_REASON_CODES = {
 }
 _QUESTION_RETRY_REASON_CODE = "prompt_flow_blocker"
 RUNTIME_PATH_DRIFT_REASON_CODE = "runtime_path_missing_or_drift"
+PROMPT_BUDGET_REASON_CODE = "prompt_budget_exhausted"
 PROMPT_FLOW_DRIFT_REASON_FAMILY = "prompt_flow_drift_non_canonical_runtime_path"
 _CANT_OPEN_RUNTIME_RE = re.compile(
     r"can't open file [\"']?[^\"'\n]*?/skills/[^\"'\n]*/runtime/[^\"'\n]*",
@@ -101,6 +102,14 @@ _JSON_COMMAND_RE = re.compile(r'"command"\s*:\s*"([^"]+)"')
 _MALFORMED_STAGE_ALIAS_RE = re.compile(
     r"(?:unknown skill|command not found):\s*:(?!status\b)([a-z0-9_-]+)",
     re.IGNORECASE,
+)
+_PROMPT_BUDGET_MARKERS = (
+    "prompt is too long",
+    "prompt too long",
+    "input is too long",
+    "maximum context length",
+    "max context length",
+    "context length exceeded",
 )
 
 
@@ -257,6 +266,29 @@ def _detect_runtime_path_tripwire(
             reason = f"non-canonical runtime path detected: {normalized}"
             return True, RUNTIME_PATH_DRIFT_REASON_CODE, reason, telemetry_events
     return False, "", "", telemetry_events
+
+
+def _detect_prompt_budget_exhaustion(
+    *,
+    raw_log_path: Path,
+    stream_jsonl_path: Optional[Path],
+    stream_log_path: Optional[Path],
+) -> Tuple[bool, str]:
+    chunks: List[str] = [
+        _file_head_tail_text(raw_log_path),
+        _file_head_tail_text(stream_jsonl_path),
+        _file_head_tail_text(stream_log_path),
+    ]
+    combined = "\n".join(chunk for chunk in chunks if chunk).lower()
+    if not combined:
+        return False, ""
+    for marker in _PROMPT_BUDGET_MARKERS:
+        if marker in combined:
+            return True, (
+                "runner prompt budget exhausted: prompt/context is too large for the model; "
+                "compact telemetry/context and retry with shorter payload"
+            )
+    return False, ""
 
 
 def _extract_marker_source(line: str) -> str:

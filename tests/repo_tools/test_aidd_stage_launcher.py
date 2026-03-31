@@ -289,6 +289,23 @@ class AiddStageLauncherTests(unittest.TestCase):
                 "PROMPT_EXEC_ISSUE(launcher_prompt_contract_mismatch)",
             )
 
+    def test_append_synthetic_terminal_result_marks_prompt_budget_exhausted(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            log_path = root / "run.log"
+            log_path.write_text("Error: Prompt is too long.\n", encoding="utf-8")
+            event = self.launcher._maybe_append_synthetic_terminal_result(
+                log_path=log_path,
+                exit_code=1,
+                ticket="TST-001",
+                stage="qa",
+            )
+            self.assertEqual(event.get("reason_code"), "prompt_budget_exhausted")
+            self.assertEqual(
+                event.get("classification"),
+                "PROMPT_EXEC_ISSUE(prompt_budget_exhausted)",
+            )
+
     def test_infer_stage_name_from_stage_commands_for_stage5x(self) -> None:
         cases = [
             ("/feature-dev-aidd:idea-new TST-001 note", "idea-new"),

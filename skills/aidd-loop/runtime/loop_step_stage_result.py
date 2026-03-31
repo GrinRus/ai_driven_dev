@@ -377,7 +377,13 @@ def validate_review_pack(
                 "loop pack missing",
                 "review pack missing",
             }
-            code = "review_pack_missing" if reason in missing_reasons else "review_pack_regen_failed"
+            normalized_reason = str(reason).strip().lower()
+            if normalized_reason.startswith("review report missing"):
+                code = "review_report_missing"
+            elif normalized_reason in missing_reasons:
+                code = "review_pack_missing"
+            else:
+                code = "review_pack_regen_failed"
             return False, reason, code
     lines = pack_path.read_text(encoding="utf-8").splitlines()
     front = parse_front_matter(lines)

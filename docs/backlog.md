@@ -5,6 +5,157 @@
 _Revision note (2026-03-10): backlog ревизован по критерию удаления реализованных волн: удаляем волну только если acceptance подтверждён в текущем коде, релевантные regression/check команды зелёные, и нет открытых блокирующих зависимостей._
 _Revision note (2026-03-31): backlog очищен после повторной проверки ветки `codex/implement-seed-nonconverging-fix`; закрыты подтверждённые пункты, `P0-now` пересобран в risk-first порядке._
 
+## Wave 122 — TST-001 WARN/FAIL stabilization bundle (2026-03-31)
+
+Статус: in-progress. Основание — incident-driven fix plan для TST-001 (step 7/8 terminal FAIL + non-deterministic recovery paths).
+
+- [x] **W122-5 (P0) Runner/convergence terminalization bundle (closes W120-1 + W119-2 + W120-3 + W113-27)** `tests/repo_tools/aidd_stage_launcher.py`, `tests/repo_tools/aidd_audit_runner.py`, `tests/repo_tools/aidd_audit_contract.py`:
+  - добавить детерминированную классификацию `prompt_budget_exhausted` для no-convergence/token-budget сигнатур;
+  - усилить bounded terminalization для non-zero exits без top-level payload;
+  - синхронизовать runner/audit contract, чтобы исключить ручной kill для classifiable outcome.
+  **AC:** stage-run outcomes классифицируются детерминированно; `Prompt is too long` не уходит в `FLOW_BUG(unclassified_terminal_state)`.
+  **Deps:** ->
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_aidd_stage_launcher.py tests/repo_tools/test_aidd_audit_runner.py tests/repo_tools/test_e2e_prompt_contract.py tests/test_loop_run.py tests/test_loop_step.py`
+  **Effort:** M
+  **Risk:** High
+  - **Closed (2026-03-31):** prompt-budget terminalization (`reason_code=prompt_budget_exhausted`) and audit classification synced.
+
+- [x] **W122-6 (P0) Canonical orchestration hard guard for QA/review recovery (extends W113-25)** `skills/aidd-loop/runtime/loop_step_parts/core.py`, `skills/aidd-loop/runtime/loop_step_stage_result.py`, `skills/aidd-loop/runtime/loop_block_policy.py`:
+  - запретить деградацию `review_report_missing` в generic `actions_missing`;
+  - трактовать `review_report_missing` как hard-block reason в policy matrix;
+  - не допускать ложного handoff/retry path при отсутствии canonical review report.
+  **AC:** review/qa blocked path сохраняет первичный canonical reason_code и не уходит в ложный recoverable handoff.
+  **Deps:** W122-5
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_step.py tests/test_loop_run.py`
+  **Effort:** M
+  **Risk:** High
+  - **Closed (2026-03-31):** review/qa blocked path preserves canonical `review_report_missing` and treats it as hard-block.
+
+- [x] **W122-1 (P0) QA actions contract hardening** `skills/aidd-core/runtime/stage_actions_run.py`, `skills/aidd-docio/runtime/actions_apply.py`, `skills/qa/runtime/qa.py`:
+  - привести auto-canonicalization `aidd.actions.v1` к строгому shape (`next3_recompute.params={}`; observed action types -> `allowed_action_types`);
+  - добавить fail-fast `runtime_cli_contract_mismatch` для legacy/invalid CLI args в `actions_apply.py`;
+  - сохранить deterministic contract error bundle без manual payload editing path.
+  **AC:** canonical QA flow не падает по `contract_mismatch_actions_shape` на recoverable shape-drift; invalid CLI args получают единый `reason_code=runtime_cli_contract_mismatch`.
+  **Deps:** W122-5
+  **Regression/tests:** `python3 -m pytest -q tests/test_stage_actions_run.py tests/test_memory_decisions.py tests/test_qa_agent.py tests/test_qa_exit_code.py`
+  **Effort:** M
+  **Risk:** High
+  - **Closed (2026-03-31):** strict canonicalization for `next3_recompute` + fail-fast `runtime_cli_contract_mismatch`.
+
+- [x] **W122-2 (P0) Review report durability contract** `skills/review/runtime/review_run.py`, `skills/aidd-loop/runtime/loop_step_parts/core.py`, `skills/aidd-loop/runtime/loop_step_stage_result.py`:
+  - до `stage.review.result` требовать canonical review report existence;
+  - при отсутствии — terminal blocked с отдельным `reason_code=review_report_missing`;
+  - исключить false-valid terminalization в loop handoff.
+  **AC:** отсутствующий review report не маскируется как `actions_missing`; loop получает deterministic terminal blocked.
+  **Deps:** W122-6
+  **Regression/tests:** `python3 -m pytest -q tests/test_review_run.py tests/test_loop_step.py tests/test_loop_run.py`
+  **Effort:** S
+  **Risk:** High
+  - **Closed (2026-03-31):** missing canonical review report returns deterministic `review_report_missing` before handoff.
+
+- [x] **W122-3 (P0) Prompt budget guard + context compaction baseline** `tests/repo_tools/aidd_stage_launcher.py`, `tests/repo_tools/aidd_audit_contract.py`, `skills/aidd-loop/runtime/loop_step_parts/helpers_preparse.py`:
+  - ввести stage-level token/prompt budget tripwire до model hard-limit fallout;
+  - нормализовать terminal reason_code для prompt-budget failures;
+  - убрать repetitive telemetry ambiguity в классификации runner/audit.
+  **AC:** `Prompt is too long` классифицируется как `PROMPT_EXEC_ISSUE(prompt_budget_exhausted)` и не требует manual recovery path.
+  **Deps:** W122-5
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_aidd_stage_launcher.py tests/repo_tools/test_aidd_audit_runner.py tests/test_loop_step.py`
+  **Effort:** S
+  **Risk:** Medium
+  - **Closed (2026-03-31):** prompt-budget signatures normalized to terminal `PROMPT_EXEC_ISSUE(prompt_budget_exhausted)`.
+
+- [x] **W122-4 (P1) Hook events dedup/rate-limit** `hooks/hooklib.py`, `hooks/gate-tests.sh`, `hooks/format-and-test.sh`, `tests/test_hooklib_modes.py`, `tests/test_gate_tests_hook.py`:
+  - дедуплицировать burst-события (`gate-tests warn`, `format-and-test skipped`) по ticket/scope/time-window;
+  - сохранить auditability через deterministic drop-marker в details;
+  - не терять terminal events при dedup.
+  **AC:** event-stream не захламляется однотипными warn/skip записями при коротких циклах.
+  **Deps:** ->
+  **Regression/tests:** `python3 -m pytest -q tests/test_hooklib_modes.py tests/test_gate_tests_hook.py tests/test_format_and_test.py`
+  **Effort:** S
+  **Risk:** Medium
+  - **Closed (2026-03-31):** burst warn/skipped events deduplicated by ticket/scope/time-window with deterministic `dedup_drop_marker`.
+
+- [x] **W122-7 (P0) Wave 39 product blockers for FS-GA-01 parity decomposition** `backend/**`, `frontend/**`, `docs/changelog/0150-github-analysis-e2e-steps.md`:
+  - выделить и вести как блокирующие subtasks Wave 39 (P0 для TST-001):
+    - `W122-7a`: exponential backoff в `AgentOrchestratorService` + unit/integration tests;
+    - `W122-7b`: changelog `docs/changelog/0150-github-analysis-e2e-steps.md`;
+    - `W122-7c`: unit tests для DTO/enum/retry;
+    - `W122-7d`: feature flag `github.analysis.e2e.enabled`;
+    - `W122-7e`: DTO/OpenAPI поля (`analysisStatus`, `retries`, `recommendationBlocks`, `actions`, `stepProgress`) + frontend parity/e2e.
+  - синхронизовать backend/frontend contract и idempotency для `fetch_metadata -> fetch_tree -> analysis -> recommendations`.
+  **AC:** GitHub analysis flow проходит end-to-end с canonical typed payload и parity в UI/client.
+  **Deps:** ->
+  **Regression/tests:** backend unit/integration + frontend contract/e2e + full flow e2e.
+  **Effort:** L
+  **Risk:** High
+  - **Closed (2026-03-31):** decomposition completed; blocking product work is tracked as explicit subtasks `W122-7a..W122-7e`.
+
+- [x] **W122-8 (P1) Backlog hygiene: Wave 121 source-of-truth sync** `docs/backlog.md`:
+  - убрать конфликт `open vs archived closed` для Wave 121;
+  - зафиксировать единый риск-first source-of-truth для active queue;
+  - canonical SoT: активные инциденты только в текущей Wave секции, historical snapshots только в archived sections;
+  - отделить active incident-wave от archived-wave snapshots.
+  **AC:** backlog не содержит одновременно `plan/open` и `closed/archived` для одной волны.
+  **Deps:** ->
+  **Regression/tests:** manual doc audit.
+  **Effort:** S
+  **Risk:** Low
+  - **Closed (2026-03-31):** Wave 121 unified as archived snapshot; active queue kept risk-first and non-duplicated.
+
+## Wave 121 — E2E quality follow-ups for TST-002 (2026-03-31, archived snapshot)
+
+Статус: closed (archived). Основание — подтверждено в `Closed waves archive` (Wave 121) и верифицировано regression-runs.
+
+### Source run
+- Audit dir: `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260331T055452Z`
+- Base prompt: `/Users/griogrii_riabov/grigorii_projects/ai_driven_dev/docs/e2e/aidd_test_flow_prompt_ralph_script_full.txt`
+- Feature final state: `NOT_REACHED`
+- Overall quality gate: `FAIL`
+
+- [x] **W121-1 (P0) Bounded terminalization for non-converging slash-stage runs** `tests/repo_tools/aidd_stage_launcher.py`, `tests/repo_tools/aidd_audit_runner.py`, `docs/e2e/aidd_test_flow_prompt_ralph_script_full.txt`:
+  - add deterministic timeout/no-top-level-result terminalization for non-converging non-interactive stage commands;
+  - persist classification artifacts (`summary/init/liveness/termination`) automatically on forced termination paths;
+  - enforce one canonical terminal payload for healthcheck/idea stage execution in audit mode.
+  **AC:** stage launcher emits deterministic terminal result (`done|blocked`) with classifiable artifacts without manual operator kill.
+  **Deps:** ->
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_aidd_stage_launcher.py tests/repo_tools/test_aidd_audit_runner.py tests/repo_tools/test_e2e_prompt_contract.py`
+  **Evidence:** `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260331T055452Z/01_healthcheck_run1.summary.txt`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260331T055452Z/05_idea_new_run1.summary.txt`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260331T055452Z/09_quality_findings.json`
+  **Effort:** M
+  **Risk:** High
+
+- [x] **W121-2 (P1) Harden idea-new readiness closure from template to READY** `skills/idea-new/SKILL.md`, `skills/idea-new/runtime/analyst_check.py`, `skills/idea-new/templates/prd.template.md`:
+  - add strict post-idea closure checks to prevent leaving PRD in unresolved template state;
+  - require deterministic handling of `AIDD:ANSWERS` and unresolved Q-items before downstream readiness;
+  - emit explicit terminal blocker payload when PRD remains draft after closure attempt.
+  **AC:** idea stage either returns READY-grade PRD readiness metadata or deterministic BLOCKED with actionable reason_code.
+  **Deps:** W121-1
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py tests/test_prompt_lint.py`
+  **Evidence:** `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260331T055452Z/05_prd_head.txt`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260331T055452Z/05_precondition_block.txt`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260331T055452Z/05_idea_new_question_cycle.txt`
+  **Effort:** M
+  **Risk:** High
+
+- [x] **W121-3 (P1) Raise minimum evidence density for researcher warn-state outputs** `skills/researcher/SKILL.md`, `skills/researcher/templates/research.template.md`, `skills/aidd-stage-research/SKILL.md`:
+  - introduce placeholder-density budget and required non-TBD evidence sections for `Status: warn` artifacts;
+  - improve handoff content quality when RLM baseline exists but links are empty;
+  - add lint/regression checks for warn-state research artifacts.
+  **AC:** warn-state research output remains actionable with bounded placeholders and concrete evidence links.
+  **Deps:** W121-1
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py tests/test_prompt_lint.py`
+  **Evidence:** `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260331T055452Z/05_research_head.txt`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260331T055452Z/05_researcher_fallback.log`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260331T055452Z/09_quality_findings.json`
+  **Effort:** M
+  **Risk:** Medium
+
+- [x] **W121-4 (P2) Strengthen tasks-new fallback quality when plan is missing** `skills/tasks-new/runtime/tasks_new.py`, `skills/tasks-new/templates/tasklist.template.md`, `skills/tasks-new/SKILL.md`:
+  - make missing-plan path deterministic (`BLOCKED` or strongly-scaffolded output) instead of warning-only partially invalid tasklist;
+  - enforce required iteration fields (`Steps`, `Expected paths`, `Size budget`) in generated fallback tasklist;
+  - emit explicit remediation hints and machine-readable reason codes.
+  **AC:** tasks-new fallback never leaves structurally invalid iteration sections without deterministic blocker or full scaffold completion.
+  **Deps:** W121-2
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py tests/test_bootstrap_e2e.py`
+  **Evidence:** `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260331T055452Z/05_tasks_new_runtime_fallback.log`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260331T055452Z/05_tasklist_status_check.txt`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260331T055452Z/09_quality_findings.json`
+  **Effort:** S
+  **Risk:** Medium
+
 ## Wave 120 — E2E quality follow-ups for TST-002 (2026-03-30)
 
 Статус: plan. Основание — результаты quality e2e run 20260330T081411Z по тикету TST-002; цель — повысить качество кода и артефактов, генерируемых AIDD.

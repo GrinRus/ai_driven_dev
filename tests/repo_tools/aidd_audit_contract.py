@@ -34,6 +34,10 @@ MALFORMED_STAGE_ALIAS_RE = re.compile(
     r"(?:unknown skill|command not found):\s*:(?!status\b)([a-z0-9_-]+)",
     re.IGNORECASE,
 )
+PROMPT_BUDGET_RE = re.compile(
+    r"(prompt is too long|prompt too long|input is too long|maximum context length|max context length|context length exceeded)",
+    re.IGNORECASE,
+)
 READINESS_REASON_CODES = (
     "readiness_gate_failed",
     "prd_not_ready",
@@ -174,6 +178,14 @@ def classify_incident(
             label="PROMPT_EXEC_ISSUE(launcher_prompt_contract_mismatch)",
         )
 
+    if "prompt_budget_exhausted" in merged_text or PROMPT_BUDGET_RE.search(merged_text):
+        return Classification(
+            classification="PROMPT_EXEC_ISSUE",
+            subtype="prompt_budget_exhausted",
+            source="summary" if "prompt_budget_exhausted" in summary_text else "run_log",
+            label="PROMPT_EXEC_ISSUE(prompt_budget_exhausted)",
+        )
+
     if MALFORMED_STAGE_ALIAS_RE.search(merged_text):
         return Classification(
             classification="PROMPT_EXEC_ISSUE",
@@ -246,6 +258,14 @@ def classify_incident(
             subtype="launcher_tokenization_or_command_not_found",
             source="summary",
             label="PROMPT_EXEC_ISSUE(launcher_tokenization_or_command_not_found)",
+        )
+
+    if "runtime_cli_contract_mismatch" in merged_text:
+        return Classification(
+            classification="PROMPT_EXEC_ISSUE",
+            subtype="runtime_cli_contract_mismatch",
+            source="summary" if "runtime_cli_contract_mismatch" in summary_text else "run_log",
+            label="PROMPT_EXEC_ISSUE(runtime_cli_contract_mismatch)",
         )
 
     if QA_RUN_UNRECOGNIZED_ARGS_RE.search(merged_text):

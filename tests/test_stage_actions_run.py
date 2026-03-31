@@ -210,6 +210,94 @@ class StageActionsRunTests(unittest.TestCase):
             self.assertEqual(action["params"]["scope_key"], "iteration_id_I2")
             self.assertEqual(action["params"]["source"], "loop")
 
+    def test_canonicalize_actions_payload_resets_next3_recompute_params(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="stage-actions-run-") as tmpdir:
+            root = Path(tmpdir)
+            actions_path = root / "reports" / "actions" / "DEMO-1" / "iteration_id_I1" / "qa.actions.json"
+            actions_path.parent.mkdir(parents=True, exist_ok=True)
+            actions_path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "aidd.actions.v1",
+                        "stage": "qa",
+                        "ticket": "DEMO-1",
+                        "scope_key": "iteration_id_I1",
+                        "work_item_key": "iteration_id=I1",
+                        "allowed_action_types": ["tasklist_ops.next3_recompute"],
+                        "actions": [
+                            {
+                                "type": "tasklist_ops.next3_recompute",
+                                "params": {"unexpected": True},
+                            }
+                        ],
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            context = launcher.LaunchContext(
+                root=root,
+                ticket="DEMO-1",
+                scope_key="iteration_id_I1",
+                work_item_key="iteration_id=I1",
+                stage="qa",
+            )
+
+            changed, reason, recovered_fields = stage_actions_run._canonicalize_actions_payload_once(
+                actions_path,
+                context=context,
+            )
+
+            self.assertTrue(changed)
+            self.assertEqual(reason, "canonicalized_once")
+            self.assertIn("actions[].params.next3_recompute", recovered_fields)
+            payload = json.loads(actions_path.read_text(encoding="utf-8"))
+            self.assertEqual(payload["actions"][0]["params"], {})
+
+    def test_canonicalize_actions_payload_adds_missing_allowed_action_type_from_actions(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="stage-actions-run-") as tmpdir:
+            root = Path(tmpdir)
+            actions_path = root / "reports" / "actions" / "DEMO-1" / "iteration_id_I1" / "review.actions.json"
+            actions_path.parent.mkdir(parents=True, exist_ok=True)
+            actions_path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "aidd.actions.v1",
+                        "stage": "review",
+                        "ticket": "DEMO-1",
+                        "scope_key": "iteration_id_I1",
+                        "work_item_key": "iteration_id=I1",
+                        "allowed_action_types": ["tasklist_ops.append_progress_log"],
+                        "actions": [
+                            {
+                                "type": "context_pack_ops.context_pack_update",
+                                "params": {"what_to_do": "sync review context"},
+                            }
+                        ],
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            context = launcher.LaunchContext(
+                root=root,
+                ticket="DEMO-1",
+                scope_key="iteration_id_I1",
+                work_item_key="iteration_id=I1",
+                stage="review",
+            )
+
+            changed, reason, recovered_fields = stage_actions_run._canonicalize_actions_payload_once(
+                actions_path,
+                context=context,
+            )
+
+            self.assertTrue(changed)
+            self.assertEqual(reason, "canonicalized_once")
+            self.assertIn("allowed_action_types", recovered_fields)
+            payload = json.loads(actions_path.read_text(encoding="utf-8"))
+            self.assertIn("context_pack_ops.context_pack_update", payload["allowed_action_types"])
+
 
 if __name__ == "__main__":
     unittest.main()
