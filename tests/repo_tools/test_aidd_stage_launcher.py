@@ -185,6 +185,7 @@ class AiddStageLauncherTests(unittest.TestCase):
                 "Unknown skill: :status",
                 "command not found: :status",
                 "Sibling tool call errored",
+                "InputValidationError: required parameter `command` is missing",
                 "python3 /tmp/plugin/skills/implement/runtime/implement_run.py --ticket TST-001",
                 "python3 /tmp/plugin/skills/aidd-docio/runtime/actions_apply.py --actions /tmp/a.json",
             ]
@@ -194,6 +195,7 @@ class AiddStageLauncherTests(unittest.TestCase):
         self.assertEqual(telemetry["sibling_tool_error_count"], 1)
         self.assertEqual(telemetry["canonical_runtime_call_count"], 2)
         self.assertEqual(telemetry["malformed_stage_alias_count"], 0)
+        self.assertEqual(telemetry["tool_command_missing_count"], 1)
 
     def test_extract_prompt_exec_telemetry_counts_malformed_stage_alias(self) -> None:
         telemetry = self.launcher._extract_prompt_exec_telemetry(
@@ -205,6 +207,7 @@ class AiddStageLauncherTests(unittest.TestCase):
             )
         )
         self.assertEqual(telemetry["malformed_stage_alias_count"], 2)
+        self.assertEqual(telemetry["tool_command_missing_count"], 0)
 
     def test_detect_seed_stage_non_converging_command_requires_alias_and_sibling_without_canonical_chain(self) -> None:
         positive = self.launcher._detect_seed_stage_non_converging_command(

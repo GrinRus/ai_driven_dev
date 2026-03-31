@@ -34,6 +34,8 @@ Follow `feature-dev-aidd:aidd-core`.
 8. Return the output contract with explicit next step (`/feature-dev-aidd:plan-new <ticket>` when stage handoff is ready).
 9. Runtime-path safety: execute only canonical runtime commands from this contract (`python3 ${CLAUDE_PLUGIN_ROOT}/skills/.../runtime/...`).
 10. Root-relative `/skills/...` runtime paths are forbidden; use only `${CLAUDE_PLUGIN_ROOT}/skills/.../runtime/...`.
+11. Stage call contract: use only canonical prefixed stage calls (`/feature-dev-aidd:<stage>`); unprefixed `Skill(...)` aliases are forbidden.
+12. Bash tool contract: if Bash tool is invoked with JSON payload, include required field `command`; malformed payloads without `command` are forbidden.
 
 ## Command contracts
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py`

@@ -1,0 +1,2 @@
+{"type":"system","subtype":"init","plugins":[{"name":"feature-dev-aidd"}],"slash_commands":[{"name":"feature-dev-aidd:aidd-init"}]}
+{"type":"result","schema":"aidd.stage_result.v1","subtype":"success","stage":"aidd-init","ticket":"TST-001"}

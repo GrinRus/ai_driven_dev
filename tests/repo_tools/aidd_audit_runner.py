@@ -19,6 +19,7 @@ import aidd_audit_contract as contract
 
 
 DEFAULT_MIN_FREE_BYTES = 1_073_741_824
+TOP_LEVEL_STATUS_VALUES = {"blocked", "done", "ship", "success", "error", "continue"}
 TOP_LEVEL_PATTERNS = (
     re.compile(r'"status"\s*:\s*"(blocked|done|ship|success|error|continue)"', re.IGNORECASE),
     re.compile(r"\bstatus=(blocked|done|ship|success|error|continue)\b", re.IGNORECASE),
@@ -52,6 +53,10 @@ CANONICAL_RUNTIME_CALL_RE = re.compile(
 )
 MALFORMED_STAGE_ALIAS_RE = re.compile(
     r"(?:unknown skill|command not found):\s*:(?!status\b)([a-z0-9_-]+)",
+    re.IGNORECASE,
+)
+TOOL_COMMAND_MISSING_RE = re.compile(
+    r"InputValidationError[^\n]*required parameter [`\"']?command[`\"']? is missing",
     re.IGNORECASE,
 )
 
@@ -326,13 +331,109 @@ def read_log_text(path: Path | None) -> str:
     return path.read_text(encoding="utf-8", errors="replace")
 
 
+def _extract_top_level_status_from_result_event(event: Mapping[str, object]) -> str:
+    for key in ("subtype", "status", "result"):
+        value = str(event.get(key) or "").strip().lower()
+        if value in TOP_LEVEL_STATUS_VALUES:
+            return value
+    return ""
+
+
+def _detect_top_level_status_from_json_events(log_text: str) -> str:
+    for raw_line in str(log_text or "").splitlines():
+        line = raw_line.strip()
+        if not line or not line.startswith("{"):
+            continue
+        try:
+            event = json.loads(line)
+        except Exception:
+            continue
+        if str(event.get("type") or "").strip().lower() != "result":
+            continue
+        status = _extract_top_level_status_from_result_event(event)
+        if status:
+            return status
+    return ""
+
+
 def detect_top_level_status(log_text: str) -> str:
     text = str(log_text or "")
+    status_from_result_event = _detect_top_level_status_from_json_events(text)
+    if status_from_result_event:
+        return status_from_result_event
     for pattern in TOP_LEVEL_PATTERNS:
         match = pattern.search(text)
         if match:
             return str(match.group(1) or "").strip().lower()
     return ""
+
+
+def _summary_top_level_result_present(summary: Mapping[str, str]) -> bool:
+    raw = summary.get("top_level_result")
+    if _is_truthy(raw):
+        return True
+    return _safe_int(raw, default=0) > 0
+
+
+def _summary_top_level_status(summary: Mapping[str, str]) -> str:
+    for key in ("top_level_status", "status", "result", "subtype"):
+        value = str(summary.get(key) or "").strip().lower()
+        if value in TOP_LEVEL_STATUS_VALUES:
+            return value
+    return ""
+
+
+def _derive_no_convergence_fingerprint(
+    *,
+    top_level_status: str,
+    tool_command_missing_count: int,
+    seed_stage_non_converging_command: int,
+    status_alias_error_count: int,
+    sibling_tool_error_count: int,
+    canonical_runtime_call_count: int,
+) -> int:
+    non_converging_signals = bool(
+        tool_command_missing_count > 0
+        or seed_stage_non_converging_command
+        or (
+            status_alias_error_count > 0
+            and sibling_tool_error_count > 0
+            and canonical_runtime_call_count == 0
+        )
+    )
+    if not non_converging_signals:
+        return 0
+    if str(top_level_status or "").strip().lower() in {"success", "done", "ship", "continue"}:
+        return 0
+    return 1
+
+
+def _derive_dominant_root_cause(
+    *,
+    classification_subtype: str,
+    no_convergence_fingerprint: int,
+    malformed_stage_alias_count: int,
+    tool_command_missing_count: int,
+) -> str:
+    if int(no_convergence_fingerprint) > 0:
+        return "prompt_exec_no_convergence"
+    if malformed_stage_alias_count > 0:
+        return "prompt_flow_alias_drift"
+    if tool_command_missing_count > 0:
+        return "prompt_exec_missing_tool_command"
+    if classification_subtype == "parent_terminated_or_external_terminate":
+        return "external_terminate"
+    if classification_subtype == "watchdog_terminated":
+        return "watchdog_terminated"
+    if classification_subtype:
+        return classification_subtype
+    return "unknown"
+
+
+def _derive_step_reason(*, classification_subtype: str, no_convergence_fingerprint: int) -> str:
+    if classification_subtype == "parent_terminated_or_external_terminate" and int(no_convergence_fingerprint) > 0:
+        return "non_converging_then_external_terminate"
+    return classification_subtype or "unclassified"
 
 
 def interpret_result_count(summary: Mapping[str, str], *, top_level_present: bool) -> str:
@@ -506,6 +607,12 @@ def analyze_run(
         text=telemetry_text,
         pattern=MALFORMED_STAGE_ALIAS_RE,
     )
+    tool_command_missing_count = _summary_count_or_scan(
+        summary=summary,
+        key="tool_command_missing_count",
+        text=telemetry_text,
+        pattern=TOOL_COMMAND_MISSING_RE,
+    )
     summary_reason_code = str(summary.get("reason_code") or "").strip().lower()
     seed_stage_context = _is_seed_stage_context(summary, summary_path)
     seed_stage_non_converging_command = int(
@@ -526,13 +633,24 @@ def analyze_run(
         or re.search(r"\bterminal_marker=(?:1|true)\b", aux_text, re.IGNORECASE)
         or _is_truthy(summary.get("terminal_marker"))
     )
-    top_level_result_present = bool(top_level_status)
+    summary_top_level_status = _summary_top_level_status(summary)
+    if not top_level_status and summary_top_level_status:
+        top_level_status = summary_top_level_status
+    top_level_result_present = bool(top_level_status) or _summary_top_level_result_present(summary)
     result_count_interpretation = interpret_result_count(summary, top_level_present=top_level_result_present)
     if not top_level_result_present and terminal_marker_present and result_count_interpretation in {
         "result_count_missing",
         "no_top_level_result_confirmed",
     }:
         result_count_interpretation = "terminal_marker_present"
+    no_convergence_fingerprint = _derive_no_convergence_fingerprint(
+        top_level_status=top_level_status,
+        tool_command_missing_count=tool_command_missing_count,
+        seed_stage_non_converging_command=seed_stage_non_converging_command,
+        status_alias_error_count=status_alias_error_count,
+        sibling_tool_error_count=sibling_tool_error_count,
+        canonical_runtime_call_count=canonical_runtime_call_count,
+    )
 
     classified = contract.classify_incident(
         summary=summary,
@@ -657,6 +775,16 @@ def analyze_run(
     effective_terminal_status = classified.label
     if top_level_status == "blocked" and recoverable_ralph_observed:
         effective_terminal_status = "BLOCKED(recoverable ralph path observed)"
+    dominant_root_cause = _derive_dominant_root_cause(
+        classification_subtype=classified.subtype,
+        no_convergence_fingerprint=no_convergence_fingerprint,
+        malformed_stage_alias_count=malformed_stage_alias_count,
+        tool_command_missing_count=tool_command_missing_count,
+    )
+    step_reason = _derive_step_reason(
+        classification_subtype=classified.subtype,
+        no_convergence_fingerprint=no_convergence_fingerprint,
+    )
 
     payload: Dict[str, object] = dict(summary)
     payload.update(
@@ -670,6 +798,7 @@ def analyze_run(
             "effective_classification": classified.label,
             "effective_terminal_status": effective_terminal_status,
             "recoverable_ralph_observed": int(recoverable_ralph_observed),
+            "step_reason": step_reason,
             "partial_success_no_top_level_result": int(tasks_new_partial_success),
             "invalid_fallback_path_count": len(invalid_fallback_paths),
             "invalid_fallback_paths": invalid_fallback_paths,
@@ -693,7 +822,10 @@ def analyze_run(
             "sibling_tool_error_count": int(sibling_tool_error_count),
             "canonical_runtime_call_count": int(canonical_runtime_call_count),
             "malformed_stage_alias_count": int(malformed_stage_alias_count),
+            "tool_command_missing_count": int(tool_command_missing_count),
             "seed_stage_non_converging_command": int(seed_stage_non_converging_command),
+            "no_convergence_fingerprint": int(no_convergence_fingerprint),
+            "dominant_root_cause": dominant_root_cause,
             "workspace_layout_check_path": workspace_layout_check_path,
             "workspace_layout_noncanonical_detected": int(workspace_layout_detected),
             "workspace_layout_preexisting_only": int(workspace_layout_preexisting_only),

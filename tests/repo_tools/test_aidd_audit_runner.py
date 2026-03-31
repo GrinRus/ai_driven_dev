@@ -12,6 +12,7 @@ FIXTURES_20260310 = REPO_ROOT / "tests" / "fixtures" / "audit_tst001_20260310"
 FIXTURES_20260311 = REPO_ROOT / "tests" / "fixtures" / "audit_tst001_20260311"
 FIXTURES_20260317 = REPO_ROOT / "tests" / "fixtures" / "audit_tst001_20260317"
 FIXTURES_20260330 = REPO_ROOT / "tests" / "fixtures" / "audit_tst001_20260330"
+FIXTURES_20260331 = REPO_ROOT / "tests" / "fixtures" / "audit_tst001_20260331"
 RUNNER_PATH = REPO_ROOT / "tests" / "repo_tools" / "aidd_audit_runner.py"
 
 
@@ -286,6 +287,9 @@ class AiddAuditRunnerTests(unittest.TestCase):
             )
         self.assertEqual(payload.get("classification"), "ENV_MISCONFIG")
         self.assertEqual(payload.get("classification_subtype"), "parent_terminated_or_external_terminate")
+        self.assertEqual(payload.get("no_convergence_fingerprint"), 1)
+        self.assertEqual(payload.get("dominant_root_cause"), "prompt_exec_no_convergence")
+        self.assertEqual(payload.get("step_reason"), "non_converging_then_external_terminate")
 
     def test_external_143_no_kill_is_env_misconfig_for_stage5x(self) -> None:
         stage_steps = [
@@ -327,6 +331,8 @@ class AiddAuditRunnerTests(unittest.TestCase):
                 )
                 self.assertEqual(payload.get("classification"), "ENV_MISCONFIG")
                 self.assertEqual(payload.get("classification_subtype"), "parent_terminated_or_external_terminate")
+                self.assertEqual(payload.get("no_convergence_fingerprint"), 0)
+                self.assertEqual(payload.get("dominant_root_cause"), "external_terminate")
 
     def test_non_seed_stage_context_does_not_raise_seed_stage_non_converging_command_from_log_only(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -566,6 +572,44 @@ class AiddAuditRunnerTests(unittest.TestCase):
         self.assertEqual(payload.get("status_alias_error_count"), 4)
         self.assertEqual(payload.get("sibling_tool_error_count"), 5)
         self.assertEqual(payload.get("canonical_runtime_call_count"), 0)
+        self.assertEqual(payload.get("no_convergence_fingerprint"), 1)
+        self.assertEqual(payload.get("dominant_root_cause"), "prompt_exec_no_convergence")
+
+    def test_fixture_pack_20260331_replays_aidd_init_success_without_flow_bug(self) -> None:
+        payload = self.runner.analyze_run(
+            summary_path=FIXTURES_20260331 / "04_aidd_init_run1.summary.txt",
+            run_log_path=FIXTURES_20260331 / "04_aidd_init_run1.log",
+        )
+        self.assertEqual(payload.get("classification"), "TELEMETRY_ONLY")
+        self.assertEqual(payload.get("classification_subtype"), "top_level_success")
+        self.assertEqual(payload.get("top_level_status"), "success")
+        self.assertEqual(payload.get("top_level_result_present"), 1)
+
+    def test_fixture_pack_20260331_replays_idea_new_external_terminate_with_no_convergence_root_cause(self) -> None:
+        for run in (1, 2, 3):
+            with self.subTest(run=run):
+                payload = self.runner.analyze_run(
+                    summary_path=FIXTURES_20260331 / f"05_idea_new_run{run}.summary.txt",
+                    run_log_path=FIXTURES_20260331 / f"05_idea_new_run{run}.log",
+                    termination_path=FIXTURES_20260331 / f"05_idea_new_run{run}.termination_attribution.txt",
+                )
+                self.assertEqual(payload.get("classification"), "ENV_MISCONFIG")
+                self.assertEqual(payload.get("classification_subtype"), "parent_terminated_or_external_terminate")
+                self.assertEqual(payload.get("no_convergence_fingerprint"), 1)
+                self.assertEqual(payload.get("dominant_root_cause"), "prompt_exec_no_convergence")
+                self.assertEqual(payload.get("step_reason"), "non_converging_then_external_terminate")
+                self.assertGreaterEqual(int(payload.get("tool_command_missing_count") or 0), 1)
+
+    def test_fixture_pack_20260331_replays_spec_interview_alias_drift_telemetry(self) -> None:
+        payload = self.runner.analyze_run(
+            summary_path=FIXTURES_20260331 / "05_spec_interview_run1.summary.txt",
+            run_log_path=FIXTURES_20260331 / "05_spec_interview_run1.log",
+        )
+        self.assertEqual(payload.get("classification"), "PROMPT_EXEC_ISSUE")
+        self.assertEqual(payload.get("classification_subtype"), "launcher_prompt_contract_mismatch")
+        self.assertGreaterEqual(int(payload.get("malformed_stage_alias_count") or 0), 1)
+        self.assertEqual(payload.get("no_convergence_fingerprint"), 0)
+        self.assertEqual(payload.get("dominant_root_cause"), "prompt_flow_alias_drift")
 
     def test_fixture_pack_20260317_replays_workspace_layout_preexisting_info(self) -> None:
         payload = self.runner.analyze_run(
@@ -742,6 +786,18 @@ class AiddAuditRunnerTests(unittest.TestCase):
         self.assertEqual(payload.get("classification"), "PROMPT_EXEC_ISSUE")
         self.assertEqual(payload.get("classification_subtype"), "no_top_level_result")
         self.assertEqual(payload.get("terminal_marker_present"), 0)
+
+    def test_summary_top_level_result_without_status_is_telemetry_not_flow_bug(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            summary_path = root / "04_aidd_init_run1.summary.txt"
+            log_path = root / "04_aidd_init_run1.log"
+            summary_path.write_text("exit_code=0\nresult_count=0\ntop_level_result=1\n", encoding="utf-8")
+            log_path.write_text("init-only narrative without status fields\n", encoding="utf-8")
+            payload = self.runner.analyze_run(summary_path=summary_path, run_log_path=log_path)
+        self.assertEqual(payload.get("classification"), "TELEMETRY_ONLY")
+        self.assertEqual(payload.get("classification_subtype"), "top_level_result_present")
+        self.assertEqual(payload.get("top_level_result_present"), 1)
 
     def test_terminal_marker_allows_telemetry_classification_without_top_level_status(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

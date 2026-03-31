@@ -38,6 +38,8 @@ Follow `feature-dev-aidd:aidd-core`.
 10. `Proceed to implementation` is forbidden when `recommended_status != ready`.
 11. Runtime-path safety: execute only canonical runtime commands from this contract (`python3 ${CLAUDE_PLUGIN_ROOT}/skills/.../runtime/...`).
 12. Root-relative `/skills/...` runtime paths are forbidden; use only `python3 ${CLAUDE_PLUGIN_ROOT}/skills/.../runtime/...`.
+13. Stage call contract: use only canonical prefixed stage calls (`/feature-dev-aidd:<stage>`); unprefixed `Skill(...)` aliases are forbidden.
+14. Bash tool contract: if Bash tool is invoked with JSON payload, include required field `command`; malformed payloads without `command` are forbidden.
 
 ## Command contracts
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/runtime/prd_review.py`

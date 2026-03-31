@@ -35,6 +35,10 @@ MALFORMED_STAGE_ALIAS_RE = re.compile(
     r"(?:unknown skill|command not found):\s*:(?!status\b)([a-z0-9_-]+)",
     re.IGNORECASE,
 )
+TOOL_COMMAND_MISSING_RE = re.compile(
+    r"InputValidationError[^\n]*required parameter [`\"']?command[`\"']? is missing",
+    re.IGNORECASE,
+)
 STAGE_COMMAND_RE = re.compile(r"/feature-dev-aidd:([a-z0-9-]+)", re.IGNORECASE)
 
 
@@ -143,11 +147,13 @@ def _extract_prompt_exec_telemetry(log_text: str) -> Dict[str, int]:
     sibling_tool_error_count = len(SIBLING_TOOL_ERROR_RE.findall(log_text))
     canonical_runtime_call_count = len(CANONICAL_RUNTIME_CALL_RE.findall(log_text))
     malformed_stage_alias_count = len(MALFORMED_STAGE_ALIAS_RE.findall(log_text))
+    tool_command_missing_count = len(TOOL_COMMAND_MISSING_RE.findall(log_text))
     return {
         "status_alias_error_count": int(status_alias_error_count),
         "sibling_tool_error_count": int(sibling_tool_error_count),
         "canonical_runtime_call_count": int(canonical_runtime_call_count),
         "malformed_stage_alias_count": int(malformed_stage_alias_count),
+        "tool_command_missing_count": int(tool_command_missing_count),
     }
 
 
@@ -489,6 +495,7 @@ def main() -> int:
         f"sibling_tool_error_count={prompt_exec_telemetry['sibling_tool_error_count']}",
         f"canonical_runtime_call_count={prompt_exec_telemetry['canonical_runtime_call_count']}",
         f"malformed_stage_alias_count={prompt_exec_telemetry['malformed_stage_alias_count']}",
+        f"tool_command_missing_count={prompt_exec_telemetry['tool_command_missing_count']}",
         f"seed_stage_non_converging_command={seed_stage_non_converging_command}",
         f"primary_stream_count={stream_result['primary_candidates']}",
         f"valid_stream_count={stream_result['valid_count']}",

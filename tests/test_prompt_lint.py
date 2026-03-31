@@ -1357,6 +1357,45 @@ class PromptLintTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("malformed slash alias", result.stderr)
 
+    def test_stage_skill_unprefixed_skill_alias_fails(self) -> None:
+        bad_skill = build_stage_skill("review-spec").replace(
+            "## Steps\n1. Run subagent `feature-dev-aidd:plan-reviewer`.\n2. Run subagent `feature-dev-aidd:prd-reviewer`.",
+            "## Steps\n1. If blocked, run `Skill(:spec-interview)`.",
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, skill_override={"review-spec": bad_skill})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("must use canonical prefixed skill calls", result.stderr)
+
+    def test_stage_skill_unprefixed_bash_alias_fails(self) -> None:
+        bad_skill = build_stage_skill("idea-new").replace(
+            "## Steps\n1. Run subagent `feature-dev-aidd:analyst` after stage orchestration.",
+            "## Steps\n1. Recovery probe: `Bash(:idea-new)`.",
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, skill_override={"idea-new": bad_skill})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("must not encode unprefixed stage aliases inside Bash", result.stderr)
+
+    def test_stage_skill_bash_json_payload_without_command_fails(self) -> None:
+        bad_skill = build_stage_skill("spec-interview").replace(
+            "## Steps\n1. Run subagent `feature-dev-aidd:spec-interview-writer` after stage orchestration.",
+            "## Steps\n1. Recovery probe: `Bash({\"ticket\":\"DEMO-1\"})`.",
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, skill_override={"spec-interview": bad_skill})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Bash JSON tool payload must include required `command` field", result.stderr)
+
     def test_stage_skill_absolute_skills_runtime_path_fails(self) -> None:
         bad_skill = build_stage_skill("plan-new").replace(
             "## Steps\n1. Run subagent `feature-dev-aidd:planner`.\n2. Run subagent `feature-dev-aidd:validator`.",

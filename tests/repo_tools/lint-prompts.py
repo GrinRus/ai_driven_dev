@@ -223,6 +223,9 @@ AGENT_SELF_STAGE_COMMAND_MAP: Dict[str, str] = {
 }
 AGENT_STAGE_COMMAND_REF_RE = re.compile(r"/feature-dev-aidd:([a-z0-9-]+)", re.IGNORECASE)
 MALFORMED_STAGE_ALIAS_RE = re.compile(r"/(?:feature-dev-aidd:)?:[a-z0-9-]+", re.IGNORECASE)
+UNPREFIXED_SKILL_ALIAS_RE = re.compile(r"\bSkill\(\s*:[a-z0-9_-]+\s*\)", re.IGNORECASE)
+UNPREFIXED_BASH_ALIAS_RE = re.compile(r"\bBash\(\s*:[a-z0-9_-]+\s*\)", re.IGNORECASE)
+BASH_JSON_LITERAL_RE = re.compile(r"Bash\(\s*\{(?P<payload>[^)]*)\}\s*\)", re.IGNORECASE | re.DOTALL)
 AGENT_LOOP_PATH_LEVEL_POLICY_RE = (
     re.compile(r"stage\.(?:implement|review|qa)\.result\.json", re.IGNORECASE),
 )
@@ -1160,6 +1163,35 @@ def lint_skills(root: Path) -> Tuple[List[str], List[str]]:
                 errors.append(
                     f"{info.path}: stage guidance contains malformed slash alias "
                     f"`{malformed_alias_match.group(0)}`"
+                )
+            for line in info.body.splitlines():
+                unprefixed_skill_alias_match = UNPREFIXED_SKILL_ALIAS_RE.search(line)
+                if unprefixed_skill_alias_match and not DISALLOWED_RUNTIME_HINT_MARKER_RE.search(line):
+                    errors.append(
+                        f"{info.path}: stage guidance must use canonical prefixed skill calls; "
+                        f"forbid `{unprefixed_skill_alias_match.group(0)}`"
+                    )
+                    break
+            for line in info.body.splitlines():
+                unprefixed_bash_alias_match = UNPREFIXED_BASH_ALIAS_RE.search(line)
+                if unprefixed_bash_alias_match and not DISALLOWED_RUNTIME_HINT_MARKER_RE.search(line):
+                    errors.append(
+                        f"{info.path}: stage guidance must not encode unprefixed stage aliases inside Bash; "
+                        f"forbid `{unprefixed_bash_alias_match.group(0)}`"
+                    )
+                    break
+            for line in info.body.splitlines():
+                bash_json_match = BASH_JSON_LITERAL_RE.search(line)
+                if not bash_json_match:
+                    continue
+                if DISALLOWED_RUNTIME_HINT_MARKER_RE.search(line):
+                    continue
+                payload = str(bash_json_match.group("payload") or "")
+                if re.search(r"""["']command["']\s*:""", payload, re.IGNORECASE):
+                    continue
+                errors.append(
+                    f"{info.path}: Bash JSON tool payload must include required `command` field "
+                    f"({bash_json_match.group(0)})"
                 )
             for alias_token in DEPRECATED_ACTIVE_STATE_ALIAS_TOKENS:
                 for line in info.body.splitlines():

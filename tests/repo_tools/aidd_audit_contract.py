@@ -41,6 +41,7 @@ READINESS_REASON_CODES = (
     "answers_format_invalid",
     "research_not_ready",
 )
+TOP_LEVEL_STATUS_VALUES = {"blocked", "done", "ship", "success", "error", "continue"}
 
 
 @dataclass(frozen=True)
@@ -97,6 +98,17 @@ def classify_incident(
         part for part in [summary_text, term_text, pre_text, diagnostics_text.lower(), log_text.lower()] if part
     )
     top_level = str(top_level_status or "").strip().lower()
+    summary_top_level_result = _truthy(summary.get("top_level_result")) or _safe_int(summary.get("top_level_result"), 0) > 0
+    if top_level not in TOP_LEVEL_STATUS_VALUES:
+        summary_status = str(
+            summary.get("top_level_status")
+            or summary.get("status")
+            or summary.get("result")
+            or summary.get("subtype")
+            or ""
+        ).strip().lower()
+        if summary_status in TOP_LEVEL_STATUS_VALUES:
+            top_level = summary_status
 
     if _truthy(summary.get("unknown_skill_hit")) or "unknown skill: feature-dev-aidd" in merged_text:
         return Classification(
@@ -254,12 +266,20 @@ def classify_incident(
             label="PROMPT_EXEC_ISSUE(fallback_path_assembly_bug)",
         )
 
-    if top_level in {"blocked", "done", "ship", "success", "error", "continue"}:
+    if top_level in TOP_LEVEL_STATUS_VALUES:
         return Classification(
             classification="TELEMETRY_ONLY",
             subtype=f"top_level_{top_level}",
             source="top_level_payload",
             label=f"TELEMETRY_ONLY(top_level_{top_level})",
+        )
+
+    if summary_top_level_result:
+        return Classification(
+            classification="TELEMETRY_ONLY",
+            subtype="top_level_result_present",
+            source="summary",
+            label="TELEMETRY_ONLY(top_level_result_present)",
         )
 
     return Classification(

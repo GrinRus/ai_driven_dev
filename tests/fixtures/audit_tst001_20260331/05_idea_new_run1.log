@@ -1,0 +1,4 @@
+InputValidationError: required parameter `command` is missing
+Unknown skill: :status
+Sibling tool call errored
+{"type":"result","schema":"aidd.stage_result.v1","status":"blocked","stage":"idea-new","terminal_marker":1}

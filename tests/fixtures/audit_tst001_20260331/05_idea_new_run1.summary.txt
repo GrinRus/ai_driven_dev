@@ -1,0 +1,10 @@
+step=05_idea_new
+exit_code=143
+result_count=0
+top_level_result=1
+status_alias_error_count=1
+sibling_tool_error_count=1
+canonical_runtime_call_count=0
+tool_command_missing_count=1
+terminal_marker=1
+reason_code=parent_terminated_or_external_terminate

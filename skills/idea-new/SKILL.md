@@ -31,6 +31,8 @@ Follow `feature-dev-aidd:aidd-core`.
 5. Run subagent `feature-dev-aidd:analyst`. First action: read the rolling context pack.
 6. Postflight: if answers already exist, rerun `python3 ${CLAUDE_PLUGIN_ROOT}/skills/idea-new/runtime/analyst_check.py --ticket <ticket>` and sync PRD readiness status.
 7. Output: return open questions (if any) and explicit next step `/feature-dev-aidd:researcher <ticket>`.
+8. Stage call contract: use only canonical prefixed stage calls (`/feature-dev-aidd:<stage>`); unprefixed `Skill(...)` aliases are forbidden.
+9. Bash tool contract: if Bash tool is invoked with JSON payload, include required field `command`; malformed payloads without `command` are forbidden.
 
 ## Command contracts
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_feature.py`

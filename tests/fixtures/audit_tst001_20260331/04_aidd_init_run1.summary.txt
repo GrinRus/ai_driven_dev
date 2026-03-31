@@ -1,0 +1,4 @@
+step=04_aidd_init
+exit_code=0
+result_count=1
+top_level_result=1

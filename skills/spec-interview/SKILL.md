@@ -32,6 +32,8 @@ Follow `feature-dev-aidd:aidd-core`.
 4. Use `AskUserQuestionTool` to gather missing spec details; update `aidd/docs/spec/<ticket>.spec.yaml`.
 5. If answers arrive, sync them into the spec and `AIDD:OPEN_QUESTIONS`/`AIDD:DECISIONS` as needed.
 6. Return the output contract and next step `/feature-dev-aidd:tasks-new <ticket>`.
+7. Stage call contract: use only canonical prefixed stage calls (`/feature-dev-aidd:<stage>`); unprefixed `Skill(...)` aliases are forbidden.
+8. Bash tool contract: if Bash tool is invoked with JSON payload, include required field `command`; malformed payloads without `command` are forbidden.
 
 ## Command contracts
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/spec-interview/runtime/spec_interview.py`
