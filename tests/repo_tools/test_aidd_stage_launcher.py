@@ -286,6 +286,18 @@ class AiddStageLauncherTests(unittest.TestCase):
                 "PROMPT_EXEC_ISSUE(launcher_prompt_contract_mismatch)",
             )
 
+    def test_infer_stage_name_from_stage_commands_for_stage5x(self) -> None:
+        cases = [
+            ("/feature-dev-aidd:idea-new TST-001 note", "idea-new"),
+            ("/feature-dev-aidd:researcher TST-001", "researcher"),
+            ("/feature-dev-aidd:plan-new TST-001", "plan-new"),
+            ("/feature-dev-aidd:review-spec TST-001", "review-spec"),
+        ]
+        for stage_command, expected in cases:
+            with self.subTest(stage_command=stage_command):
+                stage = self.launcher._infer_stage_name(stage_command=stage_command, step_hint="")
+                self.assertEqual(stage, expected)
+
     def test_tst001_fixture_packs_are_available_for_replay(self) -> None:
         expected = [
             FIXTURE_PACK_20260310 / "06_implement_run1.summary.txt",

@@ -425,6 +425,19 @@ def _allow_readiness_override(classification: contract.Classification) -> bool:
     return classification.classification in {"FLOW_BUG", "TELEMETRY_ONLY"}
 
 
+def _detect_readiness_softened(precondition: Mapping[str, str]) -> tuple[bool, str]:
+    gate = str(precondition.get("readiness_gate") or "").strip().lower()
+    research_status = str(precondition.get("research_status") or "").strip().lower()
+    warn_scope = str(precondition.get("research_warn_scope") or "").strip().lower()
+    if gate != "pass":
+        return False, ""
+    if research_status not in {"warn", "pending"}:
+        return False, ""
+    if warn_scope not in {"minimal_baseline_soft", "links_empty_non_blocking"}:
+        return False, ""
+    return True, f"{research_status}:{warn_scope}"
+
+
 def analyze_run(
     *,
     summary_path: Path,
@@ -567,6 +580,7 @@ def analyze_run(
         precondition=precondition,
         diagnostics_text=aux_text,
     )
+    readiness_gate_research_softened, readiness_gate_research_softened_reason = _detect_readiness_softened(precondition)
     readiness_gate_failed = bool(readiness_reason)
     if readiness_gate_failed and _allow_readiness_override(classified):
         classified = contract.Classification(
@@ -661,6 +675,8 @@ def analyze_run(
             "invalid_fallback_paths": invalid_fallback_paths,
             "readiness_gate_failed": int(readiness_gate_failed),
             "readiness_reason": readiness_reason,
+            "readiness_gate_research_softened": int(readiness_gate_research_softened),
+            "readiness_gate_research_softened_reason": readiness_gate_research_softened_reason,
             "liveness_classification": liveness_classification,
             "liveness_active_source": liveness_active_source,
             "liveness_valid_stream_count": liveness_valid_stream_count,

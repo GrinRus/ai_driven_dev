@@ -91,6 +91,39 @@ class ReviewRunTests(unittest.TestCase):
             self.assertEqual(code, 0)
             stage_actions_main.assert_called_once()
 
+    def test_main_missing_review_report_emits_checked_paths_diagnostics(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="review-run-") as tmpdir:
+            root = Path(tmpdir)
+            context = launcher.LaunchContext(
+                root=root,
+                ticket="DEMO-CHK",
+                scope_key="iteration_id_I1",
+                work_item_key="iteration_id=I1",
+                stage="review",
+            )
+            missing_path = root / "reports" / "reviewer" / "DEMO-CHK" / "iteration_id_I1.json"
+            checked_one = root / "reports" / "reviewer" / "DEMO-CHK" / "iteration_id_I1.json"
+            checked_two = root / "reports" / "loops" / "DEMO-CHK" / "I1.review.json"
+
+            stderr = io.StringIO()
+            with (
+                patch("aidd_runtime.review_run.launcher.resolve_context", return_value=context),
+                patch("aidd_runtime.review_run._resolve_review_report_path", return_value=missing_path),
+                patch(
+                    "aidd_runtime.review_run.runtime.resolve_existing_review_report_path",
+                    return_value=(None, [checked_one, checked_two]),
+                ),
+                patch("aidd_runtime.review_run.stage_actions_run.main") as stage_actions_main,
+                redirect_stderr(stderr),
+            ):
+                code = review_run.main(["--ticket", "DEMO-CHK"])
+
+            self.assertEqual(code, 2)
+            stage_actions_main.assert_not_called()
+            output = stderr.getvalue()
+            self.assertIn("reason_code=review_report_missing", output)
+            self.assertIn("checked_paths=reports/reviewer/DEMO-CHK/iteration_id_I1.json,reports/loops/DEMO-CHK/I1.review.json", output)
+
 
 if __name__ == "__main__":
     unittest.main()

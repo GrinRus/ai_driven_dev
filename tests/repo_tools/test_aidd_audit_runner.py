@@ -287,6 +287,47 @@ class AiddAuditRunnerTests(unittest.TestCase):
         self.assertEqual(payload.get("classification"), "ENV_MISCONFIG")
         self.assertEqual(payload.get("classification_subtype"), "parent_terminated_or_external_terminate")
 
+    def test_external_143_no_kill_is_env_misconfig_for_stage5x(self) -> None:
+        stage_steps = [
+            "05_idea_new",
+            "05_research",
+            "05_plan_new",
+            "05_review_spec",
+        ]
+        for step in stage_steps:
+            with self.subTest(step=step), tempfile.TemporaryDirectory() as tmp:
+                summary_path = Path(tmp) / f"{step}_run1.summary.txt"
+                log_path = Path(tmp) / f"{step}_run1.log"
+                termination_path = Path(tmp) / f"{step}_termination_attribution.txt"
+                summary_path.write_text(
+                    "\n".join(
+                        [
+                            f"step={step}",
+                            "result_count=0",
+                            "exit_code=143",
+                        ]
+                    ),
+                    encoding="utf-8",
+                )
+                log_path.write_text("non terminal stream without top-level result\n", encoding="utf-8")
+                termination_path.write_text(
+                    "\n".join(
+                        [
+                            "exit_code=143",
+                            "killed_flag=0",
+                            "watchdog_marker=0",
+                        ]
+                    ),
+                    encoding="utf-8",
+                )
+                payload = self.runner.analyze_run(
+                    summary_path=summary_path,
+                    run_log_path=log_path,
+                    termination_path=termination_path,
+                )
+                self.assertEqual(payload.get("classification"), "ENV_MISCONFIG")
+                self.assertEqual(payload.get("classification_subtype"), "parent_terminated_or_external_terminate")
+
     def test_non_seed_stage_context_does_not_raise_seed_stage_non_converging_command_from_log_only(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             summary_path = Path(tmp) / "08_qa_run1.summary.txt"
@@ -573,6 +614,36 @@ class AiddAuditRunnerTests(unittest.TestCase):
         self.assertEqual(payload.get("review_spec_report_path"), "aidd/reports/prd/TST-001.json")
         self.assertEqual(payload.get("review_spec_recommended_status"), "ready")
         self.assertEqual(payload.get("review_spec_recovery_source"), "report_payload")
+
+    def test_readiness_softened_with_minimal_baseline_sets_telemetry_marker(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            summary_path = root / "05_plan_new_run1.summary.txt"
+            log_path = root / "05_plan_new_run1.log"
+            precondition_path = root / "05_precondition_block.txt"
+            summary_path.write_text("step=05_plan_new\nexit_code=0\nresult_count=1\n", encoding="utf-8")
+            log_path.write_text('{"type":"result","status":"success"}\n', encoding="utf-8")
+            precondition_path.write_text(
+                "\n".join(
+                    [
+                        "readiness_gate=PASS",
+                        "research_status=warn",
+                        "research_warn_scope=minimal_baseline_soft",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(
+                summary_path=summary_path,
+                run_log_path=log_path,
+                precondition_path=precondition_path,
+            )
+        self.assertEqual(payload.get("classification"), "TELEMETRY_ONLY")
+        self.assertEqual(payload.get("classification_subtype"), "top_level_success")
+        self.assertEqual(payload.get("readiness_gate_failed"), 0)
+        self.assertEqual(payload.get("readiness_gate_research_softened"), 1)
+        self.assertEqual(payload.get("readiness_gate_research_softened_reason"), "warn:minimal_baseline_soft")
 
     def test_review_spec_report_check_without_mismatch_keeps_top_level_classification(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
