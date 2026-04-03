@@ -3,20 +3,45 @@ from __future__ import annotations
 
 import argparse
 import difflib
+from dataclasses import dataclass
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
 FRAGMENTS_DIR = ROOT / "tests" / "repo_tools" / "e2e_prompt"
-BASE_PATH = FRAGMENTS_DIR / "base_contract.md"
-MUST_READ_PATH = FRAGMENTS_DIR / "must_read_manifest.md"
-PROFILE_PATHS = {
-    "FULL": FRAGMENTS_DIR / "profile_full.md",
-    "SMOKE": FRAGMENTS_DIR / "profile_smoke.md",
-}
-OUTPUT_PATHS = {
-    "FULL": ROOT / "docs" / "e2e" / "aidd_test_flow_prompt_ralph_script_full.txt",
-    "SMOKE": ROOT / "docs" / "e2e" / "aidd_test_flow_prompt_ralph_script.txt",
+
+
+@dataclass(frozen=True)
+class PromptSpec:
+    base_path: Path
+    must_read_path: Path
+    profiles: dict[str, Path]
+    outputs: dict[str, Path]
+
+
+PROMPT_SPECS = {
+    "TST-001": PromptSpec(
+        base_path=FRAGMENTS_DIR / "base_contract.md",
+        must_read_path=FRAGMENTS_DIR / "must_read_manifest.md",
+        profiles={
+            "FULL": FRAGMENTS_DIR / "profile_full.md",
+            "SMOKE": FRAGMENTS_DIR / "profile_smoke.md",
+        },
+        outputs={
+            "FULL": ROOT / "docs" / "e2e" / "aidd_test_flow_prompt_ralph_script_full.txt",
+            "SMOKE": ROOT / "docs" / "e2e" / "aidd_test_flow_prompt_ralph_script.txt",
+        },
+    ),
+    "TST-002": PromptSpec(
+        base_path=FRAGMENTS_DIR / "quality_base_contract.md",
+        must_read_path=FRAGMENTS_DIR / "quality_must_read_manifest.md",
+        profiles={
+            "FULL": FRAGMENTS_DIR / "quality_profile_full.md",
+        },
+        outputs={
+            "FULL": ROOT / "docs" / "e2e" / "aidd_test_quality_audit_prompt_tst002_full.txt",
+        },
+    ),
 }
 
 
@@ -34,30 +59,41 @@ def _render(profile_title: str, profile_body: str, must_read: str, base_template
     return _normalize(rendered)
 
 
-def build() -> dict[str, str]:
-    base_template = _read(BASE_PATH)
-    must_read = _read(MUST_READ_PATH)
-    rendered: dict[str, str] = {}
-    for profile_title, profile_path in PROFILE_PATHS.items():
-        rendered[profile_title] = _render(
-            profile_title=profile_title,
-            profile_body=_read(profile_path),
-            must_read=must_read,
-            base_template=base_template,
-        )
+def build() -> dict[Path, str]:
+    rendered: dict[Path, str] = {}
+    for spec in PROMPT_SPECS.values():
+        base_template = _read(spec.base_path)
+        must_read = _read(spec.must_read_path)
+        profile_names = set(spec.profiles)
+        output_names = set(spec.outputs)
+        if profile_names != output_names:
+            missing_profiles = sorted(output_names - profile_names)
+            missing_outputs = sorted(profile_names - output_names)
+            problems = []
+            if missing_profiles:
+                problems.append(f"missing profiles for outputs: {missing_profiles}")
+            if missing_outputs:
+                problems.append(f"missing outputs for profiles: {missing_outputs}")
+            raise ValueError("; ".join(problems))
+        for profile_title, profile_path in spec.profiles.items():
+            rendered[spec.outputs[profile_title]] = _render(
+                profile_title=profile_title,
+                profile_body=_read(profile_path),
+                must_read=must_read,
+                base_template=base_template,
+            )
     return rendered
 
 
-def write_outputs(rendered: dict[str, str]) -> None:
-    for title, output_path in OUTPUT_PATHS.items():
-        output_path.write_text(rendered[title], encoding="utf-8")
+def write_outputs(rendered: dict[Path, str]) -> None:
+    for output_path, text in rendered.items():
+        output_path.write_text(text, encoding="utf-8")
         print(f"[e2e-prompt-build] wrote {output_path}")
 
 
-def check_outputs(rendered: dict[str, str]) -> int:
+def check_outputs(rendered: dict[Path, str]) -> int:
     failed = False
-    for title, output_path in OUTPUT_PATHS.items():
-        expected = rendered[title]
+    for output_path, expected in rendered.items():
         actual = _read(output_path) if output_path.exists() else ""
         if actual != expected:
             failed = True

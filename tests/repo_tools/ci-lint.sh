@@ -665,6 +665,7 @@ target_globs = [
     "skills/*/templates/*",
     "tests/repo_tools/e2e_prompt/*.md",
     "aidd_test_flow_prompt_ralph_script*.txt",
+    "aidd_test_quality_audit_prompt_tst002*.txt",
     "tests/repo_tools/smoke-workflow.sh",
 ]
 

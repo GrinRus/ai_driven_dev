@@ -4,6 +4,191 @@
 
 _Revision note (2026-04-02): backlog нормализован в пять активных wave. Дубликаты, historical incident notes и superseded blocks удалены; backlog отражает только исполнимые программы работ, а крупные platform adaptations вынесены в отдельные low-priority wave._
 
+
+## Wave 127 — E2E quality follow-ups for TST-002 (2026-04-03)
+
+Статус: plan. Основание — результаты quality e2e run 20260403T072014Z по тикету TST-002; цель — повысить качество кода и артефактов, генерируемых AIDD.
+
+### Source run
+- Audit dir: `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260403T072014Z`
+- Base prompt: `/Users/griogrii_riabov/grigorii_projects/ai_driven_dev/docs/e2e/aidd_test_flow_prompt_ralph_script_full.txt`
+- Feature final state: `NOT_REACHED`
+- Overall quality gate: `FAIL`
+
+- [ ] **W127-1 (P0) plan-new convergence and terminal result contract** `skills/plan-new/SKILL.md`, `agents/planner.md`, `skills/plan-new/runtime/research_check.py`, `tests/test_planner_agent.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - ввести bounded convergence guard для `plan-new` и запрет бесконечных nested loops без top-level result;
+  - эмитить deterministic terminal payload с `reason_code` вместо зависания до внешнего terminate;
+  - добавить e2e contract-проверку `result_count>0` для успешных и recoverable выходов.
+  **AC:** `plan-new` в e2e run формирует top-level result в пределах budget; `result_count=0` не остаётся без explicit terminal classification.
+  **Deps:** W126-1
+  **Regression/tests:** `python3 -m pytest -q tests/test_planner_agent.py tests/repo_tools/test_e2e_prompt_contract.py`
+  **Evidence:** `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260403T072014Z/05_plan_new_run1.summary.txt`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260403T072014Z/05_plan_new_run2.summary.txt`
+  **Effort:** M
+  **Risk:** High
+
+- [ ] **W127-2 (P1) Prompt contraction for idea/plan latency and determinism** `skills/idea-new/SKILL.md`, `skills/plan-new/SKILL.md`, `agents/analyst.md`, `agents/planner.md`, `tests/test_prompt_lint.py`:
+  - сократить prompt-ветки, которые провоцируют глубокие многократные subagent cycles до первого operator-visible результата;
+  - зафиксировать deterministic question-closure path (`compact_q_values`) без лишних reread/retry циклов;
+  - добавить lint-правило против long-form non-convergent orchestration hints в stage skills.
+  **AC:** `idea-new`/`plan-new` завершают первичный stage-return без каскадных внутренних reread-loop по тем же input artifacts.
+  **Deps:** W127-1
+  **Regression/tests:** `python3 -m pytest -q tests/test_prompt_lint.py tests/repo_tools/test_e2e_prompt_contract.py`
+  **Evidence:** `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260403T072014Z/05_idea_new_run1.log`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260403T072014Z/05_plan_new_run2.log`
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W127-3 (P2) Runner lock and parallel-call cancellation hardening** `skills/aidd-core/SKILL.md`, `skills/plan-new/SKILL.md`, `hooks/hooks.json`, `tests/repo_tools/aidd_audit_runner.py`, `tests/repo_tools/test_aidd_audit_runner.py`:
+  - ужесточить stage-run mutual exclusion и guard против concurrent tool invocations для одного ticket/stage;
+  - добавить явную диагностику race/cancel (`parallel_call_cancelled`) с рекомендацией единственного recovery-path;
+  - покрыть race-сценарий регрессионным audit-runner тестом.
+  **AC:** плановый stage-run не генерирует повторяющиеся `Cancelled: parallel tool call ... errored` при корректном single-run запуске.
+  **Deps:** W127-1
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_aidd_audit_runner.py tests/repo_tools/test_e2e_prompt_contract.py`
+  **Evidence:** `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260403T072014Z/05_plan_new_run1.log`
+  **Effort:** S
+  **Risk:** Medium
+
+- [ ] **W127-4 (P2) RLM link-evidence completeness for reviewed research** `skills/researcher/SKILL.md`, `skills/researcher/runtime/research.py`, `skills/aidd-rlm/runtime/rlm_slice.py`, `tests/test_research_check.py`, `tests/test_research_rlm_e2e.py`:
+  - добавить post-check для `reviewed` статуса: пустой `rlm.links` допускается только с explicit constrained-scope explanation;
+  - усилить guidance для `--paths/--keywords`, чтобы links не оставались empty при релевантном code scope;
+  - расширить e2e тесты на `rlm_links_empty_warn` с проверкой quality narrative.
+  **AC:** при `research_status=reviewed` links либо непустые, либо присутствует корректный explicit quality disclaimer и remediation hints.
+  **Deps:** W127-2
+  **Regression/tests:** `python3 -m pytest -q tests/test_research_check.py tests/test_research_rlm_e2e.py`
+  **Evidence:** `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260403T072014Z/05_researcher_run1.summary.txt`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260403T072014Z/05_research_artifact_presence.txt`
+  **Effort:** S
+  **Risk:** Medium
+
+## Wave 126 — E2E quality follow-ups for TST-002 (2026-04-03)
+
+Статус: plan. Основание — результаты quality e2e run 20260403T044337Z по тикету TST-002; цель — повысить качество кода и артефактов, генерируемых AIDD.
+
+### Source run
+- Audit dir: `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260403T044337Z`
+- Base prompt: `/Users/griogrii_riabov/grigorii_projects/ai_driven_dev/docs/e2e/aidd_test_flow_prompt_ralph_script_full.txt`
+- Feature final state: `NOT_REACHED`
+- Overall quality gate: `FAIL`
+
+- [ ] **W126-1 (P0) Seed stage-chain artifact contract hardening** `skills/implement/runtime/implement_run.py`, `skills/review/runtime/review_run.py`, `skills/aidd-loop/runtime/loop_run.py`, `skills/aidd-loop/runtime/loop_step_stage_chain.py`, `tests/test_loop_run.py`:
+  - обеспечить обязательный non-empty stage-chain artifact bundle перед loop handoff;
+  - синхронизовать seed-stage success criteria с preloop integrity checks (no empty stage-chain trees);
+  - добавить deterministic failure payload с actionable recovery вместо downstream skip cascade.
+  **AC:** `06_preloop_integrity_check.txt` больше не даёт `preloop_artifacts_missing` при успешных implement/review runs.
+  **Deps:** -
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_run.py tests/test_loop_step.py tests/test_review_run.py`.
+  **Evidence:** `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260403T044337Z/06_preloop_integrity_check.txt`
+  **Effort:** M
+  **Risk:** High
+
+- [ ] **W126-2 (P1) tasks-new canonical orchestration and TEST_EXECUTION parser alignment** `skills/tasks-new/runtime/tasks_new.py`, `skills/tasks-new/SKILL.md`, `skills/aidd-flow-state/runtime/tasklist_check.py`, `tests/test_tasks_new.py`, `tests/test_tasklist_check.py`:
+  - удалить manual-spec/manual-tasklist recovery path из primary orchestration narrative;
+  - ужесточить parser/validator для `AIDD:TEST_EXECUTION` без false missing-tasks сигналов;
+  - вернуть единый canonical recovery hint через allowed stage commands.
+  **AC:** `05_tasks_new_drift_check.txt` = OK и `05_tasklist_test_execution_probe.txt` без schema-mismatch WARN для валидного tasklist.
+  **Deps:** W126-1
+  **Regression/tests:** `python3 -m pytest -q tests/test_tasks_new.py tests/test_tasklist_check.py`.
+  **Evidence:** `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260403T044337Z/05_tasks_new_drift_check.txt`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260403T044337Z/05_tasklist_test_execution_probe.txt`
+  **Effort:** S
+  **Risk:** Medium
+
+- [ ] **W126-3 (P1) Implement runtime handoff entrypoint contract fix** `skills/implement/runtime/implement_run.py`, `skills/aidd-flow-state/runtime/progress_cli.py`, `skills/aidd-flow-state/runtime/status_summary.py`, `tests/test_implement_agent.py`:
+  - убрать/заменить вызов отсутствующего `handoff_check.py` на существующий canonical runtime surface;
+  - добавить fail-fast validation entrypoint paths до запуска nested runtime commands;
+  - эмитить explicit contract_mismatch marker вместо silent tool-result noise.
+  **AC:** implement logs больше не содержат `can't open file ... handoff_check.py` для canonical runs.
+  **Deps:** W126-1
+  **Regression/tests:** `python3 -m pytest -q tests/test_implement_agent.py tests/test_prompt_contract_runtime_paths.py`.
+  **Evidence:** `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260403T044337Z/06_implement_runtime_path_drift_hits.txt`
+  **Effort:** S
+  **Risk:** Medium
+
+- [ ] **W126-4 (P1) Workspace reconciliation guard for subagent worktrees** `skills/implement/runtime/implement_run.py`, `skills/review/runtime/review_run.py`, `skills/aidd-loop/runtime/loop_run_parts/core.py`, `tests/test_implement_agent.py`, `tests/test_review_run.py`:
+  - ввести post-stage reconciliation check: declared implementation must appear in tracked workspace diff;
+  - блокировать stage success при расхождении между artifact claims и landed code delta;
+  - добавить telemetry marker `workspace_reconcile_failed` для quality/e2e diagnostics.
+  **AC:** stage success невозможен при “artifact-heavy / code-light” расхождении; mismatch детерминированно отражается в report.
+  **Deps:** W126-1
+  **Regression/tests:** `python3 -m pytest -q tests/test_implement_agent.py tests/test_review_run.py tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Evidence:** `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260403T044337Z/09_quality_sources.txt`
+  **Effort:** M
+  **Risk:** High
+
+- [ ] **W126-5 (P1) Research narrative quality gate against placeholder-heavy output** `skills/researcher/runtime/research.py`, `skills/researcher/templates/research.template.md`, `skills/aidd-core/runtime/research_guard.py`, `tests/test_research_command.py`, `tests/test_research_check.py`:
+  - добавить quality checks на placeholder density (`TBD`, empty sections) в research summary;
+  - ограничить readiness propagation при warn-status без concrete integration evidence;
+  - включить actionable remediation hints с конкретными paths/queries.
+  **AC:** research summary для READY downstream не содержит placeholder-heavy sections и содержит concrete integration points.
+  **Deps:** W126-2
+  **Regression/tests:** `python3 -m pytest -q tests/test_research_command.py tests/test_research_check.py tests/test_gate_workflow.py`.
+  **Evidence:** `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260403T044337Z/05_research_rlm_check.txt`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260403T044337Z/09_artifact_findings.md`
+  **Effort:** S
+  **Risk:** Medium
+
+## Wave 125 — E2E quality follow-ups for TST-002 (2026-04-02)
+
+Статус: plan. Основание — результаты quality e2e run 20260402T191116Z по тикету TST-002; цель — повысить качество кода и артефактов, генерируемых AIDD.
+
+### Source run
+- Audit dir: `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260402T191116Z`
+- Base prompt: `/Users/griogrii_riabov/grigorii_projects/ai_driven_dev/docs/e2e/aidd_test_flow_prompt_ralph_script_full.txt`
+- Feature final state: `NOT_REACHED`
+- Overall quality gate: `FAIL`
+
+- [ ] **W125-1 (P1) review-spec narrative/report parity hardening** `skills/aidd-core/runtime/prd_review.py`, `skills/aidd-core/runtime/prd_review_section.py`, `skills/review-spec/SKILL.md`, `tests/test_prd_review_agent.py`:
+  - вычислять user-facing narrative только из structured report payload и запретить расхождение по findings/recommended_status;
+  - добавить fail-fast telemetry для `narrative_vs_report_mismatch` с deterministic recovery hint;
+  - синхронизовать stage-output и report pack generation в одном source-of-truth.
+  **AC:** `narrative_vs_report_mismatch=0` в e2e run; downstream recovery decisions строятся только по structured report.
+  **Deps:** -
+  **Regression/tests:** `python3 -m pytest -q tests/test_prd_review_agent.py tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Evidence:** `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260402T191116Z/05_review_spec_report_check_run1.txt`
+  **Effort:** S
+  **Risk:** Medium
+
+- [ ] **W125-2 (P1) Research readiness hardening against placeholder evidence** `skills/researcher/runtime/research.py`, `skills/aidd-core/runtime/research_guard.py`, `templates/aidd/config/gates.json`, `tests/test_research_command.py`, `tests/test_research_check.py`:
+  - добавить quality validators для research markdown (placeholder/TBD density, required sections with concrete links);
+  - запретить soft-pass readiness без минимально полезного narrative evidence при `research_status=warn|pending`;
+  - расширить diagnostics для operator decision (`what is missing`, `where to fill`, `next command`).
+  **AC:** readiness gate не проходит при placeholder-heavy research без explicit override; quality diagnostics детерминированы.
+  **Deps:** W125-1
+  **Regression/tests:** `python3 -m pytest -q tests/test_research_command.py tests/test_research_check.py tests/test_gate_workflow.py`.
+  **Evidence:** `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260402T191116Z/09_research_placeholder_check.txt`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260402T191116Z/05_precondition_block.txt`
+  **Effort:** M
+  **Risk:** High
+
+- [ ] **W125-3 (P2) QA report fidelity for executed tests** `skills/qa/runtime/qa.py`, `skills/qa/runtime/qa_parts/core.py`, `tests/test_qa_agent.py`, `tests/test_qa_exit_code.py`:
+  - прокинуть агрегированные executed-tests поля из canonical tests log в `aidd/reports/qa/<ticket>.json`;
+  - синхронизовать `tests_summary`, `tests_executed`, и review/test markers;
+  - добавить regression на parity между QA report и tests log.
+  **AC:** QA report содержит непротиворечивые executed tests details (count/runner/failures/errors) при PASS/WARN/FAIL.
+  **Deps:** W125-2
+  **Regression/tests:** `python3 -m pytest -q tests/test_qa_agent.py tests/test_qa_exit_code.py`.
+  **Evidence:** `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260402T191116Z/08_qa_gradle_check.txt`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/aidd/reports/qa/TST-002.json`
+  **Effort:** S
+  **Risk:** Medium
+
+- [ ] **W125-4 (P2) Tasklist/report reference integrity checks** `skills/tasks-new/runtime/tasks_new.py`, `skills/aidd-flow-state/runtime/tasklist_check.py`, `skills/plan-new/SKILL.md`, `tests/test_tasks_new.py`, `tests/test_tasklist_check.py`:
+  - валидировать существование report/test paths перед установкой `Status: READY` в tasklist;
+  - исключить stale placeholders в plan/tasklist headers (path drift guard);
+  - возвращать actionable warning с canonical regeneration command.
+  **AC:** tasklist/plan не публикуют несуществующие report paths; integrity check покрыт тестами.
+  **Deps:** W125-2
+  **Regression/tests:** `python3 -m pytest -q tests/test_tasks_new.py tests/test_tasklist_check.py`.
+  **Evidence:** `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260402T191116Z/09_tasklist_reference_check.txt`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/aidd/docs/tasklist/TST-002.md`
+  **Effort:** S
+  **Risk:** Medium
+
+- [ ] **W125-5 (P2) Loop convergence policy for no-tests soft blocks** `skills/aidd-loop/runtime/loop_run_parts/core.py`, `skills/aidd-loop/runtime/loop_step_parts/core.py`, `skills/aidd-loop/runtime/loop_block_policy.py`, `tests/test_loop_run.py`, `tests/test_loop_step.py`:
+  - добавить deterministic branch для `no_tests_soft` с bounded transition к next actionable stage вместо max-iteration churn;
+  - улучшить termination reason mapping (`max-iterations` vs actionable blocked) и operator hints;
+  - расширить policy-matrix tests для `ralph` soft-class behavior.
+  **AC:** loop не зацикливается на soft-block review без прогресса; terminal output содержит actionable next step.
+  **Deps:** W125-2
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_run.py tests/test_loop_step.py tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Evidence:** `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260402T191116Z/07_loop_run1.log`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260402T191116Z/07_recoverable_block_policy_check.txt`
+  **Effort:** M
+  **Risk:** Medium
+
 ## Wave 120 — Core Flow Stabilization (2026-04-02)
 
 _Статус: plan. Основание — high-priority стабилизация полного e2e flow, seed stages, loop orchestration, canonical stage contract и research gate._
