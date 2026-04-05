@@ -1,5 +1,4 @@
 import subprocess
-from pathlib import Path
 from textwrap import dedent
 
 from tests.helpers import cli_cmd, cli_env, ensure_project_root, write_active_feature, write_file, write_plan_iterations

@@ -10,7 +10,6 @@ from typing import Any, Dict, List, Tuple
 
 import os
 import sys
-from pathlib import Path
 
 
 def _ensure_plugin_root_on_path() -> None:
@@ -100,7 +99,7 @@ def _resolve_allowed_paths(
     writemap_path = target / "reports" / "context" / ticket / f"{scope_key}.writemap.json"
 
     writemap = _load_json(writemap_path)
-    readmap = _load_json(readmap_path)
+    _load_json(readmap_path)
 
     allowed = []
     if isinstance(writemap.get("allowed_paths"), list):

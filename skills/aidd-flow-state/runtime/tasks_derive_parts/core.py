@@ -2,16 +2,13 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import json
 import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, List, Sequence, Tuple
+from typing import Dict, List, Sequence, Tuple
 
-import os
 import sys
-from pathlib import Path
 
 
 def _ensure_plugin_root_on_path() -> None:
@@ -978,7 +975,7 @@ def main(argv: list[str] | None = None) -> int:
     def _env_truthy(value: str | None) -> bool:
         return str(value or "").strip().lower() in {"1", "true", "yes", "y"}
 
-    prefer_pack = bool(getattr(args, "prefer_pack", False) or _env_truthy(os.getenv("AIDD_PACK_FIRST")))
+    bool(getattr(args, "prefer_pack", False) or _env_truthy(os.getenv("AIDD_PACK_FIRST")))
 
     def _load_with_pack(path: Path, *, prefer_pack_first: bool) -> tuple[Dict, str]:
         from aidd_runtime.reports.loader import load_report_for_path

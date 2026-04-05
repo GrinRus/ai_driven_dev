@@ -5,16 +5,12 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
-import hashlib
 import json
 import os
 import sys
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
-import os
-import sys
-from pathlib import Path
 
 
 def _ensure_plugin_root_on_path() -> None:
@@ -38,7 +34,7 @@ def _ensure_plugin_root_on_path() -> None:
 _ensure_plugin_root_on_path()
 
 from aidd_runtime import runtime
-from aidd_runtime.rlm_config import file_id_for_path, load_rlm_settings
+from aidd_runtime.rlm_config import load_rlm_settings
 from aidd_runtime.reports import loader as reports_loader
 
 SCHEMA = "aidd.report.pack.v1"

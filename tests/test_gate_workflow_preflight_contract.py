@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest import mock
 
 from hooks import gate_workflow
-from tests.helpers import REPO_ROOT, ensure_project_root, run_hook, write_active_state, write_file
+from tests.helpers import REPO_ROOT, ensure_project_root, write_active_state, write_file
 
 DOC_PAYLOAD = '{"tool_input":{"file_path":"docs/prd/demo-checkout.prd.md"}}'
 

@@ -9,7 +9,6 @@ from typing import Dict, Iterable, List
 
 import os
 import sys
-from pathlib import Path
 
 
 def _ensure_plugin_root_on_path() -> None:

@@ -13,7 +13,7 @@ import statistics
 import urllib.error
 import urllib.request
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Sequence, Tuple
+from typing import Any, Dict, Iterable, List, Sequence
 
 CASE_SCHEMA = "aidd.skill_eval.case.v1"
 SUMMARY_SCHEMA = "aidd.skill_eval.summary.v1"
