@@ -6,23 +6,15 @@ _Revision note (2026-04-05): backlog консолидован после сер�
 
 ## Wave 136 — E2E quality follow-ups for TST-002 (2026-04-05)
 
-Статус: plan. Основание — консолидированные результаты quality e2e run по тикету TST-002 за `2026-04-02..2026-04-05`; цель — убрать системные разрывы в terminal convergence, artifact contracts и runner predictability.
-
-### Source runs
-- Audit dirs: `<audit_root>/TST-002/20260402T120017Z`, `<audit_root>/TST-002/20260403T160807Z`, `<audit_root>/TST-002/20260405T111737Z`
-- Base prompt: `docs/e2e/aidd_test_flow_prompt_ralph_script_full.txt`
-- Feature final state (cluster): `NOT_REACHED`
-- Overall quality gate (cluster): `FAIL`
+_Статус: plan. Основание — консолидированные результаты quality e2e run по тикету TST-002 за `2026-04-02..2026-04-05`; цель — убрать системные разрывы в terminal convergence, artifact contracts и runner predictability._
 
 - [ ] **W136-1 (P0) Terminal convergence + stage_result contract** `skills/aidd-core/runtime/launcher.py`, `skills/aidd-flow-state/runtime/stage_result.py`, `skills/plan-new/SKILL.md`, `skills/qa/SKILL.md`:
   - Enforce deterministic terminal emission for slash and seed stages under stream-json execution.
   - Guarantee canonical `aidd.stage_result.v1` payload at stage boundaries before downstream handoff.
   - Add regression coverage for `result_count>0` and explicit terminal reason codes across stage transitions.
-  **Sources:** `W126-1, W127-1, W128-1, W128-2, W129-1, W132-1, W132-3, W134-1, W135-1`
   **AC:** stage-chain exits with deterministic terminal result and canonical stage_result payload without manual kill/recovery.
-  **Deps:** ->
+  **Deps:** -
   **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py tests/test_loop_run.py tests/test_stage_result_contract.py`
-  **Evidence:** `<audit_root>/TST-002/20260405T111737Z/05_plan_new_result_run1.txt`, `<audit_root>/TST-002/20260404T110734Z/08_qa_run1_result_count.txt`, `<audit_root>/TST-002/20260403T160807Z/07_stage_result_contract_check.txt`
   **Effort:** L
   **Risk:** High
 
@@ -30,11 +22,9 @@ _Revision note (2026-04-05): backlog консолидован после сер�
   - Make review-spec and idea-new sync cycle converge deterministically once compact answers are valid.
   - Remove narrative/payload divergence and stale open-question deadlocks in PRD readiness.
   - Emit explicit bounded terminal blocker when convergence is impossible.
-  **Sources:** `W125-1, W129-2, W130-2, W131-2, W133-1, W134-2, W135-2, W132-4`
   **AC:** readiness sync closes in bounded cycle or returns deterministic blocker with actionable reason code.
   **Deps:** W136-1
   **Regression/tests:** `python3 -m pytest -q tests/test_prd_review_agent.py tests/repo_tools/test_e2e_prompt_contract.py`
-  **Evidence:** `<audit_root>/TST-002/20260405T111737Z/05_findings_sync_convergence.txt`, `<audit_root>/TST-002/20260404T093749Z/05_precondition_block_after_recovery.txt`
   **Effort:** M
   **Risk:** High
 
@@ -42,11 +32,9 @@ _Revision note (2026-04-05): backlog консолидован после сер�
   - Detect repeated identical failures and terminate early with actionable terminal telemetry.
   - Distinguish productive progress from recursive self-debug loops and stale retries.
   - Harden watchdog/process-tree cleanup and lock handling for retry cycles.
-  **Sources:** `W127-3, W128-4, W133-3, W134-3, W135-3`
   **AC:** repeated failures stop at bounded retries and produce deterministic termination attribution.
   **Deps:** W136-1
   **Regression/tests:** `python3 -m pytest -q tests/test_loop_run.py tests/test_loop_step.py tests/test_launcher.py`
-  **Evidence:** `<audit_root>/TST-002/20260405T104210Z/05_researcher_run1.log`, `<audit_root>/TST-002/20260403T160807Z/07_loop_run_exit.txt`
   **Effort:** M
   **Risk:** High
 
@@ -54,11 +42,9 @@ _Revision note (2026-04-05): backlog консолидован после сер�
   - Enforce actionable remediation payload when warn/pending soft-readiness uses low-evidence RLM baseline.
   - Prevent placeholder-only narrative from passing readiness without structured quality markers.
   - Keep soft-readiness allowed but with explicit confidence and follow-up contract.
-  **Sources:** `W125-2, W126-5, W127-4, W128-5, W129-3, W133-2, W134-4, W135-4`
   **AC:** warn/pending readiness cannot pass without explicit evidence-quality markers and remediation guidance.
-  **Deps:** ->
+  **Deps:** -
   **Regression/tests:** `python3 -m pytest -q tests/test_research_check.py tests/test_research_rlm_e2e.py`
-  **Evidence:** `<audit_root>/TST-002/20260405T111737Z/05_precondition_block.txt`, `<audit_root>/TST-002/20260405T082043Z/05_2_researcher_result_run1.txt`
   **Effort:** M
   **Risk:** Medium
 
@@ -66,11 +52,9 @@ _Revision note (2026-04-05): backlog консолидован после сер�
   - Normalize `AIDD:TEST_EXECUTION` command-field schema for parser-safe downstream execution.
   - Ensure QA runtime paths remain canonical and workspace-aware; block non-canonical `python3 skills/...` leakage.
   - Align tasklist output with QA execution profile and handoff expectations.
-  **Sources:** `W126-2, W132-2, W133-4`
   **AC:** tasklist and QA stages use canonical runtime command contracts and pass hygiene/parser checks.
   **Deps:** W136-1
   **Regression/tests:** `python3 -m pytest -q tests/test_tasklist_check.py tests/test_qa_agent.py tests/repo_tools/test_e2e_prompt_contract.py`
-  **Evidence:** `<audit_root>/TST-002/20260404T110734Z/08_qa_run1.log`, `<audit_root>/TST-002/20260405T082043Z/08_test_execution_precheck.txt`
   **Effort:** M
   **Risk:** Medium
 
@@ -78,11 +62,9 @@ _Revision note (2026-04-05): backlog консолидован после сер�
   - Stabilize migration-aware loop policy so migration stacks do not dead-end on ambiguous no-tests blocks.
   - Guard workspace reconciliation against stale worktree paths with deterministic recovery reason codes.
   - Keep implement handoff hints strictly canonical for runtime entrypoints.
-  **Sources:** `W126-3, W126-4, W128-3`
   **AC:** migration/workspace edge cases resolve through deterministic canonical recovery contracts.
   **Deps:** W136-1
   **Regression/tests:** `python3 -m pytest -q tests/test_implement_agent.py tests/test_loop_run.py tests/test_tasklist_check.py`
-  **Evidence:** `<audit_root>/TST-002/20260403T113442Z/07_scope_mismatch_check.txt`, `<audit_root>/TST-002/20260403T160807Z/07_recoverable_block_policy_check.txt`
   **Effort:** M
   **Risk:** Medium
 
@@ -90,11 +72,9 @@ _Revision note (2026-04-05): backlog консолидован после сер�
   - Keep QA report `tests_executed` and top-level outcome consistent with actual executed commands.
   - Validate cross-artifact links between tasklist, stage_result, review and QA reports for active ticket.
   - Stabilize no-tests soft-block handling to prefer actionable recovery over ambiguous terminal blocks.
-  **Sources:** `W125-3, W125-4, W125-5`
   **AC:** QA/report artifacts stay internally consistent and no-tests scenarios produce predictable policy outcomes.
   **Deps:** W136-5
   **Regression/tests:** `python3 -m pytest -q tests/test_qa_agent.py tests/test_stage_result_contract.py tests/test_loop_run.py tests/test_tasklist_check.py`
-  **Evidence:** `<audit_root>/TST-002/20260402T120017Z/08_qa_run1.log`, `<audit_root>/TST-002/20260402T120017Z/05_tasklist_status_check.txt`, `<audit_root>/TST-002/20260402T120017Z/07_recoverable_block_policy_check.txt`
   **Effort:** S
   **Risk:** Low
 
