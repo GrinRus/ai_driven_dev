@@ -11,6 +11,7 @@ QUALITY_PROMPT = REPO_ROOT / "docs" / "e2e" / "aidd_test_quality_audit_prompt_ts
 FLOW_PROMPT_FULL = REPO_ROOT / "docs" / "e2e" / "aidd_test_flow_prompt_ralph_script_full.txt"
 PROMPT_BUILDER = REPO_ROOT / "tests" / "repo_tools" / "build_e2e_prompts.py"
 PROMPT_FRAGMENTS_DIR = REPO_ROOT / "tests" / "repo_tools" / "e2e_prompt"
+CI_LINT_SCRIPT = REPO_ROOT / "tests" / "repo_tools" / "ci-lint.sh"
 
 
 def _read(path: Path) -> str:
@@ -47,6 +48,17 @@ class E2EQualityPromptContractTests(unittest.TestCase):
         self.assertIn("$PLUGIN_DIR/docs/e2e/aidd_test_flow_prompt_ralph_script_full.txt", text)
         self.assertIn("standalone-expanded", text)
         self.assertNotIn("AUDIT_COMPLETE TST-001", text)
+
+    def test_legacy_qna_guard_scans_quality_prompt_output_path(self) -> None:
+        ci_lint = _read(CI_LINT_SCRIPT)
+        self.assertIn('"docs/e2e/aidd_test_quality_audit_prompt_tst002*.txt"', ci_lint)
+        matched = sorted(REPO_ROOT.glob("docs/e2e/aidd_test_quality_audit_prompt_tst002*.txt"))
+        self.assertTrue(matched, msg="quality prompt glob should resolve at least one file from repo root")
+        self.assertIn(
+            QUALITY_PROMPT,
+            matched,
+            msg=f"quality prompt path {QUALITY_PROMPT} must be covered by legacy Qn scan glob",
+        )
 
     def test_quality_prompt_declares_quality_variables(self) -> None:
         text = _read(QUALITY_PROMPT)
