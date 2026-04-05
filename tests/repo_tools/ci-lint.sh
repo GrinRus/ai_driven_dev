@@ -447,13 +447,32 @@ run_release_docs_guard() {
 }
 
 run_ruff_hygiene() {
-  if ! command -v ruff >/dev/null 2>&1; then
+  local -a ruff_cmd=()
+  if command -v ruff >/dev/null 2>&1; then
+    ruff_cmd=(ruff)
+  elif python3 -m ruff --version >/dev/null 2>&1; then
+    ruff_cmd=(python3 -m ruff)
+  elif python3 -m pip --version >/dev/null 2>&1; then
+    log "ruff not found; installing user-local copy"
+    if ! python3 -m pip install --user ruff >/dev/null; then
+      err "failed to install ruff for hygiene checks"
+      STATUS=1
+      return
+    fi
+    export PATH="${HOME}/.local/bin:${PATH}"
+    if command -v ruff >/dev/null 2>&1; then
+      ruff_cmd=(ruff)
+    elif python3 -m ruff --version >/dev/null 2>&1; then
+      ruff_cmd=(python3 -m ruff)
+    fi
+  fi
+  if ((${#ruff_cmd[@]} == 0)); then
     err "ruff is required for hygiene checks"
     STATUS=1
     return
   fi
   log "running ruff hygiene checks"
-  if ! ruff check . --select F401,F841,B007,B023,ERA; then
+  if ! "${ruff_cmd[@]}" check . --select F401,F841,B007,B023,ERA; then
     err "ruff hygiene checks failed"
     STATUS=1
   fi
