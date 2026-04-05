@@ -63,7 +63,7 @@ User‑гайд для workspace находится в `skills/aidd-core/templat
 ## Быстрые проверки (repo‑only)
 - Полный линт + unit‑тесты: `tests/repo_tools/ci-lint.sh`.
 - E2E smoke: `tests/repo_tools/smoke-workflow.sh`.
-- CI policy: workflow `smoke-workflow` запускается всегда и выполняет auto-skip, если runtime-пути (`skills/hooks/tools/agents/templates/.claude-plugin`) не менялись.
+- CI policy: workflow `smoke-workflow` запускается всегда и выполняет auto-skip, если не менялись runtime-пути (`skills/**`, `hooks/**`, `agents/**`, `templates/aidd/**`, `.claude-plugin/**`).
 - Runtime module guard: `tests/repo_tools/runtime-module-guard.py` (`>600` lines = WARN, `>900` = ERROR), waivers — `tests/repo_tools/runtime-module-guard-waivers.txt`.
 - Required-check parity: `lint-and-test`, `smoke-workflow`, `dependency-review`; security checks `security-secret-scan` и `security-sast` идут staged rollout (advisory пока `AIDD_SECURITY_ENFORCE!=1`, required при `AIDD_SECURITY_ENFORCE=1`).
 - Дополнительно (если нужно): `python3 -m pytest -q tests`.

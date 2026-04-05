@@ -8,17 +8,11 @@ import datetime as dt
 import json
 import os
 import re
-import shutil
 import shlex
-import subprocess
 import sys
-import threading
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional, TextIO
 
-import os
-import sys
-from pathlib import Path
 
 
 def _ensure_plugin_root_on_path() -> None:
@@ -41,12 +35,11 @@ def _ensure_plugin_root_on_path() -> None:
 
 _ensure_plugin_root_on_path()
 
-from aidd_runtime import claude_stream_render
 from aidd_runtime import marker_semantics
 from aidd_runtime import runtime
 from aidd_runtime import stage_result_contract
 from aidd_runtime.feature_ids import write_active_state
-from aidd_runtime.io_utils import dump_yaml, parse_front_matter, utc_timestamp
+from aidd_runtime.io_utils import dump_yaml, utc_timestamp
 
 DONE_CODE = 0
 CONTINUE_CODE = 10

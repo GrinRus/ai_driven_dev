@@ -7,9 +7,7 @@ import os
 from pathlib import Path
 from typing import Sequence
 
-import os
 import sys
-from pathlib import Path
 
 
 def _ensure_plugin_root_on_path() -> None:

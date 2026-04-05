@@ -5,8 +5,8 @@
 
 ## 1) Переменные
 
-- `PROJECT_DIR=/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new`
-- `PLUGIN_DIR=/Users/griogrii_riabov/grigorii_projects/ai_driven_dev`
+- `PROJECT_DIR=<absolute-path-to-target-workspace>`
+- `PLUGIN_DIR=<absolute-path-to-plugin-repo>`
 - `CLAUDE_PLUGIN_ROOT=$PLUGIN_DIR`
 - `TICKET=TST-001`
 - `PROFILE=smoke`

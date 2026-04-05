@@ -446,6 +446,54 @@ run_release_docs_guard() {
   fi
 }
 
+run_ruff_hygiene() {
+  local -a ruff_cmd=()
+  if command -v ruff >/dev/null 2>&1; then
+    ruff_cmd=(ruff)
+  elif python3 -m ruff --version >/dev/null 2>&1; then
+    ruff_cmd=(python3 -m ruff)
+  elif python3 -m pip --version >/dev/null 2>&1; then
+    log "ruff not found; installing user-local copy"
+    if ! python3 -m pip install --user ruff >/dev/null; then
+      err "failed to install ruff for hygiene checks"
+      STATUS=1
+      return
+    fi
+    export PATH="${HOME}/.local/bin:${PATH}"
+    if command -v ruff >/dev/null 2>&1; then
+      ruff_cmd=(ruff)
+    elif python3 -m ruff --version >/dev/null 2>&1; then
+      ruff_cmd=(python3 -m ruff)
+    fi
+  fi
+  if ((${#ruff_cmd[@]} == 0)); then
+    err "ruff is required for hygiene checks"
+    STATUS=1
+    return
+  fi
+  log "running ruff hygiene checks"
+  if ! "${ruff_cmd[@]}" check . --select F401,F841,B007,B023,ERA; then
+    err "ruff hygiene checks failed"
+    STATUS=1
+  fi
+}
+
+run_docs_hygiene_guard() {
+  if ! command -v python3 >/dev/null 2>&1; then
+    warn "python3 not found; skipping docs hygiene guard"
+    return
+  fi
+  if [[ ! -f "tests/repo_tools/docs_hygiene_guard.py" ]]; then
+    warn "tests/repo_tools/docs_hygiene_guard.py missing; skipping"
+    return
+  fi
+  log "running docs hygiene guard"
+  if ! python3 tests/repo_tools/docs_hygiene_guard.py; then
+    err "docs hygiene guard failed"
+    STATUS=1
+  fi
+}
+
 run_marketplace_ref_guard() {
   if ! command -v python3 >/dev/null 2>&1; then
     warn "python3 not found; skipping marketplace ref guard"
@@ -706,6 +754,8 @@ run_cli_adapter_guard
 run_python_only_regression
 run_release_guard
 run_release_docs_guard
+run_ruff_hygiene
+run_docs_hygiene_guard
 run_marketplace_ref_guard
 run_repo_linters
 

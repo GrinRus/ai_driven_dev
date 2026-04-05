@@ -9,7 +9,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import Iterable, List, Optional, Sequence, Tuple
+from typing import List, Optional, Sequence, Tuple
 
 
 def _ensure_plugin_root_on_path() -> None:

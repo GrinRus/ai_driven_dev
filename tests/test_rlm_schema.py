@@ -1,6 +1,5 @@
 import json
 import unittest
-from pathlib import Path
 
 from tests.helpers import REPO_ROOT
 

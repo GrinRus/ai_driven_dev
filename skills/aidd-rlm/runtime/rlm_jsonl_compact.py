@@ -3,11 +3,10 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
-from typing import Dict, Iterable, List
+from typing import Dict, List
 
 import os
 import sys
-from pathlib import Path
 
 
 def _ensure_plugin_root_on_path() -> None:

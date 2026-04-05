@@ -5,15 +5,11 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import sys
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import os
-import sys
-from pathlib import Path
 
 
 def _ensure_plugin_root_on_path() -> None:

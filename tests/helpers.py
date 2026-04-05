@@ -3,7 +3,6 @@ import os
 import pathlib
 import shutil
 import subprocess
-import sys
 from textwrap import dedent
 from typing import Any, Dict, Optional
 
@@ -252,7 +251,6 @@ def run_hook(
 ) -> subprocess.CompletedProcess[str]:
     """Execute the given hook inside tmp_path and capture output."""
     project_root = _project_root(tmp_path)
-    workspace_root = project_root.parent if project_root.name == PROJECT_SUBDIR else project_root
     project_root.mkdir(parents=True, exist_ok=True)
     (project_root / "docs").mkdir(parents=True, exist_ok=True)
     env = os.environ.copy()

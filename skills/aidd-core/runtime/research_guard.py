@@ -315,7 +315,7 @@ def _detect_langs_from_paths(root: Path, paths: Iterable[str], required_langs: I
                     found.add(lang)
             scanned += 1
             continue
-        for base, _, files in os.walk(candidate):
+        for _base, _, files in os.walk(candidate):
             for name in files:
                 scanned += 1
                 if scanned >= max_files:
