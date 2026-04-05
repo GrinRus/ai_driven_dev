@@ -31,8 +31,8 @@
 
 ## 2) Переменные
 
-- `PROJECT_DIR=/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new`
-- `PLUGIN_DIR=/Users/griogrii_riabov/grigorii_projects/ai_driven_dev`
+- `PROJECT_DIR=<project_dir>`
+- `PLUGIN_DIR=<plugin_dir>`
 - `CLAUDE_PLUGIN_ROOT=$PLUGIN_DIR`
 - `TICKET=TST-002`
 - `BASE_PROMPT=$PLUGIN_DIR/docs/e2e/aidd_test_flow_prompt_ralph_script_full.txt`

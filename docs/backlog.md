@@ -9,8 +9,8 @@ _Revision note (2026-04-05): backlog консолидован после сер�
 Статус: plan. Основание — консолидированные результаты quality e2e run по тикету TST-002 за `2026-04-02..2026-04-05`; цель — убрать системные разрывы в terminal convergence, artifact contracts и runner predictability.
 
 ### Source runs
-- Audit dirs: `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260402T120017Z`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260403T160807Z`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260405T111737Z`
-- Base prompt: `/Users/griogrii_riabov/grigorii_projects/ai_driven_dev/docs/e2e/aidd_test_flow_prompt_ralph_script_full.txt`
+- Audit dirs: `<audit_root>/TST-002/20260402T120017Z`, `<audit_root>/TST-002/20260403T160807Z`, `<audit_root>/TST-002/20260405T111737Z`
+- Base prompt: `docs/e2e/aidd_test_flow_prompt_ralph_script_full.txt`
 - Feature final state (cluster): `NOT_REACHED`
 - Overall quality gate (cluster): `FAIL`
 
@@ -22,7 +22,7 @@ _Revision note (2026-04-05): backlog консолидован после сер�
   **AC:** stage-chain exits with deterministic terminal result and canonical stage_result payload without manual kill/recovery.
   **Deps:** ->
   **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py tests/test_loop_run.py tests/test_stage_result_contract.py`
-  **Evidence:** `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260405T111737Z/05_plan_new_result_run1.txt`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260404T110734Z/08_qa_run1_result_count.txt`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260403T160807Z/07_stage_result_contract_check.txt`
+  **Evidence:** `<audit_root>/TST-002/20260405T111737Z/05_plan_new_result_run1.txt`, `<audit_root>/TST-002/20260404T110734Z/08_qa_run1_result_count.txt`, `<audit_root>/TST-002/20260403T160807Z/07_stage_result_contract_check.txt`
   **Effort:** L
   **Risk:** High
 
@@ -34,7 +34,7 @@ _Revision note (2026-04-05): backlog консолидован после сер�
   **AC:** readiness sync closes in bounded cycle or returns deterministic blocker with actionable reason code.
   **Deps:** W136-1
   **Regression/tests:** `python3 -m pytest -q tests/test_prd_review_agent.py tests/repo_tools/test_e2e_prompt_contract.py`
-  **Evidence:** `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260405T111737Z/05_findings_sync_convergence.txt`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260404T093749Z/05_precondition_block_after_recovery.txt`
+  **Evidence:** `<audit_root>/TST-002/20260405T111737Z/05_findings_sync_convergence.txt`, `<audit_root>/TST-002/20260404T093749Z/05_precondition_block_after_recovery.txt`
   **Effort:** M
   **Risk:** High
 
@@ -46,7 +46,7 @@ _Revision note (2026-04-05): backlog консолидован после сер�
   **AC:** repeated failures stop at bounded retries and produce deterministic termination attribution.
   **Deps:** W136-1
   **Regression/tests:** `python3 -m pytest -q tests/test_loop_run.py tests/test_loop_step.py tests/test_launcher.py`
-  **Evidence:** `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260405T104210Z/05_researcher_run1.log`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260403T160807Z/07_loop_run_exit.txt`
+  **Evidence:** `<audit_root>/TST-002/20260405T104210Z/05_researcher_run1.log`, `<audit_root>/TST-002/20260403T160807Z/07_loop_run_exit.txt`
   **Effort:** M
   **Risk:** High
 
@@ -58,7 +58,7 @@ _Revision note (2026-04-05): backlog консолидован после сер�
   **AC:** warn/pending readiness cannot pass without explicit evidence-quality markers and remediation guidance.
   **Deps:** ->
   **Regression/tests:** `python3 -m pytest -q tests/test_research_check.py tests/test_research_rlm_e2e.py`
-  **Evidence:** `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260405T111737Z/05_precondition_block.txt`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260405T082043Z/05_2_researcher_result_run1.txt`
+  **Evidence:** `<audit_root>/TST-002/20260405T111737Z/05_precondition_block.txt`, `<audit_root>/TST-002/20260405T082043Z/05_2_researcher_result_run1.txt`
   **Effort:** M
   **Risk:** Medium
 
@@ -70,7 +70,7 @@ _Revision note (2026-04-05): backlog консолидован после сер�
   **AC:** tasklist and QA stages use canonical runtime command contracts and pass hygiene/parser checks.
   **Deps:** W136-1
   **Regression/tests:** `python3 -m pytest -q tests/test_tasklist_check.py tests/test_qa_agent.py tests/repo_tools/test_e2e_prompt_contract.py`
-  **Evidence:** `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260404T110734Z/08_qa_run1.log`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260405T082043Z/08_test_execution_precheck.txt`
+  **Evidence:** `<audit_root>/TST-002/20260404T110734Z/08_qa_run1.log`, `<audit_root>/TST-002/20260405T082043Z/08_test_execution_precheck.txt`
   **Effort:** M
   **Risk:** Medium
 
@@ -82,7 +82,7 @@ _Revision note (2026-04-05): backlog консолидован после сер�
   **AC:** migration/workspace edge cases resolve through deterministic canonical recovery contracts.
   **Deps:** W136-1
   **Regression/tests:** `python3 -m pytest -q tests/test_implement_agent.py tests/test_loop_run.py tests/test_tasklist_check.py`
-  **Evidence:** `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260403T113442Z/07_scope_mismatch_check.txt`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260403T160807Z/07_recoverable_block_policy_check.txt`
+  **Evidence:** `<audit_root>/TST-002/20260403T113442Z/07_scope_mismatch_check.txt`, `<audit_root>/TST-002/20260403T160807Z/07_recoverable_block_policy_check.txt`
   **Effort:** M
   **Risk:** Medium
 
@@ -94,7 +94,7 @@ _Revision note (2026-04-05): backlog консолидован после сер�
   **AC:** QA/report artifacts stay internally consistent and no-tests scenarios produce predictable policy outcomes.
   **Deps:** W136-5
   **Regression/tests:** `python3 -m pytest -q tests/test_qa_agent.py tests/test_stage_result_contract.py tests/test_loop_run.py tests/test_tasklist_check.py`
-  **Evidence:** `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260402T120017Z/08_qa_run1.log`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260402T120017Z/05_tasklist_status_check.txt`, `/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new/.aidd_audit/TST-002/20260402T120017Z/07_recoverable_block_policy_check.txt`
+  **Evidence:** `<audit_root>/TST-002/20260402T120017Z/08_qa_run1.log`, `<audit_root>/TST-002/20260402T120017Z/05_tasklist_status_check.txt`, `<audit_root>/TST-002/20260402T120017Z/07_recoverable_block_policy_check.txt`
   **Effort:** S
   **Risk:** Low
 
