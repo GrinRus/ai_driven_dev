@@ -334,7 +334,7 @@ RLM-only check:
   - `python3 $PLUGIN_DIR/skills/qa/runtime/qa.py --ticket $TICKET`
 - Сохранить:
   - `08_qa.log`
-  - `08_qa_gradle_check.txt`
+  - `08_qa_execution_log_check.txt`
 
 ### Шаг 99. Post-run write-safety
 

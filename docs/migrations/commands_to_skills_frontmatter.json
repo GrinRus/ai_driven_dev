@@ -236,8 +236,8 @@
         "description": "Use when reviewing scope changes, producing findings, and deriving follow-up tasks.",
         "argument-hint": "$1 [note...]",
         "lang": "ru",
-        "prompt_version": "1.0.44",
-        "source_version": "1.0.44",
+        "prompt_version": "1.0.45",
+        "source_version": "1.0.45",
         "allowed-tools": [
           "Read",
           "Edit",
@@ -285,7 +285,6 @@
           "Bash(go *)",
           "Bash(mvn *)",
           "Bash(make *)",
-          "Bash(./gradlew *)",
           "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_slice.py *)",
           "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_stage.py *)",
           "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/tasks_derive.py *)",
@@ -296,8 +295,8 @@
           "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_feature.py *)"
         ],
         "model": "inherit",
-        "prompt_version": "1.0.39",
-        "source_version": "1.0.39",
+        "prompt_version": "1.0.40",
+        "source_version": "1.0.40",
         "lang": "ru",
         "argument-hint": "$1 [note...]",
         "name": "qa"

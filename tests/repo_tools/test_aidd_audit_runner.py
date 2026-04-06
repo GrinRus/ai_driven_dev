@@ -190,6 +190,47 @@ class AiddAuditRunnerTests(unittest.TestCase):
         self.assertEqual(payload.get("readiness_gate_failed"), 1)
         self.assertEqual(payload.get("readiness_reason"), "prd_not_ready")
 
+    def test_repeated_command_failure_reason_is_classified_as_prompt_exec_issue(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "06_implement_run1.summary.txt"
+            summary_path.write_text(
+                "\n".join(
+                    [
+                        "step=06_implement",
+                        "exit_code=20",
+                        "reason_code=repeated_command_failure_no_new_evidence",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(summary_path=summary_path)
+        self.assertEqual(payload.get("classification"), "PROMPT_EXEC_ISSUE")
+        self.assertEqual(payload.get("classification_subtype"), "repeated_command_failure_no_new_evidence")
+
+    def test_stage_result_scope_drift_marker_is_not_contract_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "07_loop_run_run1.summary.txt"
+            log_path = Path(tmp) / "07_loop_run_run1.log"
+            summary_path.write_text(
+                "\n".join(
+                    [
+                        "step=07_loop_run",
+                        "exit_code=20",
+                        "reason_code=stage_result_missing_or_invalid",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            log_path.write_text(
+                "stage_result_missing_or_invalid diagnostics=scope_shape_invalid=iteration_id_I1\n",
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(summary_path=summary_path, run_log_path=log_path)
+        self.assertEqual(payload.get("classification"), "PROMPT_EXEC_ISSUE")
+        self.assertEqual(payload.get("classification_subtype"), "scope_drift_recoverable")
+
     def test_readiness_signal_does_not_override_env_blocker(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             summary_path = Path(tmp) / "05_plan_new_run1.summary.txt"

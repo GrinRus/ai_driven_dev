@@ -208,6 +208,8 @@
   - buffering/quoting/runner/hang/silent stall
   - `exit_code=127` -> `launcher_tokenization_or_command_not_found` (не `completed`)
   - `reason_code=seed_stage_budget_exhausted` -> `watchdog_terminated` по budget exhaustion
+  - `reason_code=repeated_command_failure_no_new_evidence` -> bounded fail-fast без дальнейших guessed retries
+  - `stage_result_missing_or_invalid` + diagnostics `scope_fallback_stale_ignored|scope_shape_invalid` -> `scope_drift_recoverable`
 - Отдельно `contract mismatch`:
   - `stage_result_missing_or_invalid` с diagnostics вида `invalid-schema` для fallback candidate (включая legacy stage-result schema payload)
 - Только потом `flow bug`:
@@ -770,7 +772,7 @@ Anti-cascade gate (до шага 8):
   - `python3 $PLUGIN_DIR/skills/qa/runtime/qa.py --ticket $TICKET`
 
 QA integrity checks:
-- `08_qa_gradle_check.txt` (проверка через `find` + `rg`, без raw-glob вроде `aidd/reports/qa/*tests*.log`, чтобы избежать `no matches found` в zsh).
+- `08_qa_execution_log_check.txt` (проверка через `find` + `rg`, без raw-glob вроде `aidd/reports/qa/*tests*.log`, чтобы избежать `no matches found` в zsh).
 
 ### Шаг 99. Post-run write-safety
 

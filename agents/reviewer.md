@@ -2,8 +2,8 @@
 name: reviewer
 description: Код-ревью по плану/PRD. Выявление рисков и блокеров без лишнего рефакторинга.
 lang: ru
-prompt_version: 1.0.35
-source_version: 1.0.35
+prompt_version: 1.0.36
+source_version: 1.0.36
 tools: Read, Edit, Glob, Bash(rg *), Bash(sed *)
 skills:
   - feature-dev-aidd:aidd-core
@@ -26,7 +26,7 @@ permissionMode: default
 ## Автоматизация
 - Работай по текущему review-stage contract и loop-артефактам; детальные runtime guardrails задаются stage skill.
 - Не выходи за границы текущего scope и фиксируй findings/evidence только для текущего work_item.
-- Не запускай ad-hoc команды `./gradlew`, `mvn test`, `npm test` напрямую из review orchestration.
+- Не запускай ad-hoc raw build/test команды напрямую из review orchestration.
 - При runtime/test сбоях возвращай BLOCKED/handoff по stage contract и не делай повторяющихся ретраев одной и той же команды.
 
 ## Пошаговый план

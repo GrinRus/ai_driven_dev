@@ -30,9 +30,12 @@ If disk is below threshold, stop with `ENV_MISCONFIG(no_space_left_on_device)`.
 3. `PROMPT_EXEC_ISSUE`
    - `exit_code=143` with `killed_flag=1` and `watchdog_marker=1`.
    - launcher tokenization/command-not-found (`127`).
+   - repeated deterministic command failure without new evidence (`reason_code=repeated_command_failure_no_new_evidence`).
 4. `CONTRACT_MISMATCH`
    - `stage_result_missing_or_invalid` + `invalid-schema`.
-5. `FLOW_BUG`
+5. `PROMPT_EXEC_ISSUE(scope_drift_recoverable)`
+   - `stage_result_missing_or_invalid` + diagnostics marker `scope_fallback_stale_ignored|scope_shape_invalid`.
+6. `FLOW_BUG`
    - only after all higher-priority classes are not matched.
 
 ## `result_count=0` Policy
