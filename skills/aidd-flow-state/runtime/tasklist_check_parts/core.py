@@ -1080,9 +1080,6 @@ def run_check(args: argparse.Namespace) -> int:
     if not config_path.is_absolute():
         config_path = root / config_path
 
-    if args.fix and args.dry_run:
-        pass
-
     if not args.fix:
         gate = load_gate_config(config_path)
         skip_gate, skip_reason = should_skip_gate(gate, args.branch or "")

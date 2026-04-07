@@ -263,11 +263,8 @@ def _raw_targets_legacy_shadow(path_value: str, project_dir: Path, aidd_root: Op
     if raw_path.is_absolute():
         return _path_is_legacy_shadow_target(raw_path, project_dir, aidd_root)
     if aidd_root:
-        try:
-            project_dir.resolve().relative_to(aidd_root.resolve())
+        if _is_subpath(aidd_root.resolve(), project_dir.resolve()):
             return False
-        except Exception:
-            pass
     return normalized in LEGACY_SHADOW_NAMES or normalized.startswith(LEGACY_SHADOW_PREFIXES)
 
 
@@ -277,6 +274,17 @@ def _legacy_shadow_message() -> str:
         "is non-canonical for runtime operations. Use `aidd/docs/...`, `aidd/reports/...`, `aidd/config/...`, "
         "`aidd/.cache/...`."
     )
+
+
+def _safe_relative_to(path: Path, base: Path) -> str | None:
+    try:
+        return path.relative_to(base).as_posix()
+    except Exception:
+        return None
+
+
+def _is_subpath(base: Path, candidate: Path) -> bool:
+    return candidate == base or candidate.is_relative_to(base)
 
 
 def _legacy_shadow_rw_decision(
@@ -338,21 +346,17 @@ def _path_candidates(path: Path, project_dir: Path, aidd_root: Optional[Path]) -
 
     _add(path.as_posix())
 
-    try:
-        rel_project = path.relative_to(project_dir).as_posix()
+    rel_project = _safe_relative_to(path, project_dir)
+    if rel_project:
         _add(rel_project)
         if project_dir.name == "aidd":
             _add(f"aidd/{rel_project}")
-    except Exception:
-        pass
 
     if aidd_root:
-        try:
-            rel_aidd = path.relative_to(aidd_root).as_posix()
+        rel_aidd = _safe_relative_to(path, aidd_root)
+        if rel_aidd:
             _add(rel_aidd)
             _add(f"aidd/{rel_aidd}")
-        except Exception:
-            pass
 
     return normalized
 

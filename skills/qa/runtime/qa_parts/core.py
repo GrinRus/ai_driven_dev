@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import re
+from contextlib import suppress
 import shlex
 import subprocess
 import sys
@@ -775,7 +776,7 @@ def main(argv: list[str] | None = None) -> int:
         else:
             print("[aidd] QA tests completed.", file=sys.stderr)
 
-    try:
+    with suppress(Exception):
         from aidd_runtime.reports import tests_log as _tests_log
 
         qa_work_item_key, scope_key = _resolve_qa_scope_context(target, ticket)
@@ -860,8 +861,6 @@ def main(argv: list[str] | None = None) -> int:
             source="qa",
             cwd=str(target),
         )
-    except Exception:
-        pass
 
     qa_args: list[str] = []
     if args.gate:
@@ -985,7 +984,7 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
 
-    try:
+    with suppress(Exception):
         from aidd_runtime.reports import events as _events
         payload = None
         report_for_event: Path | None = None
@@ -1009,8 +1008,6 @@ def main(argv: list[str] | None = None) -> int:
                 report_path=Path(runtime.rel_path(report_for_event, target)),
                 source="aidd qa",
             )
-    except Exception:
-        pass
 
     if not args.dry_run:
         runtime.maybe_sync_index(target, ticket, slug_hint or None, reason="qa")

@@ -18,6 +18,7 @@ import json
 import os
 import re
 import sys
+from contextlib import suppress
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Iterable, List, Optional
@@ -525,10 +526,8 @@ def run(args: argparse.Namespace) -> int:
         except OSError:
             same_target = output_path == pack_path
         if not same_target:
-            try:
+            with suppress(OSError):
                 output_path.unlink()
-            except OSError:
-                pass
     if getattr(args, "require_ready", False) and report.recommended_status != "ready":
         print(
             "[prd-review] ERROR: report is not ready "

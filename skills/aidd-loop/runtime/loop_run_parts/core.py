@@ -1328,9 +1328,7 @@ def main(argv: List[str] | None = None) -> int:
                     if probe_command:
                         research_next_action = probe_command
             soften_research_gate = research_reason_code in LOOP_RESEARCH_SOFT_REASON_CODES
-            if research_ok:
-                pass
-            elif gate_reason_class == "warn_continue" or soften_research_gate:
+            if not research_ok and (gate_reason_class == "warn_continue" or soften_research_gate):
                 effective_reason_class = (
                     "warn_continue" if gate_reason_class == "warn_continue" else "soft_override"
                 )

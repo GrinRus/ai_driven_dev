@@ -4,6 +4,7 @@ import argparse
 import datetime as dt
 import json
 import os
+from contextlib import suppress
 from pathlib import Path
 from typing import Sequence
 
@@ -120,10 +121,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"[aidd] reviewer marker not found at {rel_marker}.")
         for fallback_path in deduped_fallback:
             if fallback_path.exists():
-                try:
+                with suppress(OSError):
                     fallback_path.unlink()
-                except OSError:
-                    pass
         runtime.maybe_sync_index(target, ticket, context.slug_hint, reason="reviewer-tests")
         return 0
 
@@ -183,10 +182,8 @@ def main(argv: list[str] | None = None) -> int:
     for fallback_path in deduped_fallback:
         if not fallback_path.exists():
             continue
-        try:
+        with suppress(OSError):
             fallback_path.unlink()
-        except OSError:
-            pass
 
     state_label = "required" if status in required_values else status
     print(f"[aidd] reviewer marker updated ({rel_marker} → {state_label}).")
