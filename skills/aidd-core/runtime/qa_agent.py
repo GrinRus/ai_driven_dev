@@ -16,6 +16,7 @@ import os
 import re
 import subprocess
 import sys
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
@@ -584,10 +585,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
         pack_only = bool(args.pack_only or os.getenv("AIDD_PACK_ONLY", "").strip() == "1")
         if pack_only and pack_path and pack_path.exists():
-            try:
+            with suppress(OSError):
                 args.report.unlink()
-            except OSError:
-                pass
 
     if not args.gate or args.emit_json:
         if args.format == "json":

@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+from contextlib import suppress
 import re
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional
@@ -202,7 +203,7 @@ def _collect_checks(root: Path, ticket: str) -> List[Dict[str, str]]:
     prd_doc_status = _read_prd_review_status(root, ticket)
     prd_path = _find_report_variant(root / "reports" / "prd" / f"{ticket}.json")
     if prd_path:
-        try:
+        with suppress(json.JSONDecodeError):
             payload = json.loads(prd_path.read_text(encoding="utf-8"))
             record = {
                 "name": "prd-review",
@@ -212,20 +213,18 @@ def _collect_checks(root: Path, ticket: str) -> List[Dict[str, str]]:
             if prd_doc_status:
                 record["doc_status"] = prd_doc_status
             checks.append(record)
-        except json.JSONDecodeError:
-            pass
 
     qa_path = _find_report_variant(root / "reports" / "qa" / f"{ticket}.json")
     if qa_path:
-        try:
+        with suppress(json.JSONDecodeError):
             payload = json.loads(qa_path.read_text(encoding="utf-8"))
-            checks.append({
-                "name": "qa",
-                "status": payload.get("status") or "",
-                "path": _rel_path(root, qa_path),
-            })
-        except json.JSONDecodeError:
-            pass
+            checks.append(
+                {
+                    "name": "qa",
+                    "status": payload.get("status") or "",
+                    "path": _rel_path(root, qa_path),
+                }
+            )
 
     reviewer_path = root / "reports" / "reviewer" / f"{ticket}.json"
     if reviewer_path.exists():

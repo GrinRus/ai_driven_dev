@@ -24,6 +24,10 @@ READINESS_REASON_CODES = (
     "answers_format_invalid",
     "research_not_ready",
 )
+SCOPE_DRIFT_STAGE_RESULT_MARKERS = (
+    "scope_fallback_stale_ignored",
+    "scope_shape_invalid",
+)
 
 
 @dataclass(frozen=True)
@@ -97,6 +101,14 @@ def classify_incident(
             label="ENV_MISCONFIG(loop_runner_env_missing)",
         )
 
+    if "parent_terminated_or_external_terminate" in merged_text:
+        return Classification(
+            classification="ENV_MISCONFIG",
+            subtype="parent_terminated_or_external_terminate",
+            source="summary" if "parent_terminated_or_external_terminate" in summary_text else "run_log",
+            label="ENV_MISCONFIG(parent_terminated_or_external_terminate)",
+        )
+
     exit_code = str(term.get("exit_code") or summary.get("effective_exit_code") or summary.get("exit_code") or "").strip()
     killed_flag = _truthy(term.get("killed_flag") or summary.get("killed_flag"))
     watchdog_marker = _truthy(term.get("watchdog_marker") or summary.get("watchdog_marker"))
@@ -131,6 +143,24 @@ def classify_incident(
             subtype="readiness_gate_failed",
             source=readiness_source,
             label="NOT_VERIFIED(readiness_gate_failed)+PROMPT_EXEC_ISSUE(readiness_gate_failed)",
+        )
+
+    if "repeated_command_failure_no_new_evidence" in merged_text:
+        return Classification(
+            classification="PROMPT_EXEC_ISSUE",
+            subtype="repeated_command_failure_no_new_evidence",
+            source="summary" if "repeated_command_failure_no_new_evidence" in summary_text else "run_log",
+            label="NOT_VERIFIED(repeated_command_failure_no_new_evidence)+PROMPT_EXEC_ISSUE(repeated_command_failure_no_new_evidence)",
+        )
+
+    if "stage_result_missing_or_invalid" in merged_text and any(
+        marker in merged_text for marker in SCOPE_DRIFT_STAGE_RESULT_MARKERS
+    ):
+        return Classification(
+            classification="PROMPT_EXEC_ISSUE",
+            subtype="scope_drift_recoverable",
+            source="diagnostics",
+            label="PROMPT_EXEC_ISSUE(scope_drift_recoverable)",
         )
 
     if "invalid-schema" in merged_text and "stage_result_missing_or_invalid" in merged_text:

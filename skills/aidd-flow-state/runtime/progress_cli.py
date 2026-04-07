@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from contextlib import suppress
 from typing import Sequence
 
 import os
@@ -91,9 +92,8 @@ def main(argv: list[str] | None = None) -> int:
         config=config,
     )
 
-    try:
+    with suppress(Exception):
         from aidd_runtime.reports import events as _events
-
         _events.append_event(
             target,
             ticket=ticket or "",
@@ -108,13 +108,9 @@ def main(argv: list[str] | None = None) -> int:
             },
             source="aidd progress",
         )
-    except Exception:
-        pass
-    try:
+    with suppress(Exception):
         if result.status == "ok":
             runtime.maybe_write_test_checkpoint(target, ticket, context.slug_hint, args.source)
-    except Exception:
-        pass
     runtime.maybe_sync_index(target, ticket, context.slug_hint, reason="progress")
 
     if args.json:

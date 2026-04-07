@@ -3,8 +3,8 @@ name: qa
 description: Runs QA-stage validation, report generation, and postflight actions for the current scope. Use when QA stage is ready for loop verification. Do not use when the request belongs to `review` findings synthesis or `implement` execution loops.
 argument-hint: $1 [note...]
 lang: ru
-prompt_version: 1.0.39
-source_version: 1.0.39
+prompt_version: 1.0.40
+source_version: 1.0.40
 allowed-tools:
   - Read
   - Edit
@@ -21,7 +21,6 @@ allowed-tools:
   - "Bash(go *)"
   - "Bash(mvn *)"
   - "Bash(make *)"
-  - "Bash(./gradlew *)"
   - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_slice.py *)"
   - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_stage.py *)"
   - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/tasks_derive.py *)"
@@ -47,7 +46,7 @@ Follow `feature-dev-aidd:aidd-core` and `feature-dev-aidd:aidd-loop`.
 7. Actions contract hardening: if `actions-apply` reports schema/payload mismatch (`reason_code=contract_mismatch_actions_shape`), do not attempt guessed retries or manual payload edits; return terminal BLOCKED with the canonical handoff.
 8. Read order after stage-chain preflight artifacts: `readmap.md` -> loop pack -> review pack (if exists) -> rolling context pack; do not perform broad repo scan before these artifacts.
 9. Run subagent `feature-dev-aidd:qa`.
-10. Orchestration: run QA via `python3 ${CLAUDE_PLUGIN_ROOT}/skills/qa/runtime/qa.py`, derive tasks if needed, then Fill actions.json for `aidd/reports/actions/<ticket>/<scope_key>/qa.actions.json` strictly as `aidd.actions.v1` (`schema_version`, `allowed_action_types`, canonical `type` + `params`) with action types only from `{tasklist_ops.set_iteration_done, tasklist_ops.append_progress_log, tasklist_ops.next3_recompute, context_pack_ops.context_pack_update}`, and validate via `python3 ${CLAUDE_PLUGIN_ROOT}/skills/qa/runtime/qa_run.py`.
+10. Orchestration: run QA via `python3 ${CLAUDE_PLUGIN_ROOT}/skills/qa/runtime/qa.py`, derive tasks if needed, then Fill actions.json for `aidd/reports/actions/<ticket>/<scope_key>/qa.actions.json` strictly as `aidd.actions.v1` (`schema_version`, `allowed_action_types`, canonical `type` + `params`) with action types only from `{tasklist_ops.set_iteration_done, tasklist_ops.append_progress_log, tasklist_ops.next3_recompute, context_pack_ops.context_pack_update}`, and validate via `python3 ${CLAUDE_PLUGIN_ROOT}/skills/qa/runtime/qa_run.py`. Do not use raw ad-hoc test commands from arbitrary cwd as a recovery path; run tests only via the QA runtime/tasklist contract.
 11. Canonical stage-chain: internal preflight -> stage runtime -> actions_apply.py/postflight -> `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py`. `[AIDD_LOOP_POLICY:CANONICAL_STAGE_RESULT_PATH]`
 12. Non-canonical stage-result path under `skills/aidd-loop/runtime/` is forbidden (treat as prompt-flow drift). `[AIDD_LOOP_POLICY:NON_CANONICAL_STAGE_RESULT_FORBIDDEN]`
 13. Output: return QA status contract with report paths and explicit canonical next action (`/feature-dev-aidd:status <ticket>` or `/feature-dev-aidd:tasks-new <ticket>` when follow-up tasks are required). Ensure one terminal payload per run (no repeated guessed recovery loops).

@@ -2991,6 +2991,67 @@ class LoopRunTests(unittest.TestCase):
             self.assertIn("stage=implement", loop_log)
             self.assertIn("reason_code=user_approval_required", loop_log)
 
+    def test_loop_run_fail_fast_repeated_command_failure_no_new_evidence(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-REPEAT-CMD"
+            scope_key = "iteration_id_I1"
+            write_active_state(root, ticket=ticket, stage="implement", work_item="iteration_id=I1")
+            log_rel = f"reports/logs/implement/{ticket}/{scope_key}/stage.run.mock.log"
+            write_file(
+                root,
+                log_rel,
+                "(eval):1: no such file or directory: ./missing-test-runner\n"
+                "command not found: ./missing-test-runner\n",
+            )
+            repeated_block = subprocess.CompletedProcess(
+                args=["loop-step"],
+                returncode=20,
+                stdout=json.dumps(
+                    {
+                        "status": "blocked",
+                        "stage": "implement",
+                        "scope_key": scope_key,
+                        "work_item_key": "iteration_id=I1",
+                        "reason_code": "seed_stage_active_stream_timeout",
+                        "reason": "loop-step watchdog timeout while stream artifacts remain active",
+                        "log_path": log_rel,
+                        "stage_budget_seconds": 3600,
+                        "stage_budget_remaining_seconds": 3200,
+                        "budget_exhausted": False,
+                        "watchdog_marker": 1,
+                    }
+                ),
+                stderr="",
+            )
+            captured = io.StringIO()
+            cwd = os.getcwd()
+            try:
+                os.chdir(root.parent)
+                with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
+                    with patch("aidd_runtime.loop_run.run_loop_step", return_value=repeated_block):
+                        with redirect_stdout(captured):
+                            code = loop_run_module.main(
+                                [
+                                    "--ticket",
+                                    ticket,
+                                    "--max-iterations",
+                                    "6",
+                                    "--blocked-policy",
+                                    "strict",
+                                    "--format",
+                                    "json",
+                                ]
+                            )
+            finally:
+                os.chdir(cwd)
+
+            self.assertEqual(code, 20)
+            payload = json.loads(captured.getvalue())
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertEqual(payload.get("reason_code"), "repeated_command_failure_no_new_evidence")
+            self.assertGreaterEqual(int(payload.get("command_failure_hits") or 0), 3)
+
 
 if __name__ == "__main__":
     unittest.main()

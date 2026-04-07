@@ -107,12 +107,26 @@ def _fallback_scope_key(root: Path, ticket: str) -> str:
     raw_scope = ticket or ""
     try:
         state = json.loads((root / "docs" / ".active.json").read_text(encoding="utf-8"))
-        if isinstance(state, dict):
-            raw_scope = str(state.get("work_item") or raw_scope)
     except Exception:
-        pass
+        cleaned = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in raw_scope)
+        return cleaned.strip("._-") or "ticket"
+
+    if isinstance(state, dict):
+        raw_scope = str(state.get("work_item") or raw_scope)
+
     cleaned = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in raw_scope)
     return cleaned.strip("._-") or "ticket"
+
+
+def _active_work_item_from_docs(root: Path, ticket: str) -> str:
+    raw_scope = ticket or ""
+    try:
+        state = json.loads((root / "docs" / ".active.json").read_text(encoding="utf-8"))
+    except Exception:
+        return raw_scope
+    if not isinstance(state, dict):
+        return raw_scope
+    return str(state.get("work_item") or raw_scope)
 
 
 def _loop_preflight_guard(root: Path, ticket: str, stage: str, hooks_mode: str) -> tuple[bool, str]:
@@ -454,13 +468,7 @@ def _handoff_block(root: Path, ticket: str, slug_hint: str, branch: str, tasklis
             or reviewer_cfg.get("report")
             or "aidd/reports/reviewer/{ticket}/{scope_key}.json"
         )
-        raw_scope = ticket or ""
-        try:
-            state = json.loads((root / "docs" / ".active.json").read_text(encoding="utf-8"))
-            if isinstance(state, dict):
-                raw_scope = str(state.get("work_item") or raw_scope)
-        except Exception:
-            pass
+        raw_scope = _active_work_item_from_docs(root, ticket)
         cleaned_scope = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in raw_scope).strip("._-") or "ticket"
         raw_path = (
             str(review_template)

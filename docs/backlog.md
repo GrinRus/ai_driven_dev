@@ -2,135 +2,189 @@
 
 > INTERNAL/DEV-ONLY: engineering wave planning and execution tracker.
 
-_Revision note (2026-04-02): backlog нормализован в пять активных wave. Дубликаты, historical incident notes и superseded blocks удалены; backlog отражает только исполнимые программы работ, а крупные platform adaptations вынесены в отдельные low-priority wave._
+_Revision note (2026-04-06): активная стабилизация консолидирована в три волны `120 -> 121 -> 136` (runtime/core -> prompt/audit -> integration closure). Волны `122..125` остаются без изменений._
 
-## Wave 120 — Core Flow Stabilization (2026-04-02)
+## Wave 120 — Core Runtime & Stage Contracts Stabilization (2026-04-06)
 
-_Статус: plan. Основание — high-priority стабилизация полного e2e flow, seed stages, loop orchestration, canonical stage contract и research gate._
+_Статус: plan. Основание — закрытие terminal flow инцидентов из TST-class аудитов: seed non-convergence, stage-result contract drift, scope/work-item drift, timeout attribution, research gate ambiguity, QA/tasklist execution mismatch и workspace layout violations._
 
-- [ ] **W120-1 (P0) Seed-stage convergence and terminal result emission** `skills/implement/runtime/implement_run.py`, `skills/review/runtime/review_run.py`, `skills/qa/runtime/qa_parts/core.py`, `skills/aidd-loop/runtime/loop_run_parts/core.py`, `tests/test_implement_agent.py`, `tests/test_review_run.py`, `tests/test_qa_agent.py`, `tests/test_loop_run.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
-  - ввести единый convergence guard для seed runs, чтобы живой run не дожидался budget kill без terminal payload;
-  - ограничить retry для повторяющихся `preflight_missing` и `contract_mismatch` детерминированным числом попыток;
-  - гарантировать canonical top-level result/event до `exit_code=143` и синхронизовать watchdog attribution.
-  **AC:** implement/review/qa seed runs не завершаются `result_count=0` при валидном init; terminal payload всегда присутствует до budget termination.
+- [ ] **W120-1 (P0) Seed-stage convergence and bounded fail-fast for repeated command failures** `skills/aidd-loop/runtime/loop_run_parts/core.py`, `skills/implement/runtime/implement_run.py`, `skills/review/runtime/review_run.py`, `skills/qa/runtime/qa_parts/core.py`, `tests/test_loop_run.py`, `tests/test_implement_agent.py`, `tests/test_review_run.py`, `tests/test_qa_agent.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - ввести convergence guard для seed-runs с deterministic terminal payload;
+  - добавить fail-fast reason `repeated_command_failure_no_new_evidence` для повторяющихся одинаковых command failures без нового evidence;
+  - исключить `result_count=0` без top-level terminal payload при валидном init.
+  **AC:** seed stages не зависают в рекурсивных ретраях одинаковой ошибки; terminal payload deterministic.
   **Deps:** -
-  **Regression/tests:** `python3 -m pytest -q tests/test_implement_agent.py tests/test_review_run.py tests/test_qa_agent.py tests/test_loop_run.py tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_run.py tests/test_implement_agent.py tests/test_review_run.py tests/test_qa_agent.py tests/repo_tools/test_e2e_prompt_contract.py`.
   **Effort:** M
   **Risk:** High
 
-- [ ] **W120-2 (P0) Canonical stage-result, preflight, and actions contract** `skills/aidd-core/runtime/stage_actions_run.py`, `skills/aidd-flow-state/runtime/stage_result.py`, `skills/aidd-docio/runtime/actions_validate.py`, `skills/aidd-docio/runtime/actions_apply.py`, `tests/test_stage_actions_run.py`, `tests/test_gate_workflow_preflight_contract.py`, `tests/test_wave93_validators.py`, `tests/test_prompt_lint.py`:
-  - закрепить canonical `aidd.stage_result.v1` shape для preflight и terminal artifacts;
-  - завершать invalid `AIDD:ACTIONS` одним canonical blocked-result без guessed/manual recovery;
-  - запретить manual write path для `stage.*.result.json` как primary recovery route.
-  **AC:** preflight и terminal stage results всегда имеют canonical contract shape; manual stage-result write не предлагается и не исполняется как основной путь.
+- [ ] **W120-2 (P0) Canonical preflight/actions/stage_result contract only** `skills/aidd-core/runtime/stage_actions_run.py`, `skills/aidd-flow-state/runtime/stage_result.py`, `skills/aidd-docio/runtime/actions_validate.py`, `skills/aidd-docio/runtime/actions_apply.py`, `tests/test_stage_actions_run.py`, `tests/test_gate_workflow_preflight_contract.py`, `tests/test_wave93_validators.py`, `tests/test_prompt_lint.py`:
+  - закрепить canonical-only `aidd.stage_result.v1` shape на preflight/terminal boundaries;
+  - блокировать manual stage-result write/copy recovery path как primary route;
+  - завершать invalid actions payload одним deterministic blocked result.
+  **AC:** preflight и stage_result artifacts всегда canonical; manual recovery path не является штатным.
   **Deps:** W120-1
   **Regression/tests:** `python3 -m pytest -q tests/test_stage_actions_run.py tests/test_gate_workflow_preflight_contract.py tests/test_wave93_validators.py tests/test_prompt_lint.py`.
   **Effort:** M
   **Risk:** High
 
-- [ ] **W120-3 (P0) Implement, review, and QA verdict mapping hardening** `skills/implement/runtime/implement_run.py`, `skills/review/runtime/review_run.py`, `skills/qa/runtime/qa.py`, `skills/qa/runtime/qa_parts/core.py`, `skills/aidd-flow-state/runtime/stage_result.py`, `tests/test_review_run.py`, `tests/test_review_agent.py`, `tests/test_qa_agent.py`, `tests/test_qa_exit_code.py`:
-  - нормализовать user-facing verdict -> canonical result mapping для implement/review/qa;
-  - исключить `success` narrative при blocked report/stage result;
-  - возвращать единый deterministic terminal payload для repeated `command_not_found`, `no_tests_hard`, blocked findings и report parity failures.
-  **AC:** review и QA narrative не противоречат canonical stage/report status; non-canonical `--result` values и contradictory pass verdicts не воспроизводятся.
-  **Deps:** W120-2
-  **Regression/tests:** `python3 -m pytest -q tests/test_review_run.py tests/test_review_agent.py tests/test_qa_agent.py tests/test_qa_exit_code.py`.
-  **Effort:** M
-  **Risk:** High
-
-- [ ] **W120-4 (P0) Canonical scope authority and stage-result fallback selection** `skills/aidd-loop/runtime/loop_step_stage_result.py`, `skills/aidd-loop/runtime/loop_step_parts/core.py`, `skills/aidd-loop/runtime/loop_run_parts/core.py`, `tests/test_loop_step.py`, `tests/test_loop_run.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
-  - ввести один authoritative resolver для `scope_key` и `work_item_key`;
-  - разрешать cross-scope fallback только при явном recoverable marker и полной diagnostics surface;
-  - убрать неоднозначные scope transitions и повторяющийся mismatch telemetry noise.
-  **AC:** одна итерация использует один canonical scope namespace; fallback без recoverable diagnostics не выбирает чужой scope.
+- [ ] **W120-3 (P0) Canonical scope/work_item authority and fallback guardrails** `skills/aidd-loop/runtime/loop_step_stage_result.py`, `skills/aidd-loop/runtime/loop_step_parts/core.py`, `skills/aidd-loop/runtime/loop_run_parts/core.py`, `skills/aidd-flow-state/runtime/stage_result.py`, `tests/test_loop_step.py`, `tests/test_loop_run.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - один authoritative resolver для `scope_key/work_item_key`;
+  - fallback между scope только при recoverable diagnostics, иначе deterministic block;
+  - исключить cross-scope stale fallback как скрытый success path.
+  **AC:** одна итерация работает в одном canonical scope namespace; scope drift даёт прозрачную классификацию.
   **Deps:** W120-2
   **Regression/tests:** `python3 -m pytest -q tests/test_loop_step.py tests/test_loop_run.py tests/repo_tools/test_e2e_prompt_contract.py`.
   **Effort:** M
   **Risk:** High
 
-- [ ] **W120-5 (P0) Loop timeout and recoverable-retry policy** `skills/aidd-loop/runtime/loop_block_policy.py`, `skills/aidd-loop/runtime/loop_run_parts/core.py`, `skills/aidd-loop/runtime/loop_step_parts/core.py`, `skills/aidd-flow-state/runtime/tasks_derive.py`, `templates/aidd/config/gates.json`, `tests/test_loop_run.py`, `tests/test_loop_step.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
-  - закрепить timeout contract для loop-step и stage budgets на runtime и prompt surfaces;
-  - нормализовать recoverable retry policy для `ralph` без ослабления strict mode;
-  - ограничить auto-recovery для review-pack и `no_tests_hard` явными policy conditions и telemetry.
-  **AC:** timeout flags и runtime defaults согласованы; `ralph` выполняет только разрешённые bounded retries, а strict mode сохраняет terminal behavior.
-  **Deps:** W120-4
+- [ ] **W120-4 (P0) Timeout/143 attribution and loop retry policy hardening** `skills/aidd-loop/runtime/loop_block_policy.py`, `skills/aidd-loop/runtime/loop_run_parts/core.py`, `skills/aidd-loop/runtime/loop_step_parts/core.py`, `tests/test_loop_run.py`, `tests/test_loop_step.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - детерминировать классификацию `watchdog_terminated` vs `parent_terminated_or_external_terminate`;
+  - синхронизовать stage-budget/step-timeout semantics между runtime и prompt contracts;
+  - оставить bounded recoverable retries для `ralph`, strict-policy без деградации.
+  **AC:** `exit_code=143` и timeout paths классифицируются однозначно и повторяемо.
+  **Deps:** W120-3
   **Regression/tests:** `python3 -m pytest -q tests/test_loop_run.py tests/test_loop_step.py tests/repo_tools/test_e2e_prompt_contract.py`.
   **Effort:** M
   **Risk:** High
 
-- [ ] **W120-6 (P0) Research gate normalization and convergence path** `skills/researcher/runtime/research.py`, `skills/aidd-rlm/runtime/rlm_links_build.py`, `skills/aidd-rlm/runtime/rlm_finalize.py`, `skills/aidd-core/runtime/research_guard.py`, `skills/plan-new/runtime/research_check.py`, `templates/aidd/config/gates.json`, `tests/test_research_command.py`, `tests/test_research_check.py`, `tests/test_gate_workflow.py`, `tests/test_loop_run.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
-  - сократить ложные `pending` и `links_empty` через bounded finalize convergence и root-cause fixes;
-  - сделать readiness diagnostics однозначными для `warn`, `pending`, `missing artifacts` и `strict`/`soft` policy;
-  - подготовить controlled path от temporary soft gating к строгому режиму после стабилизации.
-  **AC:** research gate различает recoverable и hard-blocking причины без ambiguous telemetry; majority-case runs сходятся без временных soft overrides.
+- [ ] **W120-5 (P0) Research gate convergence + soft-readiness quality floor** `skills/researcher/runtime/research.py`, `skills/aidd-rlm/runtime/rlm_links_build.py`, `skills/aidd-rlm/runtime/rlm_finalize.py`, `skills/aidd-core/runtime/research_guard.py`, `skills/plan-new/runtime/research_check.py`, `skills/aidd-core/runtime/research_check.py`, `templates/aidd/config/gates.json`, `tests/test_research_command.py`, `tests/test_research_check.py`, `tests/test_gate_workflow.py`, `tests/test_research_rlm_e2e.py`:
+  - снизить ложные `pending/links_empty` через bounded finalize path;
+  - усилить diagnostics для `warn/pending/invalid/missing` с явным remediation payload;
+  - сохранить soft-readiness только при минимальном baseline и явных quality markers.
+  **AC:** research gate отделяет recoverable/hard-blocking причины и даёт детерминированный convergence path.
   **Deps:** W120-1
-  **Regression/tests:** `python3 -m pytest -q tests/test_research_command.py tests/test_research_check.py tests/test_gate_workflow.py tests/test_loop_run.py tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Regression/tests:** `python3 -m pytest -q tests/test_research_command.py tests/test_research_check.py tests/test_gate_workflow.py tests/test_research_rlm_e2e.py tests/test_loop_run.py`.
   **Effort:** L
   **Risk:** High
 
-- [ ] **W120-7 (P0) Canonical workspace layout enforcement** `skills/aidd-core/runtime/runtime.py`, `hooks/hooklib.py`, `hooks/context_gc/pretooluse_guard.py`, `tests/test_resources.py`, `tests/test_context_gc.py`, `tests/test_hook_rw_policy.py`, `tests/repo_tools/test_e2e_prompt_contract.py`, `tests/repo_tools/smoke-workflow.sh`:
-  - разрешить runtime writes только в canonical `aidd/docs/**`, `aidd/reports/**`, `aidd/config/**`, `aidd/.cache/**`;
-  - убрать auto-migration root paths и вернуть deterministic bootstrap error, если workspace не инициализирован;
-  - синхронизовать hooks и runtime path resolution на одном workspace contract.
-  **AC:** full/smoke flows не мутируют root-level non-canonical paths; runtime и hooks используют только canonical `aidd/*` layout.
+- [ ] **W120-6 (P0) QA/tasklist execution contract and cwd-aware command handling** `skills/tasks-new/runtime/tasks_new.py`, `skills/tasks-new/templates/tasklist.template.md`, `skills/qa/runtime/qa.py`, `skills/qa/runtime/qa_parts/core.py`, `skills/qa/SKILL.md`, `tests/test_tasklist_check.py`, `tests/test_tasks_new.py`, `tests/test_qa_agent.py`, `tests/test_qa_exit_code.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - нормализовать `AIDD:TEST_EXECUTION` command schema для parser-safe downstream execution;
+  - закрепить cwd-aware test execution в QA runtime и deterministic fail modes для command/path mismatch;
+  - исключить non-canonical runtime recovery hints из stage handoff.
+  **AC:** tasklist/QA используют единый canonical contract; hygiene/parser-only cases не становятся ложными blockers.
+  **Deps:** W120-2
+  **Regression/tests:** `python3 -m pytest -q tests/test_tasklist_check.py tests/test_tasks_new.py tests/test_qa_agent.py tests/test_qa_exit_code.py tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W120-7 (P0) Canonical workspace layout and runtime/hook write-safety enforcement** `skills/aidd-core/runtime/runtime.py`, `hooks/hooklib.py`, `hooks/context_gc/pretooluse_guard.py`, `tests/test_resources.py`, `tests/test_context_gc.py`, `tests/test_hook_rw_policy.py`, `tests/repo_tools/smoke-workflow.sh`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - разрешить runtime writes только в canonical `aidd/docs|reports|config|.cache`;
+  - убрать auto-migration root-path behavior и вернуть deterministic bootstrap failure для uninitialized workspace;
+  - синхронизовать runtime/hook path resolution на одном контракте.
+  **AC:** full/smoke flow не мутирует non-canonical root paths вне `aidd/`.
   **Deps:** W120-2
   **Regression/tests:** `python3 -m pytest -q tests/test_resources.py tests/test_context_gc.py tests/test_hook_rw_policy.py tests/repo_tools/test_e2e_prompt_contract.py`.
   **Effort:** M
   **Risk:** Medium
 
-## Wave 121 — Prompt, Audit, and Tasklist Hygiene (2026-04-02)
-
-_Статус: plan. Основание — P1 cleanup prompt surfaces, audit classification, replay coverage и operator-facing deterministic guidance без вмешательства в core runtime semantics._
-
-- [ ] **W121-1 (P1) `review-spec` structured payload as source-of-truth** `skills/aidd-core/runtime/prd_review.py`, `skills/aidd-core/runtime/prd_review_section.py`, `tests/test_prd_review_agent.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
-  - вычислять top-level narrative только из structured report payload;
-  - стабилизировать report trimming без изменения recommended status и findings semantics;
-  - убрать расхождения между report, summary и downstream recovery decisions.
-  **AC:** `review-spec` не воспроизводит narrative/report mismatch; recovery path всегда определяется structured payload.
-  **Deps:** -
-  **Regression/tests:** `python3 -m pytest -q tests/test_prd_review_agent.py tests/repo_tools/test_e2e_prompt_contract.py`.
-  **Effort:** S
+- [ ] **W120-8 (P1) QA/report integrity and migration/workspace reconciliation edge-cases** `skills/qa/runtime/qa.py`, `skills/aidd-loop/runtime/loop_run.py`, `skills/tasks-new/runtime/tasks_new.py`, `hooks/guard.sh`, `skills/aidd-flow-state/runtime/stage_result.py`, `tests/test_qa_agent.py`, `tests/test_stage_result_contract.py`, `tests/test_loop_run.py`, `tests/test_tasklist_check.py`:
+  - синхронизовать QA `tests_executed` с фактическим исполнением и terminal outcome;
+  - стабилизировать no-tests policy и migration/workspace reconciliation reason codes;
+  - проверить cross-artifact integrity: tasklist -> review -> stage_result -> QA reports.
+  **AC:** QA/report artifacts внутренне консистентны; migration/no-tests paths предсказуемы.
+  **Deps:** W120-6, W120-7
+  **Regression/tests:** `python3 -m pytest -q tests/test_qa_agent.py tests/test_stage_result_contract.py tests/test_loop_run.py tests/test_tasklist_check.py`.
+  **Effort:** M
   **Risk:** Medium
 
-- [ ] **W121-2 (P1) Canonical prompt orchestration and derive routing** `skills/researcher/SKILL.md`, `skills/plan-new/SKILL.md`, `skills/tasks-new/SKILL.md`, `skills/implement/SKILL.md`, `skills/review/SKILL.md`, `skills/qa/SKILL.md`, `agents/researcher.md`, `agents/planner.md`, `agents/tasklist-refiner.md`, `agents/implementer.md`, `tests/test_prompt_lint.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
-  - убрать non-canonical runtime hints, legacy aliases и source-less derive guidance из stage prompts;
-  - закрепить canonical derive routing по stage ownership и canonical CLI arguments only;
-  - убрать generic nested recovery handoffs, которые уводят в drift paths или manual internals.
-  **AC:** top-level prompt surfaces не содержат non-canonical runtime paths, legacy aliases или derive without explicit canonical source.
+## Wave 121 — Prompt, Audit, and Replay Hygiene (2026-04-06)
+
+_Статус: plan. Основание — устранение prompt-flow drift и audit noise после стабилизации core runtime, без изменения продуктовой логики внешних приложений._
+
+- [ ] **W121-1 (P1) `review-spec` payload-first source-of-truth + findings-sync convergence** `skills/aidd-core/runtime/prd_review.py`, `skills/aidd-core/runtime/prd_review_section.py`, `skills/review-spec/SKILL.md`, `skills/idea-new/runtime/analyst_check.py`, `skills/aidd-flow-state/runtime/prd_check.py`, `tests/test_prd_review_agent.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - вычислять narrative/recovery decisions только из structured report payload;
+  - стабилизировать readiness findings-sync cycles для PRD/plan без stale deadlocks;
+  - вернуть deterministic blocker, если convergence невозможен в bounded cycle.
+  **AC:** review-spec decisions определяются structured payload; findings-sync сходится детерминированно.
+  **Deps:** W120-2
+  **Regression/tests:** `python3 -m pytest -q tests/test_prd_review_agent.py tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [ ] **W121-2 (P1) Canonical prompt orchestration and runtime CLI contract** `skills/researcher/SKILL.md`, `skills/plan-new/SKILL.md`, `skills/tasks-new/SKILL.md`, `skills/implement/SKILL.md`, `skills/review/SKILL.md`, `skills/qa/SKILL.md`, `agents/researcher.md`, `agents/planner.md`, `agents/tasklist-refiner.md`, `agents/implementer.md`, `agents/qa.md`, `tests/test_prompt_lint.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - удалить non-canonical runtime hints/legacy handoff aliases как primary path;
+  - закрепить только canonical runtime CLI args (`--scope-key`, `--work-item-key`, корректные stage commands);
+  - запретить source-less derive/manual internals в top-level recovery guidance.
+  **AC:** prompt surfaces не отправляют runner в non-canonical runtime/orchestration drift.
   **Deps:** W120-2
   **Regression/tests:** `python3 -m pytest -q tests/test_prompt_lint.py tests/repo_tools/test_e2e_prompt_contract.py`.
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W121-3 (P1) Audit runner liveness, stream-path, and termination attribution** `tests/repo_tools/aidd_stage_launcher.py`, `tests/repo_tools/aidd_stream_paths.py`, `tests/repo_tools/aidd_audit_runner.py`, `tests/repo_tools/test_aidd_stage_launcher.py`, `tests/repo_tools/test_aidd_audit_runner.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
-  - унифицировать stream-path extraction и fallback discovery для `stream_path_not_emitted_by_cli`;
-  - разделить `watchdog terminate`, `external terminate`, `silent stall`, `active stream` и parser noise;
-  - исключить ложные terminal transitions при активном stream и неполной telemetry surface.
-  **AC:** audit runner детерминированно классифицирует `exit_code=143` и stream-path anomalies без смешения terminal status и telemetry noise.
-  **Deps:** W120-1
+- [ ] **W121-3 (P1) Audit runner liveness + termination attribution + deterministic reason surfaces** `tests/repo_tools/aidd_stage_launcher.py`, `tests/repo_tools/aidd_stream_paths.py`, `tests/repo_tools/aidd_audit_runner.py`, `tests/repo_tools/aidd_audit_contract.py`, `tests/repo_tools/test_aidd_stage_launcher.py`, `tests/repo_tools/test_aidd_audit_runner.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - унифицировать stream-path extraction/fallback, не смешивая parser-noise и terminal causes;
+  - детерминировать классификацию `watchdog_terminated`, `parent_terminated_or_external_terminate`, `scope_drift_recoverable`, `fallback_path_assembly_bug`, `repeated_command_failure_no_new_evidence`;
+  - исключить ложные terminal transitions при active stream и валидном top-level payload.
+  **AC:** audit runner выдаёт однозначный terminal/classification result для одинакового набора логов.
+  **Deps:** W120-1, W120-4
   **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_aidd_stage_launcher.py tests/repo_tools/test_aidd_audit_runner.py tests/repo_tools/test_e2e_prompt_contract.py`.
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W121-4 (P1) Write-safety and readiness telemetry normalization** `tests/repo_tools/aidd_audit_runner.py`, `tests/repo_tools/test_aidd_audit_runner.py`, `tests/repo_tools/test_audit_runner.py`, `tests/repo_tools/test_e2e_prompt_contract.py`, `tests/repo_tools/e2e_prompt/profile_full.md`:
-  - различать pre-existing layout noise, runtime write-safety breach и post-recovery superseded telemetry;
-  - убрать конфликтующие readiness narratives после успешного downstream recovery;
-  - сохранять только actionable WARN/FAIL classification в итоговых step summaries.
-  **AC:** pre-existing root paths и superseded readiness markers не поднимают ложные WARN/NOT VERIFIED; real runtime mutations остаются видимыми.
-  **Deps:** W120-7
+- [ ] **W121-4 (P1) Write-safety/readiness telemetry normalization (noise suppression)** `tests/repo_tools/aidd_audit_runner.py`, `tests/repo_tools/test_aidd_audit_runner.py`, `tests/repo_tools/test_audit_runner.py`, `tests/repo_tools/test_e2e_prompt_contract.py`, `tests/repo_tools/e2e_prompt/profile_full.md`:
+  - развести pre-existing layout noise vs runtime write-safety breach;
+  - подавить ложные `plugin_delta`/superseded readiness markers в итоговых status summaries;
+  - оставить только actionable WARN/FAIL в terminal classification.
+  **AC:** telemetry-noise не поднимает ложные blockers; реальная write-safety проблема остаётся видимой.
+  **Deps:** W120-7, W121-3
   **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_aidd_audit_runner.py tests/repo_tools/test_audit_runner.py tests/repo_tools/test_e2e_prompt_contract.py`.
   **Effort:** S
   **Risk:** Medium
 
-- [ ] **W121-5 (P1) Replay fixtures, tasklist edge cases, and PRD parser hardening** `tests/fixtures/audit_tst001_*/*`, `skills/tasks-new/runtime/tasks_new.py`, `skills/aidd-flow-state/runtime/tasklist_check.py`, `skills/aidd-flow-state/runtime/tasklist_normalize.py`, `skills/aidd-flow-state/runtime/prd_check.py`, `tests/test_tasks_new.py`, `tests/test_tasklist_check.py`, `tests/test_prd_ready_check.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
-  - оформить replay fixtures для критичных TST-class incidents и связать их с CI-facing contract tests;
-  - стабилизировать nested-skill/tasklist parser edge cases так, чтобы hygiene-only issues не становились blocker;
-  - ужесточить PRD section parsing и cache invalidation без legacy bypass поведения.
-  **AC:** replay fixtures воспроизводят audit incidents детерминированно; tasks-new и PRD checks не дают ложных blockers на parser-only cases.
+- [ ] **W121-5 (P1) Replay fixtures for TST-001/TST-002 + parser edge-case hardening** `tests/fixtures/audit_tst001_*/*`, `tests/fixtures/audit_tst002_*/*`, `skills/tasks-new/runtime/tasks_new.py`, `skills/aidd-flow-state/runtime/tasklist_check.py`, `skills/aidd-flow-state/runtime/tasklist_normalize.py`, `skills/aidd-flow-state/runtime/prd_check.py`, `tests/test_tasks_new.py`, `tests/test_tasklist_check.py`, `tests/test_prd_ready_check.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - оформить воспроизводимые replay fixtures для критичных flow инцидентов;
+  - стабилизировать parser edge cases, чтобы hygiene-only сигналы не превращались в terminal blocker;
+  - ужесточить PRD parsing/cache invalidation без legacy bypass path.
+  **AC:** ключевые TST-class инциденты воспроизводятся и детектируются в CI детерминированно.
   **Deps:** W121-3
   **Regression/tests:** `python3 -m pytest -q tests/test_tasks_new.py tests/test_tasklist_check.py tests/test_prd_ready_check.py tests/repo_tools/test_e2e_prompt_contract.py`.
   **Effort:** M
   **Risk:** Medium
+
+- [ ] **W121-6 (P1) E2E prompt/runbook contract sync** `tests/repo_tools/e2e_prompt/profile_full.md`, `tests/repo_tools/e2e_prompt/quality_profile_full.md`, `docs/runbooks/tst001-audit-hardening.md`, `docs/e2e/aidd_test_flow_prompt_ralph_script_full.txt`, `docs/e2e/aidd_test_quality_audit_prompt_tst002_full.txt`:
+  - синхронизовать документацию с фактическими runtime reason-codes и classification rules;
+  - убрать расхождения между runbook/e2e profiles и текущим кодовым поведением;
+  - закрепить единые определения terminal/non-terminal сигналов.
+  **AC:** prompt/runbook surfaces не противоречат runtime/audit implementation.
+  **Deps:** W121-3, W121-4
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py tests/repo_tools/test_e2e_quality_prompt_contract.py`.
+  **Effort:** S
+  **Risk:** Low
+
+## Wave 136 — Integration Closure & Release Readiness (2026-04-06)
+
+_Статус: plan. Основание — интеграционное закрытие после выполнения `Wave 120` и `Wave 121`; в этой волне нет самостоятельных runtime-переработок, только acceptance/release closure._
+
+- [ ] **W136-1 (P1) Full/smoke regression matrix for TST-001 and TST-002** `tests/repo_tools/smoke-workflow.sh`, `tests/repo_tools/test_e2e_prompt_contract.py`, `tests/repo_tools/test_e2e_quality_prompt_contract.py`, `tests/repo_tools/test_aidd_audit_runner.py`, `docs/runbooks/tst001-audit-hardening.md`:
+  - зафиксировать regression matrix сценариев full/smoke для двух аудитов;
+  - включить сценарии repeated bad command, non-canonical runtime drift, `exit_code=143` attribution, readiness/report mismatch;
+  - добавить deterministic pass criteria для release gate.
+  **AC:** regression matrix покрывает все критичные findings и проходит детерминированно.
+  **Deps:** W120-8, W121-6
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py tests/repo_tools/test_e2e_quality_prompt_contract.py tests/repo_tools/test_aidd_audit_runner.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W136-2 (P1) Release-gate sign-off and CI required-check alignment** `.github/workflows/*`, `tests/repo_tools/ci-lint.sh`, `tests/repo_tools/smoke-workflow.sh`, `docs/release-docs-manifest.yaml`, `docs/runbooks/marketplace-release.md`:
+  - синхронизовать required checks с новой стабилизационной матрицей;
+  - закрепить release sign-off критерии для flow integrity и audit determinism;
+  - зафиксировать rollback criteria при regressions в seed/loop/qa flow.
+  **AC:** release gate блокирует релиз при нарушении ключевых flow integrity критериев.
+  **Deps:** W136-1
+  **Regression/tests:** `tests/repo_tools/ci-lint.sh`, `tests/repo_tools/smoke-workflow.sh`, `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py tests/repo_tools/test_e2e_quality_prompt_contract.py`.
+  **Effort:** S
+  **Risk:** Medium
+
+- [ ] **W136-3 (P2) Closure reporting, docs sync, and changelog finalization** `CHANGELOG.md`, `README.md`, `README.en.md`, `AGENTS.md`, `docs/backlog.md`, `docs/runbooks/tst001-audit-hardening.md`:
+  - оформить closure report по выполненным findings и residual risks;
+  - синхронизовать пользовательские/dev docs с итоговыми contracts;
+  - зафиксировать release notes и postmortem links на regression evidence.
+  **AC:** closure package завершён; документы и changelog соответствуют фактическому runtime behavior.
+  **Deps:** W136-2
+  **Regression/tests:** `tests/repo_tools/ci-lint.sh`, `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Effort:** S
+  **Risk:** Low
 
 ## Wave 122 — Memory Platform (2026-04-02)
 

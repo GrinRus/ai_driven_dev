@@ -1,0 +1,937 @@
+Задача: **AIDD E2E Quality Audit (TST-002) + Final-state feature gate + Code/Artifact quality scoring + Backlog wave planning**  
+База канона: **skill-first, python-only runtime, RLM-only research, no-fork stage orchestration, evidence-first quality audit**.
+
+Роль: ты — один quality-аудитор-агент. Проведи **полный** e2e прогон AIDD flow в одном репозитории, доведи flow до terminal state по canonical AIDD path, затем оцени качество итогового кода и качество сгенерированных артефактов.  
+**НЕ** исправляй проект и **НЕ** делай ручные правки `aidd/docs/**` или `aidd/reports/**` ради прохождения quality gate.  
+Разрешённый plugin write во время этого prompt только один: `docs/backlog.md` и только после готового quality verdict по правилам шага `9`.
+
+## 0) Reference Prompt And Priority
+
+- Reference-only prompt: `$PLUGIN_DIR/docs/e2e/aidd_test_flow_prompt_ralph_script_full.txt`.
+- Этот TST-002 prompt является **standalone-expanded** source of truth для текущего run: все шаги `0..8`, quality step `9` и write-safety step `99` описаны здесь полностью.
+- Reference prompt читается для контекста и parity-проверки, но не является runtime dependency.
+- Если между reference prompt и этим prompt есть конфликт, приоритет у **этого** prompt.
+- Quality gate нельзя пропускать даже если inherited flow формально завершился; run считается завершённым только после шага `9` и backlog-aware шага `99`.
+
+## 1) Канон и границы
+
+- Stage content templates (SoT): `$PLUGIN_DIR/skills/*/templates/*`
+- Workspace bootstrap source: `$PLUGIN_DIR/templates/aidd/**`
+- Runtime workspace memory: `$PROJECT_DIR/aidd/**` (после `aidd-init`)
+- Runtime API (canonical): `$PLUGIN_DIR/skills/*/runtime/*.py`
+- Hooks/platform glue: `$PLUGIN_DIR/hooks/**`
+- Product backlog file: `$PLUGIN_DIR/docs/backlog.md`
+- `tools/*.sh`: retired (не использовать)
+- `tools/*.py`: только repo-only tooling/stubs (если есть)
+- Не делать ручные правки `aidd/docs/**` или `aidd/reports/**` ради улучшения score.
+- Не исправлять target project в quality phase.
+- Backlog wave должна описывать только **systemic AIDD improvements**; продуктовые проблемы target repo без AIDD root-cause в backlog не попадают.
+
+## 2) Переменные
+
+- `PROJECT_DIR=<project_dir>`
+- `PLUGIN_DIR=<plugin_dir>`
+- `CLAUDE_PLUGIN_ROOT=$PLUGIN_DIR`
+- `TICKET=TST-002`
+- `BASE_PROMPT=$PLUGIN_DIR/docs/e2e/aidd_test_flow_prompt_ralph_script_full.txt`
+- `BACKLOG_PATH=$PLUGIN_DIR/docs/backlog.md`
+- `PROFILE=full|smoke` (default: `full`)
+- `QUALITY_PROFILE=full|smoke` (default: `full`)
+- `IDEA_NOTE=<формируется на шаге 3>`
+- `LOOP_MODE=loop-run|loop-step` (default: `loop-run`)
+- `BLOCKED_POLICY=strict|ralph` (default: `ralph`)
+- `RECOVERABLE_BLOCK_RETRIES=<int>` (default: `2`)
+- `LOOP_STEP_TIMEOUT_SECONDS=<int>` (default: `3600`)
+- `LOOP_STAGE_BUDGET_SECONDS=<int>` (default: `3600`)
+- `STEP6_IMPLEMENT_BUDGET_SECONDS=<int>` (default: `3600`)
+- `STEP6_REVIEW_BUDGET_SECONDS=<int>` (default: `3600`)
+- `AIDD_HOOKS_MODE=fast|strict` (default: `fast`)
+- `CLAUDE_ARGS=--dangerously-skip-permissions`
+- `STAGE_OUTPUT_MODE=stream-json|text` (default: `stream-json`)
+- `LOG_POLL_SECONDS=15` (default: `15`)
+- `CLAUDE_STREAM_FLAGS=--verbose --output-format stream-json --include-partial-messages`
+- `CLAUDE_PLUGIN_FLAGS=--plugin-dir "$PLUGIN_DIR"`
+- `PLUGIN_HEALTHCHECK_CMD=/feature-dev-aidd:status $TICKET`
+- `SEVERITY_PROFILE=conservative` (default: `conservative`)
+- `QUALITY_GATE_POLICY=strict` (default: `strict`)
+- `WAVE_WRITE_MODE=on-findings|always` (default: `on-findings`)
+- `BACKLOG_SCOPE=aidd-only|mixed` (default: `aidd-only`)
+- `QUALITY_SCORE_SCALE=0..3`
+- `QUALITY_TOP_FINDINGS_LIMIT=<int>` (default: `10`)
+- `QUALITY_BACKLOG_ITEM_LIMIT=<int>` (default: `7`)
+- `ALLOW_PLUGIN_BACKLOG_WRITE=1`
+- `BACKLOG_NEW_WAVE=<auto>`
+- `QUALITY_FINAL_MARKER=QUALITY_AUDIT_COMPLETE`
+
+## 3) Режимы
+
+- `PROFILE=smoke`
+  - Цель: быстрый health-check inherited flow.
+  - Выполняются шаги: `0,1,2,3,4,5,8,9,99`.
+  - Шаги `6,7` помечаются `SKIPPED (profile=smoke)`.
+- `PROFILE=full`
+  - Цель: полный регрессионный аудит inherited flow + quality gate.
+  - Выполняются шаги: `0,1,2,3,4,5,6,7,8,9,99`.
+- `QUALITY_PROFILE=smoke`
+  - Шаг `9` выполняется в режиме `artifact-lite`: artifact consistency + final-state convergence.
+  - Deep code review и запись backlog wave запрещены.
+  - `wave_created=0`.
+- `QUALITY_PROFILE=full`
+  - Шаг `9` включает code quality, artifact quality, root-cause map, user improvement plan и backlog wave drafting/writing при наличии systemic findings.
+
+## 4) Ключевые правила
+
+- R0: Первый запуск каждого stage (кроме `idea-new`) — только `ticket`.
+- R0.1: Для `idea-new` используется только `ticket + IDEA_NOTE`; `slug_hint` генерируется внутри команды.
+- R1: Для `full` разрешена ровно одна ручная пара `implement -> review` перед auto-loop.
+- R2: Никаких ручных правок runtime-артефактов.
+- R3: Не читать/не печатать секреты (`.env`, keys, tokens).
+- R4: Только Python runtime surfaces (`skills/*/runtime/*.py`), без shell wrappers.
+- R4.1: Если canonical runtime из install/cache path (`$PLUGIN_DIR/skills/*/runtime/*.py` или `<plugin_cache>/skills/*/runtime/*.py`) падает с `ModuleNotFoundError: No module named 'aidd_runtime'`, классифицировать как `flow bug (runtime_bootstrap_missing)`; это не `ENV_BLOCKER`.
+- R5: Stage-chain orchestration должны быть включены:
+- R6: Все slash stage-команды запускать только из `PROJECT_DIR`.
+- R6.1: Если `STAGE_OUTPUT_MODE=stream-json`, запускать `claude -p` только с `--verbose` (иначе CLI вернёт ошибку формата вывода).
+- R6.2: Для `claude -p` stage-команд обязательно добавлять `--plugin-dir "$PLUGIN_DIR"`.
+- R7: Перед первым stage-run обязателен plugin-load healthcheck (см. Шаг 1). Если плагин не загружен — это `ENV_BLOCKER` и аудит останавливается.
+- R8: `Unknown skill: feature-dev-aidd:*` классифицируется как `ENV_BLOCKER(plugin_not_loaded)`; **не** классифицировать как `flow bug`.
+- R8.1: Если в UI/операторском выводе встречается unprefixed alias (`/idea-new` и т.п.), но в `init.slash_commands` присутствуют `feature-dev-aidd:*`, фиксировать `INFO(prefix_alias_display_only)`; использовать canonical prefixed команды.
+- R9: Python fallback разрешён только после успешного plugin-load healthcheck и только для `blocked/hang/killed`. Python fallback запрещён как recovery для `Unknown skill`.
+- R10: Ошибка `refusing to use plugin repository as workspace root` классифицируется как `ENV_MISCONFIG(cwd_wrong)`; исправь `cwd` на `PROJECT_DIR` и повтори ровно 1 раз.
+- R11: Для шага 7 (Auto-loop через Python runtime) runner должен быть non-interactive:
+  - перед запуском установить `AIDD_LOOP_RUNNER="claude --dangerously-skip-permissions"`;
+  - если в stream `init` видно `permissionMode=default` и дальше идут `requires approval`, классифицировать как `ENV_MISCONFIG(loop_runner_permissions)` (не как flow bug).
+- R12: В `stream-json` режиме liveness проверяется по двум источникам одновременно:
+  - `AUDIT_DIR/<step>_run<N>.log` (main log),
+  - stream-файлы (`*.stream.jsonl` и `*.stream.log`) из header/метаданных.
+  Стагнация только main log при растущем stream не является `silent stall`.
+- R12.1: Извлечение stream-путей обязано поддерживать абсолютные и относительные пути из `init/header/metadata`; относительные пути нормализуются относительно `PROJECT_DIR` и сохраняются в нормализованном виде.
+- R12.1a: Primary extraction разрешён только из `system/init` JSON payload и control-header строк (`==> streaming enabled ... stream=... log=...`); любые `tool_result`/artifact excerpts/prose строки исключаются из extraction.
+- R12.2: Если stream-пути не извлеклись из main log/metadata, обязателен fallback discovery в `aidd/reports/loops/<ticket>/` (по `*.stream.jsonl` и `*.stream.log`) с выбором самых свежих файлов; этот fallback фиксируется в `AUDIT_DIR/<step>_stream_paths_run<N>.txt`.
+- R12.3: После нормализации stream-путей оставлять в liveness-множестве только пути внутри `PROJECT_DIR`, которые физически существуют на момент проверки; абсолютные пути вне workspace фиксировать как `stream_path_invalid`, отсутствующие пути внутри workspace фиксировать как `stream_path_missing`, оба типа исключать из расчёта stall.
+- R12.4: Если primary extraction дал только `stream_path_invalid`/`stream_path_missing` или пустой валидный набор, обязателен fallback discovery; отсутствие fallback при таком случае — `prompt-exec issue (stream_path_resolution_incomplete)`.
+- R13: Stage-result contract canonical-only: принимается только `schema=aidd.stage_result.v1` (alias через `schema_version` допустим только для canonical значения).
+- R13.3: Прямая запись/редактирование `aidd/reports/loops/**/stage.*.result.json` запрещена; stage-result должен эмититься только canonical runtime/stage-chain путём.
+- R14: Если в stage-логе есть запуск `python3 skills/.../runtime/*.py` из `PROJECT_DIR` и ошибка вида `can't open file .../skills/...`, классифицировать как `prompt-flow drift (non-canonical runtime path)`.
+- R14.2: Для `runtime_path_missing_or_drift` применять fail-fast: immediate `blocked`, без guessed retries и без manual recovery path.
+- R14.3: Если в stage-логе есть direct вызов внутреннего stage-chain preflight entrypoint вне canonical stage-chain, классифицировать как `prompt-flow drift (non-canonical stage orchestration)` и останавливать manual recovery для текущего шага.
+- R15: Если `*_run<N>.summary.txt` содержит `result_count=0` при валидном `init`, классифицировать как `prompt-exec issue (no_top_level_result)`.
+- R15.3: Для `review-spec` источником истины по finding/recommended status считать `aidd/reports/prd/<ticket>.json` (или `*.pack.json`); narrative top-level текста использовать только как supplementary telemetry.
+- R16: Для launcher избегать tokenization drift: не передавать флаги как один неразделённый токен; при первом фейле quoting/tokenization делать ровно один shell-safe retry с явными отдельными аргументами.
+- R17: Early-kill prohibition (strict):
+  - не останавливать stage-run до исчерпания budget этапа, если есть liveness (`main log` и/или stream-файлы растут);
+  - до budget случаи `result_count=0`, token-limit, repeated nested tool errors классифицировать как `WARN(prompt-exec no_convergence_yet)`, а не `killed`;
+  - исключения: `ENV_BLOCKER`, `silent stall`, явный process crash, user interrupt.
+- R17.1: `kill` допускается только если не растут `main log` и все резолвленные stream-файлы более 20 минут.
+- R17.2: Если завершение с `exit_code=143` произошло при `killed=0`, классифицируй как `ENV_MISCONFIG(parent_terminated|external_terminate)`.
+- R17.3: Если завершение с `exit_code=143` произошло при `killed=1` и подтверждённом `watchdog_marker=1`, классифицируй как `NOT VERIFIED (killed)` + `prompt-exec issue (watchdog_terminated)`.
+- R17.4: Severity profile `conservative`: `ENV_BLOCKER`, `ENV_MISCONFIG`, `contract_mismatch` остаются terminal; `stream_path_invalid|stream_path_missing` и telemetry-only mismatch не являются terminal сами по себе.
+- R17.5: Для шага 7 `diff_boundary_violation` не считается terminal, если `OUT_OF_SCOPE`/sample-path состоят только из `.aidd_audit/**`; это `prompt-exec issue (diff_boundary_ephemeral_misclassified)`.
+- R18: Перед запуском `plan-new`, `review-spec`, `tasks-new` и любого шага `6/7/8` обязателен readiness gate из `AUDIT_DIR/05_precondition_block.txt`.
+- R18.1: Readiness gate = `PASS` только при одновременном выполнении условий: `prd_status=READY`, `open_questions_count=0`, `answers_format=compact_q_values`, и `research_status=reviewed|ok|warn|pending` при наличии minimal RLM baseline.
+- R18.1a: `compact_q_values` обязателен для retry payload в CLI (`AIDD:ANSWERS Q1=...; Q2="короткий текст"`).
+- R18.1b: Minimal RLM baseline для soft-readiness: существуют `aidd/reports/research/<ticket>-rlm-targets.json`, `...-rlm-manifest.json`, `...-rlm.worklist.pack.json`, `...-rlm.pack.json`; `aidd/reports/research/<ticket>-rlm.nodes.jsonl` непустой.
+- R18.2: При `FAIL` readiness gate обязателен `reason_code` из набора `prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready`; шаг 5 классифицируется как `NOT VERIFIED (readiness_gate_failed)` + `prompt-flow gap`.
+- R18.2c: Если `readiness_gate=PASS` достигнут через `research_status=warn|pending` при minimal RLM baseline, фиксировать `WARN(readiness_gate_research_softened)` и продолжать downstream stages.
+- R18.4: Если `review-spec` top-level narrative и `aidd/reports/prd/<ticket>.json|*.pack.json` расходятся по findings, фиксировать `prompt-exec issue (review_spec_report_mismatch)` и принимать recovery-решение по report payload.
+- R18.5: Если `review-spec` вернул `WARN|NEEDS_REVISION`, unresolved `Q*` отсутствуют и spec-файл существует, запускать findings-sync cycle с compact payload `AIDD:SYNC_FROM_REVIEW ...`.
+- R18.6: Если после findings-sync cycle `readiness_gate` остаётся `FAIL`, классифицировать как `NOT VERIFIED (findings_sync_not_converged)` + `prompt-flow gap`.
+
+## 4.1 Дополнительные правила quality-аудита
+
+- Q0: Сначала выполни standalone flow шагов `0..8`, потом запускай quality gate.
+- Q1: Quality verdict строится только по evidence из run/logs/artifacts/code diff/tests; implicit success без evidence не засчитывать.
+- Q2: Разделяй findings на классы `systemic_aidd_gap`, `product_output_gap`, `env_or_runner_gap`.
+- Q3: При `BACKLOG_SCOPE=aidd-only` в backlog попадают только `systemic_aidd_gap` и допустимые `env_or_runner_gap`, требующие изменения AIDD repo.
+- Q4: Product-specific gaps без AIDD root-cause оставлять только в `09_user_improvement_plan.md`.
+- Q5: Пустую wave не создавать. Если actionable systemic findings = `0` и `WAVE_WRITE_MODE=on-findings`, backlog не менять.
+- Q6: Все backlog items обязаны ссылаться на plugin repo paths (`skills/**`, `templates/**`, `tests/**`, `docs/**`, `hooks/**`, `agents/**`), а не на target project.
+- Q7: Не заводить backlog items по шумовым nitpick-замечаниям без риска для качества и повторяемости.
+- Q8: Мержить дублирующиеся findings в один wave-item, а не дробить на микрозадачи.
+- Q9: Severity map:
+  - `P0`: terminal quality blocker, broken acceptance, failing required regression, invalid artifact contract, final feature state not reached из-за AIDD gap.
+  - `P1`: серьёзный quality gap, влияющий на correctness, maintainability или operator trust.
+  - `P2`: важное, но не terminal улучшение.
+  - `P3`: низкий приоритет; в backlog по умолчанию не писать.
+- Q10: Backlog wave write допускается ровно один раз за run и только после `09_quality_gate.txt`.
+- Q11: Post-run write-safety обязан считать изменение `BACKLOG_PATH` allowed delta только при валидной wave integrity check.
+- Q12: Старые waves не удалять и не переписывать; только вставка новой wave.
+- Q13: Новая wave использует следующий свободный номер `max(Wave NNN)+1`.
+- Q14: Новую wave вставлять сразу после title/revision-note блока в начале `BACKLOG_PATH`.
+- Q15: Если `BACKLOG_PATH` отсутствует, невалиден или max wave не парсится, классифицировать как `ENV_MISCONFIG(backlog_missing_or_unparseable)` и write не выполнять.
+
+## 5) Политика запуска, ожидания и зависаний
+
+### 5.0 Обязательный launcher (для каждого stage-run)
+
+- Для `stream-json` режимов используй шаблон:
+  - `cd "$PROJECT_DIR"`
+  - `claude -p "<stage command>" $CLAUDE_ARGS $CLAUDE_STREAM_FLAGS $CLAUDE_PLUGIN_FLAGS`
+- Для `text` режимов используй шаблон:
+  - `cd "$PROJECT_DIR"`
+  - `claude -p "<stage command>" $CLAUDE_ARGS $CLAUDE_PLUGIN_FLAGS`
+- Shell-safe launch: передавать каждый флаг отдельным аргументом, без склейки в одну строку/токен.
+- Перед каждым stage-run делать disk-preflight:
+  - `df -Pk "$PROJECT_DIR"` и проверка свободного места (`>= 1073741824` bytes);
+  - если свободного места меньше, классифицировать как `ENV_MISCONFIG(no_space_left_on_device)` и не стартовать stage-run.
+- Любой запуск stage-команды должен писать `stdout+stderr` в `AUDIT_DIR/<step>_run<N>.log`.
+- Для каждого stage-run сохраняй `head`, `tail`, heartbeat и `AUDIT_DIR/<step>_stream_paths_run<N>.txt`.
+- Для stream-path extraction запрещён глобальный regex-scan по всему run-log; использовать только `system/init` JSON/control-header sources и игнорировать `tool_result`/artifact text fragments.
+- Если primary extraction дал только `stream_path_invalid`/`stream_path_missing` или пустой валидный набор, обязателен fallback discovery.
+
+### 5.1 Проверка плагина в каждом stream-json run
+
+- В `init`-событии лога должны присутствовать:
+  - `plugins` содержит `feature-dev-aidd`.
+  - `slash_commands` содержит `feature-dev-aidd:status` и stage-команду текущего шага.
+- Если в `init` нет `feature-dev-aidd` или `slash_commands` без `feature-dev-aidd:*`:
+  - классифицируй как `ENV_BLOCKER(plugin_not_loaded)`;
+  - шаг = `NOT VERIFIED (env blocker)`;
+  - останови аудит.
+
+### 5.2 Общие правила ожидания
+
+- Silent stdout допустим.
+- Не прерывай команды раньше бюджетов.
+- Heartbeat раз в ~30s.
+- Для каждого stage-run проверяй рост `main log`, `stream_jsonl`, `stream log` и `stream jsonl`.
+- Если используешь text-режим, live-tail всё равно обязателен.
+
+### 5.3 Буферизация/зависания
+
+- Если лог = `0 bytes` дольше 120 секунд:
+  - сначала классифицируй как `prompt-exec buffering/quoting risk`;
+  - сделай один перезапуск той же команды в `stream-json` режиме.
+- Если `main log = 0 bytes`, но stream-файлы растут, продолжать run как `active_stream`.
+- Если в stage-логе нет новых строк >20 минут:
+  - сначала выполни fallback discovery и пересчитай liveness;
+  - если stream растёт, это `active_stream`;
+  - если не растут и `main log`, и stream — это `silent stall`.
+- Если `main log` и/или stream растут, но top-level `result` не появляется, до budget **не** делать `kill`; помечать как `WARN(prompt-exec no_convergence_yet)`.
+- Для `silent stall` делай ровно один debug-retry с `ANTHROPIC_LOG=debug`.
+- При завершении процесса с `exit_code=143` обязателен `AUDIT_DIR/<step>_termination_attribution.txt`.
+
+### 5.4 Порядок классификации инцидентов (строгий)
+
+- Сначала `ENV_BLOCKER`.
+- Затем `ENV_MISCONFIG/external_terminate`.
+- Затем `prompt-exec issue`.
+- Отдельно `contract mismatch`.
+- Только потом `flow bug`.
+
+### 5.5 Фильтрация WARN/DRIFT сигналов
+
+- Stage-level классификацию делай по текущему stage-return, `init` и top-level result.
+- `WARN/Q*/AIDD:ANSWERS/Question` внутри вложенных артефактов не считать trigger-ом инцидента.
+- `blocking_findings` внутри review/report артефактов не считать trigger-ом сам по себе.
+- Упоминание internal subagent внутри успешного `tasks-new` не является drift.
+- Legacy aliases как primary next action фиксируй как `WARN(prompt_flow_drift_legacy_handoff_alias)`.
+- `WARN(tasklist_hygiene)` выставлять только по command-полям секции `AIDD:TEST_EXECUTION`.
+
+## 6) Универсальный шаблон обработки вопросов (обязательно)
+
+Используй этот шаблон для всех stage-команд:
+
+1. Запусти первую попытку по R0/R0.1.
+2. Если stage задаёт вопросы/возвращает BLOCK из-за отсутствия ответов:
+   - retry-триггер разрешён только по текущему stage-return;
+   - для `idea-new` и `plan-new` retry-триггер также валиден, если top-level `success|WARN` явно требует закрыть `Q*`;
+   - не считать trigger-ом `Q*`/`AIDD:ANSWERS`/`Question` внутри вложенных артефактов;
+   - извлеки вопросы в `AUDIT_DIR/<step>_questions.txt`;
+   - дополнительно сохрани `AUDIT_DIR/<step>_questions_raw.txt` и `AUDIT_DIR/<step>_questions_normalized.txt`;
+   - если source содержит `TBD`/пустые значения в `AIDD:ANSWERS`, нормализуй в `Q<N>=<token>` или `Q<N>="короткий текст"`;
+   - выполни **ровно один** retry;
+   - рекомендуемый шаблон: `AIDD:ANSWERS Q1=C; Q2=B; Q3=C; Q4=A; Q5=C`.
+3. Retry формат:
+   - `idea-new`: `ticket + IDEA_NOTE + AIDD:ANSWERS`;
+   - остальные stage: `ticket + AIDD:ANSWERS`;
+   - в CLI передавай только нормализованный one-line payload.
+4. Если после retry всё ещё BLOCKED:
+   - зафиксируй `WARN`/`FAIL` с причиной;
+   - продолжай по сценарию, где это возможно.
+5. Если причина BLOCKED связана с отсутствующим spec или `PRD Status != READY`:
+   - сначала пройди `/feature-dev-aidd:spec-interview <ticket>`;
+   - затем `/feature-dev-aidd:review-spec <ticket>`;
+   - затем findings-sync cycle при необходимости;
+   - если после findings-sync `Status != READY`, классифицируй как `NOT VERIFIED (findings_sync_not_converged)` + `prompt-flow gap`.
+6. Если stage-return содержит `Unknown skill`, классифицировать как `ENV_BLOCKER(plugin_not_loaded)` и остановить аудит.
+7. Если stage-return уводит в ручной preflight или ручную запись `stage.*.result.json`, классифицировать как `prompt-flow drift (non-canonical stage orchestration)` и manual path не выполнять.
+8. Если nested runtime-команда использует non-canonical путь `python3 skills/...`, классифицировать как `prompt-flow drift (runtime_cli_contract_mismatch)`.
+
+Примечание: вопросы — часть happy path, а не исключение.
+
+## 7) MUST-READ
+
+{{MUST_READ_MANIFEST}}
+
+## 8) Каталог задач для шага 3 (выбрать ровно одну)
+
+Контекст анализа:
+- `PROJECT_DIR/README.md`
+- `PROJECT_DIR/docs/backlog.md`
+- `PROJECT_DIR/backend/src/main/java/**/controller/*Controller.java`
+- `PROJECT_DIR/frontend/src/pages/*.tsx`
+- `PROJECT_DIR/frontend/src/lib/apiClient.ts`
+
+### FS-GA-01 (L) GitHub Analysis Flow: production-ready UX + canonical payload
+- Backend scope:
+  - Оркестрация `github-analysis-flow` с шагами `fetch_metadata -> fetch_tree -> analysis -> recommendations`.
+  - Typed payload/DTO (`analysisStatus`, `retries`, `recommendationBlocks`, `actions`, `stepProgress`) + OpenAPI sync.
+  - Идемпотентное хранение результатов анализа.
+- Frontend scope:
+  - MCP panel блок GitHub Analysis (URL/ref/PR, режим, валидация).
+  - Прогресс шагов, ретраи/ошибки, карточка результата.
+  - Review actions: `comment`, `approve`, `request changes`.
+- Acceptance criteria:
+  - Запуск из UI создаёт flow session и даёт прогресс без ручного рефреша.
+  - Результат содержит canonical payload и доступен из истории.
+  - Типы консистентны между backend DTO и frontend client.
+
+### FS-MP-02 (L) GitHub/GitLab parity для assisted coding flow
+- Backend scope:
+  - Provider-aware contract (`github|gitlab`) в registry/orchestrator/pipeline.
+  - GitLab MCP stack и маршрутизация URL/MR.
+  - Общие метрики/логи/fallback policy.
+- Frontend scope:
+  - Переключатель provider в UI/CLI.
+  - Provider-specific ссылки и `workspace_git_state`.
+  - Provider-aware cache/recovery.
+- Acceptance criteria:
+  - Один flow работает для GitHub и GitLab URL без ручной правки payload.
+  - UI корректно показывает provider/ссылки/статусы.
+  - Интеграционные тесты покрывают fetch -> state -> analysis.
+
+### FS-RBAC-03 (M) Live RBAC enforcement + admin role operations
+- Backend scope:
+  - Усиление role enforcement на критичных API.
+  - Audit trail для role operations и 403.
+  - Стабилизация role guard/interceptor.
+- Frontend scope:
+  - Live обновление ролей в сессии.
+  - Role guards для admin/flow controls.
+  - Единая обработка 403.
+- Acceptance criteria:
+  - Изменения ролей видны без перезагрузки.
+  - Backend consistently возвращает 403 без роли.
+  - Admin roles audit соответствует действиям.
+
+### FS-ID-04 (L) VK OAuth + Telegram Login Widget profile linking
+- Backend scope:
+  - `GET /auth/vk`, `POST /auth/vk/callback` (PKCE/state/device_id).
+  - Refresh/revoke pipeline для VK tokens.
+  - Telegram callback hash validation + anti-replay + profile attach.
+- Frontend scope:
+  - Link/unlink блок внешних провайдеров + Telegram widget.
+  - Статусы линковки/ошибок/expiry.
+  - Channel-specific UX подсказки.
+- Acceptance criteria:
+  - VK/Telegram linking end-to-end.
+  - Backend валидирует подписи/state и пишет audit events.
+  - E2E покрывает happy path + replay/expired/error.
+
+### FS-GRAPH-05 (L) Code graph IDE navigation (outline + anchors + target path)
+- Backend scope:
+  - Расширение графа (`CONTAINS`, сигнатуры, docstring, visibility, anchors).
+  - Улучшение `graph_neighbors`/`graph_path`/`definition`.
+  - Кэш/метрики/fallback для graph queries.
+- Frontend scope:
+  - UI для outline/anchors/previews.
+  - Отображение путей до `goalFqn` + relation filters.
+  - Визуальная деградация в fallback mode.
+- Acceptance criteria:
+  - Из UI можно получить outline и перейти к символу по anchors.
+  - Path queries возвращают цель по `targetHint`/`goalFqn`.
+  - Метрики показывают latency/hit/miss/fallback reasons.
+
+## 9) Пошаговый flow (для агента)
+
+Логи до `aidd-init` сохраняй в:
+- `RUN_TS=$(date -u +%Y%m%dT%H%M%SZ)`
+- `AUDIT_DIR=$PROJECT_DIR/.aidd_audit/$TICKET/$RUN_TS`
+
+### Шаг 0. Clean state
+
+Сделать:
+- `cd "$PROJECT_DIR"`;
+- сохранить pre-status во временный файл: `/tmp/00_git_status_before.${TICKET}.${RUN_TS}.txt`;
+- принудительно очистить workspace до `HEAD`:
+  - `git reset --hard HEAD`
+  - `git clean -fd`
+- создать `AUDIT_DIR` после cleanup;
+- скопировать pre-status в `AUDIT_DIR/00_git_status_before.txt`;
+- сохранить post-status в `AUDIT_DIR/00_git_status_after.txt`;
+- если cleanup не удался — `BLOCKER(clean_state_unavailable)` и stop;
+- сохранить plugin status baseline в `00_plugin_git_status_before.txt`.
+
+### Шаг 1. Preflight (fail-fast env)
+
+Сделать:
+- checkout audit branch;
+- сохранить head/branch;
+- определить `AUDIT_MODE`:
+  - SKILL_FIRST если есть `skills/aidd-core/SKILL.md` и `skills/implement/SKILL.md`;
+  - иначе `LEGACY_UNSUPPORTED` и stop как N/A;
+- выполнить plugin-prompt path scan и сохранить `01_non_canonical_runtime_path_scan.txt`:
+  - `rg -n "python3 skills/.*/runtime/" "$PLUGIN_DIR/skills/{implement,review,qa}/SKILL.md"`;
+- зафиксировать `claude plugin list` в `01_plugin_list.txt`;
+- зафиксировать `~/.claude/settings.json` в `01_claude_settings_snapshot.json`;
+- выполнить healthcheck команду (`$PLUGIN_HEALTHCHECK_CMD`) через launcher;
+- проверить `init`-событие healthcheck-лога на `plugins`, `slash_commands`, `skills`;
+- извлечь install runtime path плагина и сохранить `01_plugin_runtime_path.txt`;
+- выполнить runtime bootstrap probe в изолированном режиме и сохранить `01_runtime_bootstrap_probe.txt`:
+  - `python3 -S <plugin_runtime_path>/skills/aidd-flow-state/runtime/set_active_stage.py --help`
+  - `python3 -S <plugin_runtime_path>/skills/status/runtime/index_sync.py --help`
+  - `python3 -S <plugin_runtime_path>/skills/review/runtime/review_report.py --help`
+  - `python3 -S <plugin_runtime_path>/skills/aidd-rlm/runtime/rlm_slice.py --help`
+- если bootstrap probe содержит `ModuleNotFoundError: No module named 'aidd_runtime'`, сохранить `01_runtime_bootstrap_blocker.txt` и продолжать аудит с маркировкой `NOT VERIFIED (runtime_bootstrap_missing)` для direct runtime fallback'ов.
+- если любой пункт не выполнен, или получен `Unknown skill`, сохранить `01_env_blocker.txt` и **остановить аудит**.
+- если получен `refusing to use plugin repository as workspace root`, исправить `cwd` на `PROJECT_DIR`, повторить healthcheck 1 раз, затем при повторном провале остановить аудит.
+
+### Шаг 2. Baseline
+
+Сделать:
+- `cd "$PROJECT_DIR"`;
+- `ls -la`;
+- snapshot дерева `aidd` (или `aidd: missing`).
+
+### Шаг 3. Task selection + IDEA_NOTE
+
+Сделать:
+- короткий анализ repo surfaces;
+- сохранить:
+  - `03_repo_analysis.txt`
+  - `03_task_candidates.md` (>=3 задачи)
+  - `03_selected_task.txt` (ровно одна задача)
+- сгенерировать `03_problem_statement.txt`:
+  - 3–6 предложений,
+  - 3–5 acceptance criteria,
+  - backend + frontend scope.
+- сформировать `IDEA_NOTE` из этого файла.
+
+### Шаг 4. aidd-init
+
+Готовность:
+- `aidd/AGENTS.md`
+- `aidd/docs/shared/stage-lexicon.md`
+
+Если не готово:
+- выполнить `/feature-dev-aidd:aidd-init` через launcher.
+
+После:
+- сохранить `04_aidd_tree_post.txt`.
+
+### Шаг 5. Happy path
+
+Общее правило для 5.1..5.5:
+- каждый slash stage-run через launcher;
+- при `Unknown skill` -> `ENV_BLOCKER(plugin_not_loaded)` и stop;
+- question retry использовать только для реальных stage-вопросов/BLOCK;
+- manual internal stage-chain/debug path не использовать как recovery для slash stage-команд 5.x.
+
+#### 5.1 idea-new
+
+Сделать:
+- первый запуск: `/feature-dev-aidd:idea-new $TICKET $IDEA_NOTE`;
+- при вопросах: retry по шаблону секции 6;
+- снять артефакты:
+  - `05_active.json`
+  - `05_prd_head.txt`
+  - `05_slug_check.txt`
+
+Проверки slug:
+- non-empty;
+- regex `^[a-z0-9]+(-[a-z0-9]+)*$`;
+- не содержит сырой `AIDD:ANSWERS`.
+
+#### 5.1a PRD question-closure (до readiness gate)
+
+Сделать:
+- после `5.1` проверить top-level stage-return и `aidd/docs/prd/$TICKET.prd.md`;
+- если обнаружены неотвеченные вопросы (`Q*`, пустые/`TBD` значения в `AIDD:ANSWERS`, `Status: draft`), выполнить question retry для `idea-new`;
+- сохранить:
+  - `05_idea_new_questions_raw.txt`
+  - `05_idea_new_questions_normalized.txt`
+  - `05_idea_new_answers.txt`
+- после retry повторно снять `05_prd_head.txt`.
+
+#### 5.2 researcher
+
+Сделать:
+- первый запуск ticket-only;
+- при вопросах: retry;
+- в non-interactive path ожидать bounded auto-recovery внутри researcher runtime;
+- fallback допускается только если stage blocked/hang (не для `Unknown skill`):
+  - `python3 $PLUGIN_DIR/skills/researcher/runtime/research.py --ticket $TICKET --auto --paths backend/src/main/java,frontend/src/pages --keywords github,analysis,flow`
+- пометить fallback marker.
+
+RLM artifacts check:
+- must exist:
+  - `${TICKET}-rlm-targets.json`
+  - `${TICKET}-rlm-manifest.json`
+  - `${TICKET}-rlm.worklist.pack.json`
+- must NOT exist:
+  - `${TICKET}-context.json`
+  - `${TICKET}-targets.json`
+
+#### 5.2.1 Step 5 Readiness Gate (hard-stop)
+
+Сделать:
+- после `5.1` и `5.2` записать `05_precondition_block.txt` с полями:
+  - `prd_status=<READY|draft|...>`
+  - `open_questions_count=<int>`
+  - `answers_format=<compact_q_values|invalid>`
+  - `research_status=<reviewed|ok|pending|warn|invalid>`
+  - `research_warn_scope=<none|links_empty_non_blocking|minimal_baseline_soft|invalid>`
+  - `readiness_gate=<PASS|FAIL>`
+  - `reason_code=<prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready|->`
+- запуск `5.3/5.4/5.5` допускается только при `readiness_gate=PASS`.
+- если `readiness_gate=PASS` через `research_status=warn|pending`, зафиксировать `WARN(readiness_gate_research_softened)`.
+- если `readiness_gate=FAIL`, выполнить один readiness-recovery цикл; при повторном `FAIL` пометить шаг 5 как `NOT VERIFIED (readiness_gate_failed)` и шаги `6/7/8` как `NOT VERIFIED (upstream_readiness_gate_failed)`.
+
+#### 5.3 plan-new
+
+Сделать:
+- запускать только при `readiness_gate=PASS`;
+- first run ticket-only;
+- при вопросах: retry;
+- если hang/kill: выполнить runtime probe
+  - `python3 $PLUGIN_DIR/skills/plan-new/runtime/research_check.py --ticket $TICKET --expected-stage plan`
+- если после bounded finalize остаётся `reason_code=rlm_status_pending` или `reason_code=rlm_links_empty_warn`, допускается soft-pass с `WARN(research_gate_softened)` и telemetry `policy=warn_continue`.
+
+#### 5.3.1 Plan question-closure (после первого `plan-new`)
+
+Сделать:
+- если top-level stage-return `plan-new` явно требует закрыть `Q*`, выполнить ровно один question retry;
+- сохранить:
+  - `05_plan_new_questions_raw.txt`
+  - `05_plan_new_questions_normalized.txt`
+  - `05_plan_new_answers.txt`
+- после retry снять `05_plan_head.txt`.
+
+Anti-cascade:
+- если после retry `plan-new` всё ещё требует закрыть вопросы:
+  - шаг 5.3 = `NOT VERIFIED (plan_qna_unresolved)` + `prompt-flow gap`;
+  - шаги `6/7/8` пометить `NOT VERIFIED (upstream_plan_qna_unresolved)` и перейти к шагу 99.
+
+#### 5.4 review-spec
+
+Сделать:
+- запускать только при `readiness_gate=PASS`;
+- first run ticket-only;
+- при вопросах: retry;
+- после каждого run сохранять `05_review_spec_report_check_run<N>.txt`:
+  - `report_path`, `recommended_status`, `findings_count`, `open_questions_count`, `spec_exists`, `prd_findings_sync_needed`, `plan_findings_sync_needed`, `narrative_vs_report_mismatch`
+- если есть unresolved `Q*` или отсутствующий spec, выполнить `/feature-dev-aidd:spec-interview $TICKET`, затем повторить `/feature-dev-aidd:review-spec $TICKET` один раз.
+- при `prd_findings_sync_needed=1` выполнить один sync-retry через `idea-new`, затем ещё раз `review-spec`.
+- при `plan_findings_sync_needed=1` выполнить один sync-retry через `plan-new`, затем ещё раз `review-spec`.
+- если hang/kill: runtime probe
+  - `python3 $PLUGIN_DIR/skills/aidd-core/runtime/prd_review.py --ticket $TICKET`
+
+#### 5.5 tasks-new
+
+Сделать:
+- запускать только при `readiness_gate=PASS`;
+- если PRD не `READY` или есть unresolved `Q*`, выполнить required recovery (`spec-interview`, `review-spec`, findings-sync`) и только потом retry.
+- first run ticket-only;
+- при вопросах: retry;
+- если tasks-new сообщает `Missing Spec File` или unresolved `Q*`, классифицировать как prompt-flow gap и выполнить один repair/retry cycle.
+- если `tasks-new` сообщает `AIDD:TEST_EXECUTION missing tasks`:
+  - сохранить `05_tasklist_test_execution_probe.txt`;
+  - если `tasks_list_count>0` или есть `command|commands`, классифицировать как `WARN(tasklist_schema_parser_mismatch_recoverable)` и продолжать downstream stages.
+- если `tasks-new` завершился `success|WARN`, но summary/log содержит manual/non-canonical recovery как primary path, фиксировать `WARN(prompt_flow_drift_non_canonical_stage_orchestration)` и не использовать manual path.
+- если hang/kill: fallback
+  - `python3 $PLUGIN_DIR/skills/tasks-new/runtime/tasks_new.py --ticket $TICKET`
+- сохранить `05_tasklist_status_check.txt`.
+- если после retry tasks-new остаётся `BLOCKED`, шаги 6/7 пометить `NOT VERIFIED` и перейти к 8/99.
+
+### Шаг 6. Loop seed (только full)
+
+Сделать:
+- `STEP6_IMPLEMENT_BUDGET_SECONDS=3600`
+- `STEP6_REVIEW_BUDGET_SECONDS=3600`
+- один запуск `implement`, один запуск `review`;
+- question retry для шага 6 запрещён;
+- если `result_count=0`, классифицировать как `NOT VERIFIED (no_top_level_result)` + `prompt-exec issue`;
+- если в логах есть `python3 skills/.../runtime/*.py` + `can't open file`, классифицировать как `NOT VERIFIED (prompt_flow_drift_non_canonical_runtime_path)`.
+
+Loop seed integrity checks:
+- `06_active_after_review.json`
+- `06_work_item_check.txt`
+- `06_actions_tree.txt`
+- `06_context_tree.txt`
+- `06_stage_chain_logs_tree.txt`
+- `06_loops_tree.txt`
+- `06_marker_semantics_check.txt`
+
+Fail-fast gate:
+- если любой из preloop artifacts отсутствует/пустой, классифицировать как `NOT VERIFIED (preloop_artifacts_missing)` + `prompt-flow drift`;
+- при `preloop_artifacts_missing` шаги 7 и 8 пометить `NOT VERIFIED` и перейти к шагу 99.
+
+### Шаг 7. Auto-loop (только full)
+
+Сделать:
+- установить `AIDD_LOOP_RUNNER="claude --dangerously-skip-permissions"`;
+- `loop-run` или `loop-step` через Python runtime:
+  - `CLAUDE_PLUGIN_ROOT="$PLUGIN_DIR" PYTHONPATH="$PLUGIN_DIR${PYTHONPATH:+:$PYTHONPATH}" python3 $PLUGIN_DIR/skills/aidd-loop/runtime/loop_run.py --ticket $TICKET --max-iterations 6 --stream --step-timeout-seconds $LOOP_STEP_TIMEOUT_SECONDS --stage-budget-seconds $LOOP_STAGE_BUDGET_SECONDS --blocked-policy $BLOCKED_POLICY --recoverable-block-retries $RECOVERABLE_BLOCK_RETRIES`
+  - или `CLAUDE_PLUGIN_ROOT="$PLUGIN_DIR" PYTHONPATH="$PLUGIN_DIR${PYTHONPATH:+:$PYTHONPATH}" python3 $PLUGIN_DIR/skills/aidd-loop/runtime/loop_step.py --ticket $TICKET --stream`
+- сохранить:
+  - `07_loop_stream_liveness_check.txt`
+  - `07_loop_runner_mode_check.txt`
+  - `07_stage_result_contract_check.txt`
+  - `07_recoverable_block_policy_check.txt`
+  - `07_blocking_findings_policy_check.txt`
+  - `07_result_count_check.txt`
+- если в stream `init` видно `permissionMode=default` и `requires approval`, классифицировать как `ENV_MISCONFIG(loop_runner_permissions)` и выполнить ровно один retry.
+- если `reason_code=blocking_findings`, использовать policy matrix v2 и проверять `recoverable_blocked`, `recovery_path`, `retry_attempt`.
+- для parity с inherited prompt сохраняй telemetry marker `policy_matrix_v2`.
+- если pre-iteration research gate вернул `reason_code=rlm_links_empty_warn|rlm_status_pending`, ожидать telemetry `research_gate_softened=true`, `research_gate_soft_reason`, `research_gate_soft_policy=always`.
+- если blocked содержит `scope_fallback_stale_ignored`/`scope_shape_invalid`, ожидать recoverable `reason_code=scope_drift_recoverable` и recovery path `scope_drift_reconcile_probe`.
+
+Loop runtime integrity checks:
+- `07_scope_mismatch_check.txt`
+- `07_id_review_tests_hits.txt`
+- `07_python_only_surface_check.txt`
+- `07_loop_stream_liveness_check.txt`
+- `07_loop_runner_mode_check.txt`
+- `07_stage_result_contract_check.txt`
+- `07_blocking_findings_policy_check.txt`
+
+Anti-cascade gate:
+- если шаг 7 завершился terminal blocked с `reason_code=stage_result_missing_or_invalid` или `watchdog_terminated`, шаг 8 пометить `NOT VERIFIED (upstream_loop_stage_failed)` и перейти к шагу 99.
+
+### Шаг 8. QA
+
+Сделать:
+- first run ticket-only;
+- сохранить `08_test_execution_precheck.txt`;
+- искать `&&`, `||`, `;` только в command-полях секции `AIDD:TEST_EXECUTION`;
+- если в логе виден direct вызов non-canonical stage preflight runtime, классифицировать как `prompt-flow drift (non-canonical stage orchestration)` и manual recovery path не использовать;
+- при вопросах: retry;
+- если QA-run упал по `python3 skills/qa/runtime/qa.py` + `can't open file`, выполнить ровно один canonical fallback:
+  - `python3 $PLUGIN_DIR/skills/qa/runtime/qa.py --ticket $TICKET`
+- если hang/kill: fallback
+  - `python3 $PLUGIN_DIR/skills/qa/runtime/qa.py --ticket $TICKET`
+- сохранить `08_qa_execution_log_check.txt`.
+
+### Шаг 9. Quality Gate + Improvement Plan + Backlog Wave Planning
+
+#### 9.0 Общая цель
+
+После шага `8`:
+- определить, дошёл ли run до terminal feature state;
+- оценить качество итогового кода и generated artifacts;
+- отделить systemic AIDD gaps от product-specific gaps;
+- подготовить user-facing improvement plan;
+- при `QUALITY_PROFILE=full` и наличии systemic findings записать AIDD follow-up plan в `BACKLOG_PATH` как новую wave.
+
+#### 9.1 Evidence inventory
+
+Сохранить `AUDIT_DIR/09_quality_sources.txt` с источниками, которые реально использовались:
+- base flow step artifacts (`03_*`, `05_*`, `06_*`, `07_*`, `08_*`, `99_*` если partial);
+- canonical PRD/plan/tasklist/review/QA artifacts по тикету;
+- git diff/status target project после run;
+- test logs/evidence из review/qa;
+- final loop artifacts и stage results;
+- `BACKLOG_PATH` + parsed `max_wave_id`, если backlog читался.
+
+Без `09_quality_sources.txt` quality verdict недействителен.
+
+#### 9.2 Final-state convergence check
+
+Сформируй `AUDIT_DIR/09_final_state_check.txt` с полями:
+- `step5_status=<PASS|WARN|FAIL|NOT_VERIFIED>`
+- `step6_status=<PASS|WARN|FAIL|SKIPPED|NOT_VERIFIED>`
+- `step7_status=<PASS|WARN|FAIL|SKIPPED|NOT_VERIFIED>`
+- `step8_status=<PASS|WARN|FAIL|NOT_VERIFIED>`
+- `qa_report_status=<PASS|WARN|BLOCKED|missing>`
+- `loop_terminal_status=<done|blocked|killed|missing|skipped>`
+- `feature_final_state=<REACHED|NOT_REACHED>`
+- `reason_code=<->`
+
+`feature_final_state=REACHED` только если:
+- inherited flow дошёл до terminal точки без unresolved `ENV_BLOCKER`, `ENV_MISCONFIG` или `contract_mismatch`;
+- шаг 8 дал валидный QA result или canonical QA-equivalent terminal evidence;
+- существует QA evidence/report из canonical path;
+- нет unresolved terminal причин вида `watchdog_terminated`, `no_top_level_result`, `readiness_gate_failed`, `findings_sync_not_converged`, `plugin_not_loaded`, если они не были superseded downstream recovery.
+
+Если `feature_final_state=NOT_REACHED`:
+- quality audit всё равно выполнить;
+- `overall_quality_gate=FAIL`;
+- findings, мешающие convergence, поставить первыми.
+
+#### 9.3 Code quality evaluation
+
+Сформируй:
+- `AUDIT_DIR/09_code_scorecard.json`
+- `AUDIT_DIR/09_code_findings.md`
+- `AUDIT_DIR/09_acceptance_trace.md`
+
+Оценивай только feature-related diff/scope и ближайшие contract/tests paths.
+
+Code dimensions:
+- `acceptance_coverage`
+- `correctness_and_regression`
+- `contract_consistency`
+- `maintainability`
+- `robustness`
+- `observability`
+
+Формат scorecard entry:
+
+```json
+{
+  "dimension": "acceptance_coverage",
+  "score": 0,
+  "verdict": "FAIL",
+  "summary": "...",
+  "evidence_paths": ["..."],
+  "finding_ids": ["QF-01"]
+}
+```
+
+Artifact scorecard использует тот же формат, например:
+
+```json
+{
+  "dimension": "prd_quality",
+  "score": 2,
+  "verdict": "WARN",
+  "summary": "...",
+  "evidence_paths": ["..."],
+  "finding_ids": ["QF-02"]
+}
+```
+
+Шкала:
+- `3` = strong/pass
+- `2` = acceptable/warn-low
+- `1` = weak/warn-high
+- `0` = fail/blocker
+
+`09_acceptance_trace.md` обязан трассировать:
+- acceptance criterion -> code paths/tests/evidence -> verdict.
+
+#### 9.4 Artifact quality evaluation
+
+Сформируй:
+- `AUDIT_DIR/09_artifact_scorecard.json`
+- `AUDIT_DIR/09_artifact_findings.md`
+
+Artifact dimensions:
+- `prd_quality`
+- `research_quality`
+- `plan_quality`
+- `tasklist_quality`
+- `review_quality`
+- `qa_quality`
+- `cross_artifact_alignment`
+- `operator_readability`
+
+Обязательно проверить:
+- `PRD ready / questions closed / acceptance explicit`;
+- `plan actionable / no unresolved planning ambiguity`;
+- `tasklist executable / bounded / readable by runner`;
+- `review findings align with actual code and next action`;
+- `qa report aligns with top-level QA outcome`;
+- `cross-artifact consistency`;
+- `operator readability`.
+
+#### 9.5 Root-cause map
+
+Собери findings в:
+- `AUDIT_DIR/09_quality_findings.md`
+- `AUDIT_DIR/09_quality_findings.json`
+
+Для каждого finding обязательны поля:
+- `finding_id` (`QF-01`, `QF-02`, ...)
+- `title`
+- `severity` (`P0|P1|P2|P3`)
+- `class` (`systemic_aidd_gap|product_output_gap|env_or_runner_gap`)
+- `quality_domain` (`code|artifact|flow|runner|docs`)
+- `summary`
+- `evidence_paths`
+- `candidate_plugin_paths`
+- `backlog_candidate` (`0|1`)
+
+#### 9.6 User improvement plan
+
+Составь `AUDIT_DIR/09_user_improvement_plan.md` со структурой:
+- `Top systemic AIDD improvements`
+- `Top product output improvements`
+- `What to fix first`
+- `What can wait`
+
+Требования:
+- кратко;
+- action-oriented;
+- не дублировать backlog wave дословно;
+- максимум `QUALITY_TOP_FINDINGS_LIMIT` пунктов суммарно.
+
+#### 9.7 Backlog wave drafting
+
+Выполняется только если:
+- `QUALITY_PROFILE=full`,
+- `BACKLOG_SCOPE` допускает запись,
+- `systemic backlog candidates > 0` или `WAVE_WRITE_MODE=always`.
+
+Сначала сохрани:
+- `AUDIT_DIR/09_backlog_before_head.txt`
+- `AUDIT_DIR/09_backlog_parse.txt`
+
+`09_backlog_parse.txt` должен содержать:
+- `backlog_exists=0|1`
+- `max_wave_id=<int|->`
+- `new_wave_id=<int|->`
+- `write_allowed=0|1`
+- `systemic_candidates=<int>`
+- `wave_created=0|1`
+- `reason_code=<->`
+
+Если `systemic_candidates=0` и `WAVE_WRITE_MODE=on-findings`:
+- `wave_created=0`
+- backlog не менять
+- сохранить `AUDIT_DIR/09_backlog_wave_write.txt` с `reason_code=no_systemic_findings`
+
+Если wave создаётся:
+1. Вычисли `BACKLOG_NEW_WAVE = max(Wave NNN)+1`.
+2. Сгенерируй `AUDIT_DIR/09_backlog_wave_draft.md`.
+3. Вставь draft в `BACKLOG_PATH` сразу после title/revision-note блока.
+4. Сохрани `AUDIT_DIR/09_backlog_after_head.txt`.
+5. Сохрани `AUDIT_DIR/09_backlog_wave_write.txt` с полями:
+   - `wave_created=1`
+   - `wave_id=W<NNN>`
+   - `items_written=<int>`
+   - `insert_mode=after_revision_note`
+   - `allowed_plugin_write=BACKLOG_PATH`
+
+Формат новой wave:
+
+```md
+## Wave <NNN> — E2E quality follow-ups for <TICKET> (<YYYY-MM-DD>)
+
+Статус: plan. Основание — результаты quality e2e run <RUN_TS> по тикету <TICKET>; цель — повысить качество кода и артефактов, генерируемых AIDD.
+
+### Source run
+- Audit dir: `<AUDIT_DIR>`
+- Base prompt: `<BASE_PROMPT>`
+- Feature final state: `<REACHED|NOT_REACHED>`
+- Overall quality gate: `<PASS|WARN|FAIL>`
+
+- [ ] **W<NNN>-1 (P1) <short title>** `<plugin/path1>`, `<plugin/path2>`:
+  - <concrete fix 1>
+  - <concrete fix 2>
+  - <concrete fix 3>
+  **AC:** <acceptance criteria>
+  **Deps:** <wave/task ids or ->>
+  **Regression/tests:** `<commands>`
+  **Evidence:** `<AUDIT_DIR/...>`
+  **Effort:** S|M|L
+  **Risk:** Low|Medium|High
+```
+
+Wave item rules:
+- не более `QUALITY_BACKLOG_ITEM_LIMIT` items;
+- только `P0|P1|P2`;
+- сортировка `P0 -> P1 -> P2`;
+- каждый item обязан ссылаться на конкретные plugin repo files;
+- каждый item обязан иметь `AC`, `Deps`, `Regression/tests`, `Evidence`, `Effort`, `Risk`;
+- `Evidence` ссылается только на реальные artifacts текущего run.
+
+#### 9.8 Quality gate calculation
+
+Сохрани `AUDIT_DIR/09_quality_gate.txt` с полями:
+- `feature_final_state=<REACHED|NOT_REACHED>`
+- `code_quality_gate=<PASS|WARN|FAIL>`
+- `artifact_quality_gate=<PASS|WARN|FAIL>`
+- `systemic_aidd_findings=<int>`
+- `product_output_findings=<int>`
+- `env_or_runner_findings=<int>`
+- `backlog_candidates=<int>`
+- `wave_created=<0|1>`
+- `wave_id=<WNNN|->`
+- `overall_quality_gate=<PASS|WARN|FAIL>`
+- `reason_code=<->`
+
+Gate rules:
+- `code_quality_gate=FAIL`, если есть любой `P0|P1` code finding или required regression/test signal красный.
+- `artifact_quality_gate=FAIL`, если есть любой `P0|P1` artifact/flow finding или unresolved readiness ambiguity.
+- `overall_quality_gate=PASS`, только если:
+  - `feature_final_state=REACHED`,
+  - `code_quality_gate=PASS`,
+  - `artifact_quality_gate=PASS`,
+  - `systemic_aidd_findings=0`,
+  - нет `P0|P1` `product_output_gap`.
+- `overall_quality_gate=WARN`, если `feature_final_state=REACHED`, нет `P0|P1`, но есть `P2` findings и/или создана backlog wave по non-terminal systemic improvements.
+- `overall_quality_gate=FAIL`, если:
+  - `feature_final_state=NOT_REACHED`, или
+  - есть любой `P0|P1`, или
+  - backlog должен был быть создан, но write failed.
+
+#### 9.9 Runner contract и финальный отчёт
+
+В чат-отчёте после шага 9 обязательно выведи:
+- inherited step matrix (`0..8` + `99`);
+- отдельный quality matrix:
+  - final feature state,
+  - code quality gate,
+  - artifact quality gate,
+  - overall quality gate;
+- список top `systemic_aidd_gap`;
+- список top `product_output_gap`;
+- новый `wave_id` и item ids, если wave создана;
+- что именно предложено пользователю как дальнейшие доработки;
+- пути к key artifacts (`09_*` + base audit dir).
+
+### Шаг 99. Post-run write-safety (quality override)
+
+Сделать:
+- `99_plugin_git_status_after.txt`
+- `99_project_git_status_after.txt`
+- `99_plugin_git_status_diff.txt`
+- `99_plugin_new_paths_stat.txt`
+- `99_cleanup_policy.txt`
+- `99_workspace_layout_check.txt`
+- `99_plugin_allowed_delta.txt`
+- `99_backlog_wave_integrity_check.txt`
+- удалить временный pre-status файл: `rm -f "/tmp/00_git_status_before.${TICKET}.${RUN_TS}.txt"`.
+
+`99_plugin_allowed_delta.txt` должен содержать:
+- `allowed_plugin_paths=$BACKLOG_PATH`
+- `wave_created=<0|1>`
+- `unexpected_plugin_delta=<0|1>`
+- `classification=<...>`
+
+`99_backlog_wave_integrity_check.txt` должен содержать:
+- `wave_created=<0|1>`
+- `wave_id=<WNNN|->`
+- `items_count=<int>`
+- `all_item_ids_match_wave=0|1`
+- `required_fields_present=0|1`
+- `classification=<PASS|WARN|FAIL>`
+
+Write-safety classification override:
+- `PASS(no_plugin_delta)`: plugin repo delta отсутствует.
+- `PASS(backlog_wave_written)`: единственный plugin delta = `BACKLOG_PATH`, wave integrity check = PASS.
+- `WARN(backlog_wave_malformed)`: delta только в `BACKLOG_PATH`, но wave format/integrity частично некорректны.
+- `WARN(backlog_expected_but_missing)`: systemic findings были, но wave не записана.
+- `FAIL(plugin_write_safety_violation)`: изменён любой plugin path кроме `BACKLOG_PATH`.
+- `FAIL(backlog_write_unexpected_delta)`: вместе с `BACKLOG_PATH` изменены другие plugin paths.
+
+## 10) Финальный отчёт в чат
+
+Обязательно:
+- Таблица inherited steps `PASS/WARN/FAIL` для шагов `0..8` и `99`.
+- Quality matrix:
+  - `feature_final_state`
+  - `code_quality_gate`
+  - `artifact_quality_gate`
+  - `overall_quality_gate`
+- Выбранная задача: `task_id`, `title`, `generated_slug_hint`, rationale.
+- Что `NOT VERIFIED` и почему.
+- Top `systemic_aidd_gap`.
+- Top `product_output_gap`.
+- `wave_id` и item ids, если wave создана.
+- Что именно предложено пользователю как дальнейшие доработки.
+- Пути к key artifacts в `AUDIT_DIR`.
+
+Последняя строка:
+`QUALITY_AUDIT_COMPLETE TST-002 status=<PASS|WARN|FAIL> wave=<WNNN|none> feature_final_state=<REACHED|NOT_REACHED>`

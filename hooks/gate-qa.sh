@@ -241,13 +241,10 @@ def main(argv: Iterable[str] | None = None) -> int:
     if qa_skip and _matches_any(branch, qa_skip):
         return 0
 
-    if file_path:
-        if file_path.startswith(("docs/qa/", "reports/qa/", "aidd/docs/qa/", "aidd/reports/qa/")):
-            pass
-        elif file_path.startswith(("src/", "tests/", "docs/", "config/", "tests/repo_tools/")):
-            pass
-        else:
-            return 0
+    if file_path and not file_path.startswith(
+        ("docs/qa/", "reports/qa/", "aidd/docs/qa/", "aidd/reports/qa/", "src/", "tests/", "docs/", "config/", "tests/repo_tools/")
+    ):
+        return 0
 
     ticket_path = root / "docs" / ".active.json"
     slug_path = root / "docs" / ".active.json"

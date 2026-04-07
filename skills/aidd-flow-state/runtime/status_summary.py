@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from contextlib import suppress
 from pathlib import Path
 from typing import Dict, Optional
 
@@ -166,7 +167,7 @@ def main(argv: list[str] | None = None) -> int:
     tests_summary = ""
     tests_reason_code = ""
     tests_log_rel = ""
-    try:
+    with suppress(Exception):
         from aidd_runtime.reports import tests_log as _tests_log
 
         stages = [stage]
@@ -182,8 +183,6 @@ def main(argv: list[str] | None = None) -> int:
         tests_reason_code = summary_reason_code
         if tests_path and tests_path.exists():
             tests_log_rel = runtime.rel_path(tests_path, target)
-    except Exception:
-        pass
 
     summary = {
         "schema": "aidd.status_summary.v1",
