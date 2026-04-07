@@ -380,10 +380,12 @@ def _command_execution_plans(
         rel_to_workspace = resolved.relative_to(workspace_root).as_posix()
         plan_cmd = [f"./{resolved.name}", *command_tail]
         display_cmd = f"{rel_to_workspace} {' '.join(command_tail)}".strip()
+        command_cwd = resolved.parent
     else:
         plan_cmd = [resolved.as_posix(), *command_tail]
         display_cmd = f"{resolved.as_posix()} {' '.join(command_tail)}".strip()
-    return [(plan_cmd, resolved.parent, display_cmd)]
+        command_cwd = target_root
+    return [(plan_cmd, command_cwd, display_cmd)]
 
 
 def _load_qa_tests_config(root: Path) -> tuple[list[list[str]], bool]:
