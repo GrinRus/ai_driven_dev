@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from contextlib import suppress
 import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -610,7 +611,7 @@ def main(argv: list[str] | None = None) -> int:
 
     next_recommended_work_item = work_item_key if verdict == "REVISE" else ""
     evidence_links: List[str] = [runtime.rel_path(report_path, target)]
-    try:
+    with suppress(Exception):
         from aidd_runtime.reports import tests_log as _tests_log
 
         tests_entry, tests_path = _tests_log.latest_entry(
@@ -622,14 +623,12 @@ def main(argv: list[str] | None = None) -> int:
         )
         if tests_path and tests_path.exists():
             evidence_links.append(runtime.rel_path(tests_path, target))
-    except Exception:
-        pass
     evidence_links = list(dict.fromkeys(evidence_links))
 
     tests_summary = ""
     tests_reason_code = ""
     tests_log_rel = ""
-    try:
+    with suppress(Exception):
         from aidd_runtime.reports import tests_log as _tests_log
 
         summary, reason_code, tests_path, _entry = _tests_log.summarize_tests(
@@ -642,8 +641,6 @@ def main(argv: list[str] | None = None) -> int:
         tests_reason_code = reason_code
         if tests_path and tests_path.exists():
             tests_log_rel = runtime.rel_path(tests_path, target)
-    except Exception:
-        pass
 
     loop_pack_path = target / "reports" / "loops" / ticket / f"{scope_key}.loop.pack.md"
     boundaries = parse_loop_pack_boundaries(loop_pack_path)

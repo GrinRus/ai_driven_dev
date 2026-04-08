@@ -53,7 +53,7 @@ Default: ...
 
 ## Retry safety
 - Do not repeat the same failing shell command in a loop.
-- For cwd/build-tool mismatch (`./gradlew` missing, or `does not contain a Gradle build`), allow at most one corrected attempt after explicit cwd resolution.
+- For cwd/command-path mismatch, allow at most one corrected attempt after explicit cwd resolution.
 - If corrected attempt still fails, stop with blocker (`tests_cwd_mismatch`) and handoff instead of further retries.
 
 ## Subagent guard

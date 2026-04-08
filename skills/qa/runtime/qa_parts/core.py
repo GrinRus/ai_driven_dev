@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import re
+from contextlib import suppress
 import shlex
 import subprocess
 import sys
@@ -332,22 +333,30 @@ def _discover_test_commands(
     return [shlex.split(cmd) for cmd in commands if cmd.strip()]
 
 
-def _discover_gradle_wrappers(workspace_root: Path, max_depth: int = 4) -> list[Path]:
-    wrappers: list[Path] = []
-    for candidate in workspace_root.rglob("gradlew"):
-        if not candidate.is_file():
-            continue
-        try:
-            rel = candidate.relative_to(workspace_root)
-        except ValueError:
-            continue
-        if len(rel.parts) > max_depth:
-            continue
-        if any(part.startswith(".") and part not in {".", ".."} for part in rel.parts):
-            continue
-        wrappers.append(candidate)
-    wrappers.sort()
-    return wrappers
+def _is_explicit_path_command(head: str) -> bool:
+    normalized = head.replace("\\", "/")
+    return normalized.startswith(("./", "../", "/")) or "/" in normalized
+
+
+def _command_head_exists(head: str, cwd: Path) -> bool:
+    cmd_path = Path(head)
+    if cmd_path.is_absolute():
+        return cmd_path.exists()
+    return (cwd / cmd_path).exists()
+
+
+def _resolve_explicit_command_path(head: str, *, target_root: Path, workspace_root: Path) -> Path | None:
+    path = Path(head)
+    if path.is_absolute():
+        return path if path.exists() else None
+    for base in (target_root, workspace_root):
+        candidate = base / path
+        if candidate.exists():
+            return candidate
+        resolved = candidate.resolve()
+        if resolved.exists():
+            return resolved
+    return None
 
 
 def _command_execution_plans(
@@ -360,38 +369,21 @@ def _command_execution_plans(
         return []
     head = command[0]
     command_tail = command[1:]
-    normalized = head.replace("\\", "/")
+    if not _is_explicit_path_command(head):
+        return [(command, target_root, " ".join(command).strip())]
 
-    if normalized in {"./gradlew", "gradlew"}:
-        root_gradlew = workspace_root / "gradlew"
-        if root_gradlew.exists():
-            return [([ "./gradlew", *command_tail], workspace_root, " ".join(["./gradlew", *command_tail]).strip())]
-        wrappers = _discover_gradle_wrappers(workspace_root)
-        if wrappers:
-            plans: list[tuple[list[str], Path, str]] = []
-            for wrapper in wrappers:
-                cwd = wrapper.parent
-                rel = cwd.relative_to(workspace_root).as_posix()
-                display = f"{rel}/gradlew {' '.join(command_tail)}".strip()
-                plans.append((["./gradlew", *command_tail], cwd, display))
-            return plans
-        return [(command, target_root, " ".join(command))]
+    resolved = _resolve_explicit_command_path(head, target_root=target_root, workspace_root=workspace_root)
+    if resolved is None:
+        return [(command, target_root, " ".join(command).strip())]
 
-    if normalized.endswith("/gradlew") or normalized == "gradlew":
-        wrapper_path = Path(head)
-        if not wrapper_path.is_absolute():
-            wrapper_path = (workspace_root / wrapper_path).resolve()
-        if wrapper_path.exists():
-            try:
-                rel_parent = wrapper_path.parent.relative_to(workspace_root).as_posix()
-                display_head = f"{rel_parent}/gradlew" if rel_parent else "./gradlew"
-            except ValueError:
-                display_head = wrapper_path.as_posix()
-            display = f"{display_head} {' '.join(command_tail)}".strip()
-            return [(["./gradlew", *command_tail], wrapper_path.parent, display)]
-        return [(command, target_root, " ".join(command))]
-
-    return [(command, target_root, " ".join(command))]
+    if _is_relative_to(resolved, workspace_root):
+        rel_to_workspace = resolved.relative_to(workspace_root).as_posix()
+        plan_cmd = [f"./{resolved.name}", *command_tail]
+        display_cmd = f"{rel_to_workspace} {' '.join(command_tail)}".strip()
+    else:
+        plan_cmd = [resolved.as_posix(), *command_tail]
+        display_cmd = f"{resolved.as_posix()} {' '.join(command_tail)}".strip()
+    return [(plan_cmd, resolved.parent, display_cmd)]
 
 
 def _load_qa_tests_config(root: Path) -> tuple[list[list[str]], bool]:
@@ -492,12 +484,12 @@ def _run_qa_tests(
             status = "fail"
             exit_code: Optional[int] = None
             output = ""
-            if plan_cmd and plan_cmd[0] in {"./gradlew", "gradlew"} and not (plan_cwd / "gradlew").exists():
+            if plan_cmd and _is_explicit_path_command(plan_cmd[0]) and not _command_head_exists(plan_cmd[0], plan_cwd):
                 status = "fail"
                 output = (
-                    "command not found: ./gradlew "
-                    "(qa runner could not locate gradlew in project root; "
-                    "configure module-specific command or add wrapper in module dir)"
+                    f"command path not found in selected cwd: {plan_cmd[0]} "
+                    f"(cwd={plan_cwd.as_posix()}; "
+                    "use an existing executable path or adjust tasklist command cwd)"
                 )
             else:
                 try:
@@ -784,7 +776,7 @@ def main(argv: list[str] | None = None) -> int:
         else:
             print("[aidd] QA tests completed.", file=sys.stderr)
 
-    try:
+    with suppress(Exception):
         from aidd_runtime.reports import tests_log as _tests_log
 
         qa_work_item_key, scope_key = _resolve_qa_scope_context(target, ticket)
@@ -869,8 +861,6 @@ def main(argv: list[str] | None = None) -> int:
             source="qa",
             cwd=str(target),
         )
-    except Exception:
-        pass
 
     qa_args: list[str] = []
     if args.gate:
@@ -994,7 +984,7 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
 
-    try:
+    with suppress(Exception):
         from aidd_runtime.reports import events as _events
         payload = None
         report_for_event: Path | None = None
@@ -1018,8 +1008,6 @@ def main(argv: list[str] | None = None) -> int:
                 report_path=Path(runtime.rel_path(report_for_event, target)),
                 source="aidd qa",
             )
-    except Exception:
-        pass
 
     if not args.dry_run:
         runtime.maybe_sync_index(target, ticket, slug_hint or None, reason="qa")

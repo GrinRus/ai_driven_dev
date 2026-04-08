@@ -183,6 +183,13 @@ def normalize_code_files(values: Iterable[str] | None) -> Tuple[str, ...]:
     return dedupe_preserve(normalized)
 
 
+def _safe_normalized_service_path(workspace_root: Path, settings_path: Path) -> str | None:
+    try:
+        return normalize_service_path(settings_path.resolve().relative_to(workspace_root.resolve()).as_posix())
+    except Exception:
+        return None
+
+
 def is_code_related(path: str, prefixes: Tuple[str, ...], suffixes: Tuple[str, ...], exact: Tuple[str, ...]) -> bool:
     if not path:
         return False
@@ -1085,10 +1092,9 @@ def main() -> int:
 
     changed_files = [path for path in collect_changed_files(workspace_root) if not is_cache_artifact(path)]
     docs_only_ignored: set[str] = set()
-    try:
-        docs_only_ignored.add(normalize_service_path(settings_path.resolve().relative_to(workspace_root.resolve()).as_posix()))
-    except Exception:
-        pass
+    settings_service_path = _safe_normalized_service_path(workspace_root, settings_path)
+    if settings_service_path:
+        docs_only_ignored.add(settings_service_path)
     identifiers = resolve_identifiers(project_root)
     active_ticket = identifiers.resolved_ticket or ""
     slug_hint = identifiers.slug_hint

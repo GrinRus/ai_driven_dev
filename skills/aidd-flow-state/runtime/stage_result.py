@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from contextlib import suppress
 import sys
 from pathlib import Path
 from typing import Iterable, List, Optional, Tuple
@@ -409,7 +410,7 @@ def main(argv: list[str] | None = None) -> int:
     if tests_required:
         no_tests_code = "no_tests_hard" if tests_block else "no_tests_soft"
     if tests_required and not tests_link:
-        try:
+        with suppress(Exception):
             from aidd_runtime.reports import tests_log as _tests_log
 
             _tests_log.append_log(
@@ -433,8 +434,6 @@ def main(argv: list[str] | None = None) -> int:
             )
             tests_link = runtime.rel_path(_tests_log.tests_log_path(target, ticket, scope_key), target)
             evidence_links.setdefault("tests_log", tests_link)
-        except Exception:
-            pass
     skip_reason_code = ""
     skip_reason = ""
     tests_failed = False

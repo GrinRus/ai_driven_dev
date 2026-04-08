@@ -7,6 +7,7 @@ import json
 import os
 import re
 import sys
+from contextlib import suppress
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from typing import Iterable, Optional
@@ -787,7 +788,7 @@ def run(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
 
-    try:
+    with suppress(Exception):
         from aidd_runtime.reports import events as _events
 
         _events.append_event(
@@ -810,8 +811,6 @@ def run(args: argparse.Namespace) -> int:
             report_path=Path(runtime.rel_path(rlm_pack_path if pack_exists else worklist_path, target)),
             source="aidd research",
         )
-    except Exception:
-        pass
 
     runtime.maybe_sync_index(target, ticket, feature_context.slug_hint, reason="research")
     return 0

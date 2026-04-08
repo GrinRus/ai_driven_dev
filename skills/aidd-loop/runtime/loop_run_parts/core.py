@@ -61,6 +61,17 @@ _MARKER_NOISE_PLACEHOLDERS = ("<title>", "<ticket>", "<scope_key>", "<commit/pr|
 _MARKER_INLINE_PATH_RE = re.compile(r"(?P<path>(?:aidd|docs|reports)/[^\s,;]+)", re.IGNORECASE)
 _REASON_CODE_RE = re.compile(r"\breason_code=([a-z0-9_:-]+)\b", re.IGNORECASE)
 _NEXT_ACTION_RE = re.compile(r"Next action:\s*`([^`]+)`", re.IGNORECASE)
+_REPEATED_FAILURE_WINDOW = 3
+_COMMAND_FAILURE_PATTERNS = (
+    ("no_such_file_or_directory", re.compile(r"\bno such file or directory\b", re.IGNORECASE)),
+    ("command_not_found", re.compile(r"\bcommand not found\b", re.IGNORECASE)),
+    ("cant_open_file", re.compile(r"can't open file", re.IGNORECASE)),
+)
+_COMMAND_FAILURE_LINE_RE = re.compile(r"(?im)^(?:\$ |\[aidd\] ERROR: |(?:\w+: )?)(.+)$")
+_COMMAND_FAILURE_CONTEXT_RE = re.compile(
+    r"(?:command not found|no such file or directory|can't open file)\s*:?\s*(?P<context>[^\s)]+)",
+    re.IGNORECASE,
+)
 _LEGACY_STAGE_ALIAS_TO_CANONICAL = {
     "/feature-dev-aidd:planner": "/feature-dev-aidd:plan-new",
     "/feature-dev-aidd:tasklist-refiner": "/feature-dev-aidd:tasks-new",
@@ -124,6 +135,44 @@ def append_stream_file(dest: Path, source: Path, *, header: str | None = None) -
         if header:
             out_handle.write(header + "\n")
         out_handle.write(source.read_text(encoding="utf-8"))
+
+
+def _extract_command_failure_signature(path: Optional[Path], *, max_bytes: int = 131072) -> str:
+    if path is None or not path.exists():
+        return ""
+    try:
+        with path.open("rb") as handle:
+            handle.seek(0, os.SEEK_END)
+            size = handle.tell()
+            handle.seek(max(size - max_bytes, 0))
+            raw = handle.read()
+    except OSError:
+        return ""
+    text = raw.decode("utf-8", errors="replace")
+    for reason_key, pattern in _COMMAND_FAILURE_PATTERNS:
+        if not pattern.search(text):
+            continue
+        lines = text.splitlines()
+        candidate = ""
+        for line in reversed(lines):
+            stripped = line.strip()
+            if not stripped:
+                continue
+            if pattern.search(stripped):
+                candidate = stripped
+                break
+        if not candidate:
+            candidate = reason_key
+        match = _COMMAND_FAILURE_LINE_RE.match(candidate)
+        normalized = (match.group(1) if match else candidate).strip().lower()
+        context_match = _COMMAND_FAILURE_CONTEXT_RE.search(normalized)
+        if context_match:
+            context = (context_match.group("context") or "").strip().strip("`'\"")
+            context = context.split("/")[-1] if "/" in context else context
+            if context:
+                return f"{reason_key}:{context[:160].lower()}"
+        return f"{reason_key}:{normalized[:160]}"
+    return ""
 
 
 def write_active_stage(root: Path, stage: str) -> None:
@@ -1077,6 +1126,8 @@ def main(argv: List[str] | None = None) -> int:
     recoverable_retry_attempt = 0
     last_recovery_path = ""
     scope_drift_recovery_probe_used = False
+    last_command_failure_signature = ""
+    consecutive_command_failure_hits = 0
     stream_log_path = None
     stream_jsonl_path = None
     if stream_mode:
@@ -1277,9 +1328,7 @@ def main(argv: List[str] | None = None) -> int:
                     if probe_command:
                         research_next_action = probe_command
             soften_research_gate = research_reason_code in LOOP_RESEARCH_SOFT_REASON_CODES
-            if research_ok:
-                pass
-            elif gate_reason_class == "warn_continue" or soften_research_gate:
+            if not research_ok and (gate_reason_class == "warn_continue" or soften_research_gate):
                 effective_reason_class = (
                     "warn_continue" if gate_reason_class == "warn_continue" else "soft_override"
                 )
@@ -1850,6 +1899,21 @@ def main(argv: List[str] | None = None) -> int:
             stream_liveness["degraded_reason"] = (
                 "stream_path_invalid" if stream_path_invalid else "stream_path_stale"
             )
+        command_failure_signature = ""
+        if step_status == "blocked":
+            command_failure_signature = _extract_command_failure_signature(main_log_abs)
+            if command_failure_signature:
+                if command_failure_signature == last_command_failure_signature:
+                    consecutive_command_failure_hits += 1
+                else:
+                    consecutive_command_failure_hits = 1
+                    last_command_failure_signature = command_failure_signature
+            else:
+                consecutive_command_failure_hits = 0
+                last_command_failure_signature = ""
+        else:
+            consecutive_command_failure_hits = 0
+            last_command_failure_signature = ""
 
         if step_termination_attribution is not None or step_status == "blocked":
             watchdog_hint = bool(
@@ -1919,6 +1983,8 @@ def main(argv: List[str] | None = None) -> int:
                 + (f" report_noise={report_noise}" if report_noise else "")
                 + (f" stream_path_invalid={','.join(stream_path_invalid)}" if stream_path_invalid else "")
                 + (f" stream_path_stale={','.join(stream_path_stale)}" if stream_path_stale else "")
+                + (f" command_failure_signature={command_failure_signature}" if command_failure_signature else "")
+                + (f" command_failure_hits={consecutive_command_failure_hits}" if command_failure_signature else "")
             ),
         )
         append_log(
@@ -1995,6 +2061,85 @@ def main(argv: List[str] | None = None) -> int:
         if step_exit_code == BLOCKED_CODE:
             step_stage = str(step_payload.get("stage") or "").strip().lower()
             if log_reason_code == "seed_stage_active_stream_timeout" and not budget_exhausted:
+                if command_failure_signature and consecutive_command_failure_hits >= _REPEATED_FAILURE_WINDOW:
+                    reason = (
+                        "loop-step emitted repeated command failure without new evidence; "
+                        f"signature='{command_failure_signature}' "
+                        f"hits={consecutive_command_failure_hits}"
+                    )
+                    append_log(
+                        log_path,
+                        (
+                            f"{utc_timestamp()} event=fail-fast-repeated-command iteration={iteration} "
+                            "reason_code=repeated_command_failure_no_new_evidence "
+                            f"hits={consecutive_command_failure_hits} stage={step_stage or 'n/a'} "
+                            f"signature={command_failure_signature}"
+                        ),
+                    )
+                    append_log(
+                        cli_log_path,
+                        (
+                            f"{utc_timestamp()} event=blocked iteration={iteration} "
+                            "reason_code=repeated_command_failure_no_new_evidence "
+                            f"hits={consecutive_command_failure_hits}"
+                        ),
+                    )
+                    clear_active_mode(target)
+                    payload = {
+                        "status": "blocked",
+                        "iterations": iteration,
+                        "exit_code": BLOCKED_CODE,
+                        "log_path": runtime.rel_path(log_path, target),
+                        "cli_log_path": runtime.rel_path(cli_log_path, target),
+                        "runner_label": runner_label,
+                        "blocked_policy": blocked_policy,
+                        "stream_log_path": runtime.rel_path(stream_log_path, target) if stream_log_path else "",
+                        "stream_jsonl_path": runtime.rel_path(stream_jsonl_path, target) if stream_jsonl_path else "",
+                        "reason": reason,
+                        "reason_code": "repeated_command_failure_no_new_evidence",
+                        "ralph_reason_class": "not_recoverable",
+                        "recoverable_blocked": False,
+                        "retry_attempt": recoverable_retry_attempt,
+                        "recoverable_retry_budget": recoverable_retry_budget,
+                        "runner_cmd": runner_effective,
+                        "scope_key": chosen_scope,
+                        "work_item_key": step_work_item or None,
+                        "stage": step_stage or None,
+                        "stage_budget_seconds": (
+                            stage_budget_seconds_payload
+                            if "stage_budget_seconds" in step_payload
+                            else stage_budget_seconds
+                        ),
+                        "stage_budget_remaining_seconds": (
+                            stage_budget_remaining_payload
+                            if "stage_budget_remaining_seconds" in step_payload
+                            else stage_budget_remaining_seconds
+                        ),
+                        "silent_stall_seconds": silent_stall_seconds,
+                        "budget_exhausted": False,
+                        "watchdog_marker": 0,
+                        "termination_attribution": _build_termination_attribution(
+                            exit_code=BLOCKED_CODE,
+                            classification="repeated_command_failure_no_new_evidence",
+                            killed_flag=False,
+                            watchdog_marker=False,
+                        ),
+                        "stream_liveness": stream_liveness,
+                        "command_failure_signature": command_failure_signature,
+                        "command_failure_hits": consecutive_command_failure_hits,
+                        "last_step": step_payload,
+                        "updated_at": utc_timestamp(),
+                        **_ralph_recoverable_semantics(
+                            blocked_policy=blocked_policy,
+                            reason_code="repeated_command_failure_no_new_evidence",
+                            reason_class="not_recoverable",
+                            recoverable_blocked=False,
+                            retry_attempt=recoverable_retry_attempt,
+                            recoverable_retry_budget=recoverable_retry_budget,
+                        ),
+                    }
+                    emit(args.format, _attach_research_gate_telemetry(payload))
+                    return BLOCKED_CODE
                 append_log(
                     log_path,
                     (

@@ -610,7 +610,7 @@ Anti-cascade gate:
   - `python3 $PLUGIN_DIR/skills/qa/runtime/qa.py --ticket $TICKET`
 - если hang/kill: fallback
   - `python3 $PLUGIN_DIR/skills/qa/runtime/qa.py --ticket $TICKET`
-- сохранить `08_qa_gradle_check.txt`.
+- сохранить `08_qa_execution_log_check.txt`.
 
 ### Шаг 9. Quality Gate + Improvement Plan + Backlog Wave Planning
 

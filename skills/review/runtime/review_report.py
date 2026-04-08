@@ -4,6 +4,7 @@ import argparse
 import datetime as dt
 import hashlib
 import json
+from contextlib import suppress
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -400,7 +401,7 @@ def main(argv: list[str] | None = None) -> int:
     if fix_plan_payload is not None:
         record["fix_plan"] = fix_plan_payload
     if "tests_summary" not in record:
-        try:
+        with suppress(Exception):
             from aidd_runtime.reports import tests_log as _tests_log
 
             summary, reason_code, tests_path, _entry = _tests_log.summarize_tests(
@@ -414,8 +415,6 @@ def main(argv: list[str] | None = None) -> int:
                 record.setdefault("tests_reason_code", reason_code)
             if tests_path and tests_path.exists():
                 record.setdefault("tests_log_path", runtime.rel_path(tests_path, target))
-        except Exception:
-            pass
     findings_payload: List[Dict] = []
     if new_findings:
         findings_payload = _normalize_findings(new_findings)

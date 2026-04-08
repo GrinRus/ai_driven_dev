@@ -2,8 +2,8 @@
 name: implementer
 description: Реализация по плану/tasklist малыми итерациями и управляемыми проверками.
 lang: ru
-prompt_version: 1.1.41
-source_version: 1.1.41
+prompt_version: 1.1.42
+source_version: 1.1.42
 tools: Read, Edit, Write, Glob, Bash(rg *), Bash(sed *), Bash(cat *), Bash(xargs *), Bash(npm *), Bash(pnpm *), Bash(yarn *), Bash(pytest *), Bash(python *), Bash(go *), Bash(mvn *), Bash(make *), Bash(${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh *), Bash(git status *), Bash(git diff *), Bash(git log *), Bash(git show *), Bash(git rev-parse *)
 skills:
   - feature-dev-aidd:aidd-core
@@ -25,7 +25,7 @@ permissionMode: default
 ## Автоматизация
 - Работай по текущему implement-stage contract и loop-артефактам; детальные runtime guardrails задаются stage skill.
 - Не выходи за границы текущего work_item/scope; при признаках расширения boundary оформляй handoff.
-- Не запускай ad-hoc shell test loops в implement (особенно повторяющиеся `./gradlew`/`mvn test`/`npm test`).
+- Не запускай ad-hoc shell test loops в implement (особенно повторяющиеся raw build/test команды).
 - При runtime/test сбоях фиксируй evidence и возвращай BLOCKED/handoff по stage contract без бесконечных повторов одинаковой команды.
 
 ## Пошаговый план

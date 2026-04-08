@@ -10,17 +10,16 @@ from aidd_runtime import qa as qa_module
 
 
 class QaRunnerTests(unittest.TestCase):
-    def test_gradle_commands_run_in_module_cwd(self) -> None:
+    def test_relative_script_commands_run_in_module_cwd(self) -> None:
         with tempfile.TemporaryDirectory(prefix="qa-runner-") as tmpdir:
             workspace = Path(tmpdir)
             target = ensure_project_root(workspace)
             report_path = target / "reports" / "qa" / "DEMO-QA.json"
-            for module in ("backend", "backend-mcp"):
-                module_dir = workspace / module
-                module_dir.mkdir(parents=True, exist_ok=True)
-                gradlew = module_dir / "gradlew"
-                gradlew.write_text("#!/usr/bin/env bash\necho ok\n", encoding="utf-8")
-                gradlew.chmod(0o755)
+            module_dir = workspace / "backend"
+            module_dir.mkdir(parents=True, exist_ok=True)
+            runner = module_dir / "run-tests.sh"
+            runner.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+            runner.chmod(0o755)
 
             executed, summary = qa_module._run_qa_tests(
                 target,
@@ -30,19 +29,17 @@ class QaRunnerTests(unittest.TestCase):
                 branch=None,
                 report_path=report_path,
                 allow_missing=True,
-                commands_override=[["./gradlew", "test"]],
+                commands_override=[["./backend/run-tests.sh"]],
                 allow_skip_override=True,
             )
 
             self.assertEqual(summary, "pass")
-            self.assertEqual(len(executed), 2)
-            cwds = {entry.get("cwd") for entry in executed}
-            self.assertIn("backend", cwds)
-            self.assertIn("backend-mcp", cwds)
-            for entry in executed:
-                self.assertEqual(entry.get("status"), "pass")
+            self.assertEqual(len(executed), 1)
+            self.assertEqual(executed[0].get("status"), "pass")
+            self.assertEqual(executed[0].get("cwd"), "backend")
+            self.assertIn("backend/run-tests.sh", str(executed[0].get("command") or ""))
 
-    def test_missing_gradle_wrapper_reports_actionable_failure(self) -> None:
+    def test_missing_relative_script_reports_actionable_failure(self) -> None:
         with tempfile.TemporaryDirectory(prefix="qa-runner-") as tmpdir:
             workspace = Path(tmpdir)
             target = ensure_project_root(workspace)
@@ -56,7 +53,7 @@ class QaRunnerTests(unittest.TestCase):
                 branch=None,
                 report_path=report_path,
                 allow_missing=False,
-                commands_override=[["./gradlew", "test"]],
+                commands_override=[["./backend/missing-tests.sh"]],
                 allow_skip_override=False,
             )
 
@@ -68,9 +65,9 @@ class QaRunnerTests(unittest.TestCase):
                 rel_log = rel_log.split("/", 1)[1]
             log_path = target / rel_log
             self.assertTrue(log_path.exists())
-            self.assertIn("could not locate gradlew", log_path.read_text(encoding="utf-8"))
+            self.assertIn("command path not found in selected cwd", log_path.read_text(encoding="utf-8"))
 
-    def test_non_gradle_commands_run_from_target_root(self) -> None:
+    def test_non_path_commands_run_from_target_root(self) -> None:
         with tempfile.TemporaryDirectory(prefix="qa-runner-") as tmpdir:
             workspace = Path(tmpdir)
             target = ensure_project_root(workspace)
@@ -95,14 +92,14 @@ class QaRunnerTests(unittest.TestCase):
             self.assertEqual(executed[0].get("status"), "pass")
             self.assertEqual(executed[0].get("cwd"), "aidd")
 
-    def test_absolute_gradlew_outside_workspace_uses_fallback_display(self) -> None:
+    def test_absolute_script_outside_workspace_uses_absolute_display(self) -> None:
         with tempfile.TemporaryDirectory(prefix="qa-runner-") as tmpdir, tempfile.TemporaryDirectory(prefix="qa-ext-") as extdir:
             workspace = Path(tmpdir)
             target = ensure_project_root(workspace)
             report_path = target / "reports" / "qa" / "DEMO-QA4.json"
-            external_gradlew = Path(extdir) / "gradlew"
-            external_gradlew.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
-            external_gradlew.chmod(0o755)
+            external_runner = Path(extdir) / "run-tests.sh"
+            external_runner.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+            external_runner.chmod(0o755)
 
             executed, summary = qa_module._run_qa_tests(
                 target,
@@ -112,14 +109,14 @@ class QaRunnerTests(unittest.TestCase):
                 branch=None,
                 report_path=report_path,
                 allow_missing=True,
-                commands_override=[[str(external_gradlew), "test"]],
+                commands_override=[[str(external_runner)]],
                 allow_skip_override=True,
             )
 
             self.assertEqual(summary, "pass")
             self.assertEqual(len(executed), 1)
             self.assertEqual(executed[0].get("status"), "pass")
-            self.assertTrue(str(executed[0].get("command") or "").startswith(str(external_gradlew)))
+            self.assertTrue(str(executed[0].get("command") or "").startswith(str(external_runner)))
 
     def test_qa_main_syncs_active_stage_to_qa_before_execution(self) -> None:
         with tempfile.TemporaryDirectory(prefix="qa-stage-sync-") as tmpdir:
