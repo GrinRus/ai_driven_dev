@@ -31,8 +31,10 @@
 - R1: При вопросах/`BLOCKED` использовать retry с `AIDD:ANSWERS` (ровно один retry):
   - retry-триггер валиден только если текущий stage-return явно запросил ответы или вернул BLOCK из-за отсутствия ответов;
   - для `idea-new` и `plan-new` retry-триггер также считается валидным, если top-level `success|WARN` явно требует ответить на `Q*`/закрыть незаполненный `AIDD:ANSWERS Q<N>=...` и перевести артефакт стадии в `READY`;
+  - для `spec-interview`/`review-spec` retry-триггер также считается валидным, если run-log фиксирует denied interactive question-call (`permission_denials` с `tool_name=AskUserQuestion` или `requires approval` для question-tool) и одновременно report/PRD содержит unresolved `Q*`;
   - формат payload: `Q<N>=<token>` или `Q<N>="короткий текст"` (one-line);
   - не считать trigger-ом `Q*`/`AIDD:ANSWERS`/`Question` внутри вложенных артефактов (PRD/tasklist/reports/log excerpts), если stage-return сам не запрашивает ответ;
+  - для non-interactive question-denial кейса дополнительно сохранять `AUDIT_DIR/<step>_answers_basis.txt` (`Q<N>` -> `Default|Assumption|ReportFinding`);
   - `idea-new`: `ticket + IDEA_NOTE + AIDD:ANSWERS`
   - остальные stage: `ticket + AIDD:ANSWERS`
   - для runtime retry использовать canonical CLI-аргументы runtime (например, `--plan-path` для `plan-review-gate`) без legacy alias-аргументов.
@@ -62,11 +64,13 @@
 - R12: Перед запуском `plan-new`, `review-spec`, `tasks-new` и шага `8` обязателен readiness gate из `AUDIT_DIR/05_precondition_block.txt`.
 - R12.1: Readiness gate = `PASS` только при одновременном выполнении условий: `prd_status=READY`, `open_questions_count=0`, `answers_format=compact_q_values`, и `research_status=reviewed|ok|warn|pending` при наличии minimal RLM baseline.
 - R12.1b: Minimal RLM baseline для soft-readiness: существуют `aidd/reports/research/<ticket>-rlm-targets.json`, `...-rlm-manifest.json`, `...-rlm.worklist.pack.json`, `...-rlm.pack.json`; `aidd/reports/research/<ticket>-rlm.nodes.jsonl` непустой. `links` могут быть `warn|empty` и не являются terminal при baseline.
-- R12.2: При `FAIL` readiness gate обязателен `reason_code` из набора `prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready`; для `prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready` перед terminal-классификацией обязателен ровно один readiness-recovery цикл:
+- R12.2: При `FAIL` readiness gate обязателен `reason_code` из набора `prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready`; шаг 5 по умолчанию классифицируется как `NOT VERIFIED (readiness_gate_failed)` + `prompt-flow gap` (кроме carve-out `R12.2b/R12.2c`). Для `prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready` перед terminal-классификацией обязателен ровно один readiness-recovery цикл:
   - для `prd_not_ready|open_questions_present|answers_format_invalid`: question-closure (`idea-new` и `plan-new` compact retry при валидном trigger) -> `/feature-dev-aidd:spec-interview <ticket>` -> `/feature-dev-aidd:review-spec <ticket>` -> пересчёт `05_precondition_block.txt`;
   - для `research_not_ready`: ровно один canonical researcher recovery/probe -> пересчёт `05_precondition_block.txt`.
 - R12.2a: Если `readiness_gate=PASS` достигнут через `research_status=warn|pending` при minimal RLM baseline, фиксировать `WARN(readiness_gate_research_softened)` и продолжать downstream stages.
-- R12.3: Если после recovery-цикла `readiness_gate` остаётся `FAIL`, шаг 5 классифицируется как `NOT VERIFIED (readiness_gate_failed)` + `prompt-flow gap`; шаг 8 помечается `NOT VERIFIED (upstream_readiness_gate_failed)` без запуска.
+- R12.2b: Если после readiness-recovery цикла `readiness_gate=FAIL` и в run-log `spec-interview`/`review-spec` есть denied interactive question-call (`permission_denials`/`AskUserQuestion` или `requires approval` на question-tool), обязателен ровно один non-interactive answers recovery: собрать unresolved `Q*` + `Default:`/assumptions в compact `AIDD:ANSWERS`, выполнить один retry `/feature-dev-aidd:idea-new <ticket> <IDEA_NOTE> AIDD:ANSWERS ...`, затем повторить `/feature-dev-aidd:review-spec <ticket>` и пересчитать `05_precondition_block.txt`.
+- R12.2c: Если после `R12.2b` `readiness_gate` остаётся `FAIL`, но report payload содержит только unresolved external-owner вопросы (`Q*` c owner/due) без технических findings (`contract_mismatch|invalid-schema|runtime_path_missing_or_drift|spec_missing`), классифицировать как `WARN(readiness_external_input_pending_non_interactive)` и `NOT VERIFIED (external_input_pending_non_interactive)` (без `prompt-flow gap`).
+- R12.3: Если после recovery-цикла `readiness_gate` остаётся `FAIL`, шаг 5 классифицируется как `NOT VERIFIED (readiness_gate_failed)` + `prompt-flow gap` (кроме carve-out `R12.2c`); шаг 8 помечается `NOT VERIFIED (upstream_readiness_gate_failed|external_input_pending_non_interactive)` без запуска.
 - R12.4: Если `review-spec` narrative расходится с `aidd/reports/prd/<ticket>.json|*.pack.json` по числу/типу findings, фиксировать `prompt-exec issue (review_spec_report_mismatch)` и принимать recovery-решение по report payload.
 - R12.5: Если `review-spec` вернул `WARN|NEEDS_REVISION`, unresolved `Q*` отсутствуют и spec-файл существует, запускать findings-sync cycle:
   - PRD findings (`aidd/reports/prd/<ticket>.json|*.pack.json`) -> один sync-retry `idea-new` с compact payload `AIDD:SYNC_FROM_REVIEW ...`;
@@ -249,7 +253,13 @@ RLM-only check:
 - Если `readiness_gate=PASS` через `research_status=warn|pending` при minimal baseline (`research_warn_scope=minimal_baseline_soft|links_empty_non_blocking`), зафиксировать `WARN(readiness_gate_research_softened)` и продолжать downstream stages.
 - Если `readiness_gate=FAIL`:
   - выполнить ровно один recovery-цикл по R12.2 и пересчитать `05_precondition_block.txt`;
-  - если после recovery `readiness_gate` остаётся `FAIL`, не запускать `5.3/5.4/5.5`, классифицировать шаг 5 как `NOT VERIFIED (readiness_gate_failed)` + `prompt-flow gap`, шаг 8 пометить `NOT VERIFIED (upstream_readiness_gate_failed)` и перейти к шагу 99.
+  - если после recovery `readiness_gate=FAIL` и в run-log `spec-interview`/`review-spec` есть denied interactive question-call (`permission_denials`/`AskUserQuestion` или `requires approval`), выполнить ровно один non-interactive answers recovery:
+    - сформировать `05_readiness_auto_answers_raw.txt`, `05_readiness_auto_answers_compact.txt`, `05_readiness_auto_answers_basis.txt` (mapping `Q<N>` -> `Default|Assumption|ReportFinding`);
+    - выполнить один compact retry `/feature-dev-aidd:idea-new $TICKET $IDEA_NOTE AIDD:ANSWERS ...` (и `/feature-dev-aidd:plan-new $TICKET AIDD:ANSWERS ...` только если plan top-level явно требует Q-closure);
+    - повторить `/feature-dev-aidd:review-spec $TICKET` и пересчитать `05_precondition_block.txt`.
+  - если после non-interactive answers recovery `readiness_gate=PASS`, зафиксировать `WARN(readiness_auto_assumptions_applied)` и продолжать downstream stages.
+  - если после recovery `readiness_gate` остаётся `FAIL`, но review report содержит только unresolved external-owner `Q*` (без `contract_mismatch|invalid-schema|runtime_path_missing_or_drift|spec_missing`), классифицировать шаг 5 как `WARN(readiness_external_input_pending_non_interactive)` + `NOT VERIFIED (external_input_pending_non_interactive)` и перейти к шагу 99.
+  - если после recovery `readiness_gate` остаётся `FAIL` и carve-out не выполнен, не запускать `5.3/5.4/5.5`, классифицировать шаг 5 как `NOT VERIFIED (readiness_gate_failed)` + `prompt-flow gap`, шаг 8 пометить `NOT VERIFIED (upstream_readiness_gate_failed)` и перейти к шагу 99.
 
 #### 5.3 plan-new
 

@@ -132,8 +132,11 @@
 - R18.1: Readiness gate = `PASS` только при одновременном выполнении условий: `prd_status=READY`, `open_questions_count=0`, `answers_format=compact_q_values`, и `research_status=reviewed|ok|warn|pending` при наличии minimal RLM baseline.
 - R18.1a: `compact_q_values` обязателен для retry payload в CLI (`AIDD:ANSWERS Q1=...; Q2="короткий текст"`).
 - R18.1b: Minimal RLM baseline для soft-readiness: существуют `aidd/reports/research/<ticket>-rlm-targets.json`, `...-rlm-manifest.json`, `...-rlm.worklist.pack.json`, `...-rlm.pack.json`; `aidd/reports/research/<ticket>-rlm.nodes.jsonl` непустой.
-- R18.2: При `FAIL` readiness gate обязателен `reason_code` из набора `prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready`; шаг 5 классифицируется как `NOT VERIFIED (readiness_gate_failed)` + `prompt-flow gap`.
+- R18.2: При `FAIL` readiness gate обязателен `reason_code` из набора `prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready`; шаг 5 по умолчанию классифицируется как `NOT VERIFIED (readiness_gate_failed)` + `prompt-flow gap` (кроме carve-out `R18.2d/R18.2e`).
 - R18.2c: Если `readiness_gate=PASS` достигнут через `research_status=warn|pending` при minimal RLM baseline, фиксировать `WARN(readiness_gate_research_softened)` и продолжать downstream stages.
+- R18.2d: Если после readiness-recovery цикла `readiness_gate=FAIL` и в run-log `spec-interview`/`review-spec` зафиксированы denied interactive вопросы (`permission_denials` с `tool_name=AskUserQuestion` или явные `requires approval` на question-tool), обязателен ровно один non-interactive answers recovery: извлечь unresolved `Q*` + `Default:`/assumptions из PRD/spec/review report, собрать compact payload и выполнить один retry `/feature-dev-aidd:idea-new <ticket> <IDEA_NOTE> AIDD:ANSWERS ...`, затем повторить `/feature-dev-aidd:review-spec <ticket>` и пересчитать `05_precondition_block.txt`.
+- R18.2e: Если после `R18.2d` `readiness_gate` остаётся `FAIL`, но report payload содержит только unresolved external-owner вопросы (`Q*` с owner/due) без технических findings (`contract_mismatch|invalid-schema|runtime_path_missing_or_drift|spec_missing`), классифицировать как `WARN(readiness_external_input_pending_non_interactive)` и `NOT VERIFIED (external_input_pending_non_interactive)` (без `prompt-flow gap`).
+- R18.3: При readiness gate `FAIL` после исчерпания recovery-цикла шаги `6/7/8` помечаются как `NOT VERIFIED (upstream_readiness_gate_failed)`; для carve-out `R18.2e` использовать `NOT VERIFIED (external_input_pending_non_interactive)`.
 - R18.4: Если `review-spec` top-level narrative и `aidd/reports/prd/<ticket>.json|*.pack.json` расходятся по findings, фиксировать `prompt-exec issue (review_spec_report_mismatch)` и принимать recovery-решение по report payload.
 - R18.5: Если `review-spec` вернул `WARN|NEEDS_REVISION`, unresolved `Q*` отсутствуют и spec-файл существует, запускать findings-sync cycle с compact payload `AIDD:SYNC_FROM_REVIEW ...`.
 - R18.6: Если после findings-sync cycle `readiness_gate` остаётся `FAIL`, классифицировать как `NOT VERIFIED (findings_sync_not_converged)` + `prompt-flow gap`.
@@ -237,9 +240,11 @@
 2. Если stage задаёт вопросы/возвращает BLOCK из-за отсутствия ответов:
    - retry-триггер разрешён только по текущему stage-return;
    - для `idea-new` и `plan-new` retry-триггер также валиден, если top-level `success|WARN` явно требует закрыть `Q*`;
+   - для `spec-interview`/`review-spec` retry-триггер также считается валидным, если run-log фиксирует denied interactive question-call (`permission_denials` с `tool_name=AskUserQuestion` или `requires approval` для question-tool) и одновременно report/PRD содержит unresolved `Q*`;
    - не считать trigger-ом `Q*`/`AIDD:ANSWERS`/`Question` внутри вложенных артефактов;
    - извлеки вопросы в `AUDIT_DIR/<step>_questions.txt`;
    - дополнительно сохрани `AUDIT_DIR/<step>_questions_raw.txt` и `AUDIT_DIR/<step>_questions_normalized.txt`;
+   - для non-interactive question-denial кейса дополнительно сохрани `AUDIT_DIR/<step>_answers_basis.txt` (source-of-truth для каждого `Q<N>`: `Default|Assumption|ReportFinding`);
    - если source содержит `TBD`/пустые значения в `AIDD:ANSWERS`, нормализуй в `Q<N>=<token>` или `Q<N>="короткий текст"`;
    - выполни **ровно один** retry;
    - рекомендуемый шаблон: `AIDD:ANSWERS Q1=C; Q2=B; Q3=C; Q4=A; Q5=C`.
@@ -506,7 +511,15 @@ RLM artifacts check:
   - `reason_code=<prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready|->`
 - запуск `5.3/5.4/5.5` допускается только при `readiness_gate=PASS`.
 - если `readiness_gate=PASS` через `research_status=warn|pending`, зафиксировать `WARN(readiness_gate_research_softened)`.
-- если `readiness_gate=FAIL`, выполнить один readiness-recovery цикл; при повторном `FAIL` пометить шаг 5 как `NOT VERIFIED (readiness_gate_failed)` и шаги `6/7/8` как `NOT VERIFIED (upstream_readiness_gate_failed)`.
+- если `readiness_gate=FAIL`:
+  - выполнить один readiness-recovery цикл и пересчитать `05_precondition_block.txt`;
+  - если после recovery `readiness_gate=FAIL` и в run-log `spec-interview`/`review-spec` есть denied interactive question-call (`permission_denials`/`AskUserQuestion` или `requires approval`), выполнить ровно один non-interactive answers recovery:
+    - сформировать `05_readiness_auto_answers_raw.txt`, `05_readiness_auto_answers_compact.txt`, `05_readiness_auto_answers_basis.txt` (mapping `Q<N>` -> `Default|Assumption|ReportFinding`);
+    - выполнить один compact retry `/feature-dev-aidd:idea-new $TICKET $IDEA_NOTE AIDD:ANSWERS ...` (и `/feature-dev-aidd:plan-new $TICKET AIDD:ANSWERS ...` только если plan top-level явно требует Q-closure);
+    - повторить `/feature-dev-aidd:review-spec $TICKET` и пересчитать `05_precondition_block.txt`.
+  - если после non-interactive answers recovery `readiness_gate=PASS`, фиксировать `WARN(readiness_auto_assumptions_applied)` и продолжать downstream stages.
+  - если после recovery `readiness_gate` остаётся `FAIL`, но review report содержит только unresolved external-owner `Q*` (без `contract_mismatch|invalid-schema|runtime_path_missing_or_drift|spec_missing`), классифицировать шаг 5 как `WARN(readiness_external_input_pending_non_interactive)` + `NOT VERIFIED (external_input_pending_non_interactive)`.
+  - если после recovery `readiness_gate` остаётся `FAIL` и carve-out не выполнен, пометить шаг 5 как `NOT VERIFIED (readiness_gate_failed)` и шаги `6/7/8` как `NOT VERIFIED (upstream_readiness_gate_failed)`.
 
 #### 5.3 plan-new
 
