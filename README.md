@@ -78,6 +78,10 @@ Self-hosted канал обновляется только через immutable 
 - `SECURITY.md` и `SUPPORT.md` — security disclosure и support policy.
 - `CONTRIBUTING.md` и `CODE_OF_CONDUCT.md` — правила вкладов и поведения.
 
+### Stability note
+- Стабилизационный трек wave `120 -> 121 -> 136` закрыт (2026-04-09), включая deterministic runtime contracts и release-gate parity.
+- Пользовательский срез изменений отражён в `CHANGELOG.md`.
+
 ## Вклад
 Процесс вкладов: `CONTRIBUTING.md`.
 

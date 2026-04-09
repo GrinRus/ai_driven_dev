@@ -90,3 +90,7 @@ python3 tests/repo_tools/aidd_audit_runner.py classify \
 4. Prompt contract tests enforce:
    - disk preflight invariant
    - step-7 env wiring (`CLAUDE_PLUGIN_ROOT` + `PYTHONPATH`)
+
+## Related Closure Evidence
+- Wave stabilization closure summary: `docs/runbooks/w120-w121-w136-closure.md`.
+- Baseline report: `aidd/reports/events/w120-w121-w136-baseline-2026-04-09.md`.
