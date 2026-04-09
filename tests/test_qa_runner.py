@@ -21,7 +21,7 @@ class QaRunnerTests(unittest.TestCase):
             runner.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
             runner.chmod(0o755)
 
-            executed, summary = qa_module._run_qa_tests(
+            executed, summary, _ = qa_module._run_qa_tests(
                 target,
                 workspace,
                 ticket="DEMO-QA",
@@ -45,7 +45,7 @@ class QaRunnerTests(unittest.TestCase):
             target = ensure_project_root(workspace)
             report_path = target / "reports" / "qa" / "DEMO-QA2.json"
 
-            executed, summary = qa_module._run_qa_tests(
+            executed, summary, _ = qa_module._run_qa_tests(
                 target,
                 workspace,
                 ticket="DEMO-QA2",
@@ -75,7 +75,7 @@ class QaRunnerTests(unittest.TestCase):
             marker = target / "test_target_only.py"
             marker.write_text("import unittest\n", encoding="utf-8")
 
-            executed, summary = qa_module._run_qa_tests(
+            executed, summary, _ = qa_module._run_qa_tests(
                 target,
                 workspace,
                 ticket="DEMO-QA3",
@@ -101,7 +101,7 @@ class QaRunnerTests(unittest.TestCase):
             external_runner.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
             external_runner.chmod(0o755)
 
-            executed, summary = qa_module._run_qa_tests(
+            executed, summary, _ = qa_module._run_qa_tests(
                 target,
                 workspace,
                 ticket="DEMO-QA4",

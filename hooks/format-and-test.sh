@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Unified formatter and test runner hook.
 
-Reads automation settings from .claude/settings.json (or CLAUDE_SETTINGS_PATH),
+Reads project policy from aidd/config/gates.json,
 runs configured formatting commands, then executes the appropriate test tasks
 depending on the change scope and configuration flags.
 """
@@ -75,11 +75,8 @@ def append_event(
 LOG_PREFIX = "[format-and-test]"
 
 
-def resolve_settings_path(workspace_root: Path) -> Path:
-    env_path = os.environ.get("CLAUDE_SETTINGS_PATH")
-    if env_path:
-        return Path(env_path).expanduser().resolve()
-    return (workspace_root / ".claude" / "settings.json").resolve()
+def resolve_gates_path(project_root: Path) -> Path:
+    return (project_root / "config" / "gates.json").resolve()
 DEFAULT_REVIEWER_MARKER = "aidd/reports/reviewer/{ticket}/{scope_key}.tests.json"
 DEFAULT_REVIEWER_FIELD = "tests"
 DEFAULT_REVIEWER_REQUIRED = ("required",)
@@ -181,13 +178,6 @@ def normalize_code_files(values: Iterable[str] | None) -> Tuple[str, ...]:
             continue
         normalized.append(text.lower())
     return dedupe_preserve(normalized)
-
-
-def _safe_normalized_service_path(workspace_root: Path, settings_path: Path) -> str | None:
-    try:
-        return normalize_service_path(settings_path.resolve().relative_to(workspace_root.resolve()).as_posix())
-    except Exception:
-        return None
 
 
 def is_code_related(path: str, prefixes: Tuple[str, ...], suffixes: Tuple[str, ...], exact: Tuple[str, ...]) -> bool:
@@ -392,14 +382,14 @@ def fail(message: str, code: int = 1) -> int:
     return code
 
 
-def load_config(settings_path: Path) -> dict | None:
-    if not settings_path.exists():
-        log(f"Конфигурация {settings_path} не найдена — шаги пропущены.")
+def load_config(config_path: Path) -> dict | None:
+    if not config_path.exists():
+        log(f"Конфигурация {config_path} не найдена.")
         return None
     try:
-        return json.loads(settings_path.read_text(encoding="utf-8"))
+        return json.loads(config_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
-        raise SystemExit(fail(f"Не удалось разобрать {settings_path}: {exc}", 1))
+        raise SystemExit(fail(f"Не удалось разобрать {config_path}: {exc}", 1))
 
 
 def run_subprocess(cmd: List[str], strict: bool = True) -> bool:
@@ -667,20 +657,12 @@ def clear_checkpoint(path: Path) -> None:
 
 
 def resolve_workspace_root(ctx: object | None) -> Path:
-    env_path = os.environ.get("CLAUDE_SETTINGS_PATH")
-    if env_path:
-        settings_path = Path(env_path).expanduser().resolve()
-        if settings_path.name == "settings.json" and settings_path.parent.name == ".claude":
-            return settings_path.parent.parent.resolve()
-        return settings_path.parent.resolve()
     if ctx is not None:
         from hooks import hooklib
 
         base = hooklib.resolve_project_dir(ctx)
     else:
         base = Path.cwd().resolve()
-    if base.name == "aidd":
-        return base.parent.resolve()
     return base.resolve()
 
 def read_active_state(project_root: Path) -> dict:
@@ -779,12 +761,10 @@ def docs_only(files: List[str], *, aidd_root: bool, ignored_paths: Iterable[str]
         normalized = normalize_service_path(path)
         if normalized in ignored:
             continue
-        if aidd_root:
-            if not normalized.startswith(DOCS_PREFIX):
-                return False
-        else:
-            if not normalized.startswith("aidd/" + DOCS_PREFIX):
-                return False
+        if normalized.startswith("aidd/"):
+            normalized = normalized[len("aidd/"):]
+        if not normalized.startswith(DOCS_PREFIX):
+            return False
     return True
 
 
@@ -794,14 +774,18 @@ def main() -> int:
     ctx = hooklib.read_hook_context()
     workspace_root = resolve_workspace_root(ctx)
     os.chdir(workspace_root)
-    settings_path = resolve_settings_path(workspace_root)
     project_root = resolve_aidd_root(workspace_root)
+    config_path = resolve_gates_path(project_root)
     diff_files = collect_diff_files(workspace_root)
     stage = read_active_stage(project_root)
     active_mode = read_active_mode(project_root)
-    aidd_root = project_root.name == "aidd"
+    # Treat docs/config/reports/.cache as service-only paths only when the hook is
+    # executed from a workspace root that contains nested `aidd/`. If cwd is the
+    # project root itself (even if directory name is `aidd`), keep classic repo-root
+    # semantics so source-path heuristics still work in tests and standalone repos.
+    aidd_root = project_root.name == "aidd" and project_root != workspace_root
 
-    def record_settings_missing_tests_log() -> None:
+    def record_contract_missing_tests_log() -> None:
         identifiers = resolve_identifiers(project_root)
         ticket = identifiers.resolved_ticket or ""
         if not ticket:
@@ -823,19 +807,19 @@ def main() -> int:
             slug_hint=identifiers.slug_hint,
             stage=stage_value,
             scope_key=scope_key,
-            work_item_key=work_item_key or None,
-            profile="none",
-            status="skipped",
-            reason_code="settings_missing",
-            reason="settings.json not found",
-            details={
-                "profile": "none",
-                "reason_code": "settings_missing",
-                "reason": "settings.json not found",
-            },
-            source="hook format-and-test",
-            cwd=str(workspace_root),
-        )
+                work_item_key=work_item_key or None,
+                profile="none",
+                status="skipped",
+                reason_code="project_contract_missing",
+                reason="gates.json or qa.tests missing",
+                details={
+                    "profile": "none",
+                    "reason_code": "project_contract_missing",
+                    "reason": "gates.json or qa.tests missing",
+                },
+                source="hook format-and-test",
+                cwd=str(workspace_root),
+            )
         tests_log_path = _tests_log.tests_log_path(project_root, ticket, scope_key)
         tests_log_rel = _runtime.rel_path(tests_log_path, project_root)
         result_path = (
@@ -864,8 +848,8 @@ def main() -> int:
         links_map["tests_log"] = tests_log_rel
         payload_reason_code = str(payload.get("reason_code") or "").strip()
         if payload_reason_code in {"", "missing_test_evidence"}:
-            payload["reason_code"] = "settings_missing"
-            payload.setdefault("reason", "settings.json not found")
+            payload["reason_code"] = "project_contract_missing"
+            payload.setdefault("reason", "gates.json or qa.tests missing")
         payload["evidence_links"] = links_map
         payload["updated_at"] = dt.datetime.now(dt.timezone.utc).isoformat()
         result_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -881,28 +865,33 @@ def main() -> int:
             log("Активная стадия review, diff пустой/только service — форматирование/тесты пропущены.")
             return 0
 
-    if not settings_path.exists():
-        log(f"Конфигурация {settings_path} не найдена — шаги пропущены.")
-        record_settings_missing_tests_log()
-        return 0
+    if not config_path.exists():
+        log(f"Конфигурация {config_path} не найдена (reason_code=project_contract_missing).")
+        record_contract_missing_tests_log()
+        return 1
 
     if env_flag("SKIP_AUTO_TESTS"):
         log("SKIP_AUTO_TESTS=1 — автоматический запуск форматирования и выборочных тестов пропущен.")
         return 0
 
-    config = load_config(settings_path)
+    config = load_config(config_path)
     if config is None:
-        return 0
+        record_contract_missing_tests_log()
+        return 1
 
-    automation = config.get("automation", {})
-    format_cfg = automation.get("format", {})
+    format_cfg = config.get("format", {}) if isinstance(config, dict) else {}
     format_commands = [
         [str(part) for part in cmd]
         for cmd in format_cfg.get("commands", [])
         if isinstance(cmd, list)
     ]
 
-    tests_cfg = automation.get("tests", {})
+    qa_cfg = config.get("qa") if isinstance(config, dict) else {}
+    if not isinstance(qa_cfg, dict):
+        qa_cfg = {}
+    tests_cfg = qa_cfg.get("tests")
+    if not isinstance(tests_cfg, dict):
+        tests_cfg = {}
     runner_cfg = tests_cfg.get("runner", "bash")
     if isinstance(runner_cfg, list):
         test_runner = [str(part) for part in runner_cfg]
@@ -1092,9 +1081,6 @@ def main() -> int:
 
     changed_files = [path for path in collect_changed_files(workspace_root) if not is_cache_artifact(path)]
     docs_only_ignored: set[str] = set()
-    settings_service_path = _safe_normalized_service_path(workspace_root, settings_path)
-    if settings_service_path:
-        docs_only_ignored.add(settings_service_path)
     identifiers = resolve_identifiers(project_root)
     active_ticket = identifiers.resolved_ticket or ""
     slug_hint = identifiers.slug_hint
@@ -1448,7 +1434,7 @@ def main() -> int:
         log("SKIP_FORMAT=1 — форматирование пропущено.")
     else:
         if not format_commands:
-            log("Команды форматирования не настроены (automation.format.commands).")
+            log("Команды форматирования не настроены (format.commands в aidd/config/gates.json).")
         else:
             for cmd in format_commands:
                 if not run_subprocess(cmd):

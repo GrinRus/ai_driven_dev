@@ -207,6 +207,12 @@
     "handoff": true,
     "handoff_mode": "block",
     "tests": {
+      "contract_version": 1,
+      "profile_default": "none",
+      "filters_default": [],
+      "when_default": "manual",
+      "reason_default": "project-owned test contract",
+      "commands": [],
       "allow_skip": true,
       "discover": {
         "max_files": 20,
@@ -243,7 +249,9 @@
         "active_stage_sync_failed",
         "prompt_flow_blocker",
         "contract_mismatch_stage_result_shape",
-        "contract_mismatch_actions_shape"
+        "contract_mismatch_actions_shape",
+        "project_contract_missing",
+        "tests_cwd_mismatch"
       ],
       "recoverable": [
         "stage_result_missing_or_invalid",

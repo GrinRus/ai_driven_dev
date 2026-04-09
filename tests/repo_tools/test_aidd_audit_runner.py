@@ -292,6 +292,48 @@ class AiddAuditRunnerTests(unittest.TestCase):
         self.assertEqual(payload.get("classification"), "PROMPT_EXEC_ISSUE")
         self.assertEqual(payload.get("classification_subtype"), "repeated_command_failure_no_new_evidence")
 
+    def test_project_contract_missing_is_primary_even_with_no_top_level_result(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "06_implement_run1.summary.txt"
+            summary_path.write_text(
+                "\n".join(
+                    [
+                        "step=06_implement",
+                        "exit_code=2",
+                        "result_count=0",
+                        "reason_code=project_contract_missing",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(summary_path=summary_path)
+        self.assertEqual(payload.get("classification"), "PROMPT_EXEC_ISSUE")
+        self.assertEqual(payload.get("classification_subtype"), "project_contract_missing")
+        self.assertEqual(payload.get("classification_source"), "summary")
+        self.assertEqual(payload.get("result_count_interpretation"), "no_top_level_result_confirmed")
+
+    def test_tests_cwd_mismatch_is_primary_even_with_no_top_level_result(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "06_review_run1.summary.txt"
+            summary_path.write_text(
+                "\n".join(
+                    [
+                        "step=06_review",
+                        "exit_code=2",
+                        "result_count=0",
+                        "reason_code=tests_cwd_mismatch",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(summary_path=summary_path)
+        self.assertEqual(payload.get("classification"), "PROMPT_EXEC_ISSUE")
+        self.assertEqual(payload.get("classification_subtype"), "tests_cwd_mismatch")
+        self.assertEqual(payload.get("classification_source"), "summary")
+        self.assertEqual(payload.get("result_count_interpretation"), "no_top_level_result_confirmed")
+
     def test_stage_result_scope_drift_marker_is_not_contract_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             summary_path = Path(tmp) / "07_loop_run_run1.summary.txt"

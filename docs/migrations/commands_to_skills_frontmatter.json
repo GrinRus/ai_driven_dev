@@ -7,10 +7,10 @@
       "skill_path": "skills/aidd-init/SKILL.md",
       "frontmatter": {
         "description": "Use when you need to initialize AIDD workspace scaffolding in the current project.",
-        "argument-hint": "[--force] [--detect-build-tools]",
+        "argument-hint": "[--force]",
         "lang": "ru",
-        "prompt_version": "0.1.9",
-        "source_version": "0.1.9",
+        "prompt_version": "0.1.10",
+        "source_version": "0.1.10",
         "allowed-tools": [
           "Read",
           "Write",

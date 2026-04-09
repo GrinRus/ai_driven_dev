@@ -77,10 +77,25 @@ def check_tasklist_text(
         add_issue("error", f"AIDD:TEST_EXECUTION missing {field}")
     parsed_test_execution = tasklist_parser.parse_test_execution(test_execution)
     malformed_test_tasks = parsed_test_execution.get("malformed_tasks") or []
-    if malformed_test_tasks:
+    malformed_codes = {str(item.get("reason_code") or "").strip() for item in malformed_test_tasks if isinstance(item, dict)}
+    if "tasklist_shell_chain_single_entry" in malformed_codes:
         add_issue(
             "error",
             "AIDD:TEST_EXECUTION contains single-entry shell chain task (`&&`, `||`, `;`); split into separate tasks",
+        )
+    if "tasklist_non_command_entry" in malformed_codes:
+        add_issue(
+            "error",
+            "AIDD:TEST_EXECUTION contains non-command/prose task entry; use executable commands only",
+        )
+
+    test_profile = str(parsed_test_execution.get("profile") or "").strip().lower()
+    parsed_tasks = parsed_test_execution.get("tasks") or []
+    if test_profile and test_profile != "none" and not parsed_tasks:
+        add_issue(
+            "error",
+            "AIDD:TEST_EXECUTION missing executable tasks for active profile "
+            "(reason_code=project_contract_missing)",
         )
 
     iterations_section = section_map.get("AIDD:ITERATIONS_FULL")

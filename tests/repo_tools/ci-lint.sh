@@ -560,6 +560,8 @@ run_shellcheck() {
   done < <(find "$root" -type f \( -name "*.sh" -o -name "*.bash" \) \
     ! -path "*/build/*" \
     ! -path "*/.git/*" \
+    ! -path "${root}/aidd/*" \
+    ! -path "${root}/.aidd_audit/*" \
     -print0)
 
   local FILTERED=()
@@ -595,6 +597,8 @@ run_markdownlint() {
     ! -path "*/node_modules/*" \
     ! -path "*/build/*" \
     ! -path "*/.git/*" \
+    ! -path "${root}/aidd/*" \
+    ! -path "${root}/.aidd_audit/*" \
     -print0)
   local FILTERED=()
   for file in "${MD_FILES[@]}"; do
@@ -634,7 +638,10 @@ run_yamllint() {
   local YML_FILES=()
   while IFS= read -r -d '' file; do
     YML_FILES+=("$file")
-  done < <(find "$root" -type f \( -name "*.yml" -o -name "*.yaml" \) -print0)
+  done < <(find "$root" -type f \( -name "*.yml" -o -name "*.yaml" \) \
+    ! -path "${root}/aidd/*" \
+    ! -path "${root}/.aidd_audit/*" \
+    -print0)
   if ((${#YML_FILES[@]} == 0)); then
     log "no yaml files detected (root: ${root})"
     return

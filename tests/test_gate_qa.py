@@ -297,7 +297,7 @@ def test_discovery_respects_allowlist(tmp_path):
     write_file(tmp_path, "README.md", "run: pytest\n")
     write_file(tmp_path, ".github/workflows/ci.yml", "- run: npm test\n")
 
-    commands, _ = qa_tools._load_qa_tests_config(tmp_path / "aidd")
+    commands, _, _ = qa_tools._load_qa_tests_config(tmp_path / "aidd")
 
     assert commands == [["pytest"]]
 
@@ -320,7 +320,7 @@ def test_discovery_preserves_python_pytest_prefix(tmp_path):
     )
     write_file(tmp_path, "README.md", "python -m pytest -q\n")
 
-    commands, _ = qa_tools._load_qa_tests_config(tmp_path / "aidd")
+    commands, _, _ = qa_tools._load_qa_tests_config(tmp_path / "aidd")
 
     assert commands == [["python", "-m", "pytest", "-q"]]
 
@@ -344,9 +344,30 @@ def test_discovery_respects_max_files(tmp_path):
     write_file(tmp_path, "README-1.md", "pytest\n")
     write_file(tmp_path, "README-2.md", "npm test\n")
 
-    commands, _ = qa_tools._load_qa_tests_config(tmp_path / "aidd")
+    commands, _, _ = qa_tools._load_qa_tests_config(tmp_path / "aidd")
 
     assert commands == [["pytest"]]
+
+
+def test_contract_missing_commands_for_active_profile_is_terminal(tmp_path):
+    ensure_gates_config(
+        tmp_path,
+        {
+            "qa": {
+                "tests": {
+                    "profile_default": "targeted",
+                    "commands": [],
+                    "source": "readme-ci",
+                }
+            }
+        },
+    )
+    write_file(tmp_path, "README.md", "run: pytest\n")
+
+    commands, _, reason_code = qa_tools._load_qa_tests_config(tmp_path / "aidd")
+
+    assert commands == []
+    assert reason_code == "project_contract_missing"
 
 
 def test_debounce_stamp_written_only_on_success(tmp_path):

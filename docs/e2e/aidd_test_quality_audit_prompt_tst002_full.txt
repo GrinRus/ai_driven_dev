@@ -397,7 +397,7 @@
 - выполнить plugin-prompt path scan и сохранить `01_non_canonical_runtime_path_scan.txt`:
   - `rg -n "python3 skills/.*/runtime/" "$PLUGIN_DIR/skills/{implement,review,qa}/SKILL.md"`;
 - зафиксировать `claude plugin list` в `01_plugin_list.txt`;
-- зафиксировать `~/.claude/settings.json` в `01_claude_settings_snapshot.json`;
+- зафиксировать `aidd/config/gates.json` в `01_gates_snapshot.json`;
 - выполнить healthcheck команду (`$PLUGIN_HEALTHCHECK_CMD`) через launcher;
 - проверить `init`-событие healthcheck-лога на `plugins`, `slash_commands`, `skills`;
 - извлечь install runtime path плагина и сохранить `01_plugin_runtime_path.txt`;

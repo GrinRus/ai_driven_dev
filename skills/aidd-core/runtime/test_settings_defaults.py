@@ -4,6 +4,9 @@ import os
 from pathlib import Path
 from typing import Iterable
 
+# Runtime utility module (imported by hooks); not a pytest test module.
+__test__ = False
+
 BASE_COMMON_PATTERNS = ("config/",)
 
 COMMON_PATTERNS_BY_TOOL: dict[str, tuple[str, ...]] = {

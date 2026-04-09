@@ -1024,24 +1024,29 @@ class App {
 }
 KT
 
-log "configure test policy for format-and-test smoke"
-python3 - "$WORKSPACE_ROOT/.claude/settings.json" <<'PY'
+log "configure gates-based test policy for format-and-test smoke"
+python3 - "$WORKDIR/config/gates.json" <<'PY'
 import json
 import sys
 from pathlib import Path
 
 path = Path(sys.argv[1])
-path.parent.mkdir(parents=True, exist_ok=True)
-if path.exists():
-    data = json.loads(path.read_text(encoding="utf-8"))
-else:
-    data = {}
-tests = data.setdefault("automation", {}).setdefault("tests", {})
+data = json.loads(path.read_text(encoding="utf-8"))
+qa = data.setdefault("qa", {})
+tests = qa.setdefault("tests", {})
 tests["runner"] = ["/bin/echo"]
 tests["fastTasks"] = ["smoke-fast"]
 tests["fullTasks"] = ["smoke-full"]
 tests["targetedTask"] = "smoke-target"
 tests["commonPatterns"] = ["**/package.json"]
+tests["contract_version"] = 1
+tests["profile_default"] = "targeted"
+tests["filters_default"] = []
+tests["when_default"] = "manual"
+tests["reason_default"] = "smoke policy"
+tests["commands"] = [
+    {"id": "smoke-target", "command": ["/bin/echo", "smoke-target"], "cwd": ".", "profiles": ["targeted", "full"]},
+]
 path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 PY
 mkdir -p "$WORKDIR/.cache"

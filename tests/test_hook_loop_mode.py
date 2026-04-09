@@ -20,9 +20,15 @@ HOOK = HOOKS_DIR / "format-and-test.sh"
 
 def write_settings(tmp_path: Path, overrides: dict) -> Path:
     base = {
-        "automation": {
-            "format": {"commands": []},
+        "format": {"commands": []},
+        "qa": {
             "tests": {
+                "contract_version": 1,
+                "profile_default": "targeted",
+                "filters_default": [],
+                "when_default": "manual",
+                "reason_default": "unit-test",
+                "commands": [{"id": "default", "command": ["/bin/echo", "default_task"], "cwd": ".", "profiles": ["targeted", "full", "fast"]}],
                 "runner": "/bin/echo",
                 "defaultTasks": ["default_task"],
                 "fallbackTasks": [],
@@ -35,15 +41,16 @@ def write_settings(tmp_path: Path, overrides: dict) -> Path:
     if isinstance(automation_override, dict):
         tests_override = automation_override.get("tests")
         if isinstance(tests_override, dict):
-            base["automation"]["tests"].update(tests_override)
-    settings_path = tmp_path / "settings.json"
+            base["qa"]["tests"].update(tests_override)
+    settings_path = tmp_path / "config" / "gates.json"
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
     settings_path.write_text(json.dumps(base, indent=2), encoding="utf-8")
     return settings_path
 
 
 def run_hook(tmp_path: Path, settings_path: Path, env: Optional[dict] = None) -> subprocess.CompletedProcess[str]:
+    del settings_path
     effective_env = {
-        "CLAUDE_SETTINGS_PATH": str(settings_path),
         "SKIP_FORMAT": "1",
         "CLAUDE_PLUGIN_ROOT": str(REPO_ROOT),
     }

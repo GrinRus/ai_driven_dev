@@ -76,53 +76,163 @@ def _copy_seed_files(plugin_root: Path, project_root: Path, *, force: bool) -> l
     return copied
 
 
-def _write_test_settings(workspace_root: Path, *, force: bool) -> None:
-    from aidd_runtime.test_settings_defaults import detect_build_tools, test_settings_payload
+_SKIP_DIRS = {
+    ".git",
+    ".hg",
+    ".svn",
+    ".venv",
+    "venv",
+    "node_modules",
+    "vendor",
+    "__pycache__",
+    "aidd",
+}
 
-    settings_path = workspace_root / ".claude" / "settings.json"
-    data: dict = {}
-    if settings_path.exists():
-        try:
-            data = json.loads(settings_path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError as exc:
-            print(f"[aidd:init] skip .claude/settings.json (invalid JSON): {exc}")
+
+def _detect_qa_test_command_entries(workspace_root: Path) -> list[dict]:
+    entries: list[dict] = []
+
+    def add_entry(entry_id: str, command: list[str], cwd: str, profiles: list[str]) -> None:
+        if not command:
             return
-        if not isinstance(data, dict):
-            data = {}
+        for existing in entries:
+            if existing.get("command") == command and existing.get("cwd") == cwd:
+                return
+        entries.append(
+            {
+                "id": entry_id,
+                "command": command,
+                "cwd": cwd or ".",
+                "profiles": profiles,
+            }
+        )
 
-    detected = detect_build_tools(workspace_root)
-    payload = test_settings_payload(detected)
-    automation = data.setdefault("automation", {})
-    if not isinstance(automation, dict):
-        automation = {}
-        data["automation"] = automation
-    tests_cfg = automation.setdefault("tests", {})
+    def rel_parent(path: Path) -> str:
+        parent = path.parent
+        if parent == workspace_root:
+            return "."
+        return parent.relative_to(workspace_root).as_posix()
+
+    for candidate in sorted(workspace_root.rglob("gradlew")):
+        if not candidate.is_file():
+            continue
+        if any(part in _SKIP_DIRS for part in candidate.relative_to(workspace_root).parts):
+            continue
+        add_entry("gradle_test", ["./gradlew", "test"], rel_parent(candidate), ["targeted", "full"])
+
+    for candidate in sorted(workspace_root.rglob("mvnw")):
+        if not candidate.is_file():
+            continue
+        if any(part in _SKIP_DIRS for part in candidate.relative_to(workspace_root).parts):
+            continue
+        add_entry("maven_test", ["./mvnw", "test"], rel_parent(candidate), ["targeted", "full"])
+
+    for candidate in sorted(workspace_root.rglob("pom.xml")):
+        if not candidate.is_file():
+            continue
+        if any(part in _SKIP_DIRS for part in candidate.relative_to(workspace_root).parts):
+            continue
+        add_entry("maven_test", ["mvn", "test"], rel_parent(candidate), ["targeted", "full"])
+
+    for candidate in sorted(workspace_root.rglob("go.mod")):
+        if not candidate.is_file():
+            continue
+        if any(part in _SKIP_DIRS for part in candidate.relative_to(workspace_root).parts):
+            continue
+        add_entry("go_test", ["go", "test", "./..."], rel_parent(candidate), ["targeted", "full"])
+
+    for candidate in sorted(workspace_root.rglob("Cargo.toml")):
+        if not candidate.is_file():
+            continue
+        if any(part in _SKIP_DIRS for part in candidate.relative_to(workspace_root).parts):
+            continue
+        add_entry("cargo_test", ["cargo", "test"], rel_parent(candidate), ["targeted", "full"])
+
+    for candidate in sorted(workspace_root.rglob("pyproject.toml")):
+        if not candidate.is_file():
+            continue
+        if any(part in _SKIP_DIRS for part in candidate.relative_to(workspace_root).parts):
+            continue
+        add_entry("pytest", ["python3", "-m", "pytest"], rel_parent(candidate), ["targeted", "full"])
+
+    for candidate in sorted(workspace_root.rglob("requirements.txt")):
+        if not candidate.is_file():
+            continue
+        if any(part in _SKIP_DIRS for part in candidate.relative_to(workspace_root).parts):
+            continue
+        add_entry("pytest", ["python3", "-m", "pytest"], rel_parent(candidate), ["targeted", "full"])
+
+    for candidate in sorted(workspace_root.rglob("package.json")):
+        if not candidate.is_file():
+            continue
+        rel = candidate.relative_to(workspace_root)
+        if any(part in _SKIP_DIRS for part in rel.parts):
+            continue
+        lock_parent = candidate.parent
+        pnpm_lock = lock_parent / "pnpm-lock.yaml"
+        yarn_lock = lock_parent / "yarn.lock"
+        if pnpm_lock.exists():
+            add_entry("pnpm_test", ["pnpm", "test"], rel_parent(candidate), ["targeted", "full"])
+        elif yarn_lock.exists():
+            add_entry("yarn_test", ["yarn", "test"], rel_parent(candidate), ["targeted", "full"])
+        else:
+            add_entry("npm_test", ["npm", "test", "--", "--watch=false"], rel_parent(candidate), ["targeted", "full"])
+
+    if not entries and (workspace_root / "Makefile").exists():
+        add_entry("make_test", ["make", "test"], ".", ["targeted", "full"])
+    return entries
+
+
+def _bootstrap_qa_tests_contract(workspace_root: Path, *, force: bool) -> None:
+    gates_path = workspace_root / "config" / "gates.json"
+    try:
+        payload = json.loads(gates_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return
+    if not isinstance(payload, dict):
+        return
+
+    qa_cfg = payload.get("qa")
+    if isinstance(qa_cfg, bool):
+        qa_cfg = {"enabled": qa_cfg}
+    if not isinstance(qa_cfg, dict):
+        qa_cfg = {}
+        payload["qa"] = qa_cfg
+
+    tests_cfg = qa_cfg.get("tests")
     if not isinstance(tests_cfg, dict):
         tests_cfg = {}
-        automation["tests"] = tests_cfg
+        qa_cfg["tests"] = tests_cfg
 
-    updated = False
-    for key, value in payload.items():
-        if force or key not in tests_cfg:
-            tests_cfg[key] = value
-            updated = True
+    existing_commands = tests_cfg.get("commands")
+    if isinstance(existing_commands, list) and existing_commands and not force:
+        return
 
-    if updated:
-        tools_label = ", ".join(sorted(detected)) or "default"
-        settings_path.parent.mkdir(parents=True, exist_ok=True)
-        settings_path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-        print(f"[aidd:init] updated .claude/settings.json (build tools: {tools_label})")
+    detected_entries = _detect_qa_test_command_entries(workspace_root)
+    tests_cfg["contract_version"] = int(tests_cfg.get("contract_version") or 1)
+    tests_cfg["filters_default"] = tests_cfg.get("filters_default") or []
+    tests_cfg["when_default"] = str(tests_cfg.get("when_default") or "manual")
+    tests_cfg["reason_default"] = str(tests_cfg.get("reason_default") or "auto-bootstrap from workspace tooling")
+    if detected_entries:
+        tests_cfg["profile_default"] = str(tests_cfg.get("profile_default") or "targeted")
+        tests_cfg["commands"] = detected_entries
     else:
-        print("[aidd:init] .claude/settings.json already contains automation.tests defaults")
+        tests_cfg["profile_default"] = "none"
+        tests_cfg["commands"] = []
+
+    gates_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(
+        f"[aidd:init] qa.tests contract bootstrapped in {gates_path} "
+        f"(commands={len(tests_cfg.get('commands') or [])})"
+    )
 
 
 def run_init(target: Path, extra_args: List[str] | None = None) -> None:
     extra_args = extra_args or []
-    workspace_root, project_root = runtime.resolve_roots(target, create=True)
+    _workspace_root, project_root = runtime.resolve_roots(target, create=True)
 
     force = "--force" in extra_args
-    detect_build_tools = "--detect-build-tools" in extra_args
-    ignored = [arg for arg in extra_args if arg not in {"--force", "--detect-build-tools"}]
+    ignored = [arg for arg in extra_args if arg not in {"--force"}]
     if ignored:
         print(f"[aidd] init flags ignored in marketplace-only mode: {' '.join(ignored)}")
 
@@ -144,9 +254,7 @@ def run_init(target: Path, extra_args: List[str] | None = None) -> None:
         print(f"[aidd:init] no changes (already initialized) in {project_root}")
     loops_reports = project_root / "reports" / "loops"
     loops_reports.mkdir(parents=True, exist_ok=True)
-    settings_path = workspace_root / ".claude" / "settings.json"
-    if detect_build_tools or not settings_path.exists():
-        _write_test_settings(workspace_root, force=force if detect_build_tools else False)
+    _bootstrap_qa_tests_contract(project_root, force=force)
 
 
 def parse_args(argv: List[str] | None = None) -> argparse.Namespace:
@@ -158,17 +266,6 @@ def parse_args(argv: List[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Overwrite existing files.",
     )
-    parser.add_argument(
-        "--detect-build-tools",
-        action="store_true",
-        help="Populate .claude/settings.json with default automation.tests settings.",
-    )
-    parser.add_argument(
-        "--detect-stack",
-        dest="detect_build_tools",
-        action="store_true",
-        help=argparse.SUPPRESS,
-    )
     return parser.parse_args(argv)
 
 
@@ -177,8 +274,6 @@ def main(argv: List[str] | None = None) -> int:
     script_args: list[str] = []
     if args.force:
         script_args.append("--force")
-    if args.detect_build_tools:
-        script_args.append("--detect-build-tools")
     run_init(Path.cwd().resolve(), script_args)
     return 0
 

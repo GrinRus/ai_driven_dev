@@ -146,15 +146,6 @@ def require_workflow_root(raw_target: Path | None = None) -> tuple[Path, Path]:
     )
 
 
-def resolve_claude_dir(target: Path) -> Path:
-    candidate = target / ".claude"
-    if candidate.exists():
-        return candidate
-    if target.name == DEFAULT_PROJECT_SUBDIR:
-        return target.parent / ".claude"
-    return candidate
-
-
 def resolve_feature_context(
     target: Path,
     *,
@@ -546,24 +537,12 @@ def format_ticket_label(context: FeatureIdentifiers, fallback: str = "актив
     return ticket
 
 
-def settings_path(target: Path) -> Path:
-    return resolve_claude_dir(target) / "settings.json"
-
-
-def load_settings_json(target: Path) -> dict:
-    settings_file = settings_path(target)
-    if not settings_file.exists():
-        return {}
-    try:
-        return json.loads(settings_file.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
-        raise RuntimeError(f"cannot parse {settings_file}: {exc}") from exc
-
-
 def load_tests_settings(target: Path) -> dict:
-    settings = load_settings_json(target)
-    automation = settings.get("automation") or {}
-    tests_cfg = automation.get("tests")
+    config = load_gates_config(target)
+    qa_cfg = config.get("qa") if isinstance(config, dict) else None
+    if not isinstance(qa_cfg, dict):
+        qa_cfg = {}
+    tests_cfg = qa_cfg.get("tests")
     return tests_cfg if isinstance(tests_cfg, dict) else {}
 
 

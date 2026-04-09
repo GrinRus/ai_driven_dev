@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
+import shlex
 import sys
 from datetime import date
 from pathlib import Path
@@ -13,6 +15,7 @@ if str(_PLUGIN_ROOT) not in sys.path:
 
 from aidd_runtime import runtime
 from aidd_runtime import tasklist_check
+from aidd_runtime import gates
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -85,6 +88,109 @@ def _validate_tasklist_postcondition(tasklist_path: Path) -> tuple[bool, str]:
     return True, ""
 
 
+def _replace_section(text: str, title: str, body_lines: list[str]) -> str:
+    lines = text.splitlines()
+    start = None
+    end = None
+    for idx, line in enumerate(lines):
+        if line.strip() == f"## {title}":
+            start = idx
+            break
+    if start is None:
+        return text
+    end = len(lines)
+    for idx in range(start + 1, len(lines)):
+        if lines[idx].startswith("## "):
+            end = idx
+            break
+    replacement = [lines[start], *body_lines, ""]
+    updated = [*lines[:start], *replacement, *lines[end:]]
+    return "\n".join(updated).rstrip("\n") + "\n"
+
+
+def _materialize_contract_command(entry: dict) -> str:
+    tokens = [str(item).strip() for item in (entry.get("command") or []) if str(item).strip()]
+    if not tokens:
+        return ""
+    cwd = str(entry.get("cwd") or ".").strip() or "."
+    if cwd not in {".", "./"}:
+        head = tokens[0]
+        tail = tokens[1:]
+        if head.startswith("./"):
+            head = f"./{cwd.strip('./')}/{head[2:]}"
+            tokens = [head, *tail]
+        elif head == "npm":
+            tokens = ["npm", "--prefix", cwd, *tail]
+        elif head == "pnpm":
+            tokens = ["pnpm", "--dir", cwd, *tail]
+        elif head == "yarn":
+            tokens = ["yarn", "--cwd", cwd, *tail]
+        elif head == "mvn" and "-f" not in tail:
+            tokens = ["mvn", "-f", f"./{cwd.strip('./')}/pom.xml", *tail]
+        elif head == "cargo" and "--manifest-path" not in tail:
+            tokens = ["cargo", *tail, "--manifest-path", f"./{cwd.strip('./')}/Cargo.toml"]
+        elif head in {"python", "python3", "pytest"}:
+            tokens = [head, *tail, f"./{cwd.strip('./')}"]
+        elif head == "go":
+            transformed: list[str] = []
+            replaced = False
+            for item in tail:
+                if item == "./..." and not replaced:
+                    transformed.append(f"./{cwd.strip('./')}/...")
+                    replaced = True
+                else:
+                    transformed.append(item)
+            if not transformed:
+                transformed = [f"./{cwd.strip('./')}/..."]
+            tokens = [head, *transformed]
+    return " ".join(shlex.quote(token) for token in tokens if token)
+
+
+def _render_test_execution_from_contract(target: Path) -> tuple[list[str], str]:
+    contract, errors = gates.load_qa_tests_contract_for_target(target)
+    profile = str(contract.get("profile_default") or "none").strip().lower()
+    if errors and (profile != "none" or "project_contract_missing" in errors):
+        return [], "project_contract_missing"
+
+    when_value = str(contract.get("when_default") or "manual").strip() or "manual"
+    reason_value = str(contract.get("reason_default") or "project-owned test contract").strip()
+    filters = [str(item).strip() for item in (contract.get("filters_default") or []) if str(item).strip()]
+    if profile == "none":
+        return [
+            f"- profile: {profile}",
+            "- tasks: []",
+            f"- filters: {json.dumps(filters, ensure_ascii=False)}",
+            f"- when: {when_value}",
+            f"- reason: {reason_value}",
+        ], ""
+
+    selected = gates.select_commands_for_profile(contract, profile) or list(contract.get("commands") or [])
+    tasks: list[str] = []
+    for entry in selected:
+        if not isinstance(entry, dict):
+            continue
+        materialized = _materialize_contract_command(entry)
+        if materialized:
+            tasks.append(materialized)
+    if not tasks:
+        return [], "project_contract_missing"
+
+    lines = [f"- profile: {profile}", "- tasks:"]
+    lines.extend([f"  - {task}" for task in tasks])
+    if filters:
+        lines.append("- filters:")
+        lines.extend([f"  - {item}" for item in filters])
+    else:
+        lines.append("- filters: []")
+    lines.extend(
+        [
+            f"- when: {when_value}",
+            f"- reason: {reason_value}",
+        ]
+    )
+    return lines, ""
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     _, target = runtime.require_workflow_root()
@@ -115,6 +221,20 @@ def main(argv: list[str] | None = None) -> int:
         updated = _replace_placeholders(current, ticket, slug, today, scope_key)
         if updated != current:
             tasklist_path.write_text(updated, encoding="utf-8")
+
+    contract_lines, contract_error = _render_test_execution_from_contract(target)
+    if contract_error:
+        print(
+            "[tasks-new] BLOCK: project test execution contract missing/invalid "
+            "(reason_code=project_contract_missing). "
+            "Update aidd/config/gates.json -> qa.tests.",
+            file=sys.stderr,
+        )
+        return 2
+    if contract_lines:
+        tasklist_text = tasklist_path.read_text(encoding="utf-8")
+        tasklist_text = _replace_section(tasklist_text, "AIDD:TEST_EXECUTION", contract_lines)
+        tasklist_path.write_text(tasklist_text, encoding="utf-8")
 
     result = tasklist_check.check_tasklist(target, ticket)
     rel_path = runtime.rel_path(tasklist_path, target)

@@ -112,8 +112,8 @@
       "lang": "ru",
       "name": "aidd-init",
       "path": "skills/aidd-init/SKILL.md",
-      "prompt_version": "0.1.9",
-      "source_version": "0.1.9",
+      "prompt_version": "0.1.10",
+      "source_version": "0.1.10",
       "user_invocable": "true"
     },
     {

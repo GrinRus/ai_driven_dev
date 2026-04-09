@@ -28,6 +28,10 @@ SCOPE_DRIFT_STAGE_RESULT_MARKERS = (
     "scope_fallback_stale_ignored",
     "scope_shape_invalid",
 )
+PROJECT_CONTRACT_REASON_CODES = (
+    "project_contract_missing",
+    "tests_cwd_mismatch",
+)
 CWD_WRONG_MARKERS = (
     "reason_code=cwd_wrong",
     "env_misconfig(cwd_wrong)",
@@ -165,6 +169,25 @@ def classify_incident(
             subtype="readiness_gate_failed",
             source=readiness_source,
             label="NOT_VERIFIED(readiness_gate_failed)+PROMPT_EXEC_ISSUE(readiness_gate_failed)",
+        )
+
+    for reason_code in PROJECT_CONTRACT_REASON_CODES:
+        marker = f"reason_code={reason_code}"
+        if marker in summary_text:
+            source = "summary"
+        elif marker in term_text:
+            source = "termination_attribution"
+        elif marker in pre_text:
+            source = "runner_preflight"
+        elif marker in merged_text:
+            source = "run_log"
+        else:
+            continue
+        return Classification(
+            classification="PROMPT_EXEC_ISSUE",
+            subtype=reason_code,
+            source=source,
+            label=f"NOT_VERIFIED({reason_code})+PROMPT_EXEC_ISSUE({reason_code})",
         )
 
     if "repeated_command_failure_no_new_evidence" in merged_text:

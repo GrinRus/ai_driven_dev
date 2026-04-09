@@ -136,7 +136,7 @@
 - Проверить `AUDIT_MODE` (SKILL_FIRST обязателен).
 - Если не SKILL_FIRST — `NOT APPLICABLE` и stop.
 - Сохранить `claude plugin list` -> `01_plugin_list.txt`.
-- Сохранить `~/.claude/settings.json` (если есть) -> `01_claude_settings_snapshot.json`.
+- Сохранить `aidd/config/gates.json` (если есть) -> `01_gates_snapshot.json`.
 - Запустить healthcheck: `$PLUGIN_HEALTHCHECK_CMD` через launcher.
 - Проверить `init` на `plugins/slash_commands/skills` (см. 3.1).
 - Извлечь install runtime path плагина из `init.plugins[].path` и сохранить `01_plugin_runtime_path.txt`.

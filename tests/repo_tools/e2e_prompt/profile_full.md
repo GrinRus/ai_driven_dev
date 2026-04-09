@@ -403,7 +403,7 @@
   - `rg -n "python3 skills/.*/runtime/" "$PLUGIN_DIR/skills/{implement,review,qa}/SKILL.md"`;
   - при hit пометить `WARN(prompt_surface_non_canonical_runtime_path)` (не блокирует старт аудита).
 - зафиксировать `claude plugin list` в `01_plugin_list.txt`;
-- зафиксировать `~/.claude/settings.json` (если есть) в `01_claude_settings_snapshot.json`;
+- зафиксировать `aidd/config/gates.json` (если есть) в `01_gates_snapshot.json`;
 - выполнить healthcheck команду (`$PLUGIN_HEALTHCHECK_CMD`) через launcher из секции 5.0;
 - проверить `init`-событие healthcheck-лога:
   - есть `plugins: [{"name":"feature-dev-aidd"...}]`;
