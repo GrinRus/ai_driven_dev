@@ -131,6 +131,24 @@ def detect_top_level_status(log_text: str) -> str:
     return ""
 
 
+def detect_top_level_result_event(log_text: str) -> bool:
+    return bool(re.search(r'"type"\s*:\s*"result"', str(log_text or "")))
+
+
+def parse_kv_text(text: str) -> Dict[str, str]:
+    payload: Dict[str, str] = {}
+    for raw in str(text or "").splitlines():
+        line = raw.strip()
+        if not line or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        if not key:
+            continue
+        payload[key] = value.strip()
+    return payload
+
+
 def interpret_result_count(summary: Mapping[str, str], *, top_level_present: bool) -> str:
     raw = str(summary.get("result_count", "")).strip()
     if not raw:
@@ -251,11 +269,12 @@ def analyze_run(
     for path in aux_log_paths or []:
         aux_text_parts.append(read_log_text(path))
     aux_text = "\n".join(part for part in aux_text_parts if part)
+    diagnostics = parse_kv_text(aux_text)
 
     top_level_status = detect_top_level_status(log_text)
     if not top_level_status and aux_text:
         top_level_status = detect_top_level_status(aux_text)
-    top_level_result_present = bool(top_level_status)
+    top_level_result_present = detect_top_level_result_event(log_text) or detect_top_level_result_event(aux_text) or bool(top_level_status)
     result_count_interpretation = interpret_result_count(summary, top_level_present=top_level_result_present)
 
     classified = contract.classify_incident(
@@ -291,6 +310,28 @@ def analyze_run(
             source="liveness",
             label="INFO(stream_path_not_emitted_by_cli)",
         )
+    review_mismatch_value = str(
+        diagnostics.get("narrative_vs_report_mismatch")
+        or diagnostics.get("narrative_vs_structured_mismatch")
+        or ""
+    ).strip().lower()
+    review_mismatch_detected = review_mismatch_value in {"1", "true", "yes", "on"}
+    review_recommended_status = str(diagnostics.get("recommended_status") or "").strip().lower()
+    review_findings_count = _safe_int(diagnostics.get("findings_count"), -1)
+    review_open_questions_count = _safe_int(diagnostics.get("open_questions_count"), -1)
+    review_mismatch_non_blocking = bool(
+        review_mismatch_detected
+        and review_recommended_status == "ready"
+        and review_findings_count == 0
+        and review_open_questions_count == 0
+    )
+    if review_mismatch_non_blocking:
+        classified = contract.Classification(
+            classification="TELEMETRY_ONLY",
+            subtype="review_spec_report_mismatch_non_blocking",
+            source="diagnostics",
+            label="INFO(review_spec_report_mismatch_non_blocking)",
+        )
     readiness_reason = _detect_readiness_gate_reason(
         summary=summary,
         precondition=precondition,
@@ -323,6 +364,29 @@ def analyze_run(
     effective_terminal_status = classified.label
     if top_level_status == "blocked" and recoverable_ralph_observed:
         effective_terminal_status = "BLOCKED(recoverable ralph path observed)"
+    termination_exit_code = str(
+        termination.get("exit_code") or summary.get("effective_exit_code") or summary.get("exit_code") or ""
+    ).strip()
+    termination_signal = str(termination.get("signal") or "").strip()
+    termination_killed_flag = _safe_int(termination.get("killed_flag"), _safe_int(summary.get("killed_flag"), 0))
+    termination_watchdog_marker = _safe_int(
+        termination.get("watchdog_marker"),
+        _safe_int(summary.get("watchdog_marker"), 0),
+    )
+    termination_secondary_telemetry = int(classified.subtype == "cwd_wrong" and termination_exit_code == "143")
+    step_hint = "\n".join(
+        [
+            summary_path.name,
+            str(summary.get("step") or ""),
+            str(summary.get("step_key") or ""),
+            str(summary.get("stage") or ""),
+            str(summary.get("stage_command") or ""),
+        ]
+    )
+    downstream_skip_hint = ""
+    if classified.classification == "ENV_MISCONFIG" and classified.subtype == "cwd_wrong":
+        if re.search(r"05[_-].*tasks[-_ ]new|05_tasks_new", step_hint, flags=re.IGNORECASE):
+            downstream_skip_hint = "NOT VERIFIED (upstream_tasks_new_failed)"
 
     payload: Dict[str, object] = dict(summary)
     payload.update(
@@ -335,10 +399,20 @@ def analyze_run(
             "classification_source": classified.source,
             "effective_classification": classified.label,
             "effective_terminal_status": effective_terminal_status,
+            "termination_exit_code": termination_exit_code,
+            "termination_signal": termination_signal,
+            "termination_killed_flag": int(termination_killed_flag),
+            "termination_watchdog_marker": int(termination_watchdog_marker),
+            "termination_secondary_telemetry": termination_secondary_telemetry,
             "recoverable_ralph_observed": int(recoverable_ralph_observed),
             "partial_success_no_top_level_result": int(tasks_new_partial_success),
             "invalid_fallback_path_count": len(invalid_fallback_paths),
             "invalid_fallback_paths": invalid_fallback_paths,
+            "review_spec_report_mismatch_detected": int(review_mismatch_detected),
+            "review_spec_report_mismatch_non_blocking": int(review_mismatch_non_blocking),
+            "review_spec_report_recommended_status": review_recommended_status,
+            "review_spec_report_findings_count": review_findings_count,
+            "review_spec_report_open_questions_count": review_open_questions_count,
             "readiness_gate_failed": int(readiness_gate_failed),
             "readiness_reason": readiness_reason,
             "liveness_classification": liveness_classification,
@@ -348,6 +422,9 @@ def analyze_run(
             "liveness_run_start_epoch": liveness_run_start_epoch,
         }
     )
+    if downstream_skip_hint:
+        payload["downstream_skip_hint"] = downstream_skip_hint
+        payload["downstream_skip_scope"] = "06,07,08"
     if precondition:
         payload["precondition"] = dict(precondition)
     if liveness:

@@ -158,6 +158,90 @@ class AiddAuditRunnerTests(unittest.TestCase):
         self.assertEqual(payload.get("classification_subtype"), "fallback_path_assembly_bug")
         self.assertEqual(payload.get("invalid_fallback_path_count"), 1)
 
+    def test_cwd_wrong_with_exit_143_is_classified_as_env_misconfig_cwd_wrong(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "05_tasks_new_run1.summary.txt"
+            log_path = Path(tmp) / "05_tasks_new_run1.log"
+            termination_path = Path(tmp) / "05_tasks_new_termination_attribution.txt"
+            summary_path.write_text(
+                "\n".join(
+                    [
+                        "step=05_tasks_new",
+                        "exit_code=143",
+                        "result_count=0",
+                        "reason_code=cwd_wrong",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            log_path.write_text(
+                "[aidd] ERROR: refusing to use plugin repository as workspace root for runtime artifacts; run commands from the project workspace root.\n",
+                encoding="utf-8",
+            )
+            termination_path.write_text(
+                "\n".join(
+                    [
+                        "exit_code=143",
+                        "signal=SIGTERM",
+                        "killed_flag=0",
+                        "watchdog_marker=0",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(
+                summary_path=summary_path,
+                run_log_path=log_path,
+                termination_path=termination_path,
+            )
+        self.assertEqual(payload.get("classification"), "ENV_MISCONFIG")
+        self.assertEqual(payload.get("classification_subtype"), "cwd_wrong")
+        self.assertEqual(payload.get("result_count_interpretation"), "no_top_level_result_confirmed")
+        self.assertEqual(payload.get("termination_secondary_telemetry"), 1)
+        self.assertEqual(payload.get("downstream_skip_hint"), "NOT VERIFIED (upstream_tasks_new_failed)")
+
+    def test_result_count_zero_with_type_result_event_is_not_no_top_level_result(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "05_review_spec_run1.summary.txt"
+            log_path = Path(tmp) / "05_review_spec_run1.log"
+            summary_path.write_text("exit_code=0\nresult_count=0\n", encoding="utf-8")
+            log_path.write_text('{"type":"result","subtype":"success","result":"ok"}\n', encoding="utf-8")
+            payload = self.runner.analyze_run(summary_path=summary_path, run_log_path=log_path)
+        self.assertEqual(payload.get("top_level_result_present"), 1)
+        self.assertEqual(payload.get("result_count_interpretation"), "telemetry_only_top_level_present")
+
+    def test_review_spec_report_mismatch_ready_is_non_blocking_info(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "05_review_spec_run1.summary.txt"
+            log_path = Path(tmp) / "05_review_spec_run1.log"
+            report_check_path = Path(tmp) / "05_review_spec_report_check_run1.txt"
+            summary_path.write_text("step=05_review_spec\nexit_code=0\nresult_count=1\n", encoding="utf-8")
+            log_path.write_text("[review-spec] done\n", encoding="utf-8")
+            report_check_path.write_text(
+                "\n".join(
+                    [
+                        "recommended_status=ready",
+                        "findings_count=0",
+                        "open_questions_count=0",
+                        "narrative_vs_report_mismatch=1",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(
+                summary_path=summary_path,
+                run_log_path=log_path,
+                aux_log_paths=[report_check_path],
+            )
+        self.assertEqual(payload.get("classification"), "TELEMETRY_ONLY")
+        self.assertEqual(payload.get("classification_subtype"), "review_spec_report_mismatch_non_blocking")
+        self.assertEqual(payload.get("effective_classification"), "INFO(review_spec_report_mismatch_non_blocking)")
+        self.assertEqual(payload.get("review_spec_report_mismatch_detected"), 1)
+        self.assertEqual(payload.get("review_spec_report_mismatch_non_blocking"), 1)
+
     def test_precondition_readiness_gate_failure_is_classified_as_prompt_exec_issue(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             summary_path = Path(tmp) / "05_plan_new_run1.summary.txt"

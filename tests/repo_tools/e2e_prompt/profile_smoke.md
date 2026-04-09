@@ -8,6 +8,7 @@
 - `PROJECT_DIR=<absolute-path-to-target-workspace>`
 - `PLUGIN_DIR=<absolute-path-to-plugin-repo>`
 - `CLAUDE_PLUGIN_ROOT=$PLUGIN_DIR`
+- `PRE-RUN invariant`: `realpath("$PROJECT_DIR") != realpath("$PLUGIN_DIR")`; иначе `ENV_MISCONFIG(cwd_wrong)` и stop.
 - `TICKET=TST-001`
 - `PROFILE=smoke`
 - `IDEA_NOTE=<формируется на шаге 3>`
@@ -82,6 +83,8 @@
 - Для `text`:
   - `cd "$PROJECT_DIR"`
   - `claude -p "<stage command>" $CLAUDE_ARGS $CLAUDE_PLUGIN_FLAGS`
+- Перед первым stage-run (и перед retry после `cwd_wrong`) выполнить shell-safe topology precheck:
+  - `[ "$(cd "$PROJECT_DIR" && pwd -P)" != "$(cd "$PLUGIN_DIR" && pwd -P)" ] || { echo "ENV_MISCONFIG(cwd_wrong): PROJECT_DIR must differ from PLUGIN_DIR"; exit 12; }`
 - Перед каждым stage-run делать disk-preflight:
   - `df -Pk "$PROJECT_DIR"` и проверка свободного места (`>= 1073741824` bytes);
   - если свободного места меньше, классифицировать как `ENV_MISCONFIG(no_space_left_on_device)` и не стартовать stage-run.

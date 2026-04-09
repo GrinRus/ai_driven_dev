@@ -34,6 +34,7 @@
 - `PROJECT_DIR=<project_dir>`
 - `PLUGIN_DIR=<plugin_dir>`
 - `CLAUDE_PLUGIN_ROOT=$PLUGIN_DIR`
+- `PRE-RUN invariant`: `realpath("$PROJECT_DIR") != realpath("$PLUGIN_DIR")`; иначе `ENV_MISCONFIG(cwd_wrong)` и stop.
 - `TICKET=TST-002`
 - `BASE_PROMPT=$PLUGIN_DIR/docs/e2e/aidd_test_flow_prompt_ralph_script_full.txt`
 - `BACKLOG_PATH=$PLUGIN_DIR/docs/backlog.md`
@@ -172,6 +173,8 @@
   - `cd "$PROJECT_DIR"`
   - `claude -p "<stage command>" $CLAUDE_ARGS $CLAUDE_PLUGIN_FLAGS`
 - Shell-safe launch: передавать каждый флаг отдельным аргументом, без склейки в одну строку/токен.
+- Перед первым stage-run (и перед retry после `cwd_wrong`) выполнить shell-safe topology precheck:
+  - `[ "$(cd "$PROJECT_DIR" && pwd -P)" != "$(cd "$PLUGIN_DIR" && pwd -P)" ] || { echo "ENV_MISCONFIG(cwd_wrong): PROJECT_DIR must differ from PLUGIN_DIR"; exit 12; }`
 - Перед каждым stage-run делать disk-preflight:
   - `df -Pk "$PROJECT_DIR"` и проверка свободного места (`>= 1073741824` bytes);
   - если свободного места меньше, классифицировать как `ENV_MISCONFIG(no_space_left_on_device)` и не стартовать stage-run.

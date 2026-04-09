@@ -153,6 +153,90 @@ class AiddStageLauncherTests(unittest.TestCase):
             self.assertEqual(payload["classification"], "silent_stall")
             self.assertEqual(payload["active_source"], "none")
 
+    def test_main_fail_fast_when_project_equals_plugin_dir(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audit_dir = root / "audit"
+            audit_dir.mkdir(parents=True, exist_ok=True)
+
+            original_run_stage = self.launcher.run_stage
+            original_argv = list(sys.argv)
+            self.launcher.run_stage = lambda **_: (_ for _ in ()).throw(AssertionError("run_stage must not be called"))
+            try:
+                sys.argv = [
+                    "aidd_stage_launcher.py",
+                    "--project-dir",
+                    str(root),
+                    "--plugin-dir",
+                    str(root),
+                    "--audit-dir",
+                    str(audit_dir),
+                    "--step",
+                    "05_tasks_new",
+                    "--run",
+                    "1",
+                    "--ticket",
+                    "TST-001",
+                    "--stage-command",
+                    "/feature-dev-aidd:tasks-new TST-001",
+                ]
+                rc = self.launcher.main()
+            finally:
+                sys.argv = original_argv
+                self.launcher.run_stage = original_run_stage
+
+            self.assertEqual(rc, self.launcher.CWD_BLOCKER_EXIT_CODE)
+            summary = (audit_dir / "05_tasks_new_run1.summary.txt").read_text(encoding="utf-8")
+            self.assertIn("reason_code=cwd_wrong", summary)
+            self.assertIn("classification=ENV_MISCONFIG(cwd_wrong)", summary)
+            self.assertIn(f"project_dir={root.resolve()}", summary)
+            self.assertIn(f"plugin_dir={root.resolve()}", summary)
+            log_text = (audit_dir / "05_tasks_new_run1.log").read_text(encoding="utf-8")
+            self.assertIn("refusing to use plugin repository as workspace root", log_text)
+
+    def test_main_fail_fast_when_project_looks_like_plugin_root(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            project_dir = root / "project_like_plugin"
+            plugin_dir = root / "plugin_runtime"
+            audit_dir = root / "audit"
+            (project_dir / ".claude-plugin").mkdir(parents=True, exist_ok=True)
+            (project_dir / "skills").mkdir(parents=True, exist_ok=True)
+            plugin_dir.mkdir(parents=True, exist_ok=True)
+            audit_dir.mkdir(parents=True, exist_ok=True)
+
+            original_run_stage = self.launcher.run_stage
+            original_argv = list(sys.argv)
+            self.launcher.run_stage = lambda **_: (_ for _ in ()).throw(AssertionError("run_stage must not be called"))
+            try:
+                sys.argv = [
+                    "aidd_stage_launcher.py",
+                    "--project-dir",
+                    str(project_dir),
+                    "--plugin-dir",
+                    str(plugin_dir),
+                    "--audit-dir",
+                    str(audit_dir),
+                    "--step",
+                    "04_aidd_init",
+                    "--run",
+                    "1",
+                    "--ticket",
+                    "TST-001",
+                    "--stage-command",
+                    "/feature-dev-aidd:aidd-init",
+                ]
+                rc = self.launcher.main()
+            finally:
+                sys.argv = original_argv
+                self.launcher.run_stage = original_run_stage
+
+            self.assertEqual(rc, self.launcher.CWD_BLOCKER_EXIT_CODE)
+            summary = (audit_dir / "04_aidd_init_run1.summary.txt").read_text(encoding="utf-8")
+            self.assertIn("reason_code=cwd_wrong", summary)
+            env_misconfig = (audit_dir / "04_aidd_init_run1.env_misconfig.txt").read_text(encoding="utf-8")
+            self.assertIn("reason_detail=project_dir_looks_like_plugin_root", env_misconfig)
+
 
 if __name__ == "__main__":
     unittest.main()

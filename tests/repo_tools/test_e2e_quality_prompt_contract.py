@@ -98,6 +98,8 @@ class E2EQualityPromptContractTests(unittest.TestCase):
             "NOT VERIFIED (findings_sync_not_converged)",
             "runtime_path_missing_or_drift",
             "prompt-flow drift (non-canonical stage orchestration)",
+            'realpath("$PROJECT_DIR") != realpath("$PLUGIN_DIR")',
+            "PROJECT_DIR must differ from PLUGIN_DIR",
         ):
             self.assertIn(needle, text)
 

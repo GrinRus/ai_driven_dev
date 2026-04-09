@@ -271,6 +271,8 @@ class E2EPromptContractTests(unittest.TestCase):
             self.assertIn('--plugin-dir "$PLUGIN_DIR"', text, msg=f"{prompt}: missing plugin-dir launcher invariant")
             self.assertIn("--verbose --output-format stream-json", text, msg=f"{prompt}: missing stream-json verbose flags")
             self.assertIn('df -Pk "$PROJECT_DIR"', text, msg=f"{prompt}: missing disk preflight invariant")
+            self.assertIn('realpath("$PROJECT_DIR") != realpath("$PLUGIN_DIR")', text, msg=f"{prompt}: missing project/plugin topology invariant")
+            self.assertIn("PROJECT_DIR must differ from PLUGIN_DIR", text, msg=f"{prompt}: missing shell-safe topology precheck snippet")
 
     def test_smoke_script_blocks_legacy_shadow_artifacts_in_workspace_root(self) -> None:
         text = _read(REPO_ROOT / "tests" / "repo_tools" / "smoke-workflow.sh")
