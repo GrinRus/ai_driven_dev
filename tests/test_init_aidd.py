@@ -106,6 +106,16 @@ class InitAiddTests(unittest.TestCase):
         self.assertIn(tests_cfg.get("profile_default"), {"none", "targeted", "full", "fast"})
         self.assertIn("commands", tests_cfg)
         self.assertIsInstance(tests_cfg.get("commands"), list)
+        command_entries = tests_cfg.get("commands") or []
+        self.assertTrue(
+            any(
+                isinstance(entry, dict)
+                and entry.get("cwd") == "backend-mcp"
+                and entry.get("command") == ["./gradlew", "test"]
+                for entry in command_entries
+            ),
+            "init should detect gradlew under workspace code roots (outside aidd/)",
+        )
         self.assertFalse((workdir / ".claude" / "settings.json").exists())
 
     def test_removed_init_flags_are_rejected(self):

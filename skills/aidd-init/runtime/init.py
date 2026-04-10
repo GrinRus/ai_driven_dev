@@ -183,8 +183,8 @@ def _detect_qa_test_command_entries(workspace_root: Path) -> list[dict]:
     return entries
 
 
-def _bootstrap_qa_tests_contract(workspace_root: Path, *, force: bool) -> None:
-    gates_path = workspace_root / "config" / "gates.json"
+def _bootstrap_qa_tests_contract(project_root: Path, *, detect_root: Path, force: bool) -> None:
+    gates_path = project_root / "config" / "gates.json"
     try:
         payload = json.loads(gates_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
@@ -208,7 +208,7 @@ def _bootstrap_qa_tests_contract(workspace_root: Path, *, force: bool) -> None:
     if isinstance(existing_commands, list) and existing_commands and not force:
         return
 
-    detected_entries = _detect_qa_test_command_entries(workspace_root)
+    detected_entries = _detect_qa_test_command_entries(detect_root)
     tests_cfg["contract_version"] = int(tests_cfg.get("contract_version") or 1)
     tests_cfg["filters_default"] = tests_cfg.get("filters_default") or []
     tests_cfg["when_default"] = str(tests_cfg.get("when_default") or "manual")
@@ -229,7 +229,7 @@ def _bootstrap_qa_tests_contract(workspace_root: Path, *, force: bool) -> None:
 
 def run_init(target: Path, extra_args: List[str] | None = None) -> None:
     extra_args = extra_args or []
-    _workspace_root, project_root = runtime.resolve_roots(target, create=True)
+    workspace_root, project_root = runtime.resolve_roots(target, create=True)
 
     force = "--force" in extra_args
     ignored = [arg for arg in extra_args if arg not in {"--force"}]
@@ -254,7 +254,7 @@ def run_init(target: Path, extra_args: List[str] | None = None) -> None:
         print(f"[aidd:init] no changes (already initialized) in {project_root}")
     loops_reports = project_root / "reports" / "loops"
     loops_reports.mkdir(parents=True, exist_ok=True)
-    _bootstrap_qa_tests_contract(project_root, force=force)
+    _bootstrap_qa_tests_contract(project_root, detect_root=workspace_root, force=force)
 
 
 def parse_args(argv: List[str] | None = None) -> argparse.Namespace:

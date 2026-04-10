@@ -367,6 +367,18 @@ def test_contract_missing_commands_for_active_profile_is_terminal(tmp_path):
     assert reason_code == "project_contract_missing"
 
 
+def test_contract_python_command_preserves_argv_without_cwd_suffix():
+    tokens = qa_tools._materialize_contract_command_tokens(
+        {
+            "id": "py-tests",
+            "command": ["python3", "tools/run_tests.py", "--quick"],
+            "cwd": "backend",
+            "profiles": ["targeted"],
+        }
+    )
+    assert tokens == ["python3", "tools/run_tests.py", "--quick"]
+
+
 def test_debounce_stamp_written_only_on_success(tmp_path):
     ensure_gates_config(
         tmp_path,

@@ -124,38 +124,6 @@ def _materialize_contract_command_tokens(entry: dict) -> list[str]:
     tokens = [str(item).strip() for item in (entry.get("command") or []) if str(item).strip()]
     if not tokens:
         return []
-    cwd = str(entry.get("cwd") or ".").strip() or "."
-    if cwd in {".", "./"}:
-        return tokens
-    head = tokens[0]
-    tail = tokens[1:]
-    normalized_cwd = cwd.strip("./")
-    if head.startswith("./"):
-        return [f"./{normalized_cwd}/{head[2:]}", *tail]
-    if head == "npm":
-        return ["npm", "--prefix", cwd, *tail]
-    if head == "pnpm":
-        return ["pnpm", "--dir", cwd, *tail]
-    if head == "yarn":
-        return ["yarn", "--cwd", cwd, *tail]
-    if head == "mvn" and "-f" not in tail:
-        return ["mvn", "-f", f"./{normalized_cwd}/pom.xml", *tail]
-    if head == "cargo" and "--manifest-path" not in tail:
-        return ["cargo", *tail, "--manifest-path", f"./{normalized_cwd}/Cargo.toml"]
-    if head in {"python", "python3", "pytest"}:
-        return [head, *tail, f"./{normalized_cwd}"]
-    if head == "go":
-        transformed: list[str] = []
-        replaced = False
-        for item in tail:
-            if item == "./..." and not replaced:
-                transformed.append(f"./{normalized_cwd}/...")
-                replaced = True
-            else:
-                transformed.append(item)
-        if not transformed:
-            transformed = [f"./{normalized_cwd}/..."]
-        return [head, *transformed]
     return tokens
 
 
