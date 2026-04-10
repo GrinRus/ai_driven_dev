@@ -18,8 +18,8 @@
       "lang": "ru",
       "name": "plan-reviewer",
       "path": "agents/plan-reviewer.md",
-      "prompt_version": "1.0.19",
-      "source_version": "1.0.19"
+      "prompt_version": "1.0.20",
+      "source_version": "1.0.20"
     },
     {
       "lang": "ru",
@@ -211,8 +211,8 @@
       "lang": "ru",
       "name": "review-spec",
       "path": "skills/review-spec/SKILL.md",
-      "prompt_version": "1.0.25",
-      "source_version": "1.0.25",
+      "prompt_version": "1.0.26",
+      "source_version": "1.0.26",
       "user_invocable": "true"
     },
     {

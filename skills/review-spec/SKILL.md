@@ -3,8 +3,8 @@ name: review-spec
 description: Reviews plan and PRD, then gates readiness for implementation. Use when plan and PRD artifacts are ready for spec approval. Do not use when the request is plan authoring in `plan-new` or unresolved answer collection in `spec-interview`.
 argument-hint: $1 [note...]
 lang: ru
-prompt_version: 1.0.25
-source_version: 1.0.25
+prompt_version: 1.0.26
+source_version: 1.0.26
 allowed-tools:
   - Read
   - Edit
@@ -15,6 +15,7 @@ allowed-tools:
   - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_slice.py *)"
   - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/progress_cli.py *)"
   - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/runtime/prd_review.py *)"
+  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/runtime/plan_review_gate.py *)"
   - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/prd_check.py *)"
   - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_stage.py *)"
   - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_feature.py *)"
@@ -27,17 +28,19 @@ Follow `feature-dev-aidd:aidd-core`.
 
 ## Steps
 1. Set active stage `review-plan`, then `review-prd`; keep active feature in sync via canonical active-state runtime commands only.
-2. Run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/runtime/prd_review.py --ticket <ticket>` to refresh structured PRD report payload.
-3. Gate PRD readiness with `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/prd_check.py`; block on failure.
-4. Use the existing rolling context pack as review input; do not invoke standalone context-pack builder scripts from this stage.
-5. Run subagent `feature-dev-aidd:plan-reviewer`, then run subagent `feature-dev-aidd:prd-reviewer`.
-6. Persist PRD review report with `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/runtime/prd_review.py --ticket <ticket> --report aidd/reports/prd/<ticket>.json --require-ready` for READY-path validation.
-7. Review-stage RLM policy: if RLM links are empty, the runtime performs bounded auto-heal (`rlm_links_build`, then finalize probe) and returns WARN attribution with evidence instead of terminal block when review can continue.
-8. Report payload (`aidd/reports/prd/<ticket>.json|.pack.json`) is the source of truth for final verdict: READY is allowed only when `recommended_status=ready`; otherwise return WARN/BLOCKED with canonical next action (`/feature-dev-aidd:spec-interview <ticket>`).
-9. If narrative text conflicts with report payload, mark `WARN(review_spec_report_mismatch)` and follow report payload only.
-10. `Proceed to implementation` is forbidden when `recommended_status != ready`.
-11. Runtime-path safety: execute only canonical runtime commands from this contract (`python3 ${CLAUDE_PLUGIN_ROOT}/skills/.../runtime/...`).
-12. Root-relative `/skills/...` runtime paths are forbidden; use only `python3 ${CLAUDE_PLUGIN_ROOT}/skills/.../runtime/...`.
+2. Run plan readiness gate before verdict: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/runtime/plan_review_gate.py --ticket <ticket>`.
+3. Canonical plan path for all checks and narrative is only `aidd/docs/plan/<ticket>.md`; alias paths like `aidd/docs/plan/<ticket>.plan.md` are forbidden.
+4. Run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/runtime/prd_review.py --ticket <ticket>` to refresh structured PRD report payload.
+5. Gate PRD readiness with `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/prd_check.py`; block on failure.
+6. Use the existing rolling context pack as review input; do not invoke standalone context-pack builder scripts from this stage.
+7. Run subagent `feature-dev-aidd:plan-reviewer`, then run subagent `feature-dev-aidd:prd-reviewer`.
+8. Persist PRD review report with `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/runtime/prd_review.py --ticket <ticket> --report aidd/reports/prd/<ticket>.json --require-ready` for READY-path validation.
+9. Review-stage RLM policy: if RLM links are empty, the runtime performs bounded auto-heal (`rlm_links_build`, then finalize probe) and returns WARN attribution with evidence instead of terminal block when review can continue.
+10. Report payload (`aidd/reports/prd/<ticket>.json|.pack.json`) is the source of truth for final verdict: READY is allowed only when `recommended_status=ready`; otherwise return WARN/BLOCKED with canonical next action (`/feature-dev-aidd:spec-interview <ticket>`).
+11. If narrative text conflicts with gate/report payload, mark `WARN(review_spec_report_mismatch)` and follow gate/report payload only.
+12. `Proceed to implementation` is forbidden when `recommended_status != ready`.
+13. Runtime-path safety: execute only canonical runtime commands from this contract (`python3 ${CLAUDE_PLUGIN_ROOT}/skills/.../runtime/...`).
+14. Root-relative `/skills/...` runtime paths are forbidden; use only `python3 ${CLAUDE_PLUGIN_ROOT}/skills/.../runtime/...`.
 
 ## Command contracts
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/runtime/prd_review.py`

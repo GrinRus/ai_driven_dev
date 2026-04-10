@@ -73,6 +73,10 @@ NONE_VALUES = {"none", "нет", "n/a", "na"}
 OPEN_ITEM_PREFIX_RE = re.compile(r"^(?:[-*+]\s+|\d+\.\s+)")
 CHECKBOX_PREFIX_RE = re.compile(r"^\[[ xX]\]\s*")
 MARKDOWN_HEADING_RE = re.compile(r"^\s{0,3}#{1,6}\s+\S")
+COMPACT_ANSWER_INSTRUCTION_RE = re.compile(
+    r"(compact\s+формат|q<n>\s*=\s*<token>|q<n>\s*=\s*\"[^\"]+\")",
+    re.IGNORECASE,
+)
 
 
 def _normalize_output_path(root: Path, path: Path) -> Path:
@@ -311,14 +315,23 @@ def _detect_answers_format(section: str) -> str:
 def collect_placeholders(content: str) -> Iterable[str]:
     sanitized = HTML_COMMENT_RE.sub(" ", content)
     inside_review_section = False
+    inside_answers_section = False
     for line in sanitized.splitlines():
         if is_markdown_h2(line):
             inside_review_section = is_prd_review_header(line)
+            inside_answers_section = line.strip().lower().startswith(AIDD_ANSWERS_HEADING.lower())
             continue
         if inside_review_section:
             continue
         trimmed = line.strip()
         if not trimmed:
+            continue
+        # Ignore instructional compact-format examples in AIDD:ANSWERS blockquotes.
+        if (
+            inside_answers_section
+            and trimmed.startswith(">")
+            and COMPACT_ANSWER_INSTRUCTION_RE.search(trimmed)
+        ):
             continue
         if RESOLVED_TBD_RE.search(trimmed):
             continue

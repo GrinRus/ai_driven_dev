@@ -344,6 +344,52 @@ class AiddAuditRunnerTests(unittest.TestCase):
         self.assertEqual(payload.get("readiness_gate_failed"), 1)
         self.assertEqual(payload.get("readiness_reason"), "prd_not_ready")
 
+    def test_readiness_prd_not_ready_with_ready_prd_and_pending_report_is_report_driven(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "05_plan_new_run1.summary.txt"
+            precondition_path = Path(tmp) / "05_precondition_block.txt"
+            report_check_path = Path(tmp) / "05_review_spec_report_check_run1.txt"
+            summary_path.write_text(
+                "\n".join(
+                    [
+                        "step=05_plan_new",
+                        "result_count=0",
+                        "exit_code=0",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            precondition_path.write_text(
+                "\n".join(
+                    [
+                        "prd_status=READY",
+                        "readiness_gate=FAIL",
+                        "reason_code=prd_not_ready",
+                        "review_spec_recommended_status=pending",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            report_check_path.write_text(
+                "\n".join(
+                    [
+                        "recommended_status=pending",
+                        "findings_count=1",
+                        "open_questions_count=0",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(
+                summary_path=summary_path,
+                precondition_path=precondition_path,
+                aux_log_paths=[report_check_path],
+            )
+        self.assertEqual(payload.get("classification"), "PROMPT_EXEC_ISSUE")
+        self.assertEqual(payload.get("classification_subtype"), "readiness_gate_failed")
+        self.assertEqual(payload.get("readiness_reason"), "prd_not_ready")
+        self.assertEqual(payload.get("readiness_failure_mode"), "report_recommended_status_not_ready")
+
     def test_repeated_command_failure_reason_is_classified_as_prompt_exec_issue(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             summary_path = Path(tmp) / "06_implement_run1.summary.txt"

@@ -241,6 +241,31 @@ def _detect_readiness_gate_reason(
     return ""
 
 
+def _derive_readiness_failure_mode(
+    *,
+    readiness_reason: str,
+    precondition: Mapping[str, str],
+    diagnostics: Mapping[str, str],
+) -> str:
+    reason = str(readiness_reason or "").strip().lower()
+    if not reason:
+        return ""
+    prd_status = str(precondition.get("prd_status") or diagnostics.get("prd_status") or "").strip().lower()
+    review_recommended_status = str(
+        diagnostics.get("recommended_status")
+        or precondition.get("review_spec_recommended_status")
+        or ""
+    ).strip().lower()
+    if (
+        reason == "prd_not_ready"
+        and prd_status == "ready"
+        and review_recommended_status
+        and review_recommended_status != "ready"
+    ):
+        return "report_recommended_status_not_ready"
+    return reason
+
+
 def _allow_readiness_override(classification: contract.Classification) -> bool:
     if classification.subtype == "readiness_gate_failed":
         return False
@@ -351,6 +376,11 @@ def analyze_run(
         precondition=precondition,
         diagnostics_text=aux_text,
     )
+    readiness_failure_mode = _derive_readiness_failure_mode(
+        readiness_reason=readiness_reason,
+        precondition=precondition,
+        diagnostics=diagnostics,
+    )
     readiness_gate_failed = bool(readiness_reason)
     if readiness_gate_failed and _allow_readiness_override(classified):
         classified = contract.Classification(
@@ -439,6 +469,7 @@ def analyze_run(
             "review_spec_report_open_questions_count": review_open_questions_count,
             "readiness_gate_failed": int(readiness_gate_failed),
             "readiness_reason": readiness_reason,
+            "readiness_failure_mode": readiness_failure_mode,
             "liveness_classification": liveness_classification,
             "liveness_active_source": liveness_active_source,
             "liveness_valid_stream_count": liveness_valid_stream_count,
