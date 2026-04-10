@@ -212,6 +212,39 @@ class AiddAuditRunnerTests(unittest.TestCase):
         self.assertEqual(payload.get("top_level_result_present"), 1)
         self.assertEqual(payload.get("result_count_interpretation"), "telemetry_only_top_level_present")
 
+    def test_project_contract_reason_overrides_exit_143_external_terminate(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "06_review_run1.summary.txt"
+            termination_path = Path(tmp) / "06_review_termination_attribution.txt"
+            summary_path.write_text(
+                "\n".join(
+                    [
+                        "exit_code=143",
+                        "reason_code=project_contract_missing",
+                        "result_count=0",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            termination_path.write_text(
+                "\n".join(
+                    [
+                        "exit_code=143",
+                        "killed_flag=0",
+                        "watchdog_marker=0",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(
+                summary_path=summary_path,
+                termination_path=termination_path,
+            )
+        self.assertEqual(payload.get("classification"), "PROMPT_EXEC_ISSUE")
+        self.assertEqual(payload.get("classification_subtype"), "project_contract_missing")
+
     def test_review_spec_report_mismatch_ready_is_non_blocking_info(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             summary_path = Path(tmp) / "05_review_spec_run1.summary.txt"
@@ -239,6 +272,43 @@ class AiddAuditRunnerTests(unittest.TestCase):
         self.assertEqual(payload.get("classification"), "TELEMETRY_ONLY")
         self.assertEqual(payload.get("classification_subtype"), "review_spec_report_mismatch_non_blocking")
         self.assertEqual(payload.get("effective_classification"), "INFO(review_spec_report_mismatch_non_blocking)")
+        self.assertEqual(payload.get("review_spec_report_mismatch_detected"), 1)
+        self.assertEqual(payload.get("review_spec_report_mismatch_non_blocking"), 1)
+
+    def test_review_spec_mismatch_non_blocking_does_not_override_primary_blocker(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "05_review_spec_run1.summary.txt"
+            report_check_path = Path(tmp) / "05_review_spec_report_check_run1.txt"
+            summary_path.write_text(
+                "\n".join(
+                    [
+                        "step=05_review_spec",
+                        "exit_code=2",
+                        "result_count=0",
+                        "reason_code=project_contract_missing",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            report_check_path.write_text(
+                "\n".join(
+                    [
+                        "recommended_status=ready",
+                        "findings_count=0",
+                        "open_questions_count=0",
+                        "narrative_vs_report_mismatch=1",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(
+                summary_path=summary_path,
+                aux_log_paths=[report_check_path],
+            )
+        self.assertEqual(payload.get("classification"), "PROMPT_EXEC_ISSUE")
+        self.assertEqual(payload.get("classification_subtype"), "project_contract_missing")
         self.assertEqual(payload.get("review_spec_report_mismatch_detected"), 1)
         self.assertEqual(payload.get("review_spec_report_mismatch_non_blocking"), 1)
 
@@ -475,6 +545,49 @@ class AiddAuditRunnerTests(unittest.TestCase):
 
             inferred = self.runner.infer_liveness_path(summary)
             self.assertEqual(inferred, run_specific)
+
+    def test_rollup_latest_wins_marks_superseded_runs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            summary_run1 = root / "05_tasks_new_run1.summary.txt"
+            summary_run2 = root / "05_tasks_new_run2.summary.txt"
+            log_run2 = root / "05_tasks_new_run2.log"
+
+            summary_run1.write_text(
+                "\n".join(
+                    [
+                        "step=05_tasks_new",
+                        "exit_code=2",
+                        "result_count=0",
+                        "reason_code=project_contract_missing",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            summary_run2.write_text(
+                "\n".join(
+                    [
+                        "step=05_tasks_new",
+                        "exit_code=0",
+                        "result_count=0",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            log_run2.write_text('{"type":"result","status":"success"}\n', encoding="utf-8")
+
+            payload1 = self.runner.analyze_run(summary_path=summary_run1)
+            payload2 = self.runner.analyze_run(summary_path=summary_run2, run_log_path=log_run2)
+            rolled = self.runner.rollup_latest_runs([payload1, payload2])
+
+        self.assertEqual(rolled.get("steps_total"), 1)
+        step_payload = (rolled.get("steps") or {}).get("05_tasks_new")
+        self.assertIsNotNone(step_payload)
+        self.assertEqual(step_payload.get("run_index"), 2)
+        superseded = step_payload.get("superseded_runs") or []
+        self.assertTrue(any(str(summary_run1) in item for item in superseded))
 
 
 if __name__ == "__main__":

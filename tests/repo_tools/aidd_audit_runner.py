@@ -19,6 +19,7 @@ import aidd_audit_contract as contract
 
 
 DEFAULT_MIN_FREE_BYTES = 1_073_741_824
+RUN_SUMMARY_RE = re.compile(r"^(?P<step>.+)_run(?P<run>[0-9]+)\.summary\.txt$")
 TOP_LEVEL_PATTERNS = (
     re.compile(r'"status"\s*:\s*"(blocked|done|ship|success|error|continue)"', re.IGNORECASE),
     re.compile(r"\bstatus=(blocked|done|ship|success|error|continue)\b", re.IGNORECASE),
@@ -63,12 +64,9 @@ def _safe_int(raw: object, default: int = 0) -> int:
 
 
 def infer_liveness_path(summary_path: Path) -> Path | None:
-    name = summary_path.name
-    match = re.match(r"^(?P<step>.+)_run(?P<run>[0-9]+)\.summary\.txt$", name)
-    if not match:
+    step, run = _parse_summary_identity(summary_path)
+    if not step or run <= 0:
         return None
-    step = match.group("step")
-    run = match.group("run")
     candidates = [
         summary_path.with_name(f"{step}_stream_liveness_check_run{run}.txt"),
         summary_path.with_name(f"{step}_stream_liveness_check.txt"),
@@ -77,6 +75,16 @@ def infer_liveness_path(summary_path: Path) -> Path | None:
         if candidate.exists():
             return candidate
     return None
+
+
+def _parse_summary_identity(summary_path: Path) -> tuple[str, int]:
+    name = summary_path.name
+    match = RUN_SUMMARY_RE.match(name)
+    if not match:
+        return "", 0
+    step = str(match.group("step") or "").strip()
+    run = _safe_int(match.group("run"), 0)
+    return step, run
 
 
 def resolve_min_free_bytes(raw: str | None = None) -> int:
@@ -249,6 +257,12 @@ def analyze_run(
     preflight: Mapping[str, object] | None = None,
     aux_log_paths: List[Path] | None = None,
 ) -> Dict[str, object]:
+    step_key, run_index = _parse_summary_identity(summary_path)
+    summary_mtime = 0.0
+    try:
+        summary_mtime = float(summary_path.stat().st_mtime)
+    except OSError:
+        summary_mtime = 0.0
     summary = parse_kv_file(summary_path)
     termination = parse_kv_file(termination_path) if termination_path else {}
     precondition = parse_kv_file(precondition_path) if precondition_path else {}
@@ -325,7 +339,7 @@ def analyze_run(
         and review_findings_count == 0
         and review_open_questions_count == 0
     )
-    if review_mismatch_non_blocking:
+    if review_mismatch_non_blocking and classified.classification in {"FLOW_BUG", "TELEMETRY_ONLY"}:
         classified = contract.Classification(
             classification="TELEMETRY_ONLY",
             subtype="review_spec_report_mismatch_non_blocking",
@@ -387,6 +401,16 @@ def analyze_run(
     if classified.classification == "ENV_MISCONFIG" and classified.subtype == "cwd_wrong":
         if re.search(r"05[_-].*tasks[-_ ]new|05_tasks_new", step_hint, flags=re.IGNORECASE):
             downstream_skip_hint = "NOT VERIFIED (upstream_tasks_new_failed)"
+    primary_cause = f"{classified.classification}:{classified.subtype}"
+    secondary_symptoms: List[str] = []
+    if result_count_interpretation == "no_top_level_result_confirmed":
+        secondary_symptoms.append("no_top_level_result")
+    if invalid_fallback_paths:
+        secondary_symptoms.append("invalid_fallback_path_detected")
+    if review_mismatch_detected:
+        secondary_symptoms.append("review_spec_report_mismatch")
+    if readiness_gate_failed:
+        secondary_symptoms.append("readiness_gate_failed")
 
     payload: Dict[str, object] = dict(summary)
     payload.update(
@@ -420,6 +444,13 @@ def analyze_run(
             "liveness_valid_stream_count": liveness_valid_stream_count,
             "liveness_stagnation_seconds": liveness_stagnation_seconds,
             "liveness_run_start_epoch": liveness_run_start_epoch,
+            "primary_cause": primary_cause,
+            "secondary_symptoms": secondary_symptoms,
+            "superseded_runs": [],
+            "summary_path": str(summary_path),
+            "summary_mtime": summary_mtime,
+            "step_key": step_key or str(summary.get("step") or ""),
+            "run_index": run_index,
         }
     )
     if downstream_skip_hint:
@@ -430,6 +461,42 @@ def analyze_run(
     if liveness:
         payload["liveness"] = dict(liveness)
     return payload
+
+
+def rollup_latest_runs(run_payloads: List[Mapping[str, object]]) -> Dict[str, object]:
+    grouped: Dict[str, List[Dict[str, object]]] = {}
+    for raw in run_payloads:
+        payload = dict(raw)
+        step_key = str(payload.get("step_key") or payload.get("step") or "").strip() or "unknown"
+        grouped.setdefault(step_key, []).append(payload)
+
+    rolled: Dict[str, Dict[str, object]] = {}
+    for step_key, rows in grouped.items():
+        ordered = sorted(
+            rows,
+            key=lambda item: (
+                _safe_int(item.get("run_index"), 0),
+                float(item.get("summary_mtime") or 0.0),
+                str(item.get("summary_path") or ""),
+            ),
+        )
+        latest = dict(ordered[-1])
+        superseded_runs: List[str] = []
+        for stale in ordered[:-1]:
+            label = str(stale.get("summary_path") or "").strip()
+            if not label:
+                stale_run = _safe_int(stale.get("run_index"), 0)
+                label = f"{step_key}:run{stale_run}"
+            superseded_runs.append(label)
+        latest["superseded_runs"] = superseded_runs
+        rolled[step_key] = latest
+
+    return {
+        "runs_total": len(run_payloads),
+        "steps_total": len(rolled),
+        "step_order": sorted(rolled.keys()),
+        "steps": rolled,
+    }
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -453,6 +520,14 @@ def _build_parser() -> argparse.ArgumentParser:
     classify_parser.add_argument("--min-free-bytes", type=int, default=DEFAULT_MIN_FREE_BYTES)
     classify_parser.add_argument("--skip-preflight", action="store_true")
 
+    rollup_parser = sub.add_parser("rollup", help="Analyze multiple runs and roll up latest-wins per step.")
+    rollup_parser.add_argument("--summary", action="append", default=[], help="Path to *_runN.summary.txt (repeatable).")
+    rollup_parser.add_argument("--audit-dir", help="Directory with *_runN.summary.txt artifacts.")
+    rollup_parser.add_argument("--project-dir")
+    rollup_parser.add_argument("--plugin-dir")
+    rollup_parser.add_argument("--min-free-bytes", type=int, default=DEFAULT_MIN_FREE_BYTES)
+    rollup_parser.add_argument("--skip-preflight", action="store_true")
+
     return parser
 
 
@@ -465,6 +540,46 @@ def main(argv: List[str] | None = None) -> int:
             min_free_bytes=args.min_free_bytes,
         )
         print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return 0
+
+    if args.command == "rollup":
+        summary_paths: List[Path] = []
+        summary_paths.extend(Path(item) for item in (args.summary or []))
+        if args.audit_dir:
+            summary_paths.extend(sorted(Path(args.audit_dir).glob("*_run*.summary.txt")))
+        unique_paths: List[Path] = []
+        seen: set[str] = set()
+        for path in summary_paths:
+            key = str(path.resolve())
+            if key in seen:
+                continue
+            seen.add(key)
+            if path.exists():
+                unique_paths.append(path)
+        if not unique_paths:
+            raise SystemExit("rollup requires --summary or --audit-dir with existing *_run*.summary.txt files")
+
+        preflight_payload: Mapping[str, object] | None = None
+        if not args.skip_preflight and args.project_dir and args.plugin_dir:
+            preflight_payload = collect_preflight(
+                project_dir=Path(args.project_dir),
+                plugin_dir=Path(args.plugin_dir),
+                min_free_bytes=args.min_free_bytes,
+            )
+
+        analyzed: List[Dict[str, object]] = []
+        for summary_path in sorted(unique_paths):
+            payload = analyze_run(
+                summary_path=summary_path,
+                preflight=preflight_payload,
+            )
+            if preflight_payload is not None:
+                payload["runner_preflight"] = dict(preflight_payload)
+            analyzed.append(payload)
+        rollup = rollup_latest_runs(analyzed)
+        if preflight_payload is not None:
+            rollup["runner_preflight"] = dict(preflight_payload)
+        print(json.dumps(rollup, ensure_ascii=False, indent=2))
         return 0
 
     preflight_payload: Mapping[str, object] | None = None

@@ -278,75 +278,72 @@ def test_runs_on_report_change_without_qa_stage(tmp_path):
     assert "Запуск QA-агента" in (result.stdout + result.stderr)
 
 
-def test_discovery_respects_allowlist(tmp_path):
+def test_contract_commands_loaded_from_gates_only(tmp_path):
     ensure_gates_config(
         tmp_path,
         {
             "qa": {
                 "tests": {
-                    "source": "readme-ci",
-                    "discover": {
-                        "max_files": 10,
-                        "max_bytes": 200000,
-                        "allow_paths": ["README*"],
-                    },
+                    "contract_version": 1,
+                    "profile_default": "targeted",
+                    "when_default": "manual",
+                    "reason_default": "unit",
+                    "commands": [
+                        {
+                            "id": "pytest",
+                            "command": ["python3", "-m", "pytest", "-q"],
+                            "cwd": ".",
+                            "profiles": ["targeted", "full"],
+                        }
+                    ],
                 }
             }
         },
     )
-    write_file(tmp_path, "README.md", "run: pytest\n")
-    write_file(tmp_path, ".github/workflows/ci.yml", "- run: npm test\n")
 
-    commands, _, _ = qa_tools._load_qa_tests_config(tmp_path / "aidd")
+    commands, reason_code = qa_tools._load_qa_tests_config(tmp_path / "aidd")
 
-    assert commands == [["pytest"]]
+    assert commands == [["python3", "-m", "pytest", "-q"]]
+    assert reason_code == ""
 
 
-def test_discovery_preserves_python_pytest_prefix(tmp_path):
+def test_contract_profile_none_allows_empty_commands(tmp_path):
     ensure_gates_config(
         tmp_path,
         {
             "qa": {
                 "tests": {
-                    "source": "readme-ci",
-                    "discover": {
-                        "max_files": 10,
-                        "max_bytes": 200000,
-                        "allow_paths": ["README*"],
-                    },
+                    "contract_version": 1,
+                    "profile_default": "none",
+                    "when_default": "manual",
+                    "reason_default": "unit",
+                    "commands": [],
                 }
             }
         },
     )
-    write_file(tmp_path, "README.md", "python -m pytest -q\n")
 
-    commands, _, _ = qa_tools._load_qa_tests_config(tmp_path / "aidd")
+    commands, reason_code = qa_tools._load_qa_tests_config(tmp_path / "aidd")
 
-    assert commands == [["python", "-m", "pytest", "-q"]]
+    assert commands == []
+    assert reason_code == ""
 
 
-def test_discovery_respects_max_files(tmp_path):
+def test_contract_missing_canonical_fields_is_terminal(tmp_path):
     ensure_gates_config(
         tmp_path,
         {
             "qa": {
                 "tests": {
-                    "source": "readme-ci",
-                    "discover": {
-                        "max_files": 1,
-                        "max_bytes": 200000,
-                        "allow_paths": ["README*"],
-                    },
+                    "profile_default": "targeted",
+                    "commands": [],
                 }
             }
         },
     )
-    write_file(tmp_path, "README-1.md", "pytest\n")
-    write_file(tmp_path, "README-2.md", "npm test\n")
-
-    commands, _, _ = qa_tools._load_qa_tests_config(tmp_path / "aidd")
-
-    assert commands == [["pytest"]]
+    commands, reason_code = qa_tools._load_qa_tests_config(tmp_path / "aidd")
+    assert commands == []
+    assert reason_code == "project_contract_missing"
 
 
 def test_contract_missing_commands_for_active_profile_is_terminal(tmp_path):
@@ -355,16 +352,16 @@ def test_contract_missing_commands_for_active_profile_is_terminal(tmp_path):
         {
             "qa": {
                 "tests": {
+                    "contract_version": 1,
                     "profile_default": "targeted",
+                    "when_default": "manual",
+                    "reason_default": "unit",
                     "commands": [],
-                    "source": "readme-ci",
                 }
             }
         },
     )
-    write_file(tmp_path, "README.md", "run: pytest\n")
-
-    commands, _, reason_code = qa_tools._load_qa_tests_config(tmp_path / "aidd")
+    commands, reason_code = qa_tools._load_qa_tests_config(tmp_path / "aidd")
 
     assert commands == []
     assert reason_code == "project_contract_missing"

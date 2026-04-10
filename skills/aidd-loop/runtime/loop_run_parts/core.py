@@ -13,6 +13,7 @@ import time
 import sys
 import datetime as dt
 import re
+from contextlib import suppress
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -72,6 +73,11 @@ _COMMAND_FAILURE_CONTEXT_RE = re.compile(
     r"(?:command not found|no such file or directory|can't open file)\s*:?\s*(?P<context>[^\s)]+)",
     re.IGNORECASE,
 )
+_REPEATED_POLICY_BLOCK_REASONS = {
+    "no_tests_hard",
+    "project_contract_missing",
+    "tests_cwd_mismatch",
+}
 _LEGACY_STAGE_ALIAS_TO_CANONICAL = {
     "/feature-dev-aidd:planner": "/feature-dev-aidd:plan-new",
     "/feature-dev-aidd:tasklist-refiner": "/feature-dev-aidd:tasks-new",
@@ -1128,6 +1134,8 @@ def main(argv: List[str] | None = None) -> int:
     scope_drift_recovery_probe_used = False
     last_command_failure_signature = ""
     consecutive_command_failure_hits = 0
+    last_policy_block_signature = ""
+    consecutive_policy_block_hits = 0
     stream_log_path = None
     stream_jsonl_path = None
     if stream_mode:
@@ -1911,9 +1919,49 @@ def main(argv: List[str] | None = None) -> int:
             else:
                 consecutive_command_failure_hits = 0
                 last_command_failure_signature = ""
+            policy_reason_code = str(log_reason_code or "").strip().lower()
+            if policy_reason_code in _REPEATED_POLICY_BLOCK_REASONS:
+                stage_result_abs = None
+                tests_log_abs = None
+                if stage_result_path:
+                    with suppress(Exception):
+                        stage_result_abs = runtime.resolve_path_for_target(Path(stage_result_path), target)
+                if tests_log_path:
+                    with suppress(Exception):
+                        tests_log_abs = runtime.resolve_path_for_target(Path(tests_log_path), target)
+                stage_result_fingerprint = (
+                    f"{_safe_size(stage_result_abs)}:{_safe_mtime(stage_result_abs)}"
+                    if stage_result_abs and stage_result_abs.exists()
+                    else "missing"
+                )
+                tests_log_fingerprint = (
+                    f"{_safe_size(tests_log_abs)}:{_safe_mtime(tests_log_abs)}"
+                    if tests_log_abs and tests_log_abs.exists()
+                    else "missing"
+                )
+                policy_block_signature = "|".join(
+                    [
+                        policy_reason_code,
+                        str(step_stage or ""),
+                        str(chosen_scope or ""),
+                        str(step_work_item or ""),
+                        stage_result_fingerprint,
+                        tests_log_fingerprint,
+                    ]
+                )
+                if policy_block_signature == last_policy_block_signature:
+                    consecutive_policy_block_hits += 1
+                else:
+                    last_policy_block_signature = policy_block_signature
+                    consecutive_policy_block_hits = 1
+            else:
+                consecutive_policy_block_hits = 0
+                last_policy_block_signature = ""
         else:
             consecutive_command_failure_hits = 0
             last_command_failure_signature = ""
+            consecutive_policy_block_hits = 0
+            last_policy_block_signature = ""
 
         if step_termination_attribution is not None or step_status == "blocked":
             watchdog_hint = bool(
@@ -2060,6 +2108,91 @@ def main(argv: List[str] | None = None) -> int:
             return DONE_CODE
         if step_exit_code == BLOCKED_CODE:
             step_stage = str(step_payload.get("stage") or "").strip().lower()
+            policy_reason_code = str(log_reason_code or "").strip().lower()
+            repeated_policy_threshold = max(int(recoverable_retry_budget) + 1, 3)
+            if (
+                policy_reason_code in _REPEATED_POLICY_BLOCK_REASONS
+                and consecutive_policy_block_hits >= repeated_policy_threshold
+            ):
+                reason = (
+                    "loop-step emitted repeated blocked policy result without new evidence; "
+                    f"reason_code={policy_reason_code} "
+                    f"hits={consecutive_policy_block_hits}"
+                )
+                append_log(
+                    log_path,
+                    (
+                        f"{utc_timestamp()} event=fail-fast-repeated-policy-block iteration={iteration} "
+                        "reason_code=repeated_command_failure_no_new_evidence "
+                        f"source_reason_code={policy_reason_code} "
+                        f"hits={consecutive_policy_block_hits} stage={step_stage or 'n/a'}"
+                    ),
+                )
+                append_log(
+                    cli_log_path,
+                    (
+                        f"{utc_timestamp()} event=blocked iteration={iteration} "
+                        "reason_code=repeated_command_failure_no_new_evidence "
+                        f"source_reason_code={policy_reason_code} "
+                        f"hits={consecutive_policy_block_hits}"
+                    ),
+                )
+                clear_active_mode(target)
+                payload = {
+                    "status": "blocked",
+                    "iterations": iteration,
+                    "exit_code": BLOCKED_CODE,
+                    "log_path": runtime.rel_path(log_path, target),
+                    "cli_log_path": runtime.rel_path(cli_log_path, target),
+                    "runner_label": runner_label,
+                    "blocked_policy": blocked_policy,
+                    "stream_log_path": runtime.rel_path(stream_log_path, target) if stream_log_path else "",
+                    "stream_jsonl_path": runtime.rel_path(stream_jsonl_path, target) if stream_jsonl_path else "",
+                    "reason": reason,
+                    "reason_code": "repeated_command_failure_no_new_evidence",
+                    "source_reason_code": policy_reason_code,
+                    "ralph_reason_class": "not_recoverable",
+                    "recoverable_blocked": False,
+                    "retry_attempt": recoverable_retry_attempt,
+                    "recoverable_retry_budget": recoverable_retry_budget,
+                    "runner_cmd": runner_effective,
+                    "scope_key": chosen_scope,
+                    "work_item_key": step_work_item or None,
+                    "stage": step_stage or None,
+                    "stage_budget_seconds": (
+                        stage_budget_seconds_payload
+                        if "stage_budget_seconds" in step_payload
+                        else stage_budget_seconds
+                    ),
+                    "stage_budget_remaining_seconds": (
+                        stage_budget_remaining_payload
+                        if "stage_budget_remaining_seconds" in step_payload
+                        else stage_budget_remaining_seconds
+                    ),
+                    "silent_stall_seconds": silent_stall_seconds,
+                    "budget_exhausted": False,
+                    "watchdog_marker": 0,
+                    "termination_attribution": _build_termination_attribution(
+                        exit_code=BLOCKED_CODE,
+                        classification="repeated_command_failure_no_new_evidence",
+                        killed_flag=False,
+                        watchdog_marker=False,
+                    ),
+                    "stream_liveness": stream_liveness,
+                    "policy_block_hits": consecutive_policy_block_hits,
+                    "last_step": step_payload,
+                    "updated_at": utc_timestamp(),
+                    **_ralph_recoverable_semantics(
+                        blocked_policy=blocked_policy,
+                        reason_code="repeated_command_failure_no_new_evidence",
+                        reason_class="not_recoverable",
+                        recoverable_blocked=False,
+                        retry_attempt=recoverable_retry_attempt,
+                        recoverable_retry_budget=recoverable_retry_budget,
+                    ),
+                }
+                emit(args.format, _attach_research_gate_telemetry(payload))
+                return BLOCKED_CODE
             if log_reason_code == "seed_stage_active_stream_timeout" and not budget_exhausted:
                 if command_failure_signature and consecutive_command_failure_hits >= _REPEATED_FAILURE_WINDOW:
                     reason = (

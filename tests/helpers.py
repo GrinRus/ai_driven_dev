@@ -136,21 +136,12 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
         "handoff": True,
         "handoff_mode": "block",
         "tests": {
-            "allow_skip": True,
-            "source": "readme-ci",
-            "discover": {
-                "max_files": 20,
-                "max_bytes": 200000,
-                "allow_paths": [
-                    ".github/workflows/*.yml",
-                    ".github/workflows/*.yaml",
-                    ".gitlab-ci.yml",
-                    ".circleci/config.yml",
-                    "Jenkinsfile",
-                    "README*",
-                    "readme*",
-                ],
-            },
+            "contract_version": 1,
+            "profile_default": "none",
+            "filters_default": [],
+            "when_default": "manual",
+            "reason_default": "test helper contract",
+            "commands": [],
         },
     },
     "loop": {

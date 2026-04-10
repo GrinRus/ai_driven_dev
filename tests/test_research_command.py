@@ -42,8 +42,6 @@ class ResearchCommandTest(unittest.TestCase):
                     "TEST-123",
                     "--keywords",
                     "test",
-                    "--limit",
-                    "1",
                 ),
                 cwd=project_root,
                 env=command_env,
@@ -75,8 +73,6 @@ class ResearchCommandTest(unittest.TestCase):
                     "--ticket",
                     "HINTS-0",
                     "--auto",
-                    "--limit",
-                    "1",
                 ]
             )
             old_cwd = Path.cwd()
@@ -114,11 +110,8 @@ class ResearchCommandTest(unittest.TestCase):
                     "--ticket",
                     "WORK-1",
                     "--auto",
-                    "--deep-code",
                     "--keywords",
                     "workspace",
-                    "--limit",
-                    "5",
                 ]
             )
 
@@ -170,8 +163,6 @@ class ResearchCommandTest(unittest.TestCase):
                     "backend/src/main/java",
                     "--targets-mode",
                     "explicit",
-                    "--limit",
-                    "5",
                 ]
             )
 
@@ -215,8 +206,6 @@ class ResearchCommandTest(unittest.TestCase):
                     "backend-demo",
                     "--keywords",
                     "backend",
-                    "--limit",
-                    "1",
                 ]
             )
 
@@ -261,8 +250,6 @@ class ResearchCommandTest(unittest.TestCase):
                     "--paths",
                     "../foo",
                     "--auto",
-                    "--limit",
-                    "5",
                 ]
             )
             stdout = io.StringIO()
@@ -314,8 +301,6 @@ class ResearchCommandTest(unittest.TestCase):
                     "OVR-1",
                     "--keywords",
                     "overrides",
-                    "--limit",
-                    "1",
                 ),
                 cwd=project_root,
                 env=cli_env(),
@@ -357,8 +342,6 @@ class ResearchCommandTest(unittest.TestCase):
                     "--auto",
                     "--keywords",
                     "py",
-                    "--limit",
-                    "5",
                 ]
             )
 
@@ -406,8 +389,6 @@ class ResearchCommandTest(unittest.TestCase):
                     "--auto",
                     "--keywords",
                     "zero",
-                    "--limit",
-                    "5",
                 ]
             )
 
@@ -518,7 +499,7 @@ class ResearchCommandTest(unittest.TestCase):
             src_dir.mkdir(parents=True, exist_ok=True)
             (src_dir / "demo.py").write_text("print('postcondition')\n", encoding="utf-8")
 
-            args = research.parse_args(["--ticket", "POST-1", "--auto", "--limit", "5"])
+            args = research.parse_args(["--ticket", "POST-1", "--auto"])
             stdout = io.StringIO()
             stderr = io.StringIO()
             old_cwd = Path.cwd()
@@ -590,8 +571,6 @@ class ResearchCommandTest(unittest.TestCase):
                     "REFRESH-1",
                     "--keywords",
                     "refresh",
-                    "--limit",
-                    "5",
                 ),
                 cwd=project_root,
                 env=cli_env(),

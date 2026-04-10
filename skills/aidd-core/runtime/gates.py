@@ -141,19 +141,8 @@ def _parse_command_tokens(value: object) -> list[str]:
 
 def _normalize_command_entry(entry: object, index: int) -> tuple[dict | None, str]:
     default_id = f"cmd_{index}"
-    if isinstance(entry, str) or isinstance(entry, list):
-        tokens = _parse_command_tokens(entry)
-        if not tokens:
-            return None, f"commands[{index}] invalid command"
-        return {
-            "id": default_id,
-            "command": tokens,
-            "cwd": ".",
-            "profiles": ["fast", "targeted", "full"],
-            "filters": [],
-        }, ""
     if not isinstance(entry, dict):
-        return None, f"commands[{index}] must be object|string|list"
+        return None, f"commands[{index}] must be object"
 
     tokens = _parse_command_tokens(entry.get("command"))
     if not tokens:
@@ -187,20 +176,29 @@ def load_qa_tests_contract(config: dict | None) -> tuple[dict, list[str]]:
 
     commands_raw = tests_cfg.get("commands")
     profile_raw = tests_cfg.get("profile_default")
-    if profile_raw in {None, ""}:
-        # Backward-compat: legacy qa.tests.commands without profile_default implies targeted execution.
-        has_commands = bool(_ensure_list(commands_raw))
-        profile_default = "targeted" if has_commands else "none"
-    else:
-        profile_default = str(profile_raw).strip().lower() or "none"
-    when_default = str(tests_cfg.get("when_default") or "manual").strip().lower() or "manual"
+    when_raw = tests_cfg.get("when_default")
     reason_default = str(tests_cfg.get("reason_default") or "project contract").strip() or "project contract"
     filters_default = _normalize_str_list(tests_cfg.get("filters_default"))
-    contract_version_raw = tests_cfg.get("contract_version", 1)
+    contract_version_raw = tests_cfg.get("contract_version")
+    profile_default = str(profile_raw).strip().lower() if profile_raw is not None else ""
+    when_default = str(when_raw).strip().lower() if when_raw is not None else ""
 
     errors: list[str] = []
+    if contract_version_raw is None:
+        errors.append("contract_version missing")
+    if profile_raw is None:
+        errors.append("profile_default missing")
+    if when_raw is None:
+        errors.append("when_default missing")
+    if commands_raw is None:
+        errors.append("commands missing")
+
+    if not profile_default:
+        errors.append("profile_default invalid")
     if profile_default not in TEST_EXECUTION_PROFILES:
         errors.append("profile_default invalid")
+    if not when_default:
+        errors.append("when_default invalid")
     if when_default not in TEST_EXECUTION_WHEN:
         errors.append("when_default invalid")
     try:
@@ -210,7 +208,10 @@ def load_qa_tests_contract(config: dict | None) -> tuple[dict, list[str]]:
         errors.append("contract_version invalid")
 
     commands: list[dict] = []
-    for index, item in enumerate(_ensure_list(commands_raw), start=1):
+    commands_iterable = commands_raw if isinstance(commands_raw, list) else []
+    if commands_raw is not None and not isinstance(commands_raw, list):
+        errors.append("commands invalid")
+    for index, item in enumerate(commands_iterable, start=1):
         normalized, error = _normalize_command_entry(item, index)
         if normalized is None:
             errors.append(error)
@@ -218,6 +219,8 @@ def load_qa_tests_contract(config: dict | None) -> tuple[dict, list[str]]:
         commands.append(normalized)
 
     if profile_default != "none" and not commands:
+        errors.append("project_contract_missing")
+    if errors and "project_contract_missing" not in errors:
         errors.append("project_contract_missing")
 
     contract = {
@@ -228,7 +231,11 @@ def load_qa_tests_contract(config: dict | None) -> tuple[dict, list[str]]:
         "reason_default": reason_default,
         "commands": commands,
     }
-    return contract, errors
+    deduped_errors: list[str] = []
+    for error in errors:
+        if error and error not in deduped_errors:
+            deduped_errors.append(error)
+    return contract, deduped_errors
 
 
 def load_qa_tests_contract_for_target(target: Path) -> tuple[dict, list[str]]:

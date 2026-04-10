@@ -135,6 +135,25 @@ def classify_incident(
             label="ENV_MISCONFIG(cwd_wrong)",
         )
 
+    for reason_code in PROJECT_CONTRACT_REASON_CODES:
+        marker = f"reason_code={reason_code}"
+        if marker in summary_text:
+            source = "summary"
+        elif marker in term_text:
+            source = "termination_attribution"
+        elif marker in pre_text:
+            source = "runner_preflight"
+        elif marker in merged_text:
+            source = "run_log"
+        else:
+            continue
+        return Classification(
+            classification="PROMPT_EXEC_ISSUE",
+            subtype=reason_code,
+            source=source,
+            label=f"NOT_VERIFIED({reason_code})+PROMPT_EXEC_ISSUE({reason_code})",
+        )
+
     exit_code = str(term.get("exit_code") or summary.get("effective_exit_code") or summary.get("exit_code") or "").strip()
     killed_flag = _truthy(term.get("killed_flag") or summary.get("killed_flag"))
     watchdog_marker = _truthy(term.get("watchdog_marker") or summary.get("watchdog_marker"))
@@ -169,25 +188,6 @@ def classify_incident(
             subtype="readiness_gate_failed",
             source=readiness_source,
             label="NOT_VERIFIED(readiness_gate_failed)+PROMPT_EXEC_ISSUE(readiness_gate_failed)",
-        )
-
-    for reason_code in PROJECT_CONTRACT_REASON_CODES:
-        marker = f"reason_code={reason_code}"
-        if marker in summary_text:
-            source = "summary"
-        elif marker in term_text:
-            source = "termination_attribution"
-        elif marker in pre_text:
-            source = "runner_preflight"
-        elif marker in merged_text:
-            source = "run_log"
-        else:
-            continue
-        return Classification(
-            classification="PROMPT_EXEC_ISSUE",
-            subtype=reason_code,
-            source=source,
-            label=f"NOT_VERIFIED({reason_code})+PROMPT_EXEC_ISSUE({reason_code})",
         )
 
     if "repeated_command_failure_no_new_evidence" in merged_text:

@@ -1034,10 +1034,6 @@ path = Path(sys.argv[1])
 data = json.loads(path.read_text(encoding="utf-8"))
 qa = data.setdefault("qa", {})
 tests = qa.setdefault("tests", {})
-tests["runner"] = ["/bin/echo"]
-tests["fastTasks"] = ["smoke-fast"]
-tests["fullTasks"] = ["smoke-full"]
-tests["targetedTask"] = "smoke-target"
 tests["commonPatterns"] = ["**/package.json"]
 tests["contract_version"] = 1
 tests["profile_default"] = "targeted"
@@ -1059,7 +1055,12 @@ run_cli set-active-stage review >/dev/null
 
 log "format-and-test uses profile and dedupe"
 fmt_first="$("$PLUGIN_ROOT/hooks/format-and-test.sh" 2>&1)"
-echo "$fmt_first" | grep -q "Выбранные задачи тестов (targeted): smoke-target" || {
+echo "$fmt_first" | grep -q "Test profile: targeted" || {
+  echo "[smoke] format-and-test did not use targeted profile" >&2
+  echo "$fmt_first" >&2
+  exit 1
+}
+echo "$fmt_first" | grep -q "smoke-target" || {
   echo "[smoke] format-and-test did not use targeted profile" >&2
   echo "$fmt_first" >&2
   exit 1
@@ -1099,7 +1100,12 @@ cat <<'JSON' >package.json
 }
 JSON
 fmt_common="$("$PLUGIN_ROOT/hooks/format-and-test.sh" 2>&1)"
-echo "$fmt_common" | grep -q "Выбранные задачи тестов (full): smoke-full" || {
+echo "$fmt_common" | grep -q "полный прогон тестов (profile=full)" || {
+  echo "[smoke] common patterns did not trigger full profile" >&2
+  echo "$fmt_common" >&2
+  exit 1
+}
+echo "$fmt_common" | grep -q "Выбранные задачи тестов (full):" || {
   echo "[smoke] common patterns did not trigger full profile" >&2
   echo "$fmt_common" >&2
   exit 1

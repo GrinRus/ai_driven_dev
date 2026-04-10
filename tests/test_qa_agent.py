@@ -27,6 +27,32 @@ from .helpers import (
 APPROVED_PRD = "# PRD\n\n## PRD Review\nStatus: READY\n"
 
 
+def _qa_contract_commands(*commands: list[str], profiles: list[str] | None = None) -> list[dict]:
+    profile_set = profiles or ["fast", "targeted", "full"]
+    result: list[dict] = []
+    for idx, command in enumerate(commands, start=1):
+        result.append(
+            {
+                "id": f"cmd_{idx}",
+                "command": command,
+                "cwd": ".",
+                "profiles": profile_set,
+            }
+        )
+    return result
+
+
+def _qa_tests_contract(*commands: list[str]) -> dict:
+    return {
+        "contract_version": 1,
+        "profile_default": "targeted",
+        "filters_default": [],
+        "when_default": "manual",
+        "reason_default": "qa-agent test contract",
+        "commands": _qa_contract_commands(*commands),
+    }
+
+
 class QaAgentTests(unittest.TestCase):
     def setUp(self) -> None:
         self._tmp = tempfile.TemporaryDirectory(prefix="qa-agent-test-")
@@ -183,7 +209,7 @@ class QaAgentTests(unittest.TestCase):
             "config/gates.json",
             {
                 "tests_required": "hard",
-                "qa": {"tests": {"commands": ["echo smoke-test-ok"], "allow_skip": False}},
+                "qa": {"tests": _qa_tests_contract(["echo", "smoke-test-ok"])},
             },
         )
         result = self.run_agent("--gate", "--emit-json", "--skip-tests")
@@ -200,7 +226,7 @@ class QaAgentTests(unittest.TestCase):
             "config/gates.json",
             {
                 "tests_required": "soft",
-                "qa": {"tests": {"commands": ["echo smoke-test-ok"], "allow_skip": True}},
+                "qa": {"tests": _qa_tests_contract(["echo", "smoke-test-ok"])},
             },
         )
         result = self.run_agent("--emit-json", "--skip-tests")
@@ -214,7 +240,7 @@ class QaAgentTests(unittest.TestCase):
         write_json(
             self.project_root,
             "config/gates.json",
-            {"qa": {"tests": {"commands": ["false"]}}},
+            {"qa": {"tests": _qa_tests_contract(["false"])}},
         )
         result = self.run_agent("--format", "json")
 
@@ -234,7 +260,7 @@ class QaAgentTests(unittest.TestCase):
         write_json(
             self.project_root,
             "config/gates.json",
-            {"qa": {"tests": {"commands": ["false"]}}},
+            {"qa": {"tests": _qa_tests_contract(["false"])}},
         )
         result = self.run_agent("--format", "json")
 
@@ -258,7 +284,7 @@ class QaAgentTests(unittest.TestCase):
         write_json(
             self.project_root,
             "config/gates.json",
-            {"qa": {"tests": {"commands": ["false"]}}},
+            {"qa": {"tests": _qa_tests_contract(["false"])}},
         )
         result = self.run_agent("--format", "json")
 
@@ -284,7 +310,7 @@ class QaAgentTests(unittest.TestCase):
         write_json(
             self.project_root,
             "config/gates.json",
-            {"qa": {"tests": {"commands": ["false"]}}},
+            {"qa": {"tests": _qa_tests_contract(["false"])}},
         )
         result = self.run_agent("--format", "json")
 
@@ -447,14 +473,23 @@ class QaAgentTests(unittest.TestCase):
                 "tests_required": "soft",
                 "qa": {
                     "tests": {
+                        "contract_version": 1,
+                        "profile_default": "targeted",
+                        "filters_default": [],
+                        "when_default": "manual",
+                        "reason_default": "qa skip marker test",
                         "commands": [
-                            [
-                                "bash",
-                                "-lc",
-                                "echo \"[format-and-test] Активная стадия 'qa' — форматирование/тесты пропущены.\"",
-                            ]
+                            {
+                                "id": "skip-marker",
+                                "command": [
+                                    "bash",
+                                    "-lc",
+                                    "echo \"[format-and-test] Активная стадия 'qa' — форматирование/тесты пропущены.\"",
+                                ],
+                                "cwd": ".",
+                                "profiles": ["targeted", "full", "fast"],
+                            }
                         ],
-                        "allow_skip": True,
                     }
                 },
             },
@@ -631,7 +666,8 @@ Updated: 2024-01-02
 
         self.assertEqual(result.returncode, 2, msg=result.stderr)
         payload = json.loads(result.stdout)
-        self.assertEqual(len(payload["findings"]), 1)
+        checklist = [f for f in payload["findings"] if f.get("scope") == "checklist"]
+        self.assertEqual(len(checklist), 1)
 
     def test_qa_handoff_non_blocking_does_not_block(self):
         write_active_feature(self.project_root, "handoff-qa")

@@ -30,7 +30,6 @@ class QaRunnerTests(unittest.TestCase):
                 report_path=report_path,
                 allow_missing=True,
                 commands_override=[["./backend/run-tests.sh"]],
-                allow_skip_override=True,
             )
 
             self.assertEqual(summary, "pass")
@@ -54,7 +53,6 @@ class QaRunnerTests(unittest.TestCase):
                 report_path=report_path,
                 allow_missing=False,
                 commands_override=[["./backend/missing-tests.sh"]],
-                allow_skip_override=False,
             )
 
             self.assertEqual(summary, "fail")
@@ -84,7 +82,6 @@ class QaRunnerTests(unittest.TestCase):
                 report_path=report_path,
                 allow_missing=True,
                 commands_override=[["bash", "-lc", "test -f test_target_only.py"]],
-                allow_skip_override=True,
             )
 
             self.assertEqual(summary, "pass")
@@ -110,7 +107,6 @@ class QaRunnerTests(unittest.TestCase):
                 report_path=report_path,
                 allow_missing=True,
                 commands_override=[[str(external_runner)]],
-                allow_skip_override=True,
             )
 
             self.assertEqual(summary, "pass")
