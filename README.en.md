@@ -78,6 +78,10 @@ Restart the Claude Code session after update.
 - `SECURITY.md` and `SUPPORT.md` — security disclosure and support policy.
 - `CONTRIBUTING.md` and `CODE_OF_CONDUCT.md` — contribution and behavior rules.
 
+### Stability note
+- Stabilization track wave `120 -> 121 -> 136` is closed (2026-04-09), including deterministic runtime contracts and release-gate parity.
+- User-facing summary is reflected in `CHANGELOG.md`.
+
 ## Contributing
 Contribution process: `CONTRIBUTING.md`.
 

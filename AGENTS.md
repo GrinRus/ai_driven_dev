@@ -201,6 +201,7 @@ Agent‑first правило: сначала читаем артефакты (`a
 - Обновить `README.md`/`README.en.md` и `AGENTS.md` при изменении поведения.
 - Закрыть задачи в `docs/backlog.md`, создать следующую волну при необходимости.
 - Прогнать `tests/repo_tools/ci-lint.sh` и `tests/repo_tools/smoke-workflow.sh`.
+- Для flow-stability релизов дополнительно прогнать matrix: `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py tests/repo_tools/test_e2e_quality_prompt_contract.py tests/repo_tools/test_aidd_audit_runner.py`.
 - Проверить prompt‑versioning и prompt‑lint (см. выше).
 - Убедиться, что dev‑only артефакты не попали в дистрибутив.
 - Обновить `CHANGELOG.md` (и release notes при необходимости).
