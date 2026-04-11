@@ -28,6 +28,15 @@ SCOPE_DRIFT_STAGE_RESULT_MARKERS = (
     "scope_fallback_stale_ignored",
     "scope_shape_invalid",
 )
+PROJECT_CONTRACT_REASON_CODES = (
+    "project_contract_missing",
+    "tests_cwd_mismatch",
+)
+CWD_WRONG_MARKERS = (
+    "reason_code=cwd_wrong",
+    "env_misconfig(cwd_wrong)",
+    "refusing to use plugin repository as workspace root",
+)
 
 
 @dataclass(frozen=True)
@@ -107,6 +116,42 @@ def classify_incident(
             subtype="parent_terminated_or_external_terminate",
             source="summary" if "parent_terminated_or_external_terminate" in summary_text else "run_log",
             label="ENV_MISCONFIG(parent_terminated_or_external_terminate)",
+        )
+
+    cwd_wrong_hit = any(marker in merged_text for marker in CWD_WRONG_MARKERS)
+    if cwd_wrong_hit:
+        if "reason_code=cwd_wrong" in summary_text or "env_misconfig(cwd_wrong)" in summary_text:
+            source = "summary"
+        elif "reason_code=cwd_wrong" in term_text or "env_misconfig(cwd_wrong)" in term_text:
+            source = "termination_attribution"
+        elif "reason_code=cwd_wrong" in pre_text:
+            source = "runner_preflight"
+        else:
+            source = "run_log"
+        return Classification(
+            classification="ENV_MISCONFIG",
+            subtype="cwd_wrong",
+            source=source,
+            label="ENV_MISCONFIG(cwd_wrong)",
+        )
+
+    for reason_code in PROJECT_CONTRACT_REASON_CODES:
+        marker = f"reason_code={reason_code}"
+        if marker in summary_text:
+            source = "summary"
+        elif marker in term_text:
+            source = "termination_attribution"
+        elif marker in pre_text:
+            source = "runner_preflight"
+        elif marker in merged_text:
+            source = "run_log"
+        else:
+            continue
+        return Classification(
+            classification="PROMPT_EXEC_ISSUE",
+            subtype=reason_code,
+            source=source,
+            label=f"NOT_VERIFIED({reason_code})+PROMPT_EXEC_ISSUE({reason_code})",
         )
 
     exit_code = str(term.get("exit_code") or summary.get("effective_exit_code") or summary.get("exit_code") or "").strip()

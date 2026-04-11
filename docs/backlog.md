@@ -189,6 +189,60 @@ _Evidence: `docs/runbooks/w120-w121-w136-closure.md`, `aidd/reports/events/w120-
   **Effort:** S
   **Risk:** Low
 
+## Wave 137 — Implement Stage Non-Convergence Hardening (2026-04-11)
+
+_Статус: plan. Основание — TST-001 full audit показал implement-stage non-convergence (`task_started` без `task_completed`), отсутствие top-level terminal result и неоднозначную классификацию завершения `exit_code=143` при stall/retry paths._
+
+- [ ] **W137-1 (P0) Bounded implement completion + canonical terminal fallback** `skills/implement/runtime/implement_run.py`, `skills/aidd-core/runtime/stage_actions_run.py`, `skills/aidd-flow-state/runtime/stage_result.py`, `tests/test_implementer_prompt.py`, `tests/test_loop_step.py`, `tests/test_stage_result.py`:
+  - ввести bounded guard для implement subagent-run, чтобы stage не зависал без terminal outcome;
+  - при non-convergence/timeout эмитить deterministic canonical `aidd.stage_result.v1` (blocked), а не оставлять run без top-level result;
+  - сохранить current stage-result contract без legacy fallback path.
+  **AC:** implement stage всегда завершает run terminal payload-ом (`done|blocked`) с canonical schema; сценарий `task_started` без завершения больше не оставляет hanging outcome.
+  **Deps:** -
+  **Regression/tests:** `python3 -m pytest -q tests/test_implementer_prompt.py tests/test_loop_step.py tests/test_stage_result.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [ ] **W137-2 (P0) Loop-step terminal invariant for missing top-level result** `skills/aidd-loop/runtime/loop_step_parts/core.py`, `skills/aidd-loop/runtime/loop_step_stage_chain.py`, `skills/aidd-loop/runtime/loop_step_stage_result.py`, `tests/test_loop_step.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - закрепить invariant: после stage-run должен быть terminal signal + canonical stage result;
+  - если terminal signal отсутствует, детерминированно переводить outcome в blocked с reason surface вместо silent non-result path;
+  - синхронизовать diagnostics, чтобы `no_top_level_result` не терял причинно-следственную связь.
+  **AC:** loop-step не завершает stage с пустым/неопределённым top-level outcome; missing-result path детерминированно классифицируется и репортится.
+  **Deps:** W137-1
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_step.py tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [ ] **W137-3 (P0) Exit-143 attribution normalization and watchdog precedence** `skills/aidd-loop/runtime/loop_run_parts/core.py`, `tests/test_loop_run.py`, `tests/repo_tools/test_aidd_audit_runner.py`, `tests/repo_tools/test_aidd_stage_launcher.py`:
+  - унифицировать ветку классификации `exit_code=143` по watchdog-marker/killed semantics;
+  - исключить ambiguous mapping, когда termination интерпретируется не тем классом причины;
+  - выровнять runtime vs audit tooling reason precedence.
+  **AC:** `exit_code=143` классифицируется однозначно и повторяемо (watchdog vs external terminate) в runtime и audit runner.
+  **Deps:** W137-2
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_run.py tests/repo_tools/test_aidd_audit_runner.py tests/repo_tools/test_aidd_stage_launcher.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [ ] **W137-4 (P1) Stream-path missing telemetry hardening for liveness/stall** `tests/repo_tools/aidd_stage_launcher.py`, `tests/repo_tools/aidd_stream_paths.py`, `tests/repo_tools/aidd_audit_runner.py`, `tests/repo_tools/test_aidd_stage_launcher.py`, `tests/repo_tools/test_aidd_audit_runner.py`:
+  - при `stream_path_not_emitted_by_cli` не повышать сигнал до terminal сам по себе;
+  - подтверждать stall только при отсутствии роста и main log, и валидных stream/event источников;
+  - расширить diagnostics, чтобы parser-noise не маскировал primary причину stage-failure.
+  **AC:** отсутствие stream-path не даёт ложного terminal вывода; stall-классификация устойчиво отделяет telemetry gap от реальной стагнации.
+  **Deps:** W137-3
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_aidd_stage_launcher.py tests/repo_tools/test_aidd_audit_runner.py`.
+  **Effort:** S
+  **Risk:** Medium
+
+- [ ] **W137-5 (P1) Implementer prompt containment + replay fixture for non-convergence** `skills/implement/SKILL.md`, `agents/implementer.md`, `tests/fixtures/audit_tst001/*`, `tests/repo_tools/test_e2e_prompt_contract.py`, `docs/runbooks/tst001-audit-hardening.md`:
+  - сузить implement handoff envelope: один work-item/итерация, bounded retries, обязательный terminal return contract;
+  - добавить replay fixture для кейса `task_started` без terminal completion;
+  - зафиксировать runbook guidance для deterministic recovery path без manual/non-canonical обходов.
+  **AC:** prompt/replay suite воспроизводит и предотвращает implement non-convergence drift; оператор получает один canonical recovery path.
+  **Deps:** W137-1, W137-2
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py tests/test_implementer_prompt.py`.
+  **Effort:** S
+  **Risk:** Medium
+
 ## Wave 122 — Memory Platform (2026-04-02)
 
 _Статус: plan. Основание — low-priority cross-cutting развитие memory layer. Волна изолирована от текущей стабилизации runtime и не должна конкурировать с Core Flow fixes._

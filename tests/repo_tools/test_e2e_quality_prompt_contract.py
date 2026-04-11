@@ -98,6 +98,8 @@ class E2EQualityPromptContractTests(unittest.TestCase):
             "NOT VERIFIED (findings_sync_not_converged)",
             "runtime_path_missing_or_drift",
             "prompt-flow drift (non-canonical stage orchestration)",
+            'realpath("$PROJECT_DIR") != realpath("$PLUGIN_DIR")',
+            "PROJECT_DIR must differ from PLUGIN_DIR",
         ):
             self.assertIn(needle, text)
 
@@ -117,6 +119,10 @@ class E2EQualityPromptContractTests(unittest.TestCase):
         ):
             self.assertIn(needle, flow_text, msg=f"flow prompt lost shared invariant: {needle}")
             self.assertIn(needle, quality_text, msg=f"quality prompt missing shared invariant: {needle}")
+
+    def test_quality_prompt_does_not_reference_plan_alias_path(self) -> None:
+        text = _read(QUALITY_PROMPT)
+        self.assertNotIn(".plan.md", text)
 
     def test_quality_prompt_defines_step9_artifacts_and_scorecards(self) -> None:
         text = _read(QUALITY_PROMPT)

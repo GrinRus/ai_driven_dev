@@ -22,24 +22,36 @@ from .helpers import (
 HOOK = HOOKS_DIR / "format-and-test.sh"
 
 
+def _cmd(entry_id: str, value: str, profiles: list[str]) -> dict:
+    return {
+        "id": entry_id,
+        "command": ["/bin/echo", value],
+        "cwd": ".",
+        "profiles": profiles,
+    }
+
+
 def write_settings(tmp_path: Path, overrides: dict) -> Path:
     base = {
-        "automation": {
-            "format": {"commands": []},
+        "format": {"commands": []},
+        "tests_required": "soft",
+        "qa": {
             "tests": {
-                "runner": "/bin/echo",
-                "defaultTasks": ["default_task"],
-                "fallbackTasks": [],
+                "contract_version": 1,
+                "profile_default": "targeted",
+                "filters_default": [],
+                "when_default": "manual",
+                "reason_default": "unit-test",
+                "commands": [{"id": "default", "command": ["/bin/echo", "default_task"], "cwd": ".", "profiles": ["targeted", "full", "fast"]}],
                 "changedOnly": True,
                 "strictDefault": 1,
-                "moduleMatrix": [],
-                    "reviewerGate": {
-                        "enabled": True,
-                        "tests_marker": "aidd/reports/reviewer/{ticket}/{scope_key}.tests.json",
-                        "tests_field": "tests",
-                        "required_values": ["required"],
-                        "optional_values": ["optional", "skipped", "not-required"],
-                        "forceEnv": "FORCE_TESTS",
+                "reviewerGate": {
+                    "enabled": True,
+                    "tests_marker": "aidd/reports/reviewer/{ticket}/{scope_key}.tests.json",
+                    "tests_field": "tests",
+                    "required_values": ["required"],
+                    "optional_values": ["optional", "skipped", "not-required"],
+                    "forceEnv": "FORCE_TESTS",
                     "skipEnv": "SKIP_TESTS",
                 },
             },
@@ -49,14 +61,14 @@ def write_settings(tmp_path: Path, overrides: dict) -> Path:
     if isinstance(automation_override, dict):
         tests_override = automation_override.get("tests")
         if isinstance(tests_override, dict):
-            base["automation"]["tests"].update(tests_override)
+            base["qa"]["tests"].update(tests_override)
         format_override = automation_override.get("format")
         if isinstance(format_override, dict):
-            base["automation"]["format"].update(format_override)
+            base["format"].update(format_override)
         for key, value in automation_override.items():
             if key in {"tests", "format"}:
                 continue
-            base["automation"][key] = value
+            base[key] = value
     for key, value in overrides.items():
         if key == "automation":
             continue
@@ -64,7 +76,9 @@ def write_settings(tmp_path: Path, overrides: dict) -> Path:
             base[key].update(value)
         else:
             base[key] = value
-    settings_path = tmp_path / "settings.json"
+
+    settings_path = tmp_path / "config" / "gates.json"
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
     settings_path.write_text(json.dumps(base, indent=2), encoding="utf-8")
     return settings_path
 
@@ -72,10 +86,10 @@ def write_settings(tmp_path: Path, overrides: dict) -> Path:
 def run_hook(
     tmp_path: Path, settings_path: Path, env: Optional[dict] = None
 ) -> subprocess.CompletedProcess[str]:
+    del settings_path
     effective_env = os.environ.copy()
     effective_env.update(
         {
-            "CLAUDE_SETTINGS_PATH": str(settings_path),
             "SKIP_FORMAT": "1",
             "CLAUDE_PLUGIN_ROOT": str(REPO_ROOT),
         }
@@ -92,7 +106,7 @@ def run_hook(
     )
 
 
-def test_module_matrix_tasks_logged(tmp_path):
+def test_manual_scope_commands_logged(tmp_path):
     project = tmp_path / "aidd"
     project.mkdir(parents=True, exist_ok=True)
     git_init(project)
@@ -101,9 +115,9 @@ def test_module_matrix_tasks_logged(tmp_path):
     (project / "src/main/kotlin/app").mkdir(parents=True, exist_ok=True)
     (project / "src/main/kotlin/app/App.kt").write_text("class App", encoding="utf-8")
 
-    result = run_hook(project, settings, env={"TEST_SCOPE": "module-task"})
+    result = run_hook(project, settings, env={"TEST_SCOPE": "/bin/echo module-task"})
 
-    assert "Выбранные задачи тестов (targeted): module-task" in result.stderr
+    assert "Выбранные задачи тестов (targeted): /bin/echo module-task" in result.stderr
     assert "Запуск тестов: /bin/echo module-task" in result.stderr
 
 
@@ -116,8 +130,10 @@ def test_common_change_forces_full_suite(tmp_path):
         {
             "automation": {
                 "tests": {
-                    "fastTasks": ["fast_task"],
-                    "fullTasks": ["full_task"],
+                    "commands": [
+                        _cmd("fast", "fast_task", ["fast", "targeted"]),
+                        _cmd("full", "full_task", ["full"]),
+                    ],
                 }
             }
         },
@@ -134,7 +150,8 @@ def test_common_change_forces_full_suite(tmp_path):
     result = run_hook(project, settings)
 
     assert "Test policy detected" in result.stderr
-    assert "Выбранные задачи тестов (full): full_task" in result.stderr
+    assert "Выбранные задачи тестов (full):" in result.stderr
+    assert "full_task" in result.stderr
     assert "Запуск тестов: /bin/echo full_task" in result.stderr
 
 
@@ -147,8 +164,10 @@ def test_common_patterns_from_settings(tmp_path):
         {
             "automation": {
                 "tests": {
-                    "fastTasks": ["fast_task"],
-                    "fullTasks": ["full_task"],
+                    "commands": [
+                        _cmd("fast", "fast_task", ["fast", "targeted"]),
+                        _cmd("full", "full_task", ["full"]),
+                    ],
                     "commonPatterns": ["**/package.json"],
                 }
             }
@@ -164,7 +183,8 @@ def test_common_patterns_from_settings(tmp_path):
 
     result = run_hook(project, settings)
 
-    assert "Выбранные задачи тестов (full): full_task" in result.stderr
+    assert "Выбранные задачи тестов (full):" in result.stderr
+    assert "full_task" in result.stderr
     assert "Запуск тестов: /bin/echo full_task" in result.stderr
 
 
@@ -186,7 +206,8 @@ def test_reviewer_marker_forces_full_suite(tmp_path):
 
     assert "reviewer запросил тесты" not in result.stderr
     assert "reviewer gate отключён" in result.stderr
-    assert "Выбранные задачи тестов (targeted): default_task" in result.stderr
+    assert "Выбранные задачи тестов (targeted):" in result.stderr
+    assert "default_task" in result.stderr
     assert "Запуск тестов: /bin/echo default_task" in result.stderr
 
 
@@ -213,8 +234,8 @@ def test_custom_code_paths_trigger_tests(tmp_path):
 
     result = run_hook(project, settings)
 
-    assert "docs — форматирование/тесты пропущены" in result.stderr
-    assert "Запуск тестов" not in result.stderr
+    assert "docs — форматирование/тесты пропущены" not in result.stderr
+    assert "Запуск тестов: /bin/echo default_task" in result.stderr
 
 
 def test_manual_cadence_skips_tests_without_override(tmp_path):
@@ -289,7 +310,7 @@ def test_snake_case_reviewer_gate_config(tmp_path):
     settings = write_settings(project, {})
     write_active_stage(project, "qa")
     payload = json.loads(settings.read_text(encoding="utf-8"))
-    payload["automation"]["tests"]["reviewerGate"].update(
+    payload["qa"]["tests"]["reviewerGate"].update(
         {
             "enabled": True,
             "tests_marker": "aidd/reports/reviewer/{slug}/{scope_key}.tests.json",
@@ -316,7 +337,7 @@ def test_snake_case_reviewer_gate_config(tmp_path):
 
 def test_reviewer_tests_cli_accepts_snake_case_status(tmp_path):
     settings = {
-        "automation": {
+        "qa": {
             "tests": {
                 "reviewerGate": {
                     "enabled": True,
@@ -330,7 +351,7 @@ def test_reviewer_tests_cli_accepts_snake_case_status(tmp_path):
     }
     project = tmp_path / "aidd"
     project.mkdir(parents=True, exist_ok=True)
-    settings_path = tmp_path / ".claude" / "settings.json"
+    settings_path = project / "config" / "gates.json"
     settings_path.parent.mkdir(parents=True, exist_ok=True)
     settings_path.write_text(json.dumps(settings, indent=2), encoding="utf-8")
     write_active_feature(project, "demo")
@@ -383,8 +404,10 @@ def test_profile_full_uses_full_tasks(tmp_path):
         {
             "automation": {
                 "tests": {
-                    "fastTasks": ["fast_task"],
-                    "fullTasks": ["full_task"],
+                    "commands": [
+                        _cmd("fast", "fast_task", ["fast", "targeted"]),
+                        _cmd("full", "full_task", ["full"]),
+                    ],
                 }
             }
         },
@@ -395,7 +418,8 @@ def test_profile_full_uses_full_tasks(tmp_path):
 
     result = run_hook(project, settings, env={"AIDD_TEST_PROFILE": "full"})
 
-    assert "Выбранные задачи тестов (full): full_task" in result.stderr
+    assert "Выбранные задачи тестов (full):" in result.stderr
+    assert "full_task" in result.stderr
     assert "Запуск тестов: /bin/echo full_task" in result.stderr
 
 
@@ -408,7 +432,9 @@ def test_stage_policy_none_blocks_explicit_profile_without_force(tmp_path):
         {
             "automation": {
                 "tests": {
-                    "fullTasks": ["full_task"],
+                    "commands": [
+                        _cmd("full", "full_task", ["full"]),
+                    ],
                 }
             }
         },
@@ -433,7 +459,9 @@ def test_stage_policy_none_allows_force_override(tmp_path):
         {
             "automation": {
                 "tests": {
-                    "fullTasks": ["full_task"],
+                    "commands": [
+                        _cmd("full", "full_task", ["full"]),
+                    ],
                 }
             }
         },
@@ -446,7 +474,8 @@ def test_stage_policy_none_allows_force_override(tmp_path):
     result = run_hook(project, settings, env={"AIDD_TEST_PROFILE": "full", "AIDD_TEST_FORCE": "1"})
 
     assert "AIDD_TEST_FORCE=1 overrides stage policy (implement)=none." in result.stderr
-    assert "Выбранные задачи тестов (full): full_task" in result.stderr
+    assert "Выбранные задачи тестов (full):" in result.stderr
+    assert "full_task" in result.stderr
     assert "Запуск тестов: /bin/echo full_task" in result.stderr
 
 
@@ -454,11 +483,7 @@ def test_docs_only_ignores_only_active_settings_path(tmp_path):
     project = tmp_path / "aidd"
     project.mkdir(parents=True, exist_ok=True)
     git_init(project)
-    base_settings = write_settings(project, {})
-    settings = project / ".claude" / "settings.json"
-    settings.parent.mkdir(parents=True, exist_ok=True)
-    settings.write_text(base_settings.read_text(encoding="utf-8"), encoding="utf-8")
-    base_settings.unlink()
+    settings = write_settings(project, {})
     write_active_stage(project, "review")
     (project / "docs").mkdir(parents=True, exist_ok=True)
     (project / "docs" / "guide.md").write_text("update", encoding="utf-8")
@@ -479,8 +504,10 @@ def test_profile_fast_uses_fast_tasks(tmp_path):
         {
             "automation": {
                 "tests": {
-                    "fastTasks": ["fast_task"],
-                    "fullTasks": ["full_task"],
+                    "commands": [
+                        _cmd("fast", "fast_task", ["fast", "targeted"]),
+                        _cmd("full", "full_task", ["full"]),
+                    ],
                 }
             }
         },
@@ -491,7 +518,8 @@ def test_profile_fast_uses_fast_tasks(tmp_path):
 
     result = run_hook(project, settings, env={"AIDD_TEST_PROFILE": "fast"})
 
-    assert "Выбранные задачи тестов (targeted): fast_task" in result.stderr
+    assert "Выбранные задачи тестов (targeted):" in result.stderr
+    assert "fast_task" in result.stderr
     assert "Запуск тестов: /bin/echo fast_task" in result.stderr
 
 
@@ -504,8 +532,10 @@ def test_profile_targeted_uses_targeted_task(tmp_path):
         {
             "automation": {
                 "tests": {
-                    "fastTasks": ["fast_task"],
-                    "targetedTask": "target_task",
+                    "commands": [
+                        _cmd("fast", "fast_task", ["fast"]),
+                        _cmd("target", "target_task", ["targeted"]),
+                    ],
                 }
             }
         },
@@ -516,7 +546,8 @@ def test_profile_targeted_uses_targeted_task(tmp_path):
 
     result = run_hook(project, settings, env={"AIDD_TEST_PROFILE": "targeted"})
 
-    assert "Выбранные задачи тестов (targeted): target_task" in result.stderr
+    assert "Выбранные задачи тестов (targeted):" in result.stderr
+    assert "target_task" in result.stderr
     assert "Запуск тестов: /bin/echo target_task" in result.stderr
 
 
@@ -526,7 +557,15 @@ def test_policy_file_tasks_and_filters(tmp_path):
     git_init(project)
     settings = write_settings(
         project,
-        {"automation": {"tests": {"targetedTask": "fallback_target"}}},
+        {
+            "automation": {
+                "tests": {
+                    "commands": [
+                        _cmd("target", "fallback_target", ["targeted"]),
+                    ]
+                }
+            }
+        },
     )
     write_active_stage(project, "review")
     cache_dir = project / ".cache"
@@ -535,7 +574,7 @@ def test_policy_file_tasks_and_filters(tmp_path):
         "\n".join(
             [
                 "AIDD_TEST_PROFILE=targeted",
-                "AIDD_TEST_TASKS=policy_task",
+                "AIDD_TEST_TASKS=/bin/echo policy_task",
                 "AIDD_TEST_FILTERS=FilterOne,FilterTwo",
             ]
         ),
@@ -613,8 +652,10 @@ def test_default_profile_env_applies_when_no_policy(tmp_path):
         {
             "automation": {
                 "tests": {
-                    "fastTasks": ["fast_task"],
-                    "targetedTask": "target_task",
+                    "commands": [
+                        _cmd("fast", "fast_task", ["fast"]),
+                        _cmd("target", "target_task", ["targeted"]),
+                    ],
                     "reviewerGate": {"enabled": False},
                 }
             }
@@ -627,7 +668,8 @@ def test_default_profile_env_applies_when_no_policy(tmp_path):
     result = run_hook(project, settings, env={"AIDD_TEST_PROFILE_DEFAULT": "targeted"})
 
     assert "Test profile: targeted (source: default-env)." in result.stderr
-    assert "Выбранные задачи тестов (targeted): target_task" in result.stderr
+    assert "Выбранные задачи тестов (targeted):" in result.stderr
+    assert "target_task" in result.stderr
 
 
 def test_summary_log_written(tmp_path):

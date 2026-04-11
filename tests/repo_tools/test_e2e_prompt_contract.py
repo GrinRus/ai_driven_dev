@@ -123,6 +123,25 @@ class E2EPromptContractTests(unittest.TestCase):
             text = _read(prompt)
             self.assertIn("для `idea-new` и `plan-new` retry-триггер", text, msg=f"{prompt}: missing plan parity")
 
+    def test_review_surfaces_enforce_canonical_plan_path_without_alias(self) -> None:
+        review_skill = _read(REPO_ROOT / "skills" / "review-spec" / "SKILL.md")
+        plan_reviewer = _read(REPO_ROOT / "agents" / "plan-reviewer.md")
+        for text, label in (
+            (review_skill, "skills/review-spec/SKILL.md"),
+            (plan_reviewer, "agents/plan-reviewer.md"),
+        ):
+            self.assertIn("aidd/docs/plan/<ticket>.md", text, msg=f"{label}: missing canonical plan path")
+            if ".plan.md" in text:
+                self.assertRegex(
+                    text,
+                    r"forbidden|запрещ",
+                    msg=f"{label}: alias .plan.md may only appear as a forbidden path",
+                )
+
+        for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
+            text = _read(prompt)
+            self.assertNotIn(".plan.md", text, msg=f"{prompt}: contains non-canonical plan alias")
+
     def test_prompt_policy_uses_stage_return_only_signal_extraction(self) -> None:
         for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
             text = _read(prompt)
@@ -271,6 +290,8 @@ class E2EPromptContractTests(unittest.TestCase):
             self.assertIn('--plugin-dir "$PLUGIN_DIR"', text, msg=f"{prompt}: missing plugin-dir launcher invariant")
             self.assertIn("--verbose --output-format stream-json", text, msg=f"{prompt}: missing stream-json verbose flags")
             self.assertIn('df -Pk "$PROJECT_DIR"', text, msg=f"{prompt}: missing disk preflight invariant")
+            self.assertIn('realpath("$PROJECT_DIR") != realpath("$PLUGIN_DIR")', text, msg=f"{prompt}: missing project/plugin topology invariant")
+            self.assertIn("PROJECT_DIR must differ from PLUGIN_DIR", text, msg=f"{prompt}: missing shell-safe topology precheck snippet")
 
     def test_smoke_script_blocks_legacy_shadow_artifacts_in_workspace_root(self) -> None:
         text = _read(REPO_ROOT / "tests" / "repo_tools" / "smoke-workflow.sh")

@@ -77,10 +77,25 @@ def check_tasklist_text(
         add_issue("error", f"AIDD:TEST_EXECUTION missing {field}")
     parsed_test_execution = tasklist_parser.parse_test_execution(test_execution)
     malformed_test_tasks = parsed_test_execution.get("malformed_tasks") or []
-    if malformed_test_tasks:
+    malformed_codes = {str(item.get("reason_code") or "").strip() for item in malformed_test_tasks if isinstance(item, dict)}
+    if "tasklist_shell_chain_single_entry" in malformed_codes:
         add_issue(
             "error",
             "AIDD:TEST_EXECUTION contains single-entry shell chain task (`&&`, `||`, `;`); split into separate tasks",
+        )
+    if "tasklist_non_command_entry" in malformed_codes:
+        add_issue(
+            "error",
+            "AIDD:TEST_EXECUTION contains non-command/prose task entry; use executable commands only",
+        )
+
+    test_profile = str(parsed_test_execution.get("profile") or "").strip().lower()
+    parsed_tasks = parsed_test_execution.get("tasks") or []
+    if test_profile and test_profile != "none" and not parsed_tasks:
+        add_issue(
+            "error",
+            "AIDD:TEST_EXECUTION missing executable tasks for active profile "
+            "(reason_code=project_contract_missing)",
         )
 
     iterations_section = section_map.get("AIDD:ITERATIONS_FULL")
@@ -255,7 +270,7 @@ def check_tasklist_text(
                 ref_id,
             )
             next3_order_keys.append(order_key)
-            if not core.extract_field_value(item.lines, "DoD"):
+            if not core.extract_field_value(item.lines, "DoD") and not core.extract_list_field(item.lines, "DoD"):
                 add_issue("error", f"iteration {ref_id} missing DoD")
             if not core.block_has_heading(item.lines, "Boundaries"):
                 add_issue("error", f"iteration {ref_id} missing Boundaries")
@@ -274,7 +289,7 @@ def check_tasklist_text(
             )
             next3_order_keys.append(order_key)
             handoff_meta_severity = core.severity_for_stage(stage) if normalize_fix_mode else "error"
-            if not core.extract_field_value(item.lines, "DoD"):
+            if not core.extract_field_value(item.lines, "DoD") and not core.extract_list_field(item.lines, "DoD"):
                 add_issue(handoff_meta_severity, f"handoff {ref_id} missing DoD")
             if not core.block_has_heading(item.lines, "Boundaries"):
                 add_issue(handoff_meta_severity, f"handoff {ref_id} missing Boundaries")

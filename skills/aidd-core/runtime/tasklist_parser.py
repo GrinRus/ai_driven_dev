@@ -283,11 +283,14 @@ def detect_shell_chain_token(command: str) -> str:
 
 
 def parse_test_execution(lines: List[str]) -> Dict[str, object]:
-    profile = (extract_scalar_field(lines, "profile") or "").strip()
+    profile_raw = (extract_scalar_field(lines, "profile") or "").strip()
+    profile = _strip_placeholder(profile_raw) or ""
     tasks_raw = extract_scalar_field(lines, "tasks") or ""
     filters_raw = extract_scalar_field(lines, "filters") or ""
-    when = (extract_scalar_field(lines, "when") or "").strip()
-    reason = (extract_scalar_field(lines, "reason") or "").strip()
+    when_raw = (extract_scalar_field(lines, "when") or "").strip()
+    reason_raw = (extract_scalar_field(lines, "reason") or "").strip()
+    when = _strip_placeholder(when_raw) or ""
+    reason = _strip_placeholder(reason_raw) or ""
     tasks_list = extract_list_field(lines, "tasks")
     filters_list = extract_list_field(lines, "filters")
     tasks: List[str] = []

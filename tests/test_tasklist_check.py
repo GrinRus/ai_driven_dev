@@ -258,6 +258,69 @@ class TasklistCheckTests(unittest.TestCase):
                 result.message,
             )
 
+    def test_tasklist_check_accepts_iteration_dod_list_format(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            ticket = "DEMO-9D"
+            tasklist = helpers.tasklist_ready_text(ticket).replace(
+                "  - DoD: tasklist ready\n",
+                "  - DoD:\n"
+                "    - tasklist ready\n",
+                1,
+            )
+            helpers.write_file(root, f"docs/tasklist/{ticket}.md", tasklist)
+            write_plan(root, ticket)
+            result = tasklist_check.check_tasklist(helpers._project_root(root), ticket)
+            self.assertEqual(result.status, "ok", result.message)
+            self.assertFalse(
+                any("missing DoD" in entry for entry in result.details or []),
+                result.message,
+            )
+
+    def test_tasklist_check_accepts_handoff_dod_list_format(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            ticket = "DEMO-9E"
+            tasklist = helpers.tasklist_ready_text(ticket)
+            tasklist = tasklist.replace(
+                "## AIDD:NEXT_3\n"
+                "- [ ] I1: Bootstrap (ref: iteration_id=I1)\n"
+                "- [ ] I2: Follow-up (ref: iteration_id=I2)\n"
+                "- [ ] I3: Follow-up (ref: iteration_id=I3)\n\n",
+                "## AIDD:NEXT_3\n"
+                "- [ ] Critical null check in webhook handler (ref: id=review:F6)\n"
+                "- [ ] I1: Bootstrap (ref: iteration_id=I1)\n"
+                "- [ ] I2: Follow-up (ref: iteration_id=I2)\n\n",
+                1,
+            )
+            tasklist = tasklist.replace(
+                "<!-- handoff:manual start -->\n"
+                "<!-- handoff:manual end -->\n",
+                "<!-- handoff:manual start -->\n"
+                "- [ ] Critical null check in webhook handler (id: review:F6) (Priority: high) (Blocking: true)\n"
+                "  - source: review\n"
+                "  - Status: open\n"
+                "  - scope: I1\n"
+                "  - DoD:\n"
+                "    - webhook rejects empty payload with 4xx\n"
+                "    - regression test added\n"
+                "  - Boundaries:\n"
+                "    - must-touch: [\"src/webhooks/\", \"tests/webhooks/\"]\n"
+                "  - Tests:\n"
+                "    - profile: targeted\n"
+                "    - tasks: [\"pytest tests/webhooks/test_handler.py\"]\n"
+                "<!-- handoff:manual end -->\n",
+                1,
+            )
+            helpers.write_file(root, f"docs/tasklist/{ticket}.md", tasklist)
+            write_plan(root, ticket)
+            result = tasklist_check.check_tasklist(helpers._project_root(root), ticket)
+            self.assertEqual(result.status, "ok", result.message)
+            self.assertFalse(
+                any("handoff review:F6 missing DoD" in entry for entry in result.details or []),
+                result.message,
+            )
+
     def test_tasklist_check_fails_when_qa_not_met_but_ready(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)

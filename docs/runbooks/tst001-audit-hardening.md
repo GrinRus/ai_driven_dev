@@ -10,6 +10,13 @@
 ## Preflight Checklist
 1. Verify plugin root exists and has `/.claude-plugin` and `/skills`.
 2. Verify run cwd is project workspace root.
+   - Shell-safe invariant check:
+     ```bash
+     [ "$(cd "$PROJECT_DIR" && pwd -P)" != "$(cd "$PLUGIN_DIR" && pwd -P)" ] || {
+       echo "ENV_MISCONFIG(cwd_wrong): PROJECT_DIR must differ from PLUGIN_DIR"
+       exit 12
+     }
+     ```
 3. Verify free disk bytes are above `AIDD_AUDIT_MIN_FREE_BYTES` (default `1073741824`).
 4. Snapshot runner env:
    - `CLAUDE_PLUGIN_ROOT`

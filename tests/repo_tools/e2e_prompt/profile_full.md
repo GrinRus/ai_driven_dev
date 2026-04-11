@@ -20,6 +20,7 @@
 - `PROJECT_DIR=<absolute-path-to-target-workspace>`
 - `PLUGIN_DIR=<absolute-path-to-plugin-repo>`
 - `CLAUDE_PLUGIN_ROOT=$PLUGIN_DIR`
+- `PRE-RUN invariant`: `realpath("$PROJECT_DIR") != realpath("$PLUGIN_DIR")`; иначе `ENV_MISCONFIG(cwd_wrong)` и stop.
 - `TICKET=TST-001`
 - `PROFILE=full|smoke` (default: `full`)
 - `IDEA_NOTE=<формируется на шаге 3>`
@@ -94,6 +95,8 @@
 - R15.1: Если `result_count` в summary отсутствует или пустой (`result_count=`), не трактовать это как `0` автоматически; сначала проверять top-level result/event в run-log, и только при подтверждённом отсутствии результата классифицировать `no_top_level_result`.
 - R15.2: Для `loop-run` в `text`-режиме валидным top-level result считать JSON event `{"type":"result","schema":"aidd.loop_result.v1",...}` (в дополнение к строке summary `[loop-run] status=...`).
 - R15.3: Для `review-spec` источником истины по finding/recommended status считать `aidd/reports/prd/<ticket>.json` (или `*.pack.json`); narrative top-level текста использовать только как supplementary telemetry.
+- R15.4: Source-of-truth для test execution policy в runtime = `aidd/config/gates.json`; использование `.claude/settings.json`/`CLAUDE_SETTINGS_PATH` в runtime decision path классифицировать как `prompt-flow drift (non-canonical test policy source)`.
+- R15.5: Если зафиксированы `reason_code=project_contract_missing|tests_cwd_mismatch` и одновременно `no_top_level_result`, reason-code считать primary причиной, а `no_top_level_result` — secondary symptom.
 - R16: Для launcher избегать tokenization drift: не передавать флаги как один неразделённый токен; при первом фейле quoting/tokenization делать ровно один shell-safe retry с явными отдельными аргументами.
 - R17: Early-kill prohibition (strict):
   - не останавливать stage-run до исчерпания budget этапа, если есть liveness (`main log` и/или stream-файлы растут);
@@ -131,6 +134,8 @@
   - `cd "$PROJECT_DIR"`
   - `claude -p "<stage command>" $CLAUDE_ARGS $CLAUDE_PLUGIN_FLAGS`
 - Shell-safe launch (рекомендуется для всех запусков): передавать каждый флаг отдельным аргументом, без склейки в одну строку/токен.
+- Перед первым stage-run (и перед каждым retry после `cwd_wrong`) выполнить shell-safe topology precheck:
+  - `[ "$(cd "$PROJECT_DIR" && pwd -P)" != "$(cd "$PLUGIN_DIR" && pwd -P)" ] || { echo "ENV_MISCONFIG(cwd_wrong): PROJECT_DIR must differ from PLUGIN_DIR"; exit 12; }`
 - Перед каждым stage-run делать disk-preflight:
   - `df -Pk "$PROJECT_DIR"` и проверка свободного места (`>= 1073741824` bytes);
   - если свободного места меньше, классифицировать как `ENV_MISCONFIG(no_space_left_on_device)` и не стартовать stage-run.
@@ -207,6 +212,7 @@
   - `exit_code=127` -> `launcher_tokenization_or_command_not_found` (не `completed`)
   - `reason_code=seed_stage_budget_exhausted` -> `watchdog_terminated` по budget exhaustion
   - `reason_code=repeated_command_failure_no_new_evidence` -> bounded fail-fast без дальнейших guessed retries
+  - `reason_code=project_contract_missing|tests_cwd_mismatch` -> terminal policy blocker; при одновременном `no_top_level_result` последний остаётся secondary telemetry
   - `stage_result_missing_or_invalid` + diagnostics `scope_fallback_stale_ignored|scope_shape_invalid` -> `scope_drift_recoverable`
 - Отдельно `contract mismatch`:
   - `stage_result_missing_or_invalid` с diagnostics вида `invalid-schema` для fallback candidate (включая legacy stage-result schema payload)
@@ -400,7 +406,10 @@
   - `rg -n "python3 skills/.*/runtime/" "$PLUGIN_DIR/skills/{implement,review,qa}/SKILL.md"`;
   - при hit пометить `WARN(prompt_surface_non_canonical_runtime_path)` (не блокирует старт аудита).
 - зафиксировать `claude plugin list` в `01_plugin_list.txt`;
-- зафиксировать `~/.claude/settings.json` (если есть) в `01_claude_settings_snapshot.json`;
+- зафиксировать `aidd/config/gates.json` (если есть) в `01_gates_snapshot.json`;
+- выполнить runtime test-policy source scan и сохранить `01_test_policy_source_scan.txt`:
+  - `rg -n "CLAUDE_SETTINGS_PATH|\\.claude/settings\\.json" "$PLUGIN_DIR/skills" "$PLUGIN_DIR/hooks/format-and-test.sh"`;
+  - если hit относится к runtime decision path, фиксировать `WARN(test_policy_source_non_canonical)` (не блокирует старт аудита);
 - выполнить healthcheck команду (`$PLUGIN_HEALTHCHECK_CMD`) через launcher из секции 5.0;
 - проверить `init`-событие healthcheck-лога:
   - есть `plugins: [{"name":"feature-dev-aidd"...}]`;
@@ -785,11 +794,15 @@ QA integrity checks:
 - Блок Flow Integrity Checks:
   - slug hygiene
   - plugin init evidence (`plugins`, `slash_commands`, `skills`)
+  - test contract SoT (`aidd/config/gates.json`) + policy-source scan (`01_gates_snapshot.json`, `01_test_policy_source_scan.txt`)
   - canonical stage_result contract
+  - reason-code precedence (`project_contract_missing|tests_cwd_mismatch` как primary; `no_top_level_result` как secondary symptom)
+  - runtime path hygiene (python-only runtime surfaces + отсутствие runtime decision dependency на `.claude/settings.json`)
   - stream-aware liveness probe (main log + stream jsonl/log)
   - review-spec report alignment (`05_review_spec_report_check_run<N>.txt`)
   - blocking_findings semantics (`REVISE` signal + `ralph` recoverable path)
   - `NOT VERIFIED` causes
+  - topology/cwd evidence (`PRE-RUN invariant` + launcher precheck)
   - plugin write-safety
 - Дополнительный блок Env diagnostics:
   - plugin list snapshot

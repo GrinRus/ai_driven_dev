@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Unified formatter and test runner hook.
 
-Reads automation settings from .claude/settings.json (or CLAUDE_SETTINGS_PATH),
+Reads project policy from aidd/config/gates.json,
 runs configured formatting commands, then executes the appropriate test tasks
 depending on the change scope and configuration flags.
 """
@@ -13,6 +13,7 @@ import fnmatch
 import hashlib
 import json
 import os
+import shlex
 import subprocess
 import sys
 import time
@@ -75,11 +76,8 @@ def append_event(
 LOG_PREFIX = "[format-and-test]"
 
 
-def resolve_settings_path(workspace_root: Path) -> Path:
-    env_path = os.environ.get("CLAUDE_SETTINGS_PATH")
-    if env_path:
-        return Path(env_path).expanduser().resolve()
-    return (workspace_root / ".claude" / "settings.json").resolve()
+def resolve_gates_path(project_root: Path) -> Path:
+    return (project_root / "config" / "gates.json").resolve()
 DEFAULT_REVIEWER_MARKER = "aidd/reports/reviewer/{ticket}/{scope_key}.tests.json"
 DEFAULT_REVIEWER_FIELD = "tests"
 DEFAULT_REVIEWER_REQUIRED = ("required",)
@@ -181,13 +179,6 @@ def normalize_code_files(values: Iterable[str] | None) -> Tuple[str, ...]:
             continue
         normalized.append(text.lower())
     return dedupe_preserve(normalized)
-
-
-def _safe_normalized_service_path(workspace_root: Path, settings_path: Path) -> str | None:
-    try:
-        return normalize_service_path(settings_path.resolve().relative_to(workspace_root.resolve()).as_posix())
-    except Exception:
-        return None
 
 
 def is_code_related(path: str, prefixes: Tuple[str, ...], suffixes: Tuple[str, ...], exact: Tuple[str, ...]) -> bool:
@@ -392,14 +383,14 @@ def fail(message: str, code: int = 1) -> int:
     return code
 
 
-def load_config(settings_path: Path) -> dict | None:
-    if not settings_path.exists():
-        log(f"Конфигурация {settings_path} не найдена — шаги пропущены.")
+def load_config(config_path: Path) -> dict | None:
+    if not config_path.exists():
+        log(f"Конфигурация {config_path} не найдена.")
         return None
     try:
-        return json.loads(settings_path.read_text(encoding="utf-8"))
+        return json.loads(config_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
-        raise SystemExit(fail(f"Не удалось разобрать {settings_path}: {exc}", 1))
+        raise SystemExit(fail(f"Не удалось разобрать {config_path}: {exc}", 1))
 
 
 def run_subprocess(cmd: List[str], strict: bool = True) -> bool:
@@ -614,6 +605,64 @@ def parse_scope(value: str) -> List[str]:
     return items
 
 
+def parse_command_list(value: str) -> List[str]:
+    raw = str(value or "").strip()
+    if not raw:
+        return []
+    items: List[str] = []
+    if "\n" in raw:
+        chunks = raw.splitlines()
+    elif ";" in raw:
+        chunks = raw.split(";")
+    elif "," in raw:
+        chunks = raw.split(",")
+    else:
+        chunks = [raw]
+    for chunk in chunks:
+        text = chunk.strip()
+        if text:
+            append_unique(items, text)
+    return items
+
+
+def _materialize_contract_command_tokens(entry: dict) -> List[str]:
+    tokens = [str(item).strip() for item in (entry.get("command") or []) if str(item).strip()]
+    return tokens
+
+
+def _resolve_contract_command_cwd(
+    cwd_raw: str,
+    *,
+    workspace_root: Path,
+    project_root: Path,
+) -> Path | None:
+    cwd_text = str(cwd_raw or ".").strip() or "."
+    cwd_candidate = Path(cwd_text)
+    if cwd_candidate.is_absolute():
+        return cwd_candidate if cwd_candidate.exists() else None
+    workspace_candidate = (workspace_root / cwd_candidate).resolve()
+    if workspace_candidate.exists():
+        return workspace_candidate
+    project_candidate = (project_root / cwd_candidate).resolve()
+    if project_candidate.exists():
+        return project_candidate
+    return None
+
+
+def _is_explicit_path_command(head: str) -> bool:
+    value = str(head or "").strip()
+    return value.startswith("./") or value.startswith("../") or value.startswith("/")
+
+
+def _command_head_exists(head: str, cwd: Path) -> bool:
+    value = str(head or "").strip()
+    if not value:
+        return False
+    if _is_explicit_path_command(value):
+        return (cwd / value).resolve().exists()
+    return True
+
+
 def normalize_cadence(value: object) -> str:
     raw = str(value or "").strip().lower()
     if raw in {"checkpoint", "manual"}:
@@ -667,20 +716,12 @@ def clear_checkpoint(path: Path) -> None:
 
 
 def resolve_workspace_root(ctx: object | None) -> Path:
-    env_path = os.environ.get("CLAUDE_SETTINGS_PATH")
-    if env_path:
-        settings_path = Path(env_path).expanduser().resolve()
-        if settings_path.name == "settings.json" and settings_path.parent.name == ".claude":
-            return settings_path.parent.parent.resolve()
-        return settings_path.parent.resolve()
     if ctx is not None:
         from hooks import hooklib
 
         base = hooklib.resolve_project_dir(ctx)
     else:
         base = Path.cwd().resolve()
-    if base.name == "aidd":
-        return base.parent.resolve()
     return base.resolve()
 
 def read_active_state(project_root: Path) -> dict:
@@ -779,12 +820,10 @@ def docs_only(files: List[str], *, aidd_root: bool, ignored_paths: Iterable[str]
         normalized = normalize_service_path(path)
         if normalized in ignored:
             continue
-        if aidd_root:
-            if not normalized.startswith(DOCS_PREFIX):
-                return False
-        else:
-            if not normalized.startswith("aidd/" + DOCS_PREFIX):
-                return False
+        if normalized.startswith("aidd/"):
+            normalized = normalized[len("aidd/"):]
+        if not normalized.startswith(DOCS_PREFIX):
+            return False
     return True
 
 
@@ -794,14 +833,18 @@ def main() -> int:
     ctx = hooklib.read_hook_context()
     workspace_root = resolve_workspace_root(ctx)
     os.chdir(workspace_root)
-    settings_path = resolve_settings_path(workspace_root)
     project_root = resolve_aidd_root(workspace_root)
+    config_path = resolve_gates_path(project_root)
     diff_files = collect_diff_files(workspace_root)
     stage = read_active_stage(project_root)
     active_mode = read_active_mode(project_root)
-    aidd_root = project_root.name == "aidd"
+    # Treat docs/config/reports/.cache as service-only paths only when the hook is
+    # executed from a workspace root that contains nested `aidd/`. If cwd is the
+    # project root itself (even if directory name is `aidd`), keep classic repo-root
+    # semantics so source-path heuristics still work in tests and standalone repos.
+    aidd_root = project_root.name == "aidd" and project_root != workspace_root
 
-    def record_settings_missing_tests_log() -> None:
+    def record_contract_missing_tests_log() -> None:
         identifiers = resolve_identifiers(project_root)
         ticket = identifiers.resolved_ticket or ""
         if not ticket:
@@ -823,19 +866,19 @@ def main() -> int:
             slug_hint=identifiers.slug_hint,
             stage=stage_value,
             scope_key=scope_key,
-            work_item_key=work_item_key or None,
-            profile="none",
-            status="skipped",
-            reason_code="settings_missing",
-            reason="settings.json not found",
-            details={
-                "profile": "none",
-                "reason_code": "settings_missing",
-                "reason": "settings.json not found",
-            },
-            source="hook format-and-test",
-            cwd=str(workspace_root),
-        )
+                work_item_key=work_item_key or None,
+                profile="none",
+                status="skipped",
+                reason_code="project_contract_missing",
+                reason="gates.json or qa.tests missing",
+                details={
+                    "profile": "none",
+                    "reason_code": "project_contract_missing",
+                    "reason": "gates.json or qa.tests missing",
+                },
+                source="hook format-and-test",
+                cwd=str(workspace_root),
+            )
         tests_log_path = _tests_log.tests_log_path(project_root, ticket, scope_key)
         tests_log_rel = _runtime.rel_path(tests_log_path, project_root)
         result_path = (
@@ -864,8 +907,8 @@ def main() -> int:
         links_map["tests_log"] = tests_log_rel
         payload_reason_code = str(payload.get("reason_code") or "").strip()
         if payload_reason_code in {"", "missing_test_evidence"}:
-            payload["reason_code"] = "settings_missing"
-            payload.setdefault("reason", "settings.json not found")
+            payload["reason_code"] = "project_contract_missing"
+            payload.setdefault("reason", "gates.json or qa.tests missing")
         payload["evidence_links"] = links_map
         payload["updated_at"] = dt.datetime.now(dt.timezone.utc).isoformat()
         result_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -881,54 +924,50 @@ def main() -> int:
             log("Активная стадия review, diff пустой/только service — форматирование/тесты пропущены.")
             return 0
 
-    if not settings_path.exists():
-        log(f"Конфигурация {settings_path} не найдена — шаги пропущены.")
-        record_settings_missing_tests_log()
-        return 0
+    if not config_path.exists():
+        log(f"Конфигурация {config_path} не найдена (reason_code=project_contract_missing).")
+        record_contract_missing_tests_log()
+        return 1
 
     if env_flag("SKIP_AUTO_TESTS"):
         log("SKIP_AUTO_TESTS=1 — автоматический запуск форматирования и выборочных тестов пропущен.")
         return 0
 
-    config = load_config(settings_path)
+    config = load_config(config_path)
     if config is None:
-        return 0
+        record_contract_missing_tests_log()
+        return 1
 
-    automation = config.get("automation", {})
-    format_cfg = automation.get("format", {})
+    format_cfg = config.get("format", {}) if isinstance(config, dict) else {}
     format_commands = [
         [str(part) for part in cmd]
         for cmd in format_cfg.get("commands", [])
         if isinstance(cmd, list)
     ]
 
-    tests_cfg = automation.get("tests", {})
-    runner_cfg = tests_cfg.get("runner", "bash")
-    if isinstance(runner_cfg, list):
-        test_runner = [str(part) for part in runner_cfg]
-    else:
-        test_runner = [str(runner_cfg)]
+    qa_cfg = config.get("qa") if isinstance(config, dict) else {}
+    if not isinstance(qa_cfg, dict):
+        qa_cfg = {}
+    tests_cfg = qa_cfg.get("tests")
+    if not isinstance(tests_cfg, dict):
+        tests_cfg = {}
+    tests_required_mode = str(config.get("tests_required", "disabled")).strip().lower()
+    try:
+        from aidd_runtime import gates as _gates
+    except Exception:
+        _gates = None
+    qa_tests_contract: dict = {}
+    qa_tests_contract_errors: List[str] = ["project_contract_missing"]
+    contract_profile_default = "none"
+    if _gates is not None:
+        try:
+            qa_tests_contract, qa_tests_contract_errors = _gates.load_qa_tests_contract(config)
+        except Exception:
+            qa_tests_contract, qa_tests_contract_errors = {}, ["project_contract_missing"]
+        contract_profile_default = str(qa_tests_contract.get("profile_default") or "none").strip().lower() or "none"
 
-    default_tasks = [str(task) for task in tests_cfg.get("defaultTasks", [])]
-    fallback_tasks = [str(task) for task in tests_cfg.get("fallbackTasks", [])]
-    fast_tasks = [str(task) for task in tests_cfg.get("fastTasks", [])]
-    full_tasks = [str(task) for task in tests_cfg.get("fullTasks", [])]
-    targeted_raw = tests_cfg.get("targetedTask", [])
-    if isinstance(targeted_raw, list):
-        targeted_tasks = [str(task) for task in targeted_raw]
-    elif targeted_raw:
-        targeted_tasks = [str(targeted_raw)]
-    else:
-        targeted_tasks = []
-    filter_flag = str(tests_cfg.get("filterFlag") or "--tests")
-    module_matrix = [
-        {
-            "match": str(item.get("match", "")),
-            "tasks": [str(t) for t in item.get("tasks", [])],
-        }
-        for item in tests_cfg.get("moduleMatrix", [])
-        if isinstance(item, dict)
-    ]
+    test_runner = ["contract"]
+    manual_filter_flag = "--tests"
     changed_only_default = bool(tests_cfg.get("changedOnly", True))
     strict_default = bool(tests_cfg.get("strictDefault", 1))
 
@@ -958,11 +997,13 @@ def main() -> int:
         profile_raw = profile_default_env
         profile_source = "default-env"
     else:
-        profile_raw = ""
-    test_profile = profile_raw.lower() if profile_raw else "fast"
+        profile_raw = contract_profile_default
+    test_profile = profile_raw.lower() if profile_raw else contract_profile_default
+    if not test_profile:
+        test_profile = "none"
     if test_profile not in {"fast", "targeted", "full", "none"}:
-        log(f"Неизвестный AIDD_TEST_PROFILE={test_profile!r}; используем fast.")
-        test_profile = "fast"
+        log(f"Неизвестный AIDD_TEST_PROFILE={test_profile!r}; используем profile=none.")
+        test_profile = "none"
         profile_source = "default"
     policy_tasks_raw = (os.environ.get("AIDD_TEST_TASKS") or policy_env.get("AIDD_TEST_TASKS") or "").strip()
     policy_filters_raw = (os.environ.get("AIDD_TEST_FILTERS") or policy_env.get("AIDD_TEST_FILTERS") or "").strip()
@@ -979,13 +1020,13 @@ def main() -> int:
     manual_scope_requested = False
     test_scope_env = os.environ.get("TEST_SCOPE")
     if test_scope_env:
-        for item in parse_scope(test_scope_env):
+        for item in parse_command_list(test_scope_env):
             append_unique(test_tasks, item)
         changed_only_flag = False
         manual_scope_requested = True
 
     if policy_tasks_raw:
-        for item in parse_scope(policy_tasks_raw):
+        for item in parse_command_list(policy_tasks_raw):
             append_unique(test_tasks, item)
         changed_only_flag = False
         manual_scope_requested = True
@@ -999,18 +1040,17 @@ def main() -> int:
     stage_value = (stage or "implement").strip().lower() or "implement"
     stage_policy = ""
     stage_policy_source = ""
-    try:
-        from aidd_runtime import gates as _gates
-
-        gates_config = _gates.load_gates_config(project_root)
-        stage_policy = _gates.resolve_stage_tests_policy(gates_config, stage_value)
-        if stage_policy:
-            if isinstance(gates_config, dict) and (gates_config.get("tests_policy") or gates_config.get("testsPolicy")):
-                stage_policy_source = "gates.json"
-            else:
-                stage_policy_source = "default"
-    except Exception:
-        stage_policy = ""
+    if _gates is not None:
+        try:
+            gates_config = _gates.load_gates_config(project_root)
+            stage_policy = _gates.resolve_stage_tests_policy(gates_config, stage_value)
+            if stage_policy:
+                if isinstance(gates_config, dict) and (gates_config.get("tests_policy") or gates_config.get("testsPolicy")):
+                    stage_policy_source = "gates.json"
+                else:
+                    stage_policy_source = "default"
+        except Exception:
+            stage_policy = ""
 
     if stage_policy:
         policy_active = True
@@ -1053,6 +1093,106 @@ def main() -> int:
                 test_filters = []
             changed_only_flag = False
 
+    contract_primary_mode = False
+    contract_fail_fast_reason = ""
+    contract_fail_fast_message = ""
+    contract_command_specs: List[Dict[str, object]] = []
+
+    def resolve_contract_command_specs(profile: str) -> tuple[List[Dict[str, object]], str]:
+        profile_value = str(profile or "").strip().lower()
+        if profile_value == "none":
+            return [], ""
+        if _gates is None:
+            return [], "project_contract_missing"
+        if qa_tests_contract_errors and (
+            profile_value != "none" or "project_contract_missing" in qa_tests_contract_errors
+        ):
+            return [], "project_contract_missing"
+        selected = _gates.select_commands_for_profile(qa_tests_contract, profile_value)
+        if not selected:
+            selected = list(qa_tests_contract.get("commands") or [])
+        specs: List[Dict[str, object]] = []
+        for entry in selected:
+            if not isinstance(entry, dict):
+                continue
+            tokens = _materialize_contract_command_tokens(entry)
+            if not tokens:
+                continue
+            cwd_text = str(entry.get("cwd") or ".").strip() or "."
+            cwd_path = _resolve_contract_command_cwd(
+                cwd_text,
+                workspace_root=workspace_root,
+                project_root=project_root,
+            )
+            if cwd_path is None:
+                return [], "tests_cwd_mismatch"
+            display = " ".join(shlex.quote(token) for token in tokens)
+            if cwd_text not in {".", "./"}:
+                display = f"(cwd={cwd_text}) {display}"
+            specs.append(
+                {
+                    "id": str(entry.get("id") or "").strip(),
+                    "command": tokens,
+                    "cwd": cwd_path,
+                    "cwd_text": cwd_text,
+                    "display": display,
+                }
+            )
+        if not specs:
+            return [], "project_contract_missing"
+        return specs, ""
+
+    def resolve_manual_scope_specs(tasks: List[str], filters: List[str]) -> tuple[List[Dict[str, object]], str]:
+        specs: List[Dict[str, object]] = []
+        for raw in tasks:
+            task = str(raw or "").strip()
+            if not task:
+                continue
+            try:
+                tokens = [token for token in shlex.split(task) if token]
+            except ValueError:
+                return [], "project_contract_missing"
+            if not tokens:
+                continue
+            if filters:
+                for filter_item in filters:
+                    tokens.extend([manual_filter_flag, filter_item])
+            display = " ".join(shlex.quote(token) for token in tokens)
+            specs.append(
+                {
+                    "id": "manual_scope",
+                    "command": tokens,
+                    "cwd": workspace_root,
+                    "cwd_text": ".",
+                    "display": display,
+                }
+            )
+        if not specs:
+            return [], "project_contract_missing"
+        return specs, ""
+
+    if manual_scope_requested:
+        contract_command_specs, contract_resolution_reason = resolve_manual_scope_specs(test_tasks, test_filters)
+    else:
+        contract_command_specs, contract_resolution_reason = resolve_contract_command_specs(test_profile)
+
+    if contract_command_specs:
+        contract_primary_mode = True
+        changed_only_flag = False
+        test_tasks = [str(item.get("display") or "").strip() for item in contract_command_specs if str(item.get("display") or "").strip()]
+    elif contract_resolution_reason:
+        contract_fail_fast_reason = contract_resolution_reason
+        if contract_resolution_reason == "tests_cwd_mismatch":
+            contract_fail_fast_message = (
+                "qa.tests.commands содержит невалидный cwd/command "
+                "(reason_code=tests_cwd_mismatch)."
+            )
+        else:
+            contract_fail_fast_message = (
+                "qa.tests contract missing/invalid for active profile "
+                "(reason_code=project_contract_missing)."
+            )
+
     log(f"Test profile: {test_profile} (source: {profile_source}).")
     if stage_policy:
         log(f"Stage tests policy: {stage_policy} (source: {stage_policy_source}).")
@@ -1092,9 +1232,6 @@ def main() -> int:
 
     changed_files = [path for path in collect_changed_files(workspace_root) if not is_cache_artifact(path)]
     docs_only_ignored: set[str] = set()
-    settings_service_path = _safe_normalized_service_path(workspace_root, settings_path)
-    if settings_service_path:
-        docs_only_ignored.add(settings_service_path)
     identifiers = resolve_identifiers(project_root)
     active_ticket = identifiers.resolved_ticket or ""
     slug_hint = identifiers.slug_hint
@@ -1316,6 +1453,21 @@ def main() -> int:
         except Exception:
             return
 
+    if contract_fail_fast_reason:
+        log(
+            (
+                f"{contract_fail_fast_message} "
+                f"Source-of-truth: aidd/config/gates.json -> qa.tests."
+            ).strip()
+        )
+        record_event("fail", contract_fail_fast_reason)
+        record_tests_log(
+            "skipped",
+            reason_code=contract_fail_fast_reason,
+            reason=contract_fail_fast_message or contract_fail_fast_reason,
+        )
+        return 1
+
     if docs_only(changed_files, aidd_root=aidd_root, ignored_paths=docs_only_ignored) and not active_ticket:
         log("Изменения только в docs — форматирование/тесты пропущены.")
         record_event("skipped", "docs-only")
@@ -1392,11 +1544,7 @@ def main() -> int:
         loop_tests_override = True
 
     if loop_mode:
-        if stage == "review":
-            tests_should_run = False
-            skip_reason = "loop-mode: review stage — тесты пропущены."
-            skip_reason_code = "skip_auto_tests"
-        elif stage == "implement" and not loop_tests_override:
+        if stage == "implement" and not loop_tests_override:
             tests_should_run = False
             skip_reason = "loop-mode: тесты запускаются только с AIDD_LOOP_TESTS=1 или AIDD_TEST_FORCE=1."
             skip_reason_code = "skip_auto_tests"
@@ -1448,7 +1596,7 @@ def main() -> int:
         log("SKIP_FORMAT=1 — форматирование пропущено.")
     else:
         if not format_commands:
-            log("Команды форматирования не настроены (automation.format.commands).")
+            log("Команды форматирования не настроены (format.commands в aidd/config/gates.json).")
         else:
             for cmd in format_commands:
                 if not run_subprocess(cmd):
@@ -1465,6 +1613,24 @@ def main() -> int:
         return 0
 
     if not tests_should_run:
+        if tests_required_mode == "hard" and skip_reason_code not in {
+            "project_contract_missing",
+            "tests_cwd_mismatch",
+            "profile_none",
+            "tests_forbidden",
+        }:
+            fail_reason = skip_reason or "tests required by hard policy but stage skipped"
+            log(
+                "[aidd] BLOCK: tests_required=hard and stage skipped without contractual reason "
+                "(reason_code=no_tests_hard)."
+            )
+            record_event("fail", "no_tests_hard")
+            record_tests_log(
+                "fail",
+                reason_code="no_tests_hard",
+                reason=fail_reason,
+            )
+            return 1
         if skip_reason:
             log(skip_reason)
         else:
@@ -1495,52 +1661,36 @@ def main() -> int:
                 f"Активная фича '{feature_label(active_ticket, slug_hint)}', изменены общие файлы: {' '.join(common_hits)} — полный прогон тестов (profile=full)."
             )
 
-    if changed_only_flag and changed_files and module_matrix:
-        matrix_tasks: List[str] = []
-        for item in module_matrix:
-            match = item.get("match", "")
-            if not match:
-                continue
-            if any(path.startswith(match) for path in changed_files):
-                for task in item.get("tasks", []):
-                    append_unique(matrix_tasks, task)
-        for task in matrix_tasks:
-            append_unique(test_tasks, task)
+    if contract_primary_mode and not manual_scope_requested:
+        contract_command_specs, contract_resolution_reason = resolve_contract_command_specs(test_profile)
+        if contract_resolution_reason and not contract_command_specs:
+            log(
+                "[aidd] BLOCK: qa.tests contract cannot resolve executable commands "
+                f"(reason_code={contract_resolution_reason})."
+            )
+            record_event("fail", contract_resolution_reason)
+            record_tests_log(
+                "skipped",
+                reason_code=contract_resolution_reason,
+                reason="qa.tests contract cannot resolve executable commands",
+            )
+            return 1
 
-    if not test_tasks and test_profile != "none":
-        profile_tasks: List[str] = []
-        if test_profile == "full":
-            profile_tasks = full_tasks or default_tasks
-        elif test_profile == "fast":
-            profile_tasks = fast_tasks or default_tasks
-        elif test_profile == "targeted":
-            profile_tasks = targeted_tasks or fast_tasks or default_tasks
-        for task in profile_tasks:
-            append_unique(test_tasks, task)
+    if not contract_command_specs:
+        log(
+            "[aidd] BLOCK: qa.tests contract cannot resolve executable commands "
+            "(reason_code=project_contract_missing)."
+        )
+        record_event("fail", "project_contract_missing")
+        record_tests_log(
+            "skipped",
+            reason_code="project_contract_missing",
+            reason="qa.tests contract cannot resolve executable commands",
+        )
+        return 1
 
-    if not test_tasks:
-        for task in fallback_tasks:
-            append_unique(test_tasks, task)
-
-    if test_filters:
-        for filter_item in test_filters:
-            if filter_flag:
-                test_tasks.append(filter_flag)
-            test_tasks.append(filter_item)
-
-    if not test_tasks:
-        log("Нет задач для запуска тестов — проверка пропущена.")
-        record_event("skipped", "no-tests")
-        record_tests_log("skipped", reason_code="manual_skip", reason="no-tests")
-        return 0
-
+    test_tasks = [str(item.get("display") or "").strip() for item in contract_command_specs if str(item.get("display") or "").strip()]
     log(f"Выбранные задачи тестов ({test_profile}): {' '.join(test_tasks)}")
-
-    if not test_runner or not test_runner[0]:
-        log("Не указан runner для тестов — стадия пропущена.")
-        record_event("skipped", "no-runner")
-        record_tests_log("skipped", reason_code="manual_skip", reason="no-runner")
-        return 0
 
     diff_parts: List[str] = []
     if git_has_head():
@@ -1556,6 +1706,7 @@ def main() -> int:
         "tasks": test_tasks,
         "filters": test_filters,
         "runner": test_runner,
+        "contract_primary_mode": int(contract_primary_mode),
         "changed_only": changed_only_flag,
         "manual_scope": manual_scope_requested,
         "changed_files": changed_files,
@@ -1573,19 +1724,57 @@ def main() -> int:
     elif last_state.get("fingerprint") == fingerprint and last_state.get("status") == "failed":
         log("Dedupe: предыдущий прогон завершился ошибкой — повторяем.")
 
-    command = test_runner + test_tasks
-    log(f"Запуск тестов: {' '.join(command)}")
     test_log_mode = resolve_test_log_mode()
     test_log_path = ensure_test_log_path(project_root, active_ticket or "unknown")
     log(f"Test log: {test_log_path}")
+    result_code = 0
+    run_failure_reason_code = ""
     with test_log_path.open("w", encoding="utf-8") as handle:
-        result = subprocess.run(
-            command,
-            text=True,
-            stdout=handle,
-            stderr=subprocess.STDOUT,
-        )
-    status = "success" if result.returncode == 0 else "failed"
+        for spec in contract_command_specs:
+            command = [str(token) for token in (spec.get("command") or []) if str(token).strip()]
+            cwd = spec.get("cwd")
+            if not isinstance(cwd, Path):
+                result_code = 1
+                run_failure_reason_code = "tests_cwd_mismatch"
+                handle.write("invalid command cwd in qa.tests contract\n")
+                break
+            if not cwd.exists():
+                result_code = 1
+                run_failure_reason_code = "tests_cwd_mismatch"
+                handle.write(f"command cwd not found: {cwd}\n")
+                break
+            if not command:
+                result_code = 1
+                run_failure_reason_code = "project_contract_missing"
+                handle.write("empty command in qa.tests contract\n")
+                break
+            if _is_explicit_path_command(command[0]) and not _command_head_exists(command[0], cwd):
+                result_code = 1
+                run_failure_reason_code = "tests_cwd_mismatch"
+                handle.write(
+                    f"command path not found in selected cwd: {command[0]} (cwd={cwd.as_posix()})\n"
+                )
+                break
+            rendered = " ".join(shlex.quote(token) for token in command)
+            log(f"Запуск тестов: {rendered} (cwd={cwd.as_posix()})")
+            handle.write(f"$ (cd {cwd.as_posix()} && {rendered})\n")
+            try:
+                result = subprocess.run(
+                    command,
+                    cwd=cwd,
+                    text=True,
+                    stdout=handle,
+                    stderr=subprocess.STDOUT,
+                )
+            except FileNotFoundError as exc:
+                result_code = 1
+                run_failure_reason_code = "tests_cwd_mismatch"
+                handle.write(f"command not found: {command[0]} ({exc})\n")
+                break
+            result_code = int(result.returncode)
+            if result_code != 0:
+                break
+    status = "success" if result_code == 0 else "failed"
     write_dedupe_state(
         cache_path,
         {
@@ -1597,7 +1786,7 @@ def main() -> int:
             "ran_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         },
     )
-    if result.returncode == 0:
+    if result_code == 0:
         log("Тесты завершились успешно.")
         record_event("pass")
         record_tests_log("pass", exit_code=0, log_path=test_log_path)
@@ -1611,12 +1800,26 @@ def main() -> int:
 
     if strict_flag:
         record_event("fail")
-        record_tests_log("fail", exit_code=result.returncode, log_path=test_log_path)
-        return fail("Тесты завершились с ошибкой (STRICT_TESTS=1).", result.returncode)
+        record_tests_log(
+            "fail",
+            reason_code=run_failure_reason_code,
+            reason="contract command/cwd mismatch" if run_failure_reason_code == "tests_cwd_mismatch" else "",
+            exit_code=result_code,
+            log_path=test_log_path,
+        )
+        if run_failure_reason_code == "tests_cwd_mismatch":
+            return fail("Тесты не запущены: невалидный cwd/command (tests_cwd_mismatch).", result_code)
+        return fail("Тесты завершились с ошибкой (STRICT_TESTS=1).", result_code)
 
     log("Тесты завершились с ошибкой, но STRICT_TESTS != 1 — продолжаем.")
     record_event("fail")
-    record_tests_log("fail", exit_code=result.returncode, log_path=test_log_path)
+    record_tests_log(
+        "fail",
+        reason_code=run_failure_reason_code,
+        reason="contract command/cwd mismatch" if run_failure_reason_code == "tests_cwd_mismatch" else "",
+        exit_code=result_code,
+        log_path=test_log_path,
+    )
     return 0
 
 

@@ -19,6 +19,7 @@ import aidd_audit_contract as contract
 
 
 DEFAULT_MIN_FREE_BYTES = 1_073_741_824
+RUN_SUMMARY_RE = re.compile(r"^(?P<step>.+)_run(?P<run>[0-9]+)\.summary\.txt$")
 TOP_LEVEL_PATTERNS = (
     re.compile(r'"status"\s*:\s*"(blocked|done|ship|success|error|continue)"', re.IGNORECASE),
     re.compile(r"\bstatus=(blocked|done|ship|success|error|continue)\b", re.IGNORECASE),
@@ -63,12 +64,9 @@ def _safe_int(raw: object, default: int = 0) -> int:
 
 
 def infer_liveness_path(summary_path: Path) -> Path | None:
-    name = summary_path.name
-    match = re.match(r"^(?P<step>.+)_run(?P<run>[0-9]+)\.summary\.txt$", name)
-    if not match:
+    step, run = _parse_summary_identity(summary_path)
+    if not step or run <= 0:
         return None
-    step = match.group("step")
-    run = match.group("run")
     candidates = [
         summary_path.with_name(f"{step}_stream_liveness_check_run{run}.txt"),
         summary_path.with_name(f"{step}_stream_liveness_check.txt"),
@@ -77,6 +75,16 @@ def infer_liveness_path(summary_path: Path) -> Path | None:
         if candidate.exists():
             return candidate
     return None
+
+
+def _parse_summary_identity(summary_path: Path) -> tuple[str, int]:
+    name = summary_path.name
+    match = RUN_SUMMARY_RE.match(name)
+    if not match:
+        return "", 0
+    step = str(match.group("step") or "").strip()
+    run = _safe_int(match.group("run"), 0)
+    return step, run
 
 
 def resolve_min_free_bytes(raw: str | None = None) -> int:
@@ -129,6 +137,24 @@ def detect_top_level_status(log_text: str) -> str:
         if match:
             return str(match.group(1) or "").strip().lower()
     return ""
+
+
+def detect_top_level_result_event(log_text: str) -> bool:
+    return bool(re.search(r'"type"\s*:\s*"result"', str(log_text or "")))
+
+
+def parse_kv_text(text: str) -> Dict[str, str]:
+    payload: Dict[str, str] = {}
+    for raw in str(text or "").splitlines():
+        line = raw.strip()
+        if not line or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        if not key:
+            continue
+        payload[key] = value.strip()
+    return payload
 
 
 def interpret_result_count(summary: Mapping[str, str], *, top_level_present: bool) -> str:
@@ -215,6 +241,31 @@ def _detect_readiness_gate_reason(
     return ""
 
 
+def _derive_readiness_failure_mode(
+    *,
+    readiness_reason: str,
+    precondition: Mapping[str, str],
+    diagnostics: Mapping[str, str],
+) -> str:
+    reason = str(readiness_reason or "").strip().lower()
+    if not reason:
+        return ""
+    prd_status = str(precondition.get("prd_status") or diagnostics.get("prd_status") or "").strip().lower()
+    review_recommended_status = str(
+        diagnostics.get("recommended_status")
+        or precondition.get("review_spec_recommended_status")
+        or ""
+    ).strip().lower()
+    if (
+        reason == "prd_not_ready"
+        and prd_status == "ready"
+        and review_recommended_status
+        and review_recommended_status != "ready"
+    ):
+        return "report_recommended_status_not_ready"
+    return reason
+
+
 def _allow_readiness_override(classification: contract.Classification) -> bool:
     if classification.subtype == "readiness_gate_failed":
         return False
@@ -231,6 +282,12 @@ def analyze_run(
     preflight: Mapping[str, object] | None = None,
     aux_log_paths: List[Path] | None = None,
 ) -> Dict[str, object]:
+    step_key, run_index = _parse_summary_identity(summary_path)
+    summary_mtime = 0.0
+    try:
+        summary_mtime = float(summary_path.stat().st_mtime)
+    except OSError:
+        summary_mtime = 0.0
     summary = parse_kv_file(summary_path)
     termination = parse_kv_file(termination_path) if termination_path else {}
     precondition = parse_kv_file(precondition_path) if precondition_path else {}
@@ -251,11 +308,12 @@ def analyze_run(
     for path in aux_log_paths or []:
         aux_text_parts.append(read_log_text(path))
     aux_text = "\n".join(part for part in aux_text_parts if part)
+    diagnostics = parse_kv_text(aux_text)
 
     top_level_status = detect_top_level_status(log_text)
     if not top_level_status and aux_text:
         top_level_status = detect_top_level_status(aux_text)
-    top_level_result_present = bool(top_level_status)
+    top_level_result_present = detect_top_level_result_event(log_text) or detect_top_level_result_event(aux_text) or bool(top_level_status)
     result_count_interpretation = interpret_result_count(summary, top_level_present=top_level_result_present)
 
     classified = contract.classify_incident(
@@ -291,10 +349,37 @@ def analyze_run(
             source="liveness",
             label="INFO(stream_path_not_emitted_by_cli)",
         )
+    review_mismatch_value = str(
+        diagnostics.get("narrative_vs_report_mismatch")
+        or diagnostics.get("narrative_vs_structured_mismatch")
+        or ""
+    ).strip().lower()
+    review_mismatch_detected = review_mismatch_value in {"1", "true", "yes", "on"}
+    review_recommended_status = str(diagnostics.get("recommended_status") or "").strip().lower()
+    review_findings_count = _safe_int(diagnostics.get("findings_count"), -1)
+    review_open_questions_count = _safe_int(diagnostics.get("open_questions_count"), -1)
+    review_mismatch_non_blocking = bool(
+        review_mismatch_detected
+        and review_recommended_status == "ready"
+        and review_findings_count == 0
+        and review_open_questions_count == 0
+    )
+    if review_mismatch_non_blocking and classified.classification in {"FLOW_BUG", "TELEMETRY_ONLY"}:
+        classified = contract.Classification(
+            classification="TELEMETRY_ONLY",
+            subtype="review_spec_report_mismatch_non_blocking",
+            source="diagnostics",
+            label="INFO(review_spec_report_mismatch_non_blocking)",
+        )
     readiness_reason = _detect_readiness_gate_reason(
         summary=summary,
         precondition=precondition,
         diagnostics_text=aux_text,
+    )
+    readiness_failure_mode = _derive_readiness_failure_mode(
+        readiness_reason=readiness_reason,
+        precondition=precondition,
+        diagnostics=diagnostics,
     )
     readiness_gate_failed = bool(readiness_reason)
     if readiness_gate_failed and _allow_readiness_override(classified):
@@ -323,6 +408,39 @@ def analyze_run(
     effective_terminal_status = classified.label
     if top_level_status == "blocked" and recoverable_ralph_observed:
         effective_terminal_status = "BLOCKED(recoverable ralph path observed)"
+    termination_exit_code = str(
+        termination.get("exit_code") or summary.get("effective_exit_code") or summary.get("exit_code") or ""
+    ).strip()
+    termination_signal = str(termination.get("signal") or "").strip()
+    termination_killed_flag = _safe_int(termination.get("killed_flag"), _safe_int(summary.get("killed_flag"), 0))
+    termination_watchdog_marker = _safe_int(
+        termination.get("watchdog_marker"),
+        _safe_int(summary.get("watchdog_marker"), 0),
+    )
+    termination_secondary_telemetry = int(classified.subtype == "cwd_wrong" and termination_exit_code == "143")
+    step_hint = "\n".join(
+        [
+            summary_path.name,
+            str(summary.get("step") or ""),
+            str(summary.get("step_key") or ""),
+            str(summary.get("stage") or ""),
+            str(summary.get("stage_command") or ""),
+        ]
+    )
+    downstream_skip_hint = ""
+    if classified.classification == "ENV_MISCONFIG" and classified.subtype == "cwd_wrong":
+        if re.search(r"05[_-].*tasks[-_ ]new|05_tasks_new", step_hint, flags=re.IGNORECASE):
+            downstream_skip_hint = "NOT VERIFIED (upstream_tasks_new_failed)"
+    primary_cause = f"{classified.classification}:{classified.subtype}"
+    secondary_symptoms: List[str] = []
+    if result_count_interpretation == "no_top_level_result_confirmed":
+        secondary_symptoms.append("no_top_level_result")
+    if invalid_fallback_paths:
+        secondary_symptoms.append("invalid_fallback_path_detected")
+    if review_mismatch_detected:
+        secondary_symptoms.append("review_spec_report_mismatch")
+    if readiness_gate_failed:
+        secondary_symptoms.append("readiness_gate_failed")
 
     payload: Dict[str, object] = dict(summary)
     payload.update(
@@ -335,24 +453,81 @@ def analyze_run(
             "classification_source": classified.source,
             "effective_classification": classified.label,
             "effective_terminal_status": effective_terminal_status,
+            "termination_exit_code": termination_exit_code,
+            "termination_signal": termination_signal,
+            "termination_killed_flag": int(termination_killed_flag),
+            "termination_watchdog_marker": int(termination_watchdog_marker),
+            "termination_secondary_telemetry": termination_secondary_telemetry,
             "recoverable_ralph_observed": int(recoverable_ralph_observed),
             "partial_success_no_top_level_result": int(tasks_new_partial_success),
             "invalid_fallback_path_count": len(invalid_fallback_paths),
             "invalid_fallback_paths": invalid_fallback_paths,
+            "review_spec_report_mismatch_detected": int(review_mismatch_detected),
+            "review_spec_report_mismatch_non_blocking": int(review_mismatch_non_blocking),
+            "review_spec_report_recommended_status": review_recommended_status,
+            "review_spec_report_findings_count": review_findings_count,
+            "review_spec_report_open_questions_count": review_open_questions_count,
             "readiness_gate_failed": int(readiness_gate_failed),
             "readiness_reason": readiness_reason,
+            "readiness_failure_mode": readiness_failure_mode,
             "liveness_classification": liveness_classification,
             "liveness_active_source": liveness_active_source,
             "liveness_valid_stream_count": liveness_valid_stream_count,
             "liveness_stagnation_seconds": liveness_stagnation_seconds,
             "liveness_run_start_epoch": liveness_run_start_epoch,
+            "primary_cause": primary_cause,
+            "secondary_symptoms": secondary_symptoms,
+            "superseded_runs": [],
+            "summary_path": str(summary_path),
+            "summary_mtime": summary_mtime,
+            "step_key": step_key or str(summary.get("step") or ""),
+            "run_index": run_index,
         }
     )
+    if downstream_skip_hint:
+        payload["downstream_skip_hint"] = downstream_skip_hint
+        payload["downstream_skip_scope"] = "06,07,08"
     if precondition:
         payload["precondition"] = dict(precondition)
     if liveness:
         payload["liveness"] = dict(liveness)
     return payload
+
+
+def rollup_latest_runs(run_payloads: List[Mapping[str, object]]) -> Dict[str, object]:
+    grouped: Dict[str, List[Dict[str, object]]] = {}
+    for raw in run_payloads:
+        payload = dict(raw)
+        step_key = str(payload.get("step_key") or payload.get("step") or "").strip() or "unknown"
+        grouped.setdefault(step_key, []).append(payload)
+
+    rolled: Dict[str, Dict[str, object]] = {}
+    for step_key, rows in grouped.items():
+        ordered = sorted(
+            rows,
+            key=lambda item: (
+                _safe_int(item.get("run_index"), 0),
+                float(item.get("summary_mtime") or 0.0),
+                str(item.get("summary_path") or ""),
+            ),
+        )
+        latest = dict(ordered[-1])
+        superseded_runs: List[str] = []
+        for stale in ordered[:-1]:
+            label = str(stale.get("summary_path") or "").strip()
+            if not label:
+                stale_run = _safe_int(stale.get("run_index"), 0)
+                label = f"{step_key}:run{stale_run}"
+            superseded_runs.append(label)
+        latest["superseded_runs"] = superseded_runs
+        rolled[step_key] = latest
+
+    return {
+        "runs_total": len(run_payloads),
+        "steps_total": len(rolled),
+        "step_order": sorted(rolled.keys()),
+        "steps": rolled,
+    }
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -376,6 +551,14 @@ def _build_parser() -> argparse.ArgumentParser:
     classify_parser.add_argument("--min-free-bytes", type=int, default=DEFAULT_MIN_FREE_BYTES)
     classify_parser.add_argument("--skip-preflight", action="store_true")
 
+    rollup_parser = sub.add_parser("rollup", help="Analyze multiple runs and roll up latest-wins per step.")
+    rollup_parser.add_argument("--summary", action="append", default=[], help="Path to *_runN.summary.txt (repeatable).")
+    rollup_parser.add_argument("--audit-dir", help="Directory with *_runN.summary.txt artifacts.")
+    rollup_parser.add_argument("--project-dir")
+    rollup_parser.add_argument("--plugin-dir")
+    rollup_parser.add_argument("--min-free-bytes", type=int, default=DEFAULT_MIN_FREE_BYTES)
+    rollup_parser.add_argument("--skip-preflight", action="store_true")
+
     return parser
 
 
@@ -388,6 +571,46 @@ def main(argv: List[str] | None = None) -> int:
             min_free_bytes=args.min_free_bytes,
         )
         print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return 0
+
+    if args.command == "rollup":
+        summary_paths: List[Path] = []
+        summary_paths.extend(Path(item) for item in (args.summary or []))
+        if args.audit_dir:
+            summary_paths.extend(sorted(Path(args.audit_dir).glob("*_run*.summary.txt")))
+        unique_paths: List[Path] = []
+        seen: set[str] = set()
+        for path in summary_paths:
+            key = str(path.resolve())
+            if key in seen:
+                continue
+            seen.add(key)
+            if path.exists():
+                unique_paths.append(path)
+        if not unique_paths:
+            raise SystemExit("rollup requires --summary or --audit-dir with existing *_run*.summary.txt files")
+
+        preflight_payload: Mapping[str, object] | None = None
+        if not args.skip_preflight and args.project_dir and args.plugin_dir:
+            preflight_payload = collect_preflight(
+                project_dir=Path(args.project_dir),
+                plugin_dir=Path(args.plugin_dir),
+                min_free_bytes=args.min_free_bytes,
+            )
+
+        analyzed: List[Dict[str, object]] = []
+        for summary_path in sorted(unique_paths):
+            payload = analyze_run(
+                summary_path=summary_path,
+                preflight=preflight_payload,
+            )
+            if preflight_payload is not None:
+                payload["runner_preflight"] = dict(preflight_payload)
+            analyzed.append(payload)
+        rollup = rollup_latest_runs(analyzed)
+        if preflight_payload is not None:
+            rollup["runner_preflight"] = dict(preflight_payload)
+        print(json.dumps(rollup, ensure_ascii=False, indent=2))
         return 0
 
     preflight_payload: Mapping[str, object] | None = None

@@ -450,8 +450,14 @@ def main(argv: list[str] | None = None) -> int:
                 details = tests_entry.get("details")
                 if isinstance(details, dict):
                     skip_reason = str(details.get("reason") or "").strip()
+    contract_reason_codes = {"project_contract_missing", "tests_cwd_mismatch"}
     if tests_required and not tests_evidence:
-        if not reason_code or reason_code in {skip_reason_code or "", "missing_test_evidence"}:
+        if skip_reason_code in contract_reason_codes:
+            if not reason_code or reason_code in {skip_reason_code or "", "missing_test_evidence", "no_tests_soft", "no_tests_hard"}:
+                reason_code = skip_reason_code
+            if not reason:
+                reason = skip_reason or "project test execution contract invalid"
+        elif not reason_code or reason_code in {skip_reason_code or "", "missing_test_evidence"}:
             reason_code = no_tests_code or "missing_test_evidence"
             if not reason:
                 reason = "tests evidence required but not found"

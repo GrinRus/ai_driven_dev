@@ -7,10 +7,10 @@
       "skill_path": "skills/aidd-init/SKILL.md",
       "frontmatter": {
         "description": "Use when you need to initialize AIDD workspace scaffolding in the current project.",
-        "argument-hint": "[--force] [--detect-build-tools]",
+        "argument-hint": "[--force]",
         "lang": "ru",
-        "prompt_version": "0.1.9",
-        "source_version": "0.1.9",
+        "prompt_version": "0.1.10",
+        "source_version": "0.1.10",
         "allowed-tools": [
           "Read",
           "Write",
@@ -111,13 +111,14 @@
           "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_slice.py *)",
           "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/progress_cli.py *)",
           "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/runtime/prd_review.py *)",
+          "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/runtime/plan_review_gate.py *)",
           "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/prd_check.py *)",
           "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_stage.py *)",
           "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_feature.py *)"
         ],
         "model": "inherit",
-        "prompt_version": "1.0.25",
-        "source_version": "1.0.25",
+        "prompt_version": "1.0.26",
+        "source_version": "1.0.26",
         "lang": "ru",
         "argument-hint": "$1 [note...]",
         "name": "review-spec"

@@ -316,6 +316,50 @@ class PRDReviewAgentTests(unittest.TestCase):
         self.assertEqual(report.recommended_status, "ready")
         self.assertFalse(any("AIDD:ANSWERS" in item.title for item in report.findings))
 
+    def test_analyse_prd_ignores_instructional_compact_format_line_in_answers_section(self):
+        prd = self.write_prd(
+            dedent(
+                """\
+                # Demo
+
+                ## AIDD:ANSWERS
+                > Используй только compact формат: `Q<N>=<token>` или `Q<N>="короткий текст"`.
+                AIDD:ANSWERS Q1=A
+
+                ## PRD Review
+                Status: READY
+                """
+            ),
+        )
+
+        report = prd_review_agent.analyse_prd("demo-feature", prd)
+
+        self.assertEqual(report.recommended_status, "ready")
+        self.assertFalse(any(item.title == "Найдены заглушки в PRD" for item in report.findings))
+
+    def test_analyse_prd_still_detects_todo_outside_instructional_answers_context(self):
+        prd = self.write_prd(
+            dedent(
+                """\
+                # Demo
+
+                ## AIDD:ANSWERS
+                > Используй только compact формат: `Q<N>=<token>` или `Q<N>="короткий текст"`.
+                AIDD:ANSWERS Q1=A
+
+                TODO: finalize architecture section
+
+                ## PRD Review
+                Status: READY
+                """
+            ),
+        )
+
+        report = prd_review_agent.analyse_prd("demo-feature", prd)
+
+        self.assertEqual(report.recommended_status, "pending")
+        self.assertTrue(any(item.title == "Найдены заглушки в PRD" for item in report.findings))
+
     def test_analyse_prd_ignores_html_comments_and_review_narrative_tbd(self):
         prd = self.write_prd(
             dedent(

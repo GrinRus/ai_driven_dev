@@ -21,6 +21,7 @@ import aidd_stream_paths
 
 DEFAULT_MIN_FREE_BYTES = 1_073_741_824
 STALL_SECONDS = 20 * 60
+CWD_BLOCKER_EXIT_CODE = 14
 
 
 def build_paths(audit_dir: Path, step: str, run: int) -> Dict[str, Path]:
@@ -36,6 +37,7 @@ def build_paths(audit_dir: Path, step: str, run: int) -> Dict[str, Path]:
         "stream_liveness": audit_dir / f"{step}_stream_liveness_check_run{run}.txt",
         "init_check": audit_dir / f"{prefix}.init_check.txt",
         "disk_preflight": audit_dir / f"{prefix}.disk_preflight.txt",
+        "env_misconfig": audit_dir / f"{prefix}.env_misconfig.txt",
     }
 
 
@@ -73,6 +75,113 @@ def build_command(stage_command: str, plugin_dir: Path, mode: str) -> List[str]:
         "--plugin-dir",
         str(plugin_dir),
     ]
+
+
+def _looks_like_plugin_root(path: Path) -> bool:
+    return (path / ".claude-plugin").exists() and (path / "skills").exists()
+
+
+def write_cwd_blocker_artifacts(
+    *,
+    paths: Dict[str, Path],
+    step: str,
+    run: int,
+    project_dir: Path,
+    plugin_dir: Path,
+    reason_detail: str,
+    stage_command: str,
+    mode: str,
+    exit_code: int = CWD_BLOCKER_EXIT_CODE,
+) -> None:
+    message = (
+        "[aidd] ERROR: refusing to use plugin repository as workspace root for runtime artifacts; "
+        "run commands from the project workspace root."
+    )
+    paths["log"].write_text(message + "\n", encoding="utf-8")
+    paths["head"].write_text(message + "\n", encoding="utf-8")
+    paths["tail"].write_text(message + "\n", encoding="utf-8")
+    paths["heartbeat"].write_text(
+        "\n".join(
+            [
+                f"pid=0 size={len(message)} tail={message[:220]}",
+                "classification=ENV_MISCONFIG(cwd_wrong)",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    paths["init_check"].write_text(
+        "\n".join(
+            [
+                "plugins_ok=0",
+                "slash_ok=0",
+                "skills_ok=0",
+                "classification=ENV_MISCONFIG(cwd_wrong)",
+                "reason_code=cwd_wrong",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    paths["stream_paths"].write_text("fallback_scan=1\nstream_path_not_emitted_by_cli=1\n", encoding="utf-8")
+    write_liveness_report(
+        {
+            "run_start_epoch": int(time.time()),
+            "main_log_bytes": len(message),
+            "main_log_mtime": int(time.time()),
+            "valid_stream_count": 0,
+            "stream_entries": [],
+            "active_source": "none",
+            "stagnation_seconds": 0,
+            "classification": "no_stream_emitted",
+        },
+        paths["stream_liveness"],
+    )
+    paths["cmd"].write_text(
+        "\n".join(
+            [
+                f"cwd={project_dir}",
+                f"mode={mode}",
+                f"stage_command={stage_command}",
+                "command=NOT_EXECUTED(cwd_wrong_preflight)",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    paths["summary"].write_text(
+        "\n".join(
+            [
+                f"step={step}",
+                f"run={run}",
+                f"mode={mode}",
+                f"stage_command={stage_command}",
+                f"exit_code={exit_code}",
+                "result_count=0",
+                "top_level_result=0",
+                "reason_code=cwd_wrong",
+                "classification=ENV_MISCONFIG(cwd_wrong)",
+                f"project_dir={project_dir}",
+                f"plugin_dir={plugin_dir}",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    paths["env_misconfig"].write_text(
+        "\n".join(
+            [
+                "classification=ENV_MISCONFIG(cwd_wrong)",
+                "reason_code=cwd_wrong",
+                f"reason_detail={reason_detail}",
+                f"project_dir={project_dir}",
+                f"plugin_dir={plugin_dir}",
+                f"evidence_log={paths['log']}",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
 
 def run_stage(
@@ -272,8 +381,26 @@ def main() -> int:
             f"free_bytes={free_bytes}",
             f"min_free_bytes={min_free}",
         ]
-        (audit_dir / f"{args.step}_run{args.run}.env_misconfig.txt").write_text("\n".join(no_space) + "\n", encoding="utf-8")
+        paths["env_misconfig"].write_text("\n".join(no_space) + "\n", encoding="utf-8")
         return 12
+
+    cwd_reason = ""
+    if project_dir == plugin_dir:
+        cwd_reason = "project_dir_equals_plugin_dir"
+    elif _looks_like_plugin_root(project_dir):
+        cwd_reason = "project_dir_looks_like_plugin_root"
+    if cwd_reason:
+        write_cwd_blocker_artifacts(
+            paths=paths,
+            step=args.step,
+            run=args.run,
+            project_dir=project_dir,
+            plugin_dir=plugin_dir,
+            reason_detail=cwd_reason,
+            stage_command=args.stage_command,
+            mode=args.mode,
+        )
+        return CWD_BLOCKER_EXIT_CODE
 
     cmd = build_command(stage_command=args.stage_command, plugin_dir=plugin_dir, mode=args.mode)
     paths["cmd"].write_text(

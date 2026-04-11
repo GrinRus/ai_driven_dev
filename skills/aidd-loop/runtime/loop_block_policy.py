@@ -27,6 +27,8 @@ DEFAULT_HARD_BLOCK_REASONS: Set[str] = {
     "prompt_flow_blocker",
     "contract_mismatch_stage_result_shape",
     "contract_mismatch_actions_shape",
+    "project_contract_missing",
+    "tests_cwd_mismatch",
 }
 
 DEFAULT_RECOVERABLE_REASONS: Set[str] = {

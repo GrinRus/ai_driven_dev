@@ -90,37 +90,37 @@ class InitAiddTests(unittest.TestCase):
         )
         self.assertEqual(content, template_content)
 
-    def test_detect_build_tools_populates_settings(self):
+    def test_init_bootstraps_qa_tests_contract(self):
         workdir = self.make_tempdir()
-        (workdir / "package.json").write_text('{"name": "demo"}', encoding="utf-8")
+        backend = workdir / "backend-mcp"
+        backend.mkdir(parents=True, exist_ok=True)
+        (backend / "gradlew").write_text("#!/usr/bin/env bash\necho ok\n", encoding="utf-8")
+        (workdir / "package.json").write_text('{"name":"demo"}', encoding="utf-8")
 
-        result = self.run_script(workdir, "--detect-build-tools")
+        result = self.run_script(workdir)
         self.assertEqual(result.returncode, 0, msg=f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}")
-
-        settings_path = workdir / ".claude" / "settings.json"
-        self.assertTrue(settings_path.exists(), "settings.json should be created")
-        payload = json.loads(settings_path.read_text(encoding="utf-8"))
-        tests_cfg = payload.get("automation", {}).get("tests", {})
-        self.assertIn("commonPatterns", tests_cfg)
-        self.assertIn("**/package.json", tests_cfg["commonPatterns"])
-        self.assertIn("codePaths", tests_cfg)
-        self.assertIn("codeExtensions", tests_cfg)
-
-    def test_detect_stack_alias_maps_to_detect_build_tools(self):
-        workdir = self.make_tempdir()
-        (workdir / "package.json").write_text('{"name": "demo"}', encoding="utf-8")
-
-        result = self.run_script(workdir, "--detect-stack")
-        self.assertEqual(result.returncode, 0, msg=f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}")
-
-        settings_path = workdir / ".claude" / "settings.json"
-        payload = json.loads(settings_path.read_text(encoding="utf-8"))
-        tests_cfg = payload.get("automation", {}).get("tests", {})
-        self.assertIn("**/package.json", tests_cfg.get("commonPatterns", []))
+        project_root = workdir / PROJECT_SUBDIR
+        gates_payload = json.loads((project_root / "config" / "gates.json").read_text(encoding="utf-8"))
+        tests_cfg = gates_payload.get("qa", {}).get("tests", {})
+        self.assertEqual(tests_cfg.get("contract_version"), 1)
+        self.assertIn(tests_cfg.get("profile_default"), {"none", "targeted", "full", "fast"})
+        self.assertIn("commands", tests_cfg)
+        self.assertIsInstance(tests_cfg.get("commands"), list)
+        command_entries = tests_cfg.get("commands") or []
+        self.assertTrue(
+            any(
+                isinstance(entry, dict)
+                and entry.get("cwd") == "backend-mcp"
+                and entry.get("command") == ["./gradlew", "test"]
+                for entry in command_entries
+            ),
+            "init should detect gradlew under workspace code roots (outside aidd/)",
+        )
+        self.assertFalse((workdir / ".claude" / "settings.json").exists())
 
     def test_removed_init_flags_are_rejected(self):
         workdir = self.make_tempdir()
-        for flag in ("--dry-run", "--enable-ci"):
+        for flag in ("--dry-run", "--enable-ci", "--detect-build-tools", "--detect-stack"):
             with self.subTest(flag=flag):
                 result = subprocess.run(
                     cli_cmd("init", flag),
@@ -143,7 +143,7 @@ class InitAiddTests(unittest.TestCase):
             check=True,
             env=cli_env(),
         )
-        self.assertIn("--detect-build-tools", result.stdout)
+        self.assertNotIn("--detect-build-tools", result.stdout)
         self.assertNotIn("--enable-ci", result.stdout)
         self.assertNotIn("--dry-run", result.stdout)
         self.assertNotIn("--detect-stack", result.stdout)

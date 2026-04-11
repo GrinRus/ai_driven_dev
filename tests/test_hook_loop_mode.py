@@ -20,12 +20,15 @@ HOOK = HOOKS_DIR / "format-and-test.sh"
 
 def write_settings(tmp_path: Path, overrides: dict) -> Path:
     base = {
-        "automation": {
-            "format": {"commands": []},
+        "format": {"commands": []},
+        "qa": {
             "tests": {
-                "runner": "/bin/echo",
-                "defaultTasks": ["default_task"],
-                "fallbackTasks": [],
+                "contract_version": 1,
+                "profile_default": "targeted",
+                "filters_default": [],
+                "when_default": "manual",
+                "reason_default": "unit-test",
+                "commands": [{"id": "default", "command": ["/bin/echo", "default_task"], "cwd": ".", "profiles": ["targeted", "full", "fast"]}],
                 "changedOnly": True,
                 "reviewerGate": {"enabled": False},
             },
@@ -35,15 +38,16 @@ def write_settings(tmp_path: Path, overrides: dict) -> Path:
     if isinstance(automation_override, dict):
         tests_override = automation_override.get("tests")
         if isinstance(tests_override, dict):
-            base["automation"]["tests"].update(tests_override)
-    settings_path = tmp_path / "settings.json"
+            base["qa"]["tests"].update(tests_override)
+    settings_path = tmp_path / "config" / "gates.json"
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
     settings_path.write_text(json.dumps(base, indent=2), encoding="utf-8")
     return settings_path
 
 
 def run_hook(tmp_path: Path, settings_path: Path, env: Optional[dict] = None) -> subprocess.CompletedProcess[str]:
+    del settings_path
     effective_env = {
-        "CLAUDE_SETTINGS_PATH": str(settings_path),
         "SKIP_FORMAT": "1",
         "CLAUDE_PLUGIN_ROOT": str(REPO_ROOT),
     }
@@ -99,7 +103,7 @@ class LoopModeHookTests(unittest.TestCase):
             self.assertNotIn("Запуск тестов", result.stderr)
             self.assertIn("Stage policy (implement) запрещает тесты", result.stderr)
 
-    def test_loop_mode_review_skips_tests(self) -> None:
+    def test_loop_mode_review_runs_contract_tests(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-hook-") as tmpdir:
             project = Path(tmpdir) / "aidd"
             project.mkdir(parents=True, exist_ok=True)
@@ -112,8 +116,8 @@ class LoopModeHookTests(unittest.TestCase):
             seed_repo_with_file(project, "src/review.py", "print('ok')\n")
 
             result = run_hook(project, settings, env={"AIDD_LOOP_TESTS": "1"})
-            self.assertNotIn("Запуск тестов", result.stderr)
-            self.assertIn("loop-mode", result.stderr)
+            self.assertIn("Запуск тестов", result.stderr)
+            self.assertNotIn("loop-mode: review stage", result.stderr)
 
     def test_service_only_blocks_override(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-hook-") as tmpdir:

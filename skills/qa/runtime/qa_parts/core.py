@@ -3,12 +3,10 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import re
 from contextlib import suppress
 import shlex
 import subprocess
 import sys
-from fnmatch import fnmatch
 from pathlib import Path
 from typing import Optional
 
@@ -18,15 +16,10 @@ if str(_PLUGIN_ROOT) not in sys.path:
     sys.path.insert(0, str(_PLUGIN_ROOT))
 
 from aidd_runtime import qa_agent as _qa_agent
+from aidd_runtime import gates
 from aidd_runtime import runtime
 from aidd_runtime import tasklist_parser
 from aidd_runtime.feature_ids import write_active_state
-
-
-def _default_qa_test_command() -> list[list[str]]:
-    plugin_root = runtime.require_plugin_root()
-    return [[sys.executable, str(plugin_root / "hooks" / "format-and-test.sh")]]
-
 
 def _resolve_qa_scope_context(target: Path, ticket: str) -> tuple[str, str]:
     active_work_item = str(runtime.read_active_work_item(target) or "").strip()
@@ -66,34 +59,6 @@ def _active_mode(target: Path) -> str:
         return ""
 
 
-_TEST_COMMAND_PATTERNS = (
-    r"\b\./gradlew\s+test\b",
-    r"\bgradle\s+test\b",
-    r"\bmvn\s+test\b",
-    r"\bpython3?\s+-m\s+pytest\b",
-    r"\bpytest\b",
-    r"\bpython3?\s+-m\s+unittest\b",
-    r"\bgo\s+test\b",
-    r"\bnpm\s+test\b",
-    r"\bpnpm\s+test\b",
-    r"\byarn\s+test\b",
-    r"\bmake\s+test\b",
-    r"\bmake\s+check\b",
-    r"\btox\b",
-)
-
-DEFAULT_DISCOVERY_MAX_FILES = 20
-DEFAULT_DISCOVERY_MAX_BYTES = 200_000
-DEFAULT_DISCOVERY_ALLOWLIST = (
-    ".github/workflows/*.yml",
-    ".github/workflows/*.yaml",
-    ".gitlab-ci.yml",
-    ".circleci/config.yml",
-    "Jenkinsfile",
-    "README*",
-    "readme*",
-)
-
 SKIP_MARKERS = (
     "форматирование/тесты пропущены",
     "стадия тестов пропущена",
@@ -106,50 +71,6 @@ SKIP_MARKERS = (
     "no test files",
     "nothing to test",
 )
-
-
-def _read_text(path: Path, *, max_bytes: int = 1_000_000) -> str:
-    try:
-        if path.stat().st_size > max_bytes:
-            return ""
-        return path.read_text(encoding="utf-8", errors="replace")
-    except OSError:
-        return ""
-
-
-def _normalize_candidate_line(line: str) -> str:
-    text = line.strip()
-    if not text:
-        return ""
-    if text.startswith("run:"):
-        text = text[4:].strip()
-    if text.startswith("script:"):
-        text = text[7:].strip()
-    text = re.sub(r"^[-*]\s+", "", text)
-    text = re.sub(r"^\d+\.\s+", "", text)
-    if text.startswith("`") and text.endswith("`"):
-        text = text[1:-1].strip()
-    if " #" in text:
-        text = text.split(" #", 1)[0].rstrip()
-    return text
-
-
-def _extract_test_commands(text: str) -> list[str]:
-    commands: list[str] = []
-    for line in text.splitlines():
-        candidate = _normalize_candidate_line(line)
-        if not candidate:
-            continue
-        for pattern in _TEST_COMMAND_PATTERNS:
-            match = re.search(pattern, candidate, re.IGNORECASE)
-            if not match:
-                continue
-            cmd = candidate[match.start():].strip().rstrip("`")
-            if cmd:
-                commands.append(cmd)
-            break
-    return commands
-
 
 def _strip_placeholder(value: str) -> str:
     text = value.strip()
@@ -199,6 +120,13 @@ def _commands_from_tasks(tasks: list[str]) -> list[list[str]]:
     return commands
 
 
+def _materialize_contract_command_tokens(entry: dict) -> list[str]:
+    tokens = [str(item).strip() for item in (entry.get("command") or []) if str(item).strip()]
+    if not tokens:
+        return []
+    return tokens
+
+
 def _malformed_task_entries(tasklist_execution: dict) -> list[dict]:
     raw = tasklist_execution.get("malformed_tasks") if isinstance(tasklist_execution, dict) else []
     if not isinstance(raw, list):
@@ -222,115 +150,12 @@ def _malformed_task_entries(tasklist_execution: dict) -> list[dict]:
     return malformed
 
 
-def _normalize_discovery_config(tests_cfg: dict) -> tuple[int, int, list[str]]:
-    raw = tests_cfg.get("discover") if isinstance(tests_cfg, dict) else {}
-    if not isinstance(raw, dict):
-        raw = {}
-
-    max_files = raw.get("max_files", DEFAULT_DISCOVERY_MAX_FILES)
-    max_bytes = raw.get("max_bytes", DEFAULT_DISCOVERY_MAX_BYTES)
-    try:
-        max_files = max(int(max_files), 0)
-    except (TypeError, ValueError):
-        max_files = DEFAULT_DISCOVERY_MAX_FILES
-    try:
-        max_bytes = max(int(max_bytes), 0)
-    except (TypeError, ValueError):
-        max_bytes = DEFAULT_DISCOVERY_MAX_BYTES
-
-    allow_paths = raw.get("allow_paths") or raw.get("allowlist")
-    if isinstance(allow_paths, str):
-        allow_paths = [allow_paths]
-    allowlist = [str(item).strip() for item in allow_paths or [] if str(item).strip()]
-    if not allowlist:
-        allowlist = list(DEFAULT_DISCOVERY_ALLOWLIST)
-    return max_files, max_bytes, allowlist
-
-
-def _is_allowed_path(path: Path, base: Path, allowlist: list[str]) -> bool:
-    if not allowlist:
-        return True
-    try:
-        rel = path.relative_to(base)
-        rel_str = rel.as_posix()
-    except ValueError:
-        rel_str = path.as_posix()
-    rel_str = rel_str.lstrip("./")
-    return any(fnmatch(rel_str, pattern) for pattern in allowlist)
-
-
 def _is_relative_to(path: Path, base: Path) -> bool:
     try:
         path.relative_to(base)
         return True
     except ValueError:
         return False
-
-
-def _discover_test_commands(
-    root: Path,
-    *,
-    max_files: int,
-    max_bytes: int,
-    allow_paths: list[str],
-) -> list[list[str]]:
-    commands: list[str] = []
-    seen: set[str] = set()
-    seen_files: set[Path] = set()
-    files_seen = 0
-
-    if max_files == 0:
-        return []
-
-    search_roots = [root]
-    if root.name == "aidd" and root.parent != root:
-        search_roots.append(root.parent)
-
-    ci_paths: list[Path] = []
-    for base in search_roots:
-        workflows = base / ".github" / "workflows"
-        if workflows.exists():
-            ci_paths.extend(sorted(workflows.glob("*.yml")))
-            ci_paths.extend(sorted(workflows.glob("*.yaml")))
-        ci_paths.append(base / ".gitlab-ci.yml")
-        ci_paths.append(base / ".circleci" / "config.yml")
-        ci_paths.append(base / "Jenkinsfile")
-
-    def _add_commands_from(paths: list[Path], *, base: Path) -> None:
-        nonlocal files_seen
-        for path in paths:
-            if max_files and files_seen >= max_files:
-                return
-            if not path.exists() or not path.is_file():
-                continue
-            if not _is_allowed_path(path, base, allow_paths):
-                continue
-            resolved = path.resolve()
-            if resolved in seen_files:
-                continue
-            seen_files.add(resolved)
-            files_seen += 1
-            for cmd in _extract_test_commands(_read_text(path, max_bytes=max_bytes)):
-                if cmd in seen:
-                    continue
-                seen.add(cmd)
-                commands.append(cmd)
-
-    for base in search_roots:
-        base_ci = [path for path in ci_paths if _is_relative_to(path, base)]
-        _add_commands_from(base_ci, base=base)
-    if commands:
-        return [shlex.split(cmd) for cmd in commands if cmd.strip()]
-
-    readmes: list[Path] = []
-    for base in search_roots:
-        readmes.extend([path for path in sorted(base.glob("README*")) if path.is_file()])
-        readmes.extend([path for path in sorted(base.glob("readme*")) if path.is_file()])
-    for base in search_roots:
-        base_readmes = [path for path in readmes if _is_relative_to(path, base)]
-        _add_commands_from(base_readmes, base=base)
-
-    return [shlex.split(cmd) for cmd in commands if cmd.strip()]
 
 
 def _is_explicit_path_command(head: str) -> bool:
@@ -386,53 +211,33 @@ def _command_execution_plans(
     return [(plan_cmd, resolved.parent, display_cmd)]
 
 
-def _load_qa_tests_config(root: Path) -> tuple[list[list[str]], bool]:
+def _load_qa_tests_config(root: Path) -> tuple[list[list[str]], str]:
     config_path = root / "config" / "gates.json"
     commands: list[list[str]] = []
-    allow_skip = True
     try:
         data = json.loads(config_path.read_text(encoding="utf-8"))
     except (FileNotFoundError, json.JSONDecodeError):
-        return _default_qa_test_command(), allow_skip
+        return commands, "project_contract_missing"
 
-    tests_required_mode = str(data.get("tests_required", "disabled")).strip().lower()
+    contract, contract_errors = gates.load_qa_tests_contract(data)
+    profile_default = str(contract.get("profile_default") or "none").strip().lower()
+    if contract_errors and (profile_default != "none" or "project_contract_missing" in contract_errors):
+        return [], "project_contract_missing"
 
-    qa_cfg = data.get("qa")
-    if isinstance(qa_cfg, bool):
-        qa_cfg = {"enabled": qa_cfg}
-    if not isinstance(qa_cfg, dict):
-        qa_cfg = {}
-    tests_cfg = qa_cfg.get("tests")
-    if not isinstance(tests_cfg, dict):
-        tests_cfg = {}
-    allow_skip = bool(tests_cfg.get("allow_skip", True))
-    if tests_required_mode == "hard":
-        allow_skip = False
-    source = str(tests_cfg.get("source") or tests_cfg.get("mode") or "").strip().lower()
-    max_files, max_bytes, allow_paths = _normalize_discovery_config(tests_cfg)
-    raw_commands = tests_cfg.get("commands")
-    if isinstance(raw_commands, str):
-        raw_commands = [raw_commands]
-    if isinstance(raw_commands, list):
-        for entry in raw_commands:
-            parts: list[str] = []
-            if isinstance(entry, list):
-                parts = [str(item) for item in entry if str(item)]
-            elif isinstance(entry, str):
-                try:
-                    parts = [token for token in shlex.split(entry) if token]
-                except ValueError:
-                    continue
-            if parts:
-                commands.append(parts)
+    selected_entries = gates.select_commands_for_profile(contract, profile_default) or list(contract.get("commands") or [])
+    for entry in selected_entries:
+        if not isinstance(entry, dict):
+            continue
+        cmd = _materialize_contract_command_tokens(entry)
+        if cmd:
+            commands.append(cmd)
 
-    if not commands and source in {"readme-ci", "readme", "ci"}:
-        commands = _discover_test_commands(root, max_files=max_files, max_bytes=max_bytes, allow_paths=allow_paths)
-        return commands, allow_skip
+    if profile_default == "none":
+        return [], ""
 
     if not commands:
-        commands = _default_qa_test_command()
-    return commands, allow_skip
+        return [], "project_contract_missing"
+    return commands, ""
 
 
 def _run_qa_tests(
@@ -445,19 +250,31 @@ def _run_qa_tests(
     report_path: Path,
     allow_missing: bool,
     commands_override: list[list[str]] | None = None,
-    allow_skip_override: bool | None = None,
-) -> tuple[list[dict], str]:
+) -> tuple[list[dict], str, str]:
+    run_reason_code = ""
     if commands_override is not None:
         commands = commands_override
-        allow_skip_cfg = True if allow_skip_override is None else allow_skip_override
     else:
-        commands, allow_skip_cfg = _load_qa_tests_config(target)
-    allow_skip = allow_missing or allow_skip_cfg
+        commands, contract_reason_code = _load_qa_tests_config(target)
+        if contract_reason_code:
+            tests_executed = [
+                {
+                    "command": "",
+                    "status": "fail",
+                    "cwd": ".",
+                    "log": "",
+                    "exit_code": None,
+                    "reason_code": contract_reason_code,
+                    "details": "project QA test contract missing or invalid (aidd/config/gates.json -> qa.tests)",
+                }
+            ]
+            return tests_executed, "fail", contract_reason_code
+    allow_skip = allow_missing
 
     tests_executed: list[dict] = []
     if not commands:
         summary = "skipped"
-        return tests_executed, summary
+        return tests_executed, summary, run_reason_code
 
     logs_dir = report_path.parent
     base_name = report_path.stem
@@ -486,6 +303,7 @@ def _run_qa_tests(
             output = ""
             if plan_cmd and _is_explicit_path_command(plan_cmd[0]) and not _command_head_exists(plan_cmd[0], plan_cwd):
                 status = "fail"
+                run_reason_code = run_reason_code or "tests_cwd_mismatch"
                 output = (
                     f"command path not found in selected cwd: {plan_cmd[0]} "
                     f"(cwd={plan_cwd.as_posix()}; "
@@ -506,6 +324,7 @@ def _run_qa_tests(
                     status = "pass" if proc.returncode == 0 else "fail"
                 except FileNotFoundError as exc:
                     status = "fail"
+                    run_reason_code = run_reason_code or "tests_cwd_mismatch"
                     output = f"command not found: {plan_cmd[0]} ({exc})"
             log_path.write_text(output, encoding="utf-8")
             if status == "pass" and _output_indicates_skip(output):
@@ -522,6 +341,7 @@ def _run_qa_tests(
                     "cwd": cwd_rel or ".",
                     "log": runtime.rel_path(log_path, target),
                     "exit_code": exit_code,
+                    "reason_code": run_reason_code if status == "fail" and run_reason_code else "",
                 }
             )
 
@@ -535,7 +355,7 @@ def _run_qa_tests(
     if summary in {"not-run", "skipped"} and allow_skip:
         summary = "skipped"
 
-    return tests_executed, summary
+    return tests_executed, summary, run_reason_code
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -701,15 +521,14 @@ def main(argv: list[str] | None = None) -> int:
     if tasklist_exec_present and tasklist_profile != "none":
         tasklist_commands = _commands_from_tasks(list(tasklist_tasks))
     commands_override = None
-    allow_skip_override = None
     if tasklist_exec_present:
         commands_override = [] if tasklist_profile == "none" else tasklist_commands
-        allow_skip_override = tests_required_mode != "hard"
 
     tests_executed: list[dict] = []
     tests_summary = "skipped" if skip_tests else "not-run"
     malformed_tests_blocked = False
     malformed_reason_codes: set[str] = set()
+    run_reason_code = ""
 
     if not skip_tests and tasklist_malformed:
         malformed_tests_blocked = True
@@ -755,7 +574,7 @@ def main(argv: list[str] | None = None) -> int:
                 file=sys.stderr,
             )
     elif not skip_tests:
-        tests_executed, tests_summary = _run_qa_tests(
+        tests_executed, tests_summary, run_reason_code = _run_qa_tests(
             target,
             workspace_root,
             ticket=ticket,
@@ -764,10 +583,22 @@ def main(argv: list[str] | None = None) -> int:
             report_path=report_path,
             allow_missing=allow_no_tests,
             commands_override=commands_override,
-            allow_skip_override=allow_skip_override,
         )
         if tests_summary == "fail":
-            print("[aidd] QA tests failed; see aidd/reports/qa/*-tests.log.", file=sys.stderr)
+            if run_reason_code == "project_contract_missing":
+                print(
+                    "[aidd] BLOCK: project test execution contract missing/invalid "
+                    "(reason_code=project_contract_missing).",
+                    file=sys.stderr,
+                )
+            elif run_reason_code == "tests_cwd_mismatch":
+                print(
+                    "[aidd] BLOCK: configured test command is not executable from selected cwd "
+                    "(reason_code=tests_cwd_mismatch).",
+                    file=sys.stderr,
+                )
+            else:
+                print("[aidd] QA tests failed; see aidd/reports/qa/*-tests.log.", file=sys.stderr)
         elif tests_summary == "skipped":
             print(
                 "[aidd] QA tests skipped (allow_no_tests enabled or no commands configured).",
@@ -775,6 +606,8 @@ def main(argv: list[str] | None = None) -> int:
             )
         else:
             print("[aidd] QA tests completed.", file=sys.stderr)
+    else:
+        run_reason_code = ""
 
     with suppress(Exception):
         from aidd_runtime.reports import tests_log as _tests_log
@@ -813,6 +646,14 @@ def main(argv: list[str] | None = None) -> int:
                 )
             else:
                 reason = "AIDD:TEST_EXECUTION contains malformed task entries"
+        elif tests_summary == "fail" and run_reason_code:
+            reason_code = run_reason_code
+            if reason_code == "project_contract_missing":
+                reason = "project test execution contract missing or invalid"
+            elif reason_code == "tests_cwd_mismatch":
+                reason = "configured test command is not executable from selected cwd"
+            else:
+                reason = "qa tests failed"
         elif tests_summary in {"skipped", "not-run"}:
             if skip_tests:
                 reason_code = "manual_skip"
@@ -891,11 +732,7 @@ def main(argv: list[str] | None = None) -> int:
     if report_path:
         qa_args.extend(["--report", str(report_path)])
 
-    if tasklist_exec_present:
-        allow_skip_cfg = True if allow_skip_override is None else allow_skip_override
-    else:
-        _, allow_skip_cfg = _load_qa_tests_config(target)
-    allow_no_tests_env = allow_no_tests or allow_skip_cfg
+    allow_no_tests_env = allow_no_tests
     if tests_required_mode == "hard":
         allow_no_tests_env = False
     elif tests_required_mode == "soft":
