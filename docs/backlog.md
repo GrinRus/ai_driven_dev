@@ -243,6 +243,70 @@ _Статус: plan. Основание — TST-001 full audit показал im
   **Effort:** S
   **Risk:** Medium
 
+## Wave 138 — E2E Flow Consistency & QA Policy Stabilization (2026-04-11)
+
+_Статус: plan. Основание — full audit TST-001: terminal `qa_blocked_no_tests_hard`, `review_spec_report_mismatch`, loop warnings (`non_loop_stage_recovered`, `output_contract_warn`) и recoverable `contract_mismatch_actions_shape` в QA._
+
+- [ ] **W138-1 (P0) QA missing-test-infra policy: deterministic WARN path instead of terminal block** `skills/qa/runtime/qa.py`, `skills/qa/runtime/qa_parts/core.py`, `templates/aidd/config/gates.json`, `skills/tasks-new/runtime/tasks_new.py`, `tests/test_qa_agent.py`, `tests/test_qa_exit_code.py`, `tests/test_tasklist_check.py`:
+  - добавить preflight исполнимости test-commands до QA execution;
+  - при отсутствии test infra применять policy-driven soft outcome (WARN) с явным reason_code и diagnostics;
+  - сохранять hard-block только для случаев, где test infra существует, но тесты реально fail.
+  **AC:** отсутствие test infra больше не приводит к terminal `NOT VERIFIED`; QA outcome детерминирован и policy-driven.
+  **Deps:** -
+  **Regression/tests:** `python3 -m pytest -q tests/test_qa_agent.py tests/test_qa_exit_code.py tests/test_tasklist_check.py tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [ ] **W138-2 (P0) `review-spec` payload-first narrative synchronization** `skills/aidd-core/runtime/prd_review.py`, `skills/review-spec/SKILL.md`, `tests/test_prd_review_agent.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - закрепить structured payload (`recommended_status/findings`) как единственный source-of-truth для stage narrative;
+  - исключить кейс, когда narrative сообщает critical/high findings при пустом structured findings;
+  - синхронизовать финальный текст stage-output с report payload.
+  **AC:** `narrative_vs_structured_mismatch` не воспроизводится в штатном пути.
+  **Deps:** W138-1
+  **Regression/tests:** `python3 -m pytest -q tests/test_prd_review_agent.py tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Effort:** S
+  **Risk:** Medium
+
+- [ ] **W138-3 (P0) Loop pre-run state normalization and stale-stage guardrails** `skills/aidd-loop/runtime/loop_run.py`, `skills/aidd-loop/runtime/loop_step_parts/core.py`, `skills/aidd-loop/runtime/loop_run_parts/core.py`, `tests/test_loop_run.py`, `tests/test_loop_step.py`:
+  - перед первым loop step нормализовать active stage/work item из canonical источников;
+  - убрать warning-classification для успешно self-healed stale stage (оставить telemetry marker);
+  - предотвратить старт loop с non-loop active stage как baseline state.
+  **AC:** `non_loop_stage_recovered` не возникает как flow warning в нормальном пути.
+  **Deps:** W138-1
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_run.py tests/test_loop_step.py tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [ ] **W138-4 (P1) Output contract completeness for implement/review loop artifacts** `skills/implement/runtime/implement_run.py`, `skills/review/runtime/review_run.py`, `skills/aidd-loop/runtime/loop_step_stage_result.py`, `tests/test_loop_run.py`, `tests/test_review_run.py`:
+  - enforce обязательные output fields (`status`, `read_log`, `tests`, `next_actions`, `work_item_key`, `artifacts`);
+  - устранить `output_contract_warn` при корректном stage completion;
+  - синхронизовать output-contract validator и stage producers.
+  **AC:** `output.contract.status=warn` из-за missing required fields не воспроизводится.
+  **Deps:** W138-3
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_run.py tests/test_review_run.py tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W138-5 (P1) QA actions contract hardening (prevent recovered shape errors)** `skills/qa/runtime/qa_run.py`, `skills/aidd-docio/runtime/actions_validate.py`, `skills/aidd-docio/runtime/actions_apply.py`, `tests/test_stage_actions_run.py`, `tests/test_qa_agent.py`:
+  - валидировать/canonicalize `aidd.actions.v1` до apply без повторных fail-циклов;
+  - запретить невалидные `kind` и пустые/non-canonical action forms;
+  - оставить один deterministic fail path при irrecoverable actions mismatch.
+  **AC:** `contract_mismatch_actions_shape` не возникает в штатном QA пути.
+  **Deps:** W138-1
+  **Regression/tests:** `python3 -m pytest -q tests/test_stage_actions_run.py tests/test_qa_agent.py tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Effort:** S
+  **Risk:** Medium
+
+- [ ] **W138-6 (P1) Replay fixtures + audit contract updates for TST-001 findings** `tests/fixtures/audit_tst001/*`, `tests/repo_tools/test_aidd_audit_runner.py`, `tests/repo_tools/test_e2e_prompt_contract.py`, `tests/repo_tools/e2e_prompt/profile_full.md`, `docs/runbooks/tst001-audit-hardening.md`:
+  - добавить replay-кейсы для `qa no_tests_soft/warn`, `review-spec mismatch`, `loop stale state`, `actions shape mismatch`;
+  - обновить e2e prompt contract ожидания под новую policy и классификацию;
+  - зафиксировать reason precedence для terminal/non-terminal сигналов.
+  **AC:** найденные в TST-001 инциденты воспроизводятся и проверяются в CI детерминированно.
+  **Deps:** W138-1, W138-2, W138-3, W138-5
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_aidd_audit_runner.py tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Effort:** M
+  **Risk:** Medium
+
 ## Wave 122 — Memory Platform (2026-04-02)
 
 _Статус: plan. Основание — low-priority cross-cutting развитие memory layer. Волна изолирована от текущей стабилизации runtime и не должна конкурировать с Core Flow fixes._
