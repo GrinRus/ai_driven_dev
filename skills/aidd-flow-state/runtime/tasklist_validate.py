@@ -270,7 +270,7 @@ def check_tasklist_text(
                 ref_id,
             )
             next3_order_keys.append(order_key)
-            if not core.extract_field_value(item.lines, "DoD"):
+            if not core.extract_field_value(item.lines, "DoD") and not core.extract_list_field(item.lines, "DoD"):
                 add_issue("error", f"iteration {ref_id} missing DoD")
             if not core.block_has_heading(item.lines, "Boundaries"):
                 add_issue("error", f"iteration {ref_id} missing Boundaries")
@@ -289,7 +289,7 @@ def check_tasklist_text(
             )
             next3_order_keys.append(order_key)
             handoff_meta_severity = core.severity_for_stage(stage) if normalize_fix_mode else "error"
-            if not core.extract_field_value(item.lines, "DoD"):
+            if not core.extract_field_value(item.lines, "DoD") and not core.extract_list_field(item.lines, "DoD"):
                 add_issue(handoff_meta_severity, f"handoff {ref_id} missing DoD")
             if not core.block_has_heading(item.lines, "Boundaries"):
                 add_issue(handoff_meta_severity, f"handoff {ref_id} missing Boundaries")
