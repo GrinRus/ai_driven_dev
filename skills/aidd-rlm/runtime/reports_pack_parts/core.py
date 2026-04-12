@@ -505,57 +505,10 @@ def _auto_trim_rlm_pack(
     return text, trimmed, errors, trim_stats
 
 
-def _truncate_list(items: Iterable[Any], limit: int) -> List[Any]:
-    from aidd_runtime import reports_pack_assemble as _assemble
-
-    return _assemble.truncate_list(items, limit)
-
-
 def _truncate_text(text: str, limit: int) -> str:
     from aidd_runtime import reports_pack_assemble as _assemble
 
     return _assemble.truncate_text(text, limit)
-
-
-def _extract_evidence_snippet(
-    root: Optional[Path],
-    evidence_ref: Dict[str, Any],
-    *,
-    max_chars: int,
-) -> str:
-    from aidd_runtime import reports_pack_assemble as _assemble
-
-    return _assemble.extract_evidence_snippet(root, evidence_ref, max_chars=max_chars)
-
-
-def _columnar(cols: List[str], rows: List[List[Any]]) -> Dict[str, Any]:
-    from aidd_runtime import reports_pack_assemble as _assemble
-
-    return _assemble.columnar(cols, rows)
-
-
-def _pack_paths(entries: Iterable[Any], limit: int, sample_limit: int) -> List[Dict[str, Any]]:
-    from aidd_runtime import reports_pack_assemble as _assemble
-
-    return _assemble.pack_paths(entries, limit, sample_limit)
-
-
-def _pack_matches(entries: Iterable[Any], limit: int, snippet_limit: int) -> Dict[str, Any]:
-    from aidd_runtime import reports_pack_assemble as _assemble
-
-    return _assemble.pack_matches(entries, limit, snippet_limit)
-
-
-def _pack_reuse(entries: Iterable[Any], limit: int) -> Dict[str, Any]:
-    from aidd_runtime import reports_pack_assemble as _assemble
-
-    return _assemble.pack_reuse(entries, limit)
-
-
-def _pack_findings(entries: Iterable[Any], limit: int, cols: List[str]) -> Dict[str, Any]:
-    from aidd_runtime import reports_pack_assemble as _assemble
-
-    return _assemble.pack_findings(entries, limit, cols)
 
 
 def _pack_extension() -> str:
@@ -627,12 +580,6 @@ def _env_limits() -> Dict[str, Dict[str, int]]:
     return _ENV_LIMITS_CACHE
 
 
-def _pack_tests_executed(entries: Iterable[Any], limit: int) -> Dict[str, Any]:
-    from aidd_runtime import reports_pack_assemble as _assemble
-
-    return _assemble.pack_tests_executed(entries, limit)
-
-
 def build_research_pack(
     payload: Dict[str, Any],
     *,
@@ -670,46 +617,6 @@ def _load_rlm_links_stats(root: Path, ticket: str) -> Optional[Dict[str, Any]]:
     from aidd_runtime import reports_pack_assemble as _assemble
 
     return _assemble.load_rlm_links_stats(root, ticket)
-
-
-def _rlm_link_warnings(stats: Dict[str, Any]) -> List[str]:
-    from aidd_runtime import reports_pack_assemble as _assemble
-
-    return _assemble.rlm_link_warnings(stats)
-
-
-def _pack_rlm_nodes(nodes: Iterable[Dict[str, Any]], limit: int) -> List[Dict[str, Any]]:
-    from aidd_runtime import reports_pack_assemble as _assemble
-
-    return _assemble.pack_rlm_nodes(nodes, limit)
-
-
-def _pack_rlm_links(
-    links: Iterable[Dict[str, Any]],
-    *,
-    limit: int,
-    root: Optional[Path],
-    snippet_chars: int,
-) -> List[Dict[str, Any]]:
-    from aidd_runtime import reports_pack_assemble as _assemble
-
-    return _assemble.pack_rlm_links(
-        links,
-        limit=limit,
-        root=root,
-        snippet_chars=snippet_chars,
-    )
-
-
-def _load_rlm_worklist_summary(
-    root: Optional[Path],
-    ticket: Optional[str],
-    *,
-    context: Optional[Dict[str, Any]] = None,
-) -> tuple[Optional[str], Optional[int], Optional[Path]]:
-    from aidd_runtime import reports_pack_assemble as _assemble
-
-    return _assemble.load_rlm_worklist_summary(root, ticket, context=context)
 
 
 def build_rlm_pack(

@@ -15,11 +15,11 @@ Status: active
 
 | Symbol | Path | Evidence snapshot | Current decision | Next validation step |
 | --- | --- | --- | --- | --- |
-| `get_report_paths` | `skills/aidd-core/runtime/reports/loader.py` | No internal call-sites via `rg`, public helper surface | `manual_check` | Confirm external consumers (if any), then deprecate/remove |
-| `read_active_last_review_report_id` | `skills/aidd-core/runtime/runtime.py` | No internal call-sites via `rg`, exported helper | `manual_check` | Confirm external consumers, then deprecate/remove |
-| `normalize_stage_list` | `aidd_runtime/stage_lexicon.py` | No internal call-sites via `rg`, shared utility module | `manual_check` | Confirm extension/plugin consumers, then deprecate/remove |
-| `detect_build_tools` | `skills/aidd-core/runtime/test_settings_defaults.py` | Internal constants used, function call-sites absent | `manual_check` | Verify downstream hook usage expectations |
-| `test_settings_payload` | `skills/aidd-core/runtime/test_settings_defaults.py` | Internal constants used, function call-sites absent | `manual_check` | Verify downstream hook usage expectations |
+| `get_report_paths` | `skills/aidd-core/runtime/reports/loader.py` | No internal call-sites via `rg`, public helper surface | `keep` | Keep as compat surface; only consider deprecate/remove after owner sign-off |
+| `read_active_last_review_report_id` | `skills/aidd-core/runtime/runtime.py` | No internal call-sites via `rg`, exported helper | `keep` | Keep as compat surface; only consider deprecate/remove after owner sign-off |
+| `normalize_stage_list` | `aidd_runtime/stage_lexicon.py` | No internal call-sites via `rg`, shared utility module | `keep` | Keep as compat surface; only consider deprecate/remove after owner sign-off |
+| `detect_build_tools` | `skills/aidd-core/runtime/test_settings_defaults.py` | Internal constants used, function call-sites absent | `keep` | Keep as compat surface; verify downstream usage before any deprecate/remove decision |
+| `test_settings_payload` | `skills/aidd-core/runtime/test_settings_defaults.py` | Internal constants used, function call-sites absent | `keep` | Keep as compat surface; verify downstream usage before any deprecate/remove decision |
 
 ## Resolution checklist
 

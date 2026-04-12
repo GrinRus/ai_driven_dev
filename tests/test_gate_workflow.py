@@ -3,7 +3,6 @@ import json
 import pathlib
 from pathlib import Path
 import subprocess
-from textwrap import dedent
 
 from .helpers import (
     HOOKS_DIR,
@@ -904,87 +903,6 @@ def test_plugin_hooks_cover_workflow_events():
             for hook in entry.get("hooks", []):
                 cmd = hook.get("command", "")
                 assert "${CLAUDE_PLUGIN_ROOT}" in cmd, f"hook command missing aidd guard in {event}: {cmd}"
-
-
-def _ru_prompt(version: str, name: str = "analyst") -> str:
-    text = dedent(
-        f"""
-        ---
-        name: {name}
-        description: test
-        lang: ru
-        prompt_version: {version}
-        source_version: {version}
-        tools: Read
-        model: inherit
-        ---
-
-        ## Контекст
-        text
-
-        ## Входные артефакты
-        - item
-
-        ## Автоматизация
-        text
-
-        ## Пошаговый план
-        1. step
-
-        ## Fail-fast и вопросы
-        text
-
-        ## Формат ответа
-        text
-        """
-    ).strip() + "\n"
-    return text
-
-
-def _ru_command(version: str, name: str = "plan-new") -> str:
-    text = dedent(
-        f"""
-        ---
-        description: "{name}"
-        argument-hint: "<TICKET>"
-        lang: ru
-        prompt_version: {version}
-        source_version: {version}
-        allowed-tools: Read
-        model: inherit
-        ---
-
-        ## Контекст
-        text
-
-        ## Входные артефакты
-        - item
-
-        ## Когда запускать
-        text
-
-        ## Автоматические хуки и переменные
-        text
-
-        ## Что редактируется
-        text
-
-        ## Пошаговый план
-        1. step
-
-        ## Fail-fast и вопросы
-        text
-
-        ## Ожидаемый вывод
-        text
-
-        ## Примеры CLI
-        - `/cmd`
-        """
-    ).strip() + "\n"
-    return text
-
-
 
 
 def test_pending_research_baseline_blocks_downstream_source_edits(tmp_path):

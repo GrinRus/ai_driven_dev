@@ -6,6 +6,8 @@ Owner: feature-dev-aidd
 Last reviewed: 2026-04-12
 Status: historical
 
+_Local evidence note: references like `aidd/reports/**` point to workspace-local artifacts and are not part of this git repository._
+
 ## Closure Date
 - 2026-04-09
 

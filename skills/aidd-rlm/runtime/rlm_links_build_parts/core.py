@@ -277,47 +277,6 @@ def _classify_link_type(line_text: str) -> str:
     return "calls"
 
 
-def _rg_find_match(
-    root: Path,
-    symbol: str,
-    files: List[str],
-    *,
-    timeout_s: int,
-    max_hits: int,
-) -> Optional[Tuple[str, int, str]]:
-    if not files:
-        return None
-    cmd = ["rg", "--no-messages", "-n", "-F", "-m", str(max_hits), "--", symbol]
-    cmd.extend(files)
-    try:
-        proc = subprocess.run(
-            cmd,
-            cwd=root,
-            text=True,
-            capture_output=True,
-            timeout=timeout_s if timeout_s > 0 else None,
-            check=False,
-        )
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        return None
-    if proc.returncode not in (0, 1):
-        return None
-    for line in proc.stdout.splitlines():
-        parts = line.split(":", 2)
-        if len(parts) < 3:
-            continue
-        raw_path, raw_line, raw_text = parts[0], parts[1], parts[2]
-        try:
-            line_no = int(raw_line)
-        except ValueError:
-            continue
-        path = raw_path.strip()
-        text = raw_text.rstrip()
-        if path:
-            return path, line_no, text
-    return None
-
-
 def _chunked(items: List[str], size: int) -> Iterable[List[str]]:
     if size <= 0:
         yield items
