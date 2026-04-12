@@ -66,17 +66,6 @@ def _dedupe(items: Iterable[str]) -> List[str]:
     return deduped
 
 
-def _append_misc_link(links: dict, value: str) -> None:
-    if not value:
-        return
-    misc = links.get("links")
-    if not isinstance(misc, list):
-        misc = []
-    if value not in misc:
-        misc.append(value)
-    links["links"] = misc
-
-
 def _parse_evidence_links(values: Iterable[str] | None) -> dict:
     links: dict[str, object] = {}
     extras: List[str] = []

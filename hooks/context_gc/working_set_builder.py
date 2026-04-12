@@ -89,13 +89,6 @@ def _extract_pack_excerpt(md: str, max_lines: int, max_chars: int) -> Optional[s
     return text or None
 
 
-def _rel_to_root(root: Path, path: Path) -> str:
-    try:
-        return path.relative_to(root).as_posix()
-    except ValueError:
-        return path.as_posix()
-
-
 def _run_git(project_dir: Path, args: List[str], timeout: float = 1.5) -> Optional[str]:
     try:
         proc = subprocess.run(

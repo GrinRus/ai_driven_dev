@@ -6,7 +6,7 @@ import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 import sys
 
@@ -205,13 +205,6 @@ def _filter_research_handoff_blocks(blocks: Sequence[List[str]]) -> List[List[st
     return [block for block in blocks if _is_actionable_research_block(block)]
 
 
-
-
-def _format_task_suffix(report_label: str, task_id: str | None = None) -> str:
-    parts = [f"source: {report_label}"]
-    if task_id:
-        parts.append(f"id: {task_id}")
-    return f" ({', '.join(parts)})"
 
 
 _HANDOFF_SECTION_HINTS: Dict[str, Tuple[str, ...]] = {

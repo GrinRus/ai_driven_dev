@@ -73,37 +73,6 @@ def _template_source_for(relative: str) -> Path:
     return TEMPLATES_ROOT / relative
 
 
-def _read_hook_commands(settings_path: Path) -> list[str]:
-    data = json.loads(settings_path.read_text(encoding="utf-8"))
-
-    def collect(entries):
-        commands = []
-        if isinstance(entries, list):
-            for entry in entries:
-                hooks = entry.get("hooks") if isinstance(entry, dict) else None
-                if isinstance(hooks, list):
-                    for hook in hooks:
-                        cmd = hook.get("command")
-                        if isinstance(cmd, str):
-                            commands.append(cmd)
-        return commands
-
-    result = []
-    hooks_section = data.get("hooks", {})
-    if isinstance(hooks_section, dict):
-        result.extend(collect(hooks_section.get("PreToolUse")))
-        result.extend(collect(hooks_section.get("PostToolUse")))
-
-    presets = data.get("presets", {}).get("list", {})
-    if isinstance(presets, dict):
-        for preset in presets.values():
-            preset_hooks = preset.get("hooks")
-            if isinstance(preset_hooks, dict):
-                result.extend(collect(preset_hooks.get("PreToolUse")))
-                result.extend(collect(preset_hooks.get("PostToolUse")))
-    return result
-
-
 def test_bootstrap_copies_payload_files_and_directories():
     with tempfile.TemporaryDirectory(prefix="claude-workflow-e2e-") as tmpdir:
         target = Path(tmpdir)
