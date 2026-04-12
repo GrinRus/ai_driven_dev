@@ -144,12 +144,6 @@ class Section:
 
 
 @dataclass
-class Issue:
-    severity: str
-    message: str
-
-
-@dataclass
 class TasklistCheckResult:
     status: str
     message: str = ""

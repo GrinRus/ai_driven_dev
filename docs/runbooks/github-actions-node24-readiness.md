@@ -2,12 +2,17 @@
 
 > INTERNAL/DEV-ONLY: migration plan for Node20 action deprecation on GitHub-hosted runners.
 
+Owner: feature-dev-aidd
+Last reviewed: 2026-04-12
+Status: active
+
 ## Trigger
 GitHub will default JavaScript actions to Node24 on June 2, 2026.
 
 ## Current policy
 - Critical workflows use full commit SHA pinning.
 - Security and release path actions are prioritized for compatibility validation.
+- Last verification checkpoint: `tests/repo_tools/ci-lint.sh` passed on 2026-04-12.
 
 ## Migration checklist
 1. Track current actions in `.github/workflows/*.yml` and pin updates via Dependabot PRs.

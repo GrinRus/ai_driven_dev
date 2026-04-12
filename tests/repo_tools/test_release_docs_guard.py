@@ -92,14 +92,20 @@ def _seed_valid_fixture(root: Path) -> None:
     _write(root / "skills" / "demo" / "SKILL.md", "# Demo skill\n")
     _write(root / "skills" / "demo" / "templates" / "template.md", "# Template\n")
 
-    _write(root / "AGENTS.md", "# AGENTS\n> INTERNAL/DEV-ONLY\n")
-    _write(root / "docs" / "backlog.md", "# Backlog\n> INTERNAL/DEV-ONLY\n")
-    _write(root / "docs" / "agent-skill-best-practices.md", "# Doc\n> INTERNAL/DEV-ONLY\n")
-    _write(root / "docs" / "skill-language.md", "# Doc\n> INTERNAL/DEV-ONLY\n")
-    _write(root / "docs" / "skill-trigger-taxonomy.md", "# Doc\n> INTERNAL/DEV-ONLY\n")
-    _write(root / "docs" / "memory-v2-rfc.md", "# Doc\n> INTERNAL/DEV-ONLY\n")
-    _write(root / "docs" / "runbooks" / "tst001-audit-hardening.md", "# Doc\n> INTERNAL/DEV-ONLY\n")
-    _write(root / "docs" / "revision" / "repo-revision.md", "# Doc\n> INTERNAL/DEV-ONLY\n")
+    marker_block = (
+        "> INTERNAL/DEV-ONLY\n\n"
+        "Owner: feature-dev-aidd\n"
+        "Last reviewed: 2026-04-12\n"
+        "Status: active\n"
+    )
+    _write(root / "AGENTS.md", f"# AGENTS\n{marker_block}")
+    _write(root / "docs" / "backlog.md", f"# Backlog\n{marker_block}")
+    _write(root / "docs" / "agent-skill-best-practices.md", f"# Doc\n{marker_block}")
+    _write(root / "docs" / "skill-language.md", f"# Doc\n{marker_block}")
+    _write(root / "docs" / "skill-trigger-taxonomy.md", f"# Doc\n{marker_block}")
+    _write(root / "docs" / "memory-v2-rfc.md", f"# Doc\n{marker_block}")
+    _write(root / "docs" / "runbooks" / "tst001-audit-hardening.md", f"# Doc\n{marker_block}")
+    _write(root / "docs" / "revision" / "repo-revision.md", f"# Doc\n{marker_block}")
 
 
 class ReleaseDocsGuardTests(unittest.TestCase):
@@ -127,6 +133,15 @@ class ReleaseDocsGuardTests(unittest.TestCase):
             result = self._run(root)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("missing `INTERNAL/DEV-ONLY` marker", result.stderr)
+
+    def test_fails_when_internal_lifecycle_metadata_is_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _seed_valid_fixture(root)
+            _write(root / "AGENTS.md", "# AGENTS\n> INTERNAL/DEV-ONLY\n")
+            result = self._run(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("missing `Owner:` lifecycle marker", result.stderr)
 
     def test_fails_when_internal_doc_is_in_public_docs(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

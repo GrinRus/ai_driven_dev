@@ -2,6 +2,10 @@
 
 > INTERNAL/DEV-ONLY: maintainer routing taxonomy used for prompt lint and skill eval.
 
+Owner: feature-dev-aidd
+Last reviewed: 2026-04-12
+Status: active
+
 This registry defines routing boundaries for all AIDD skills.
 Each skill must keep frontmatter `description` aligned with this table using explicit positive (`Use when`) and negative (`Do not use when`) triggers.
 

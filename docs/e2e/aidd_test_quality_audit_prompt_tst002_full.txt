@@ -1,5 +1,7 @@
 # AIDD E2E Quality Audit Prompt (TST-002, FULL)
 
+> GENERATED FILE NOTICE: `docs/e2e/*.txt` outputs are generated from `tests/repo_tools/e2e_prompt/*`.
+
 Задача: **AIDD E2E Quality Audit (TST-002) + Final-state feature gate + Code/Artifact quality scoring + Backlog wave planning**  
 База канона: **skill-first, python-only runtime, RLM-only research, no-fork stage orchestration, evidence-first quality audit**.
 

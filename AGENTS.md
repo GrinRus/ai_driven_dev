@@ -2,6 +2,10 @@
 
 > INTERNAL/DEV-ONLY: maintainer guide for repository development and release process.
 
+Owner: feature-dev-aidd
+Last reviewed: 2026-04-12
+Status: active
+
 Этот файл — единая dev‑документация репозитория. Все dev‑правила и шаблоны живут здесь.
 User‑гайд для workspace находится в `skills/aidd-core/templates/workspace-agents.md` (копируется в `aidd/AGENTS.md` при init).
 

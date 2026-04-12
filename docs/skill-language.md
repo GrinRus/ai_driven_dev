@@ -2,6 +2,10 @@
 
 > INTERNAL/DEV-ONLY: maintainer lint/prompt policy source of truth.
 
+Owner: feature-dev-aidd
+Last reviewed: 2026-04-12
+Status: active
+
 This document defines the canonical prompt-language and structure policy used by `tests/repo_tools/lint-prompts.py`.
 
 ## Scope

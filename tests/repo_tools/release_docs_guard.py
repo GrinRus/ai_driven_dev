@@ -12,6 +12,8 @@ VALID_GROUPS = {"public_release_docs", "runtime_contract_docs", "internal_dev_do
 SEMVER_HEADING_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*) - \d{4}-\d{2}-\d{2}$")
 TOKEN_BOUNDARY = r"[A-Za-z0-9_./-]"
 BACKTICK_TOKEN_RE = re.compile(r"`([^`]+)`")
+LIFECYCLE_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+LIFECYCLE_STATUSES = {"active", "historical", "archive-candidate"}
 
 
 def _parse_manifest(path: Path) -> dict[str, list[str]]:
@@ -172,9 +174,38 @@ def _validate_internal_markers(paths: dict[str, Path]) -> list[str]:
     for rel, full in sorted(paths.items()):
         if full.suffix.lower() != ".md":
             continue
-        head = "\n".join(full.read_text(encoding="utf-8").splitlines()[:8])
+        head_lines = full.read_text(encoding="utf-8").splitlines()[:20]
+        head = "\n".join(head_lines)
         if INTERNAL_MARKER not in head:
             errors.append(f"{rel}: missing `{INTERNAL_MARKER}` marker in first lines")
+            continue
+
+        owner = ""
+        last_reviewed = ""
+        status = ""
+        for line in head_lines:
+            stripped = line.strip()
+            if stripped.startswith("Owner:"):
+                owner = stripped.split(":", 1)[1].strip()
+            elif stripped.startswith("Last reviewed:"):
+                last_reviewed = stripped.split(":", 1)[1].strip()
+            elif stripped.startswith("Status:"):
+                status = stripped.split(":", 1)[1].strip().lower()
+
+        if not owner:
+            errors.append(f"{rel}: missing `Owner:` lifecycle marker in first lines")
+        if not last_reviewed:
+            errors.append(f"{rel}: missing `Last reviewed:` lifecycle marker in first lines")
+        elif not LIFECYCLE_DATE_RE.match(last_reviewed):
+            errors.append(
+                f"{rel}: invalid `Last reviewed:` value `{last_reviewed}`; expected `YYYY-MM-DD`"
+            )
+        if not status:
+            errors.append(f"{rel}: missing `Status:` lifecycle marker in first lines")
+        elif status not in LIFECYCLE_STATUSES:
+            errors.append(
+                f"{rel}: invalid `Status:` value `{status}`; expected one of {sorted(LIFECYCLE_STATUSES)}"
+            )
     return errors
 
 

@@ -2,6 +2,10 @@
 
 > INTERNAL/DEV-ONLY: maintainer runbook for self-hosted release and official marketplace submission tracking.
 
+Owner: feature-dev-aidd
+Last reviewed: 2026-04-12
+Status: active
+
 ## Purpose
 - Keep self-hosted release deterministic (`vX.Y.Z` tags only).
 - Track official Anthropic marketplace submission in parallel.

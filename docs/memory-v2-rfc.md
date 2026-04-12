@@ -2,8 +2,10 @@
 
 > INTERNAL/DEV-ONLY: draft RFC for maintainers; not part of public release onboarding.
 
-Status: Draft (Active; Wave 101 source)  
-Owner: feature-dev-aidd  
+Owner: feature-dev-aidd
+Last reviewed: 2026-04-12
+Status: active
+RFC status: Draft (Active; Wave 101 source)
 Updated: 2026-02-13
 
 ## 1. Problem statement

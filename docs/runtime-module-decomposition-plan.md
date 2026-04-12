@@ -2,23 +2,27 @@
 
 > INTERNAL/DEV-ONLY: phased refactor plan for oversized runtime modules.
 
+Owner: feature-dev-aidd
+Last reviewed: 2026-04-12
+Status: active
+
 ## Scope
 
 This plan covers modules reported by `tests/repo_tools/runtime-module-guard.py`
 with `>600` LOC warnings. Goal: split large files into cohesive parts without
 changing runtime behavior, CLI contracts, or report schemas.
 
-Snapshot (2026-04-05):
-- `skills/aidd-core/runtime/qa_agent.py` (623)
+Snapshot (2026-04-12):
+- `skills/aidd-core/runtime/qa_agent.py` (622)
 - `skills/aidd-core/runtime/research_guard.py` (827)
-- `skills/aidd-core/runtime/runtime.py` (745)
+- `skills/aidd-core/runtime/runtime.py` (724)
 - `skills/aidd-flow-state/runtime/progress.py` (779)
-- `skills/aidd-flow-state/runtime/stage_result.py` (641)
+- `skills/aidd-flow-state/runtime/stage_result.py` (646)
 - `skills/aidd-loop/runtime/loop_step_stage_chain.py` (765)
 - `skills/aidd-loop/runtime/preflight_prepare.py` (716)
 - `skills/aidd-rlm/runtime/rlm_nodes_build.py` (624)
-- `skills/researcher/runtime/research.py` (826)
-- `skills/review/runtime/review_pack.py` (743)
+- `skills/researcher/runtime/research.py` (816)
+- `skills/review/runtime/review_pack.py` (740)
 
 ## Non-Goals
 

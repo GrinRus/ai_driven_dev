@@ -52,26 +52,17 @@ def append_event(
     status: str,
     details: Dict[str, object] | None = None,
 ) -> None:
-    ticket = identifiers.resolved_ticket
-    if not ticket:
-        return
-    payload: Dict[str, object] = {
-        "ts": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
-        "ticket": ticket,
-        "slug_hint": identifiers.slug_hint or ticket,
-        "type": "format-and-test",
-        "status": status,
-        "source": "hook format-and-test",
-    }
-    if details:
-        payload["details"] = details
-    path = root / "reports" / "events" / f"{ticket}.jsonl"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        with path.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
-    except OSError:
-        return
+    from hooks import hooklib
+
+    hooklib.append_event(
+        root,
+        "format-and-test",
+        status=status,
+        details=details,
+        source="hook format-and-test",
+        ticket=identifiers.resolved_ticket or "",
+        slug_hint=identifiers.slug_hint or identifiers.resolved_ticket or "",
+    )
 
 LOG_PREFIX = "[format-and-test]"
 

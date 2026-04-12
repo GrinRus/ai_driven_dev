@@ -2,6 +2,10 @@
 
 > INTERNAL/DEV-ONLY: maintainer policy reference for skill authoring and lint baselines.
 
+Owner: feature-dev-aidd
+Last reviewed: 2026-04-12
+Status: active
+
 This guide defines a single SKILL authoring contract for repositories that are used with Claude Code, Codex, Cursor, and GitHub Copilot.
 
 ## Goals
