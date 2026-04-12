@@ -2,15 +2,19 @@
 
 > INTERNAL/DEV-ONLY: generated maintainer report for repository topology and cleanup planning.
 
+Owner: feature-dev-aidd
+Last reviewed: 2026-04-12
+Status: active
+
 schema: `aidd.repo_revision.v1`
-generated_at: `2026-03-11T11:45:39Z`
+generated_at: `2026-04-12T08:40:53Z`
 
 ## Executive summary
 
-- Total nodes: **412**
-- Total edges: **933**
+- Total nodes: **408**
+- Total edges: **818**
 - User-invocable commands: **11**
-- Reachable runtimes from command chain: **91**
+- Reachable runtimes from command chain: **90**
 - Detached agents: **0**
 
 Key findings:
@@ -132,7 +136,8 @@ Key findings:
 
 ### `/feature-dev-aidd:review-spec`
 - Skill: `skills/review-spec/SKILL.md`
-- Runtime refs: 6
+- Runtime refs: 7
+  - `skills/aidd-core/runtime/plan_review_gate.py`
   - `skills/aidd-core/runtime/prd_review.py`
   - `skills/aidd-flow-state/runtime/prd_check.py`
   - `skills/aidd-flow-state/runtime/progress_cli.py`
@@ -255,11 +260,11 @@ Validation commands:
 - Edge types:
   - `agent_preload_skill`: 35
   - `command_subagent`: 11
-  - `doc_ref_runtime`: 296
+  - `doc_ref_runtime`: 167
   - `hook_event_to_hook`: 16
   - `hook_ref_runtime`: 5
   - `runtime_dynamic_load`: 8
   - `runtime_import`: 242
-  - `skill_runtime_ref`: 111
+  - `skill_runtime_ref`: 112
   - `skill_template_ref`: 10
-  - `test_ref_runtime`: 199
+  - `test_ref_runtime`: 212

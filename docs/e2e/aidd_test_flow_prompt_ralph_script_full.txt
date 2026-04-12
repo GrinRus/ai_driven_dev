@@ -1,5 +1,7 @@
 # AIDD E2E Flow Audit Prompt (TST-001, FULL)
 
+> GENERATED FILE NOTICE: `docs/e2e/*.txt` outputs are generated from `tests/repo_tools/e2e_prompt/*`.
+
 Задача: **AIDD E2E Flow Audit (TST-001) + Ralph Loop Compliance + Full-flow task selection**  
 База канона: **skill-first, python-only runtime, RLM-only research, no-fork stage orchestration**.
 

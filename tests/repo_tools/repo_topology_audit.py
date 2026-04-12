@@ -839,6 +839,15 @@ def _render_markdown(payload: Mapping[str, Any]) -> str:
     lines.append("")
     lines.append("> INTERNAL/DEV-ONLY: generated maintainer report for repository topology and cleanup planning.")
     lines.append("")
+    lines.append("Owner: feature-dev-aidd")
+    generated_at = str(meta.get("generated_at", ""))
+    last_reviewed = generated_at[:10] if len(generated_at) >= 10 else ""
+    if last_reviewed:
+        lines.append(f"Last reviewed: {last_reviewed}")
+    else:
+        lines.append("Last reviewed: 1970-01-01")
+    lines.append("Status: active")
+    lines.append("")
     lines.append(f"schema: `{payload.get('schema', '')}`")
     lines.append(f"generated_at: `{meta.get('generated_at', '')}`")
     lines.append("")

@@ -350,15 +350,17 @@ def append_event(
     details: Optional[Dict[str, Any]] = None,
     report: str = "",
     source: str = "",
+    ticket: str = "",
+    slug_hint: str = "",
 ) -> None:
-    ticket = read_ticket(root / "docs" / ".active.json")
-    if not ticket:
+    resolved_ticket = (ticket or "").strip() or read_ticket(root / "docs" / ".active.json")
+    if not resolved_ticket:
         return
-    slug_hint = read_slug(root / "docs" / ".active.json") or ticket
+    resolved_slug = (slug_hint or "").strip() or read_slug(root / "docs" / ".active.json") or resolved_ticket
     payload: Dict[str, Any] = {
         "ts": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
-        "ticket": ticket,
-        "slug_hint": slug_hint,
+        "ticket": resolved_ticket,
+        "slug_hint": resolved_slug,
         "type": event_type,
     }
     if status:
@@ -369,7 +371,7 @@ def append_event(
         payload["report"] = report
     if source:
         payload["source"] = source
-    path = root / "reports" / "events" / f"{ticket}.jsonl"
+    path = root / "reports" / "events" / f"{resolved_ticket}.jsonl"
     path.parent.mkdir(parents=True, exist_ok=True)
     try:
         with path.open("a", encoding="utf-8") as handle:

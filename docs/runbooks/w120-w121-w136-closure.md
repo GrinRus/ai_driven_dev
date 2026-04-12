@@ -2,6 +2,10 @@
 
 > INTERNAL/DEV-ONLY: closure summary for stabilization waves `120`, `121`, `136`.
 
+Owner: feature-dev-aidd
+Last reviewed: 2026-04-12
+Status: historical
+
 ## Closure Date
 - 2026-04-09
 

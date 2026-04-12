@@ -2,6 +2,10 @@
 
 > INTERNAL/DEV-ONLY: engineering wave planning and execution tracker.
 
+Owner: feature-dev-aidd
+Last reviewed: 2026-04-12
+Status: active
+
 _Revision note (2026-04-09): стабилизационный трек `120 -> 121 -> 136` закрыт (runtime/core -> prompt/audit -> integration closure). Волны `122..125` остаются roadmap-приоритетом._
 
 ## Wave 120 — Core Runtime & Stage Contracts Stabilization (2026-04-06)

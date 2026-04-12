@@ -169,14 +169,6 @@ SEVERITY_ORDER = {
 }
 
 
-def sort_findings(findings: List[Dict[str, object]]) -> List[Dict[str, object]]:
-    def sort_key(item: Dict[str, object]) -> Tuple[int, str]:
-        severity = normalize_severity(item.get("severity"))
-        return (SEVERITY_ORDER.get(severity, 6), str(item.get("id") or item.get("title") or ""))
-
-    return sorted(findings, key=sort_key)
-
-
 def _reviewer_requirements(
     target: Path,
     *,
