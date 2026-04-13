@@ -500,11 +500,6 @@ def read_active_work_item(target: Path) -> str:
     return (state.work_item or "").strip()
 
 
-def read_active_last_review_report_id(target: Path) -> str:
-    state = read_active_state(target)
-    return (state.last_review_report_id or "").strip()
-
-
 def read_active_stage(target: Path) -> str:
     state = read_active_state(target)
     return stage_lexicon.resolve_stage_name(state.stage or "")

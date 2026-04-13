@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-from typing import Iterable
 
 _SEPARATOR_RE = re.compile(r"[\s_]+")
 
@@ -95,12 +94,3 @@ def is_loop_stage(value: str | None) -> bool:
 
 def is_planning_stage(value: str | None) -> bool:
     return resolve_stage_name(value) in PLANNING_STAGES
-
-
-def normalize_stage_list(values: Iterable[str]) -> tuple[str, ...]:
-    normalized: list[str] = []
-    for value in values:
-        resolved = resolve_stage_name(value)
-        if resolved and resolved not in normalized:
-            normalized.append(resolved)
-    return tuple(normalized)
