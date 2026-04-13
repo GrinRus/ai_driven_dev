@@ -13,6 +13,29 @@ _Revision note (2026-04-09): стабилизационный трек `120 -> 1
 - Historical completed waves `120`, `121`, `136` moved to `docs/backlog-archive-w120-w121-w136.md`.
 - Local evidence note: references like `aidd/reports/**` point to workspace-local artifacts and are not part of this git repository.
 
+## Wave 139 — Cleanup Signal Quality (2026-04-13)
+
+_Статус: plan. Основание — conservative cleanup показал ложноположительные `safe-to-delete` сигналы в repo topology audit для e2e prompt artifacts с indirect usage через генераторы и contract tests._
+
+- [ ] **W139-1 (P1) Reduce false-positive `safe-to-delete` in topology audit** `tests/repo_tools/repo_topology_audit.py`, `tests/test_repo_topology_audit.py`, `tests/repo_tools/build_e2e_prompts.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - учесть indirect usage через glob/path-composition из генераторов и contract tests, чтобы `safe` triage не предлагал удалять реально используемые артефакты;
+  - добавить protected-path heuristic для generated e2e prompt outputs;
+  - добавить regression case для `docs/e2e/aidd_test_flow_prompt_ralph_script.txt`.
+  **AC:** audit больше не маркирует используемые e2e prompt artifacts как `safe-to-delete`; regression test фиксирует кейс.
+  **Deps:** -
+  **Regression/tests:** `python3 -m pytest -q tests/test_repo_topology_audit.py tests/repo_tools/test_e2e_prompt_contract.py`, `python3 tests/repo_tools/repo_topology_audit.py --repo-root . --output-json /tmp/repo-revision.graph.json --output-md /tmp/repo-revision.md --output-cleanup /tmp/repo-cleanup-plan.json`.
+  **Effort:** S
+  **Risk:** Medium
+
+- [ ] **W139-2 (P2) Cleanup governance sync for generated report policy** `docs/revision/repo-revision.md`, `tests/repo_tools/repo_topology_audit.py`, `tests/test_repo_topology_audit.py`:
+  - согласовать auto-triage `safe-to-delete` c текущей governance policy cleanup wave;
+  - зафиксировать regression case, что active governance docs не попадают в `safe-to-delete` без явного archival decision.
+  **AC:** generated revision report не конфликтует с принятой cleanup policy по active governance docs.
+  **Deps:** W139-1
+  **Regression/tests:** `python3 -m pytest -q tests/test_repo_topology_audit.py`, `python3 tests/repo_tools/repo_topology_audit.py --repo-root . --output-json /tmp/repo-revision.graph.json --output-md /tmp/repo-revision.md --output-cleanup /tmp/repo-cleanup-plan.json`.
+  **Effort:** S
+  **Risk:** Low
+
 ## Wave 137 — Implement Stage Non-Convergence Hardening (2026-04-11)
 
 _Статус: plan. Основание — TST-001 full audit показал implement-stage non-convergence (`task_started` без `task_completed`), отсутствие top-level terminal result и неоднозначную классификацию завершения `exit_code=143` при stall/retry paths._

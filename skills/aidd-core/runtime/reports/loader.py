@@ -33,13 +33,6 @@ def _json_path_for(pack_path: Path) -> Path:
     return pack_path.with_suffix(".json")
 
 
-def get_report_paths(root: Path, report_type: str, ticket: str, kind: str | None = None) -> ReportPaths:
-    name = f"{ticket}-{kind}" if kind else ticket
-    json_path = root / "reports" / report_type / f"{name}.json"
-    pack_path = pack_path_for(json_path)
-    return ReportPaths(json_path=json_path, pack_path=pack_path)
-
-
 def _missing_report_error(json_path: Path, pack_path: Path) -> FileNotFoundError:
     return FileNotFoundError(
         "report not found: "

@@ -3,16 +3,16 @@
 > INTERNAL/DEV-ONLY: generated maintainer report for repository topology and cleanup planning.
 
 Owner: feature-dev-aidd
-Last reviewed: 2026-04-12
+Last reviewed: 2026-04-13
 Status: active
 
 schema: `aidd.repo_revision.v1`
-generated_at: `2026-04-12T08:40:53Z`
+generated_at: `2026-04-13T12:22:37Z`
 
 ## Executive summary
 
 - Total nodes: **408**
-- Total edges: **818**
+- Total edges: **835**
 - User-invocable commands: **11**
 - Reachable runtimes from command chain: **90**
 - Detached agents: **0**
@@ -233,7 +233,8 @@ Key findings:
 
 ### Safe-to-delete
 
-- none
+- `docs/runtime-module-decomposition-plan.md`: action=`delete`, confidence=`high`, risk=`low`
+  - reason: no inbound references in graph or textual mentions
 
 ### Candidates
 
@@ -241,7 +242,8 @@ Key findings:
 
 ## Cleanup plan
 
-- none
+1. `docs/runtime-module-decomposition-plan.md` -> `delete` (risk: `low`)
+   - reason: no inbound references in graph or textual mentions
 
 Validation commands:
 - `python3 tests/repo_tools/repo_topology_audit.py --repo-root . --output-json docs/revision/repo-revision.graph.json --output-md docs/revision/repo-revision.md --output-cleanup docs/revision/repo-cleanup-plan.json`
@@ -260,7 +262,7 @@ Validation commands:
 - Edge types:
   - `agent_preload_skill`: 35
   - `command_subagent`: 11
-  - `doc_ref_runtime`: 167
+  - `doc_ref_runtime`: 184
   - `hook_event_to_hook`: 16
   - `hook_ref_runtime`: 5
   - `runtime_dynamic_load`: 8
