@@ -220,7 +220,7 @@ class E2EPromptContractTests(unittest.TestCase):
             text,
         )
         self.assertIn("research_warn_scope=<none|links_empty_non_blocking|minimal_baseline_soft|invalid>", text)
-        self.assertIn("WARN(readiness_gate_research_softened)", text)
+        self.assertIn("INFO(readiness_gate_research_softened)", text)
         self.assertIn("NOT VERIFIED (readiness_gate_failed)", text)
         self.assertIn("NOT VERIFIED (upstream_readiness_gate_failed)", text)
 
@@ -237,12 +237,17 @@ class E2EPromptContractTests(unittest.TestCase):
             self.assertIn("research_status=reviewed|ok|warn|pending", text)
             self.assertIn("minimal RLM baseline", text)
             self.assertIn("research_warn_scope=minimal_baseline_soft", text)
-            self.assertIn("WARN(readiness_gate_research_softened)", text)
+            self.assertIn("INFO(readiness_gate_research_softened)", text)
 
     def test_prompts_require_review_spec_report_alignment(self) -> None:
         for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
             text = _read(prompt)
             self.assertIn("review_spec_report_mismatch", text, msg=f"{prompt}: missing report mismatch classification")
+            self.assertIn(
+                "review_spec_report_mismatch_non_blocking",
+                text,
+                msg=f"{prompt}: missing non-blocking report mismatch classification",
+            )
             self.assertIn("05_review_spec_report_check_run<N>.txt", text, msg=f"{prompt}: missing review-spec report check artifact")
             self.assertIn("prd_findings_sync_needed", text, msg=f"{prompt}: missing PRD findings sync marker")
             self.assertIn("plan_findings_sync_needed", text, msg=f"{prompt}: missing plan findings sync marker")
@@ -262,7 +267,7 @@ class E2EPromptContractTests(unittest.TestCase):
             self.assertIn("05_tasklist_test_execution_probe.txt", text, msg=f"{prompt}: missing tasklist probe artifact")
             self.assertIn("tasks_list_count>0", text, msg=f"{prompt}: missing tasklist list-count probe condition")
             self.assertIn(
-                "WARN(tasklist_schema_parser_mismatch_recoverable)",
+                "INFO(tasklist_schema_parser_mismatch_recoverable)",
                 text,
                 msg=f"{prompt}: missing recoverable mismatch classification",
             )
@@ -289,9 +294,17 @@ class E2EPromptContractTests(unittest.TestCase):
             self.assertIn('cd "$PROJECT_DIR"', text, msg=f"{prompt}: missing cwd launcher invariant")
             self.assertIn('--plugin-dir "$PLUGIN_DIR"', text, msg=f"{prompt}: missing plugin-dir launcher invariant")
             self.assertIn("--verbose --output-format stream-json", text, msg=f"{prompt}: missing stream-json verbose flags")
+            self.assertIn("aidd_stage_launcher.py", text, msg=f"{prompt}: missing canonical launcher path")
             self.assertIn('df -Pk "$PROJECT_DIR"', text, msg=f"{prompt}: missing disk preflight invariant")
             self.assertIn('realpath("$PROJECT_DIR") != realpath("$PLUGIN_DIR")', text, msg=f"{prompt}: missing project/plugin topology invariant")
             self.assertIn("PROJECT_DIR must differ from PLUGIN_DIR", text, msg=f"{prompt}: missing shell-safe topology precheck snippet")
+
+    def test_prompts_require_preflight_artifact_completeness_markers(self) -> None:
+        for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
+            text = _read(prompt)
+            self.assertIn("01_gates_snapshot.json", text, msg=f"{prompt}: missing gates snapshot artifact")
+            self.assertIn("01_test_policy_source_scan.txt", text, msg=f"{prompt}: missing test policy scan artifact")
+            self.assertIn("not_available=1", text, msg=f"{prompt}: missing not_available marker contract")
 
     def test_smoke_script_blocks_legacy_shadow_artifacts_in_workspace_root(self) -> None:
         text = _read(REPO_ROOT / "tests" / "repo_tools" / "smoke-workflow.sh")
@@ -356,6 +369,21 @@ class E2EPromptContractTests(unittest.TestCase):
         self.assertIn("--step-timeout-seconds $LOOP_STEP_TIMEOUT_SECONDS", full_text)
         self.assertIn("--stage-budget-seconds $LOOP_STAGE_BUDGET_SECONDS", full_text)
         self.assertIn("budget считается по каждому запуску отдельно", full_text)
+
+    def test_full_prompt_enforces_seed_single_scope_and_dependency_fail_fast(self) -> None:
+        text = _read(AUDIT_PROMPT_FULL)
+        self.assertIn("--budget-seconds <N>", text)
+        self.assertIn("seed_scope_cascade_detected", text)
+        self.assertIn("tests_env_dependency_missing", text)
+        self.assertIn("single-scope invariant", text)
+
+    def test_full_prompt_declares_soft_default_with_strict_shadow_for_step6(self) -> None:
+        text = _read(AUDIT_PROMPT_FULL)
+        self.assertIn("CLASSIFICATION_PROFILE=soft_default|strict", text)
+        self.assertIn("(default: `soft_default`)", text)
+        self.assertIn("strict-shadow telemetry", text)
+        self.assertIn("softened=1", text)
+        self.assertIn("strict_shadow_classification", text)
 
     def test_prompt_research_pending_finalize_contract(self) -> None:
         for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):

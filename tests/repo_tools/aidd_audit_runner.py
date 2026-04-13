@@ -41,6 +41,20 @@ READINESS_REASON_CODES = (
     "answers_format_invalid",
     "research_not_ready",
 )
+CLASSIFICATION_PROFILES = ("soft_default", "strict")
+SOFT_DEFAULT_IMPLEMENT_EXCLUDED_SUBTYPES = {
+    "project_contract_missing",
+    "tests_cwd_mismatch",
+    "readiness_gate_failed",
+}
+
+
+def _truthy(value: object) -> bool:
+    return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _looks_like_plugin_root(path: Path) -> bool:
+    return (path / ".claude-plugin").exists() and (path / "skills").exists()
 
 
 def parse_kv_file(path: Path) -> Dict[str, str]:
@@ -77,6 +91,27 @@ def infer_liveness_path(summary_path: Path) -> Path | None:
     return None
 
 
+def infer_termination_path(summary_path: Path) -> Path | None:
+    step, run = _parse_summary_identity(summary_path)
+    if not step or run <= 0:
+        return None
+    candidates = [
+        summary_path.with_name(f"{step}_termination_attribution_run{run}.txt"),
+        summary_path.with_name(f"{step}_termination_attribution.txt"),
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def infer_precondition_path(summary_path: Path) -> Path | None:
+    candidate = summary_path.with_name("05_precondition_block.txt")
+    if candidate.exists():
+        return candidate
+    return None
+
+
 def _parse_summary_identity(summary_path: Path) -> tuple[str, int]:
     name = summary_path.name
     match = RUN_SUMMARY_RE.match(name)
@@ -104,6 +139,17 @@ def collect_preflight(
     plugin_dir: Path,
     min_free_bytes: int | None = None,
 ) -> Dict[str, object]:
+    project_root = project_dir.resolve()
+    plugin_root = plugin_dir.resolve()
+    topology_equals_plugin = project_root == plugin_root
+    topology_project_looks_like_plugin = _looks_like_plugin_root(project_root)
+    topology_ok = not topology_equals_plugin and not topology_project_looks_like_plugin
+    topology_reason = "ok"
+    if topology_equals_plugin:
+        topology_reason = "project_dir_equals_plugin_dir"
+    elif topology_project_looks_like_plugin:
+        topology_reason = "project_dir_looks_like_plugin_root"
+
     min_bytes = resolve_min_free_bytes(str(min_free_bytes) if min_free_bytes is not None else None)
     disk_free_bytes = int(shutil.disk_usage(project_dir).free)
     disk_low = disk_free_bytes < min_bytes
@@ -114,9 +160,15 @@ def collect_preflight(
     }
     return {
         "cwd": str(Path.cwd().resolve()),
-        "project_dir": str(project_dir.resolve()),
-        "plugin_dir": str(plugin_dir.resolve()),
+        "project_dir": str(project_root),
+        "plugin_dir": str(plugin_root),
         "plugin_root_exists": int(plugin_dir.exists()),
+        "topology_invariant_ok": int(topology_ok),
+        "topology_reason": topology_reason,
+        "topology_project_equals_plugin": int(topology_equals_plugin),
+        "topology_project_looks_like_plugin_root": int(topology_project_looks_like_plugin),
+        "topology_reason_code": "cwd_wrong" if not topology_ok else "",
+        "topology_classification": "ENV_MISCONFIG(cwd_wrong)" if not topology_ok else "",
         "disk_free_bytes": disk_free_bytes,
         "min_free_bytes": min_bytes,
         "disk_low": int(disk_low),
@@ -272,6 +324,28 @@ def _allow_readiness_override(classification: contract.Classification) -> bool:
     return classification.classification in {"FLOW_BUG", "TELEMETRY_ONLY"}
 
 
+def _normalize_classification_profile(raw: str | None) -> str:
+    value = str(raw or "").strip().lower()
+    if value in CLASSIFICATION_PROFILES:
+        return value
+    return "soft_default"
+
+
+def _is_softenable_implement_blocker(
+    *,
+    step_key: str,
+    classification: contract.Classification,
+) -> bool:
+    normalized_step = str(step_key or "").strip().lower()
+    if not normalized_step.startswith("06_implement"):
+        return False
+    if classification.classification not in {"PROMPT_EXEC_ISSUE", "FLOW_BUG"}:
+        return False
+    if classification.subtype in SOFT_DEFAULT_IMPLEMENT_EXCLUDED_SUBTYPES:
+        return False
+    return True
+
+
 def analyze_run(
     *,
     summary_path: Path,
@@ -281,13 +355,24 @@ def analyze_run(
     liveness_path: Path | None = None,
     preflight: Mapping[str, object] | None = None,
     aux_log_paths: List[Path] | None = None,
+    classification_profile: str = "soft_default",
 ) -> Dict[str, object]:
+    classification_profile = _normalize_classification_profile(classification_profile)
     step_key, run_index = _parse_summary_identity(summary_path)
     summary_mtime = 0.0
     try:
         summary_mtime = float(summary_path.stat().st_mtime)
     except OSError:
         summary_mtime = 0.0
+    if termination_path is None:
+        inferred_termination = infer_termination_path(summary_path)
+        if inferred_termination is not None:
+            termination_path = inferred_termination
+    if precondition_path is None:
+        inferred_precondition = infer_precondition_path(summary_path)
+        if inferred_precondition is not None:
+            precondition_path = inferred_precondition
+
     summary = parse_kv_file(summary_path)
     termination = parse_kv_file(termination_path) if termination_path else {}
     precondition = parse_kv_file(precondition_path) if precondition_path else {}
@@ -324,6 +409,17 @@ def analyze_run(
         preflight=preflight,
         diagnostics_text=aux_text,
     )
+    preflight_topology_ok = True
+    if preflight and "topology_invariant_ok" in preflight:
+        preflight_topology_ok = _truthy(preflight.get("topology_invariant_ok"))
+    if not preflight_topology_ok and classified.classification != "ENV_BLOCKER":
+        classified = contract.Classification(
+            classification="ENV_MISCONFIG",
+            subtype="cwd_wrong",
+            source="runner_preflight",
+            label="ENV_MISCONFIG(cwd_wrong)",
+        )
+
     liveness_classification = str(liveness.get("classification") or "").strip().lower()
     liveness_active_source = str(liveness.get("active_source") or "").strip().lower()
     liveness_valid_stream_count = _safe_int(liveness.get("valid_stream_count"), 0)
@@ -364,6 +460,20 @@ def analyze_run(
         and review_findings_count == 0
         and review_open_questions_count == 0
     )
+
+    write_safety_warn_detected = "plugin_write_safety_inconclusive" in aux_text.lower()
+    layout_warn_detected = "workspace_layout_non_canonical_root_detected" in aux_text.lower()
+    if (
+        (write_safety_warn_detected or layout_warn_detected)
+        and classified.classification == "TELEMETRY_ONLY"
+    ):
+        classified = contract.Classification(
+            classification="TELEMETRY_ONLY",
+            subtype="write_safety_layout_signal",
+            source="diagnostics",
+            label="WARN(write_safety_layout_signal)",
+        )
+
     if review_mismatch_non_blocking and classified.classification in {"FLOW_BUG", "TELEMETRY_ONLY"}:
         classified = contract.Classification(
             classification="TELEMETRY_ONLY",
@@ -396,7 +506,11 @@ def analyze_run(
         and _is_tasks_new_context(summary, summary_path, log_text, aux_text)
         and _has_tasks_new_nested_runtime(log_text, aux_text)
     )
-    if tasks_new_partial_success and not invalid_fallback_paths:
+    if (
+        tasks_new_partial_success
+        and not invalid_fallback_paths
+        and classified.classification in {"FLOW_BUG", "TELEMETRY_ONLY"}
+    ):
         classified = contract.Classification(
             classification="TELEMETRY_ONLY",
             subtype="partial_success_no_top_level_result",
@@ -405,7 +519,26 @@ def analyze_run(
         )
 
     recoverable_ralph_observed = _detect_recoverable_ralph(aux_text)
-    effective_terminal_status = classified.label
+    strict_shadow = classified
+    effective = strict_shadow
+    softened = 0
+    softened_from = ""
+    softened_to = ""
+    if classification_profile == "soft_default" and _is_softenable_implement_blocker(
+        step_key=step_key or str(summary.get("step") or ""),
+        classification=strict_shadow,
+    ):
+        softened = 1
+        softened_from = strict_shadow.label
+        effective = contract.Classification(
+            classification="TELEMETRY_ONLY",
+            subtype=f"soft_default_{strict_shadow.subtype}",
+            source="soft_default_profile",
+            label=f"WARN({strict_shadow.subtype})",
+        )
+        softened_to = effective.label
+
+    effective_terminal_status = effective.label
     if top_level_status == "blocked" and recoverable_ralph_observed:
         effective_terminal_status = "BLOCKED(recoverable ralph path observed)"
     termination_exit_code = str(
@@ -417,7 +550,7 @@ def analyze_run(
         termination.get("watchdog_marker"),
         _safe_int(summary.get("watchdog_marker"), 0),
     )
-    termination_secondary_telemetry = int(classified.subtype == "cwd_wrong" and termination_exit_code == "143")
+    termination_secondary_telemetry = int(strict_shadow.subtype == "cwd_wrong" and termination_exit_code == "143")
     step_hint = "\n".join(
         [
             summary_path.name,
@@ -428,19 +561,38 @@ def analyze_run(
         ]
     )
     downstream_skip_hint = ""
-    if classified.classification == "ENV_MISCONFIG" and classified.subtype == "cwd_wrong":
+    if strict_shadow.classification == "ENV_MISCONFIG" and strict_shadow.subtype == "cwd_wrong":
         if re.search(r"05[_-].*tasks[-_ ]new|05_tasks_new", step_hint, flags=re.IGNORECASE):
             downstream_skip_hint = "NOT VERIFIED (upstream_tasks_new_failed)"
-    primary_cause = f"{classified.classification}:{classified.subtype}"
+        else:
+            downstream_skip_hint = "NOT VERIFIED (upstream_env_misconfig_cwd_wrong)"
+    primary_cause = f"{strict_shadow.classification}:{strict_shadow.subtype}"
     secondary_symptoms: List[str] = []
+    secondary_telemetry: List[str] = []
     if result_count_interpretation == "no_top_level_result_confirmed":
-        secondary_symptoms.append("no_top_level_result")
+        if primary_cause == "ENV_MISCONFIG:cwd_wrong":
+            secondary_telemetry.append("no_top_level_result")
+        else:
+            secondary_symptoms.append("no_top_level_result")
     if invalid_fallback_paths:
         secondary_symptoms.append("invalid_fallback_path_detected")
     if review_mismatch_detected:
-        secondary_symptoms.append("review_spec_report_mismatch")
+        if review_mismatch_non_blocking:
+            secondary_telemetry.append("review_spec_report_mismatch")
+        else:
+            secondary_symptoms.append("review_spec_report_mismatch")
     if readiness_gate_failed:
         secondary_symptoms.append("readiness_gate_failed")
+    if write_safety_warn_detected:
+        if primary_cause == "ENV_MISCONFIG:cwd_wrong":
+            secondary_telemetry.append("plugin_write_safety_inconclusive")
+        else:
+            secondary_symptoms.append("plugin_write_safety_inconclusive")
+    if layout_warn_detected:
+        if primary_cause == "ENV_MISCONFIG:cwd_wrong":
+            secondary_telemetry.append("workspace_layout_non_canonical_root_detected")
+        else:
+            secondary_symptoms.append("workspace_layout_non_canonical_root_detected")
 
     payload: Dict[str, object] = dict(summary)
     payload.update(
@@ -448,10 +600,11 @@ def analyze_run(
             "top_level_result_present": int(top_level_result_present),
             "top_level_status": top_level_status,
             "result_count_interpretation": result_count_interpretation,
-            "classification": classified.classification,
-            "classification_subtype": classified.subtype,
-            "classification_source": classified.source,
-            "effective_classification": classified.label,
+            "classification_profile": classification_profile,
+            "classification": effective.classification,
+            "classification_subtype": effective.subtype,
+            "classification_source": effective.source,
+            "effective_classification": effective.label,
             "effective_terminal_status": effective_terminal_status,
             "termination_exit_code": termination_exit_code,
             "termination_signal": termination_signal,
@@ -475,13 +628,27 @@ def analyze_run(
             "liveness_valid_stream_count": liveness_valid_stream_count,
             "liveness_stagnation_seconds": liveness_stagnation_seconds,
             "liveness_run_start_epoch": liveness_run_start_epoch,
+            "strict_shadow_classification": strict_shadow.label,
+            "strict_shadow_classification_type": strict_shadow.classification,
+            "strict_shadow_classification_subtype": strict_shadow.subtype,
+            "strict_shadow_source": strict_shadow.source,
+            "softened": int(softened),
+            "softened_from": softened_from,
+            "softened_to": softened_to,
+            "primary_root_cause": primary_cause,
             "primary_cause": primary_cause,
             "secondary_symptoms": secondary_symptoms,
+            "secondary_telemetry": secondary_telemetry,
+            "write_safety_warn_detected": int(write_safety_warn_detected),
+            "workspace_layout_warn_detected": int(layout_warn_detected),
+            "topology_invariant_ok": int(preflight_topology_ok),
             "superseded_runs": [],
             "summary_path": str(summary_path),
             "summary_mtime": summary_mtime,
             "step_key": step_key or str(summary.get("step") or ""),
             "run_index": run_index,
+            "termination_path": str(termination_path) if termination_path else "",
+            "precondition_path": str(precondition_path) if precondition_path else "",
         }
     )
     if downstream_skip_hint:
@@ -550,6 +717,7 @@ def _build_parser() -> argparse.ArgumentParser:
     classify_parser.add_argument("--plugin-dir")
     classify_parser.add_argument("--min-free-bytes", type=int, default=DEFAULT_MIN_FREE_BYTES)
     classify_parser.add_argument("--skip-preflight", action="store_true")
+    classify_parser.add_argument("--classification-profile", choices=CLASSIFICATION_PROFILES, default="soft_default")
 
     rollup_parser = sub.add_parser("rollup", help="Analyze multiple runs and roll up latest-wins per step.")
     rollup_parser.add_argument("--summary", action="append", default=[], help="Path to *_runN.summary.txt (repeatable).")
@@ -558,6 +726,7 @@ def _build_parser() -> argparse.ArgumentParser:
     rollup_parser.add_argument("--plugin-dir")
     rollup_parser.add_argument("--min-free-bytes", type=int, default=DEFAULT_MIN_FREE_BYTES)
     rollup_parser.add_argument("--skip-preflight", action="store_true")
+    rollup_parser.add_argument("--classification-profile", choices=CLASSIFICATION_PROFILES, default="soft_default")
 
     return parser
 
@@ -603,11 +772,13 @@ def main(argv: List[str] | None = None) -> int:
             payload = analyze_run(
                 summary_path=summary_path,
                 preflight=preflight_payload,
+                classification_profile=args.classification_profile,
             )
             if preflight_payload is not None:
                 payload["runner_preflight"] = dict(preflight_payload)
             analyzed.append(payload)
         rollup = rollup_latest_runs(analyzed)
+        rollup["classification_profile"] = _normalize_classification_profile(args.classification_profile)
         if preflight_payload is not None:
             rollup["runner_preflight"] = dict(preflight_payload)
         print(json.dumps(rollup, ensure_ascii=False, indent=2))
@@ -628,6 +799,7 @@ def main(argv: List[str] | None = None) -> int:
         liveness_path=Path(args.liveness) if args.liveness else None,
         preflight=preflight_payload,
         aux_log_paths=[Path(item) for item in args.aux_log],
+        classification_profile=args.classification_profile,
     )
     if preflight_payload is not None:
         payload["runner_preflight"] = dict(preflight_payload)

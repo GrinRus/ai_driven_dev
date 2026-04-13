@@ -348,6 +348,98 @@ class PreflightPrepareTests(unittest.TestCase):
             self.assertIn("expected", str(payload.get("reason") or ""))
             self.assertIn(canonical_scope, str(payload.get("reason") or ""))
 
+    def test_preflight_prepare_blocks_cross_iteration_with_stage_run_lock(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="preflight-prepare-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-PF-SCOPE-LOCK"
+            write_tasklist_ready(root, ticket)
+            tasklist_path = root / "docs" / "tasklist" / f"{ticket}.md"
+            tasklist_text = tasklist_path.read_text(encoding="utf-8")
+            tasklist_text = tasklist_text.replace(
+                f"- Boundaries: docs/tasklist/{ticket}.md",
+                "- Boundaries: src/feature/**",
+                1,
+            )
+            tasklist_path.write_text(tasklist_text, encoding="utf-8")
+
+            common_args = [
+                "--ticket",
+                ticket,
+                "--stage",
+                "implement",
+            ]
+            run_lock_env = cli_env({"AIDD_STAGE_RUN_LOCK_ID": "06_implement_run1"})
+
+            scope_i1 = "iteration_id_I1"
+            work_item_i1 = "iteration_id=I1"
+            write_active_state(root, ticket=ticket, stage="implement", work_item=work_item_i1)
+            run1 = subprocess.run(
+                cli_cmd(
+                    "preflight-prepare",
+                    *common_args,
+                    "--scope-key",
+                    scope_i1,
+                    "--work-item-key",
+                    work_item_i1,
+                    "--actions-template",
+                    f"reports/actions/{ticket}/{scope_i1}/implement.actions.template.json",
+                    "--readmap-json",
+                    f"reports/context/{ticket}/{scope_i1}.readmap.json",
+                    "--readmap-md",
+                    f"reports/context/{ticket}/{scope_i1}.readmap.md",
+                    "--writemap-json",
+                    f"reports/context/{ticket}/{scope_i1}.writemap.json",
+                    "--writemap-md",
+                    f"reports/context/{ticket}/{scope_i1}.writemap.md",
+                    "--result",
+                    f"reports/loops/{ticket}/{scope_i1}/stage.preflight.result.json",
+                ),
+                cwd=root,
+                env=run_lock_env,
+                text=True,
+                capture_output=True,
+            )
+            self.assertEqual(run1.returncode, 0, msg=run1.stderr)
+
+            scope_i2 = "iteration_id_I2"
+            work_item_i2 = "iteration_id=I2"
+            write_active_state(root, ticket=ticket, stage="implement", work_item=work_item_i2)
+            run2 = subprocess.run(
+                cli_cmd(
+                    "preflight-prepare",
+                    *common_args,
+                    "--scope-key",
+                    scope_i2,
+                    "--work-item-key",
+                    work_item_i2,
+                    "--actions-template",
+                    f"reports/actions/{ticket}/{scope_i2}/implement.actions.template.json",
+                    "--readmap-json",
+                    f"reports/context/{ticket}/{scope_i2}.readmap.json",
+                    "--readmap-md",
+                    f"reports/context/{ticket}/{scope_i2}.readmap.md",
+                    "--writemap-json",
+                    f"reports/context/{ticket}/{scope_i2}.writemap.json",
+                    "--writemap-md",
+                    f"reports/context/{ticket}/{scope_i2}.writemap.md",
+                    "--result",
+                    f"reports/loops/{ticket}/{scope_i2}/stage.preflight.result.json",
+                ),
+                cwd=root,
+                env=run_lock_env,
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertNotEqual(run2.returncode, 0)
+            preflight_result = root / "reports" / "loops" / ticket / scope_i2 / "stage.preflight.result.json"
+            self.assertTrue(preflight_result.exists(), "blocked preflight must write canonical result artifact")
+            payload = json.loads(preflight_result.read_text(encoding="utf-8"))
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertEqual(payload.get("reason_code"), "seed_scope_cascade_detected")
+            self.assertIn("expected scope=iteration_id_I1", str(payload.get("reason") or ""))
+            self.assertIn("got scope=iteration_id_I2", str(payload.get("reason") or ""))
+
     def test_preflight_prepare_blocks_when_id_work_item_is_missing_in_tasklist(self) -> None:
         with tempfile.TemporaryDirectory(prefix="preflight-prepare-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))

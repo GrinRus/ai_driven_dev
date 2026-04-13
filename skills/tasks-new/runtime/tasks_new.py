@@ -18,6 +18,10 @@ from aidd_runtime import tasklist_check
 from aidd_runtime import gates
 
 
+def _is_cwd_wrong_runtime_error(exc: Exception) -> bool:
+    return "refusing to use plugin repository as workspace root" in str(exc).lower()
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Ensure tasklist artifact exists for the active ticket and run tasklist validation.",
@@ -193,7 +197,18 @@ def _render_test_execution_from_contract(target: Path) -> tuple[list[str], str]:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    _, target = runtime.require_workflow_root()
+    try:
+        _, target = runtime.require_workflow_root()
+    except RuntimeError as exc:
+        if _is_cwd_wrong_runtime_error(exc):
+            print(
+                "[tasks-new] BLOCK: refusing to use plugin repository as workspace root "
+                "(reason_code=cwd_wrong, classification=ENV_MISCONFIG(cwd_wrong)). "
+                "Retry from PROJECT_DIR once after fixing cwd/plugin topology.",
+                file=sys.stderr,
+            )
+            return 2
+        raise
     ticket, context = runtime.require_ticket(
         target,
         ticket=getattr(args, "ticket", None),

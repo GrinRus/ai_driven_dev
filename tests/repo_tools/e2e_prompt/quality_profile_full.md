@@ -54,6 +54,7 @@
 - `CLAUDE_PLUGIN_FLAGS=--plugin-dir "$PLUGIN_DIR"`
 - `PLUGIN_HEALTHCHECK_CMD=/feature-dev-aidd:status $TICKET`
 - `SEVERITY_PROFILE=conservative` (default: `conservative`)
+- `CLASSIFICATION_PROFILE=soft_default|strict` (default: `soft_default`)
 - `QUALITY_GATE_POLICY=strict` (default: `strict`)
 - `WAVE_WRITE_MODE=on-findings|always` (default: `on-findings`)
 - `BACKLOG_SCOPE=aidd-only|mixed` (default: `aidd-only`)
@@ -134,8 +135,8 @@
 - R18.1a: `compact_q_values` обязателен для retry payload в CLI (`AIDD:ANSWERS Q1=...; Q2="короткий текст"`).
 - R18.1b: Minimal RLM baseline для soft-readiness: существуют `aidd/reports/research/<ticket>-rlm-targets.json`, `...-rlm-manifest.json`, `...-rlm.worklist.pack.json`, `...-rlm.pack.json`; `aidd/reports/research/<ticket>-rlm.nodes.jsonl` непустой.
 - R18.2: При `FAIL` readiness gate обязателен `reason_code` из набора `prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready`; шаг 5 классифицируется как `NOT VERIFIED (readiness_gate_failed)` + `prompt-flow gap`.
-- R18.2c: Если `readiness_gate=PASS` достигнут через `research_status=warn|pending` при minimal RLM baseline, фиксировать `WARN(readiness_gate_research_softened)` и продолжать downstream stages.
-- R18.4: Если `review-spec` top-level narrative и `aidd/reports/prd/<ticket>.json|*.pack.json` расходятся по findings, фиксировать `prompt-exec issue (review_spec_report_mismatch)` и принимать recovery-решение по report payload.
+- R18.2c: Если `readiness_gate=PASS` достигнут через `research_status=warn|pending` при minimal RLM baseline, фиксировать `INFO(readiness_gate_research_softened)` и продолжать downstream stages.
+- R18.4: Если `review-spec` top-level narrative и `aidd/reports/prd/<ticket>.json|*.pack.json` расходятся по findings, фиксировать `prompt-exec issue (review_spec_report_mismatch)` и принимать recovery-решение по report payload; исключение: при `recommended_status=ready`, `findings_count=0`, `open_questions_count=0` классифицировать как `INFO(review_spec_report_mismatch_non_blocking)`.
 - R18.5: Если `review-spec` вернул `WARN|NEEDS_REVISION`, unresolved `Q*` отсутствуют и spec-файл существует, запускать findings-sync cycle с compact payload `AIDD:SYNC_FROM_REVIEW ...`.
 - R18.6: Если после findings-sync cycle `readiness_gate` остаётся `FAIL`, классифицировать как `NOT VERIFIED (findings_sync_not_converged)` + `prompt-flow gap`.
 
@@ -166,6 +167,8 @@
 
 ### 5.0 Обязательный launcher (для каждого stage-run)
 
+- Для всех stage-run обязателен canonical launcher `python3 $PLUGIN_DIR/tests/repo_tools/aidd_stage_launcher.py ...`; ad-hoc shell wrappers/inline-launchers запрещены.
+- Для stage-run с budget обязательно передавать `--budget-seconds <N>` в canonical launcher; budget kill должен фиксироваться через `*_termination_attribution.txt` с `killed_flag=1` и `watchdog_marker=1`.
 - Для `stream-json` режимов используй шаблон:
   - `cd "$PROJECT_DIR"`
   - `claude -p "<stage command>" $CLAUDE_ARGS $CLAUDE_STREAM_FLAGS $CLAUDE_PLUGIN_FLAGS`
@@ -219,7 +222,7 @@
 
 - Сначала `ENV_BLOCKER`.
 - Затем `ENV_MISCONFIG/external_terminate`.
-- Затем `prompt-exec issue` (включая `project_contract_missing|tests_cwd_mismatch` как primary blockers; `no_top_level_result` в таких кейсах считать secondary symptom).
+- Затем `prompt-exec issue` (включая `project_contract_missing|tests_cwd_mismatch` как primary blockers; `no_top_level_result` в таких кейсах считать secondary symptom; `seed_scope_cascade_detected|tests_env_dependency_missing` — terminal в `strict_shadow`, а при `CLASSIFICATION_PROFILE=soft_default` для `06_implement` публикуются как `WARN` c продолжением `7/8`).
 - Отдельно `contract mismatch`.
 - Только потом `flow bug`.
 
@@ -378,10 +381,11 @@
 - выполнить plugin-prompt path scan и сохранить `01_non_canonical_runtime_path_scan.txt`:
   - `rg -n "python3 skills/.*/runtime/" "$PLUGIN_DIR/skills/{implement,review,qa}/SKILL.md"`;
 - зафиксировать `claude plugin list` в `01_plugin_list.txt`;
-- зафиксировать `aidd/config/gates.json` в `01_gates_snapshot.json`;
+- зафиксировать `aidd/config/gates.json` в `01_gates_snapshot.json`; если файла нет — записать marker `not_available=1` в `01_gates_snapshot.json`;
 - выполнить runtime test-policy source scan и сохранить `01_test_policy_source_scan.txt`:
   - `rg -n "CLAUDE_SETTINGS_PATH|\\.claude/settings\\.json" "$PLUGIN_DIR/skills" "$PLUGIN_DIR/hooks/format-and-test.sh"`;
   - если hit относится к runtime decision path, фиксировать `WARN(test_policy_source_non_canonical)` (не блокирует старт quality-аудита);
+  - если scan недоступен, записать marker `not_available=1` в `01_test_policy_source_scan.txt`;
 - выполнить healthcheck команду (`$PLUGIN_HEALTHCHECK_CMD`) через launcher;
 - проверить `init`-событие healthcheck-лога на `plugins`, `slash_commands`, `skills`;
 - извлечь install runtime path плагина и сохранить `01_plugin_runtime_path.txt`;
@@ -492,7 +496,7 @@ RLM artifacts check:
   - `readiness_gate=<PASS|FAIL>`
   - `reason_code=<prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready|->`
 - запуск `5.3/5.4/5.5` допускается только при `readiness_gate=PASS`.
-- если `readiness_gate=PASS` через `research_status=warn|pending`, зафиксировать `WARN(readiness_gate_research_softened)`.
+- если `readiness_gate=PASS` через `research_status=warn|pending`, зафиксировать `INFO(readiness_gate_research_softened)`.
 - если `readiness_gate=FAIL`, выполнить один readiness-recovery цикл; при повторном `FAIL` пометить шаг 5 как `NOT VERIFIED (readiness_gate_failed)` и шаги `6/7/8` как `NOT VERIFIED (upstream_readiness_gate_failed)`.
 
 #### 5.3 plan-new
@@ -544,7 +548,7 @@ Anti-cascade:
 - если tasks-new сообщает `Missing Spec File` или unresolved `Q*`, классифицировать как prompt-flow gap и выполнить один repair/retry cycle.
 - если `tasks-new` сообщает `AIDD:TEST_EXECUTION missing tasks`:
   - сохранить `05_tasklist_test_execution_probe.txt`;
-  - если `tasks_list_count>0` или есть `command|commands`, классифицировать как `WARN(tasklist_schema_parser_mismatch_recoverable)` и продолжать downstream stages.
+  - если `tasks_list_count>0` (canonical executable contract) или есть `command|commands`, классифицировать как `INFO(tasklist_schema_parser_mismatch_recoverable)` и продолжать downstream stages.
 - если `tasks-new` завершился `success|WARN`, но summary/log содержит manual/non-canonical recovery как primary path, фиксировать `WARN(prompt_flow_drift_non_canonical_stage_orchestration)` и не использовать manual path.
 - если hang/kill: fallback
   - `python3 $PLUGIN_DIR/skills/tasks-new/runtime/tasks_new.py --ticket $TICKET`
@@ -557,8 +561,12 @@ Anti-cascade:
 - `STEP6_IMPLEMENT_BUDGET_SECONDS=3600`
 - `STEP6_REVIEW_BUDGET_SECONDS=3600`
 - один запуск `implement`, один запуск `review`;
+- single-scope invariant: seed `implement` run обрабатывает ровно один work_item/scope; запуск второго iteration (`I<N+1>`) в том же `06_implement_run1.log` классифицируется как `seed_scope_cascade_detected`.
+- policy под `soft_default`: terminal implement-blockers шага 6 публикуются как `WARN`; одновременно обязателен strict-shadow telemetry block: `primary_root_cause`, `strict_shadow_classification`, `softened=1`, `softened_from`, `softened_to`.
+- policy под `strict`: те же причины остаются terminal `NOT VERIFIED`.
 - question retry для шага 6 запрещён;
 - если `result_count=0`, классифицировать как `NOT VERIFIED (no_top_level_result)` + `prompt-exec issue`;
+- если в seed `implement` обнаружен deterministic test-env blocker (`Playwright executable missing`, browser install dependency, аналогичные runtime dependency gaps), выставлять `reason_code=tests_env_dependency_missing`; в `soft_default` публиковать `WARN` + strict-shadow, в `strict` — `NOT VERIFIED`;
 - если в логах есть `python3 skills/.../runtime/*.py` + `can't open file`, классифицировать как `NOT VERIFIED (prompt_flow_drift_non_canonical_runtime_path)`.
 
 Loop seed integrity checks:

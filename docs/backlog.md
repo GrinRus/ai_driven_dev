@@ -154,6 +154,174 @@ _Статус: plan. Основание — full audit TST-001: terminal `qa_blo
   **Effort:** M
   **Risk:** Medium
 
+## Wave 139 — TST-001 Topology Guard & Audit Signal De-noise (2026-04-13)
+
+_Статус: plan. Основание — TST-001 full run остановился на `tasks-new` из-за `ENV_MISCONFIG(cwd_wrong)` + `result_count=0`; дополнительно зафиксированы non-terminal WARN шумы (`review_spec_report_mismatch`, `tasklist_schema_parser_mismatch_recoverable`, `plugin_write_safety_inconclusive`, `workspace_layout_non_canonical_root_detected`, `readiness_gate_research_softened`)._
+
+- [ ] **W139-1 (P0) Topology invariant hard-stop + canonical launcher parity** `tests/repo_tools/aidd_stage_launcher.py`, `tests/repo_tools/aidd_audit_runner.py`, `tests/repo_tools/e2e_prompt/profile_full.md`, `tests/repo_tools/e2e_prompt/quality_profile_full.md`, `tests/repo_tools/test_aidd_stage_launcher.py`, `tests/repo_tools/test_aidd_audit_runner.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - enforce pre-run invariant `realpath(PROJECT_DIR) != realpath(PLUGIN_DIR)` до первого stage-run и на каждом retry;
+  - запретить обход canonical launcher в audit workflow;
+  - при нарушении topology завершать аудит terminal `ENV_MISCONFIG(cwd_wrong)` без каскадного запуска шагов.
+  **AC:** при `PROJECT_DIR==PLUGIN_DIR` аудит останавливается до stage sequence; нет downstream ложных причин.
+  **Deps:** -
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_aidd_stage_launcher.py tests/repo_tools/test_aidd_audit_runner.py tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [ ] **W139-2 (P0) tasks-new bounded cwd_wrong recovery + guaranteed terminal top-level result** `skills/tasks-new/SKILL.md`, `skills/tasks-new/runtime/tasks_new.py`, `tests/test_tasks_new_runtime.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - при `refusing to use plugin repository as workspace root` выполнять не более 1 корректного retry;
+  - исключить длительные debug/edit side-loops после env blocker;
+  - обеспечить deterministic terminal payload вместо `result_count=0` path.
+  **AC:** `tasks-new` при `cwd_wrong` завершает run прозрачным terminal outcome; нет `result_count=0` без top-level result.
+  **Deps:** W139-1
+  **Regression/tests:** `python3 -m pytest -q tests/test_tasks_new_runtime.py tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [ ] **W139-3 (P1) review-spec mismatch de-noise for READY/0 findings** `tests/repo_tools/aidd_audit_runner.py`, `tests/repo_tools/test_aidd_audit_runner.py`, `tests/repo_tools/e2e_prompt/profile_full.md`, `tests/repo_tools/e2e_prompt/quality_profile_full.md`:
+  - при `recommended_status=ready`, `findings_count=0`, `open_questions_count=0` классифицировать narrative mismatch как non-blocking info;
+  - убрать promotion такого кейса в prompt-exec incident.
+  **AC:** `review_spec_report_mismatch` в READY-clean кейсе не повышается выше INFO.
+  **Deps:** W139-1
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_aidd_audit_runner.py tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Effort:** S
+  **Risk:** Medium
+
+- [ ] **W139-4 (P1) Tasklist test-execution schema parity (`tasks` vs `commands`)** `skills/aidd-flow-state/runtime/tasklist_check.py`, `skills/tasks-new/runtime/tasks_new.py`, `skills/tasks-new/templates/tasklist.template.md`, `tests/test_tasklist_check.py`, `tests/test_tasks_new_runtime.py`, `tests/test_qa_agent.py`:
+  - считать `tasks_list_count>0` валидным executable contract без обязательного `commands` ключа;
+  - синхронизовать parser/probe/runtime чтобы не генерировать ложный `WARN(tasklist_schema_parser_mismatch_recoverable)`.
+  **AC:** валидный `AIDD:TEST_EXECUTION` больше не поднимает parser mismatch WARN.
+  **Deps:** W139-2
+  **Regression/tests:** `python3 -m pytest -q tests/test_tasklist_check.py tests/test_tasks_new_runtime.py tests/test_qa_agent.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W139-5 (P1) Classification precedence for write-safety/layout under upstream env blocker** `tests/repo_tools/aidd_audit_runner.py`, `tests/repo_tools/test_aidd_audit_runner.py`, `tests/repo_tools/e2e_prompt/profile_full.md`:
+  - если primary причина шага = `ENV_MISCONFIG(cwd_wrong)`, downstream `plugin_write_safety_inconclusive`/`workspace_layout_non_canonical_root_detected` помечать как secondary telemetry;
+  - убрать ошибочную эскалацию release-risk при topology misconfig run.
+  **AC:** итоговая классификация сохраняет одну primary причину и не дублирует terminal шум.
+  **Deps:** W139-1, W139-3
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_aidd_audit_runner.py`.
+  **Effort:** S
+  **Risk:** Medium
+
+- [ ] **W139-6 (P1) Preflight artifact completeness and source-of-truth alignment** `tests/repo_tools/aidd_audit_runner.py`, `tests/repo_tools/e2e_prompt/profile_full.md`, `tests/repo_tools/e2e_prompt/quality_profile_full.md`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - всегда создавать `01_gates_snapshot.json` и `01_test_policy_source_scan.txt` (или `not_available` marker);
+  - явно фиксировать, что source-of-truth plugin load = `init` payload, а `claude plugin list` — supplementary telemetry.
+  **AC:** preflight evidence deterministic и полный в каждом run.
+  **Deps:** W139-1
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py tests/repo_tools/test_aidd_audit_runner.py`.
+  **Effort:** S
+  **Risk:** Medium
+
+- [ ] **W139-7 (P2) Readiness softened signal normalization for minimal RLM baseline** `tests/repo_tools/aidd_audit_runner.py`, `tests/repo_tools/e2e_prompt/profile_full.md`, `tests/repo_tools/test_aidd_audit_runner.py`, `tests/test_gate_workflow.py`:
+  - при baseline-complete research (`targets/manifest/worklist/pack + non-empty nodes`) переводить `WARN(readiness_gate_research_softened)` в `INFO`;
+  - сохранить текущую non-terminal policy без изменения hard-block rules.
+  **AC:** expected soft-readiness не засоряет WARN-канал, но остаётся видимым в telemetry.
+  **Deps:** W139-6
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_aidd_audit_runner.py tests/test_gate_workflow.py`.
+  **Effort:** S
+  **Risk:** Low
+
+## Wave 140 — TST-001 Implement Seed Convergence & Budget Attribution (2026-04-13)
+
+_Статус: done. Основание — в full-run `06_implement` budget watchdog сработал штатно, но run ушёл из `I1` в `I2` в рамках одного seed-run, потерял terminal top-level result и дал несовпадение run-level vs rollup classification._
+
+- [x] **W140-1 (P0) Implement seed single-scope hard-stop + guaranteed terminal result** `skills/implement/runtime/implement_run.py`, `skills/aidd-core/runtime/stage_actions_run.py`, `skills/aidd-flow-state/runtime/stage_result.py`, `tests/test_implementer_prompt.py`, `tests/test_stage_result.py`:
+  - запретить cascade `I1 -> I2` внутри одного seed-run;
+  - при попытке scope drift эмитить canonical terminal payload (`blocked`, reason=`seed_scope_cascade_detected`) вместо бесконечного продолжения.
+  **AC:** после `iteration_id_I1` terminal outcome run завершается и не создаёт `iteration_id_I2` preflight в том же запуске; `top_level_result=1`.
+  **Deps:** -
+  **Regression/tests:** `python3 -m pytest -q tests/test_implementer_prompt.py tests/test_stage_result.py tests/test_stage_actions_run.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [x] **W140-2 (P0) Canonical launcher budget watchdog with deterministic attribution** `tests/repo_tools/aidd_stage_launcher.py`, `tests/repo_tools/test_aidd_stage_launcher.py`, `tests/repo_tools/e2e_prompt/profile_full.md`:
+  - добавить launcher-level budget (`--budget-seconds`) на monotonic clock;
+  - при budget kill писать `*_termination_attribution.txt` с `killed_flag=1`, `watchdog_marker=1`, `stage_elapsed_seconds`, `signal`.
+  **AC:** budget termination воспроизводится одинаково и не зависит от внешнего kill; attribution файл всегда присутствует.
+  **Deps:** -
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_aidd_stage_launcher.py tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [x] **W140-3 (P0) Rollup parity: classify with sibling termination/liveness artifacts** `tests/repo_tools/aidd_audit_runner.py`, `tests/repo_tools/test_aidd_audit_runner.py`, `tests/fixtures/audit_tst001/*`:
+  - в `rollup` режиме автоматически подхватывать `*_termination_attribution.txt`, `*_stream_liveness_check*.txt`, `05_precondition_block.txt`;
+  - не классифицировать только по summary.
+  **AC:** для `06_implement` rollup совпадает с per-run classify (`watchdog_terminated` при `killed=1/watchdog_marker=1`).
+  **Deps:** W140-2
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_aidd_audit_runner.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [x] **W140-4 (P1) Implement test-env fail-fast (dependency missing) без budget burn** `skills/implement/SKILL.md`, `agents/implementer.md`, `skills/implement/runtime/implement_run.py`, `tests/test_implementer_prompt.py`:
+  - при deterministic ошибках окружения (пример: Playwright browser missing) завершать stage canonical blocked-result с reason=`tests_env_dependency_missing`;
+  - исключить повторные install loops в одном run.
+  **AC:** нет длительного повтора `playwright install`/аналогов; terminal result появляется сразу после подтверждённой env ошибки.
+  **Deps:** W140-1
+  **Regression/tests:** `python3 -m pytest -q tests/test_implementer_prompt.py`.
+  **Effort:** S
+  **Risk:** Medium
+
+- [x] **W140-5 (P1) Step6 contract hardening: one manual implement/review pair without cross-iteration spill** `tests/repo_tools/e2e_prompt/profile_full.md`, `tests/repo_tools/e2e_prompt/quality_profile_full.md`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - явно зафиксировать в prompt-contract, что `implement` seed-run не имеет права переключать work_item;
+  - следующий item только через loop orchestration.
+  **AC:** prompt-contract тесты проверяют anti-cascade правило и терминальные reason-codes.
+  **Deps:** W140-1
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py tests/repo_tools/test_e2e_quality_prompt_contract.py`.
+  **Effort:** S
+  **Risk:** Medium
+
+- [x] **W140-6 (P2) Replay fixture for this incident (I1 done + I2 drift + watchdog kill)** `tests/fixtures/audit_tst001/*`, `tests/repo_tools/test_aidd_audit_runner.py`, `docs/runbooks/tst001-audit-hardening.md`:
+  - добавить fixture и проверку primary-cause precedence.
+  **AC:** CI воспроизводит сценарий и ловит regression по drift/attribution.
+  **Deps:** W140-3
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_aidd_audit_runner.py`.
+  **Effort:** S
+  **Risk:** Low
+
+## Wave 141 — TST-001 Soft-by-default Diagnostics + Implement Convergence Hard-stop (2026-04-13)
+
+_Статус: done. Основание — для шага `06_implement` нужен dual-mode verdict: мягкий основной сигнал для продолжения `7/8` и обязательный strict-shadow для сохранения root-cause._
+
+- [x] **W141-1 (P0) Implement seed single-scope hard-stop in preflight/runtime chain** `skills/aidd-loop/runtime/preflight_prepare.py`, `tests/test_preflight_prepare.py`:
+  - enforce stage-run lock in preflight path (`AIDD_STAGE_RUN_LOCK_ID`) для implement seed;
+  - при cross-iteration попытке эмитить canonical blocked preflight with `reason_code=seed_scope_cascade_detected`.
+  **AC:** cross-iteration drift в одном seed-run детерминированно блокируется с canonical reason-code.
+  **Deps:** W140-1
+  **Regression/tests:** `python3 -m pytest -q tests/test_preflight_prepare.py`.
+  **Effort:** S
+  **Risk:** Medium
+
+- [x] **W141-2 (P0) Soft-default classification profile + strict-shadow telemetry** `tests/repo_tools/aidd_audit_runner.py`, `tests/repo_tools/test_aidd_audit_runner.py`:
+  - добавить `classification_profile=soft_default|strict` (default `soft_default`);
+  - для `06_implement` soft profile понижает terminal implement blockers в `WARN`;
+  - всегда сохранять strict-shadow поля: `strict_shadow_classification`, `primary_root_cause`, `softened`, `softened_from`, `softened_to`.
+  **AC:** soft verdict продолжает downstream сигнал, strict-shadow сохраняет root-cause без потерь.
+  **Deps:** W140-3
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_aidd_audit_runner.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [x] **W141-3 (P1) Prompt-contract hardening for soft-default + strict-shadow** `tests/repo_tools/e2e_prompt/profile_full.md`, `tests/repo_tools/e2e_prompt/quality_profile_full.md`, `tests/repo_tools/test_e2e_prompt_contract.py`, `tests/repo_tools/test_e2e_quality_prompt_contract.py`, `docs/e2e/*.txt`:
+  - зафиксировать `CLASSIFICATION_PROFILE=soft_default|strict`;
+  - добавить правило soft-default continuation для шага 6 и strict-shadow telemetry block;
+  - синхронизировать generated prompt outputs.
+  **AC:** prompt contract и generated outputs согласованы с dual-profile policy.
+  **Deps:** W141-2
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py tests/repo_tools/test_e2e_quality_prompt_contract.py`.
+  **Effort:** S
+  **Risk:** Medium
+
+- [x] **W141-4 (P2) Runbook updates for soft PASS + strict FAIL interpretation** `docs/runbooks/tst001-audit-hardening.md`:
+  - документировать policy и triage для dual verdict mode;
+  - добавить guidance по manual strict rerun/escalation.
+  **AC:** runbook объясняет, как читать `soft PASS` вместе с strict-shadow failure.
+  **Deps:** W141-2
+  **Regression/tests:** docs-only.
+  **Effort:** S
+  **Risk:** Low
+
 ## Wave 122 — Memory Platform (2026-04-02)
 
 _Статус: plan. Основание — low-priority cross-cutting развитие memory layer. Волна изолирована от текущей стабилизации runtime и не должна конкурировать с Core Flow fixes._

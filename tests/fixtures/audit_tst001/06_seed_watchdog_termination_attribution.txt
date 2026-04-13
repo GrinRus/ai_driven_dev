@@ -1,0 +1,7 @@
+exit_code=143
+signal=SIGTERM
+killed_flag=1
+watchdog_marker=1
+parent_pid=55115
+classification=NOT VERIFIED (killed) + prompt-exec issue (watchdog_terminated)
+evidence_paths=06_implement_budget_diagnostics.txt,06_implement_budget_ps.txt,06_implement_budget_tail.log,06_implement_run1.log

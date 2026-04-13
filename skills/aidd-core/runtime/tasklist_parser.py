@@ -286,18 +286,25 @@ def parse_test_execution(lines: List[str]) -> Dict[str, object]:
     profile_raw = (extract_scalar_field(lines, "profile") or "").strip()
     profile = _strip_placeholder(profile_raw) or ""
     tasks_raw = extract_scalar_field(lines, "tasks") or ""
+    command_raw = extract_scalar_field(lines, "command") or ""
+    commands_raw = extract_scalar_field(lines, "commands") or ""
     filters_raw = extract_scalar_field(lines, "filters") or ""
     when_raw = (extract_scalar_field(lines, "when") or "").strip()
     reason_raw = (extract_scalar_field(lines, "reason") or "").strip()
     when = _strip_placeholder(when_raw) or ""
     reason = _strip_placeholder(reason_raw) or ""
     tasks_list = extract_list_field(lines, "tasks")
+    commands_list = extract_list_field(lines, "commands")
     filters_list = extract_list_field(lines, "filters")
-    tasks: List[str] = []
-    if tasks_list:
-        tasks = tasks_list
-    elif tasks_raw:
+    tasks: List[str] = list(tasks_list)
+    if not tasks and tasks_raw:
         tasks = _parse_inline_sequence(tasks_raw, split_pattern=r"\s*;\s*")
+    if not tasks and commands_list:
+        tasks = list(commands_list)
+    if not tasks and commands_raw:
+        tasks = _parse_inline_sequence(commands_raw, split_pattern=r"\s*;\s*")
+    if not tasks and command_raw:
+        tasks = _parse_inline_sequence(command_raw, split_pattern=r"\s*;\s*")
     normalized_tasks: List[str] = []
     malformed_tasks: List[Dict[str, str]] = []
     for raw_task in tasks:

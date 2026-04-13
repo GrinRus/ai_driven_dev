@@ -25,6 +25,17 @@ class AiddAuditRunnerTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.runner = _load_runner_module()
 
+    def test_collect_preflight_marks_topology_invariant_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / ".claude-plugin").mkdir(parents=True, exist_ok=True)
+            (root / "skills").mkdir(parents=True, exist_ok=True)
+            payload = self.runner.collect_preflight(project_dir=root, plugin_dir=root)
+        self.assertEqual(payload.get("topology_invariant_ok"), 0)
+        self.assertEqual(payload.get("topology_reason"), "project_dir_equals_plugin_dir")
+        self.assertEqual(payload.get("topology_reason_code"), "cwd_wrong")
+        self.assertEqual(payload.get("topology_classification"), "ENV_MISCONFIG(cwd_wrong)")
+
     def test_06_implement_classified_as_env_misconfig_no_space(self) -> None:
         payload = self.runner.analyze_run(
             summary_path=FIXTURES / "06_implement_run1.summary.txt",
@@ -43,6 +54,24 @@ class AiddAuditRunnerTests(unittest.TestCase):
         self.assertEqual(payload.get("classification"), "PROMPT_EXEC_ISSUE")
         self.assertEqual(payload.get("classification_subtype"), "watchdog_terminated")
         self.assertIn("NOT_VERIFIED(killed)", str(payload.get("effective_classification") or ""))
+
+    def test_seed_watchdog_fixture_uses_primary_termination_attribution(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "06_seed_watchdog_run1.summary.txt"
+            log_path = Path(tmp) / "06_seed_watchdog_run1.log"
+            summary_path.write_text((FIXTURES / "06_seed_watchdog_run1.summary.txt").read_text(encoding="utf-8"), encoding="utf-8")
+            log_path.write_text((FIXTURES / "06_seed_watchdog_run1.log").read_text(encoding="utf-8"), encoding="utf-8")
+            # Use canonical sibling name so infer_termination_path resolves it automatically.
+            (Path(tmp) / "06_seed_watchdog_termination_attribution.txt").write_text(
+                (FIXTURES / "06_seed_watchdog_termination_attribution.txt").read_text(encoding="utf-8"),
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(
+                summary_path=summary_path,
+                run_log_path=log_path,
+            )
+        self.assertEqual(payload.get("classification"), "PROMPT_EXEC_ISSUE")
+        self.assertEqual(payload.get("classification_subtype"), "watchdog_terminated")
 
     def test_07_loop_run_first_attempt_classified_as_env_missing(self) -> None:
         payload = self.runner.analyze_run(
@@ -201,6 +230,134 @@ class AiddAuditRunnerTests(unittest.TestCase):
         self.assertEqual(payload.get("result_count_interpretation"), "no_top_level_result_confirmed")
         self.assertEqual(payload.get("termination_secondary_telemetry"), 1)
         self.assertEqual(payload.get("downstream_skip_hint"), "NOT VERIFIED (upstream_tasks_new_failed)")
+        self.assertIn("no_top_level_result", payload.get("secondary_telemetry") or [])
+        self.assertNotIn("no_top_level_result", payload.get("secondary_symptoms") or [])
+
+    def test_topology_preflight_violation_overrides_unclassified_run(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "05_tasks_new_run1.summary.txt"
+            summary_path.write_text(
+                "\n".join(
+                    [
+                        "step=05_tasks_new",
+                        "exit_code=0",
+                        "result_count=1",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(
+                summary_path=summary_path,
+                preflight={"topology_invariant_ok": 0},
+            )
+        self.assertEqual(payload.get("classification"), "ENV_MISCONFIG")
+        self.assertEqual(payload.get("classification_subtype"), "cwd_wrong")
+        self.assertEqual(payload.get("classification_source"), "runner_preflight")
+
+    def test_topology_cwd_wrong_is_not_overridden_by_tasks_new_partial_success(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "05_tasks_new_run1.summary.txt"
+            log_path = Path(tmp) / "05_tasks_new_run1.log"
+            summary_path.write_text(
+                "\n".join(
+                    [
+                        "step=05_tasks_new",
+                        "result_count=0",
+                        "exit_code=143",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            log_path.write_text(
+                "\n".join(
+                    [
+                        "$ python3 /tmp/plugin/skills/tasks-new/runtime/tasks_new.py --ticket TST-001",
+                        "[tasks-new] tasklist-check: warn",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(
+                summary_path=summary_path,
+                run_log_path=log_path,
+                preflight={"topology_invariant_ok": 0},
+            )
+        self.assertEqual(payload.get("classification"), "ENV_MISCONFIG")
+        self.assertEqual(payload.get("classification_subtype"), "cwd_wrong")
+
+    def test_cwd_wrong_primary_demotes_write_safety_layout_signals_to_secondary_telemetry(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "99_post_run_run1.summary.txt"
+            summary_path.write_text(
+                "\n".join(
+                    [
+                        "step=99_post_run",
+                        "exit_code=143",
+                        "result_count=0",
+                        "reason_code=cwd_wrong",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            write_safety_path = Path(tmp) / "99_write_safety_classification.txt"
+            write_safety_path.write_text(
+                "\n".join(
+                    [
+                        "classification=WARN(plugin_write_safety_inconclusive)",
+                        "layout_warn=WARN(workspace_layout_non_canonical_root_detected)",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(
+                summary_path=summary_path,
+                aux_log_paths=[write_safety_path],
+            )
+        self.assertEqual(payload.get("classification"), "ENV_MISCONFIG")
+        self.assertEqual(payload.get("classification_subtype"), "cwd_wrong")
+        self.assertIn("plugin_write_safety_inconclusive", payload.get("secondary_telemetry") or [])
+        self.assertIn("workspace_layout_non_canonical_root_detected", payload.get("secondary_telemetry") or [])
+        self.assertNotIn("plugin_write_safety_inconclusive", payload.get("secondary_symptoms") or [])
+        self.assertNotIn("workspace_layout_non_canonical_root_detected", payload.get("secondary_symptoms") or [])
+
+    def test_write_safety_warn_does_not_override_flow_bug_primary_classification(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "99_post_run_run1.summary.txt"
+            summary_path.write_text(
+                "\n".join(
+                    [
+                        "step=99_post_run",
+                        "exit_code=0",
+                        "result_count=0",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            write_safety_path = Path(tmp) / "99_write_safety_classification.txt"
+            write_safety_path.write_text(
+                "\n".join(
+                    [
+                        "classification=WARN(plugin_write_safety_inconclusive)",
+                        "layout_warn=WARN(workspace_layout_non_canonical_root_detected)",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(
+                summary_path=summary_path,
+                aux_log_paths=[write_safety_path],
+            )
+        self.assertEqual(payload.get("classification"), "FLOW_BUG")
+        self.assertEqual(payload.get("classification_subtype"), "unclassified_terminal_state")
+        self.assertIn("plugin_write_safety_inconclusive", payload.get("secondary_symptoms") or [])
+        self.assertIn("workspace_layout_non_canonical_root_detected", payload.get("secondary_symptoms") or [])
 
     def test_result_count_zero_with_type_result_event_is_not_no_top_level_result(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -390,7 +547,7 @@ class AiddAuditRunnerTests(unittest.TestCase):
         self.assertEqual(payload.get("readiness_reason"), "prd_not_ready")
         self.assertEqual(payload.get("readiness_failure_mode"), "report_recommended_status_not_ready")
 
-    def test_repeated_command_failure_reason_is_classified_as_prompt_exec_issue(self) -> None:
+    def test_repeated_command_failure_reason_is_softened_for_06_implement_in_soft_default(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             summary_path = Path(tmp) / "06_implement_run1.summary.txt"
             summary_path.write_text(
@@ -405,8 +562,31 @@ class AiddAuditRunnerTests(unittest.TestCase):
                 encoding="utf-8",
             )
             payload = self.runner.analyze_run(summary_path=summary_path)
+        self.assertEqual(payload.get("classification"), "TELEMETRY_ONLY")
+        self.assertEqual(payload.get("classification_subtype"), "soft_default_repeated_command_failure_no_new_evidence")
+        self.assertEqual(payload.get("strict_shadow_classification_type"), "PROMPT_EXEC_ISSUE")
+        self.assertEqual(payload.get("strict_shadow_classification_subtype"), "repeated_command_failure_no_new_evidence")
+        self.assertEqual(payload.get("softened"), 1)
+
+    def test_repeated_command_failure_reason_remains_strict_when_profile_is_strict(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "06_implement_run1.summary.txt"
+            summary_path.write_text(
+                "\n".join(
+                    [
+                        "step=06_implement",
+                        "exit_code=20",
+                        "reason_code=repeated_command_failure_no_new_evidence",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(summary_path=summary_path, classification_profile="strict")
         self.assertEqual(payload.get("classification"), "PROMPT_EXEC_ISSUE")
         self.assertEqual(payload.get("classification_subtype"), "repeated_command_failure_no_new_evidence")
+        self.assertEqual(payload.get("strict_shadow_classification_type"), "PROMPT_EXEC_ISSUE")
+        self.assertEqual(payload.get("softened"), 0)
 
     def test_project_contract_missing_is_primary_even_with_no_top_level_result(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -634,6 +814,157 @@ class AiddAuditRunnerTests(unittest.TestCase):
         self.assertEqual(step_payload.get("run_index"), 2)
         superseded = step_payload.get("superseded_runs") or []
         self.assertTrue(any(str(summary_run1) in item for item in superseded))
+
+    def test_rollup_keeps_soft_profile_and_strict_shadow_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "06_implement_run1.summary.txt"
+            summary_path.write_text(
+                "\n".join(
+                    [
+                        "step=06_implement",
+                        "exit_code=2",
+                        "result_count=1",
+                        "reason_code=seed_scope_cascade_detected",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(summary_path=summary_path)
+            rolled = self.runner.rollup_latest_runs([payload])
+        step_payload = (rolled.get("steps") or {}).get("06_implement")
+        self.assertIsNotNone(step_payload)
+        self.assertEqual(step_payload.get("classification_profile"), "soft_default")
+        self.assertEqual(step_payload.get("classification"), "TELEMETRY_ONLY")
+        self.assertEqual(step_payload.get("classification_subtype"), "soft_default_seed_scope_cascade_detected")
+        self.assertEqual(step_payload.get("strict_shadow_classification_subtype"), "seed_scope_cascade_detected")
+        self.assertEqual(step_payload.get("primary_root_cause"), "PROMPT_EXEC_ISSUE:seed_scope_cascade_detected")
+        self.assertEqual(step_payload.get("softened"), 1)
+
+    def test_analyze_run_infers_sibling_termination_attribution_file(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "06_implement_run1.summary.txt"
+            summary_path.write_text(
+                "\n".join(
+                    [
+                        "step=06_implement",
+                        "exit_code=143",
+                        "result_count=0",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            termination_path = Path(tmp) / "06_implement_termination_attribution.txt"
+            termination_path.write_text(
+                "\n".join(
+                    [
+                        "exit_code=143",
+                        "signal=SIGTERM",
+                        "killed_flag=1",
+                        "watchdog_marker=1",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(summary_path=summary_path)
+        self.assertEqual(payload.get("classification"), "TELEMETRY_ONLY")
+        self.assertEqual(payload.get("classification_subtype"), "soft_default_watchdog_terminated")
+        self.assertEqual(payload.get("strict_shadow_classification_type"), "PROMPT_EXEC_ISSUE")
+        self.assertEqual(payload.get("strict_shadow_classification_subtype"), "watchdog_terminated")
+        self.assertEqual(payload.get("softened"), 1)
+        self.assertEqual(payload.get("classification_profile"), "soft_default")
+        self.assertEqual(Path(str(payload.get("termination_path") or "")).name, "06_implement_termination_attribution.txt")
+
+    def test_seed_scope_cascade_reason_is_softened_in_soft_default_profile(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "06_implement_run1.summary.txt"
+            summary_path.write_text(
+                "\n".join(
+                    [
+                        "step=06_implement",
+                        "exit_code=2",
+                        "result_count=1",
+                        "reason_code=seed_scope_cascade_detected",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(summary_path=summary_path)
+        self.assertEqual(payload.get("classification"), "TELEMETRY_ONLY")
+        self.assertEqual(payload.get("classification_subtype"), "soft_default_seed_scope_cascade_detected")
+        self.assertEqual(payload.get("strict_shadow_classification_type"), "PROMPT_EXEC_ISSUE")
+        self.assertEqual(payload.get("strict_shadow_classification_subtype"), "seed_scope_cascade_detected")
+        self.assertEqual(payload.get("softened"), 1)
+
+    def test_seed_scope_cascade_reason_keeps_strict_shadow_profile(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "06_implement_run1.summary.txt"
+            summary_path.write_text(
+                "\n".join(
+                    [
+                        "step=06_implement",
+                        "exit_code=2",
+                        "result_count=1",
+                        "reason_code=seed_scope_cascade_detected",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(summary_path=summary_path, classification_profile="strict")
+        self.assertEqual(payload.get("classification"), "PROMPT_EXEC_ISSUE")
+        self.assertEqual(payload.get("classification_subtype"), "seed_scope_cascade_detected")
+        self.assertEqual(payload.get("strict_shadow_classification_type"), "PROMPT_EXEC_ISSUE")
+        self.assertEqual(payload.get("softened"), 0)
+
+    def test_tests_env_dependency_missing_reason_is_softened_in_soft_default_profile(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "06_implement_run1.summary.txt"
+            summary_path.write_text(
+                "\n".join(
+                    [
+                        "step=06_implement",
+                        "exit_code=2",
+                        "result_count=1",
+                        "reason_code=tests_env_dependency_missing",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(summary_path=summary_path)
+        self.assertEqual(payload.get("classification"), "TELEMETRY_ONLY")
+        self.assertEqual(payload.get("classification_subtype"), "soft_default_tests_env_dependency_missing")
+        self.assertEqual(payload.get("strict_shadow_classification_type"), "PROMPT_EXEC_ISSUE")
+        self.assertEqual(payload.get("strict_shadow_classification_subtype"), "tests_env_dependency_missing")
+        self.assertEqual(payload.get("softened"), 1)
+
+    def test_fixture_i1_done_i2_drift_soft_and_strict_profiles_keep_root_cause(self) -> None:
+        summary_path = FIXTURES / "06_implement_i1_done_i2_drift_run1.summary.txt"
+        log_path = FIXTURES / "06_implement_i1_done_i2_drift_run1.log"
+
+        soft_payload = self.runner.analyze_run(summary_path=summary_path, run_log_path=log_path)
+        self.assertEqual(soft_payload.get("classification_profile"), "soft_default")
+        self.assertEqual(soft_payload.get("classification"), "TELEMETRY_ONLY")
+        self.assertEqual(soft_payload.get("classification_subtype"), "soft_default_seed_scope_cascade_detected")
+        self.assertEqual(soft_payload.get("strict_shadow_classification_type"), "PROMPT_EXEC_ISSUE")
+        self.assertEqual(soft_payload.get("strict_shadow_classification_subtype"), "seed_scope_cascade_detected")
+        self.assertEqual(soft_payload.get("primary_root_cause"), "PROMPT_EXEC_ISSUE:seed_scope_cascade_detected")
+        self.assertEqual(soft_payload.get("softened"), 1)
+
+        strict_payload = self.runner.analyze_run(
+            summary_path=summary_path,
+            run_log_path=log_path,
+            classification_profile="strict",
+        )
+        self.assertEqual(strict_payload.get("classification_profile"), "strict")
+        self.assertEqual(strict_payload.get("classification"), "PROMPT_EXEC_ISSUE")
+        self.assertEqual(strict_payload.get("classification_subtype"), "seed_scope_cascade_detected")
+        self.assertEqual(strict_payload.get("primary_root_cause"), "PROMPT_EXEC_ISSUE:seed_scope_cascade_detected")
+        self.assertEqual(strict_payload.get("softened"), 0)
 
 
 if __name__ == "__main__":
