@@ -435,7 +435,7 @@ def analyze_run(
     layout_warn_detected = "workspace_layout_non_canonical_root_detected" in aux_text.lower()
     if (
         (write_safety_warn_detected or layout_warn_detected)
-        and classified.classification in {"FLOW_BUG", "TELEMETRY_ONLY"}
+        and classified.classification == "TELEMETRY_ONLY"
     ):
         classified = contract.Classification(
             classification="TELEMETRY_ONLY",

@@ -325,6 +325,40 @@ class AiddAuditRunnerTests(unittest.TestCase):
         self.assertNotIn("plugin_write_safety_inconclusive", payload.get("secondary_symptoms") or [])
         self.assertNotIn("workspace_layout_non_canonical_root_detected", payload.get("secondary_symptoms") or [])
 
+    def test_write_safety_warn_does_not_override_flow_bug_primary_classification(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "99_post_run_run1.summary.txt"
+            summary_path.write_text(
+                "\n".join(
+                    [
+                        "step=99_post_run",
+                        "exit_code=0",
+                        "result_count=0",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            write_safety_path = Path(tmp) / "99_write_safety_classification.txt"
+            write_safety_path.write_text(
+                "\n".join(
+                    [
+                        "classification=WARN(plugin_write_safety_inconclusive)",
+                        "layout_warn=WARN(workspace_layout_non_canonical_root_detected)",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(
+                summary_path=summary_path,
+                aux_log_paths=[write_safety_path],
+            )
+        self.assertEqual(payload.get("classification"), "FLOW_BUG")
+        self.assertEqual(payload.get("classification_subtype"), "unclassified_terminal_state")
+        self.assertIn("plugin_write_safety_inconclusive", payload.get("secondary_symptoms") or [])
+        self.assertIn("workspace_layout_non_canonical_root_detected", payload.get("secondary_symptoms") or [])
+
     def test_result_count_zero_with_type_result_event_is_not_no_top_level_result(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             summary_path = Path(tmp) / "05_review_spec_run1.summary.txt"
