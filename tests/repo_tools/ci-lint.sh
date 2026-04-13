@@ -472,7 +472,7 @@ run_ruff_hygiene() {
     return
   fi
   log "running ruff hygiene checks"
-  if ! "${ruff_cmd[@]}" check . --select F401,F841,B007,B023,ERA; then
+  if ! "${ruff_cmd[@]}" check . --select F401,F821,F841,B007,B023,ERA; then
     err "ruff hygiene checks failed"
     STATUS=1
   fi

@@ -6,6 +6,8 @@ Owner: feature-dev-aidd
 Last reviewed: 2026-04-12
 Status: active
 
+_Local evidence note: references like `aidd/reports/**` point to workspace-local artifacts and are not part of this git repository._
+
 ## Scope
 - Incident class hardening for `06/07/08` audit fallout.
 - Runtime safety for plugin-root discovery and launcher log I/O failures.
