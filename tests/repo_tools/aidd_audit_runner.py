@@ -43,6 +43,14 @@ READINESS_REASON_CODES = (
 )
 
 
+def _truthy(value: object) -> bool:
+    return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _looks_like_plugin_root(path: Path) -> bool:
+    return (path / ".claude-plugin").exists() and (path / "skills").exists()
+
+
 def parse_kv_file(path: Path) -> Dict[str, str]:
     payload: Dict[str, str] = {}
     if not path.exists():
@@ -104,6 +112,17 @@ def collect_preflight(
     plugin_dir: Path,
     min_free_bytes: int | None = None,
 ) -> Dict[str, object]:
+    project_root = project_dir.resolve()
+    plugin_root = plugin_dir.resolve()
+    topology_equals_plugin = project_root == plugin_root
+    topology_project_looks_like_plugin = _looks_like_plugin_root(project_root)
+    topology_ok = not topology_equals_plugin and not topology_project_looks_like_plugin
+    topology_reason = "ok"
+    if topology_equals_plugin:
+        topology_reason = "project_dir_equals_plugin_dir"
+    elif topology_project_looks_like_plugin:
+        topology_reason = "project_dir_looks_like_plugin_root"
+
     min_bytes = resolve_min_free_bytes(str(min_free_bytes) if min_free_bytes is not None else None)
     disk_free_bytes = int(shutil.disk_usage(project_dir).free)
     disk_low = disk_free_bytes < min_bytes
@@ -114,9 +133,15 @@ def collect_preflight(
     }
     return {
         "cwd": str(Path.cwd().resolve()),
-        "project_dir": str(project_dir.resolve()),
-        "plugin_dir": str(plugin_dir.resolve()),
+        "project_dir": str(project_root),
+        "plugin_dir": str(plugin_root),
         "plugin_root_exists": int(plugin_dir.exists()),
+        "topology_invariant_ok": int(topology_ok),
+        "topology_reason": topology_reason,
+        "topology_project_equals_plugin": int(topology_equals_plugin),
+        "topology_project_looks_like_plugin_root": int(topology_project_looks_like_plugin),
+        "topology_reason_code": "cwd_wrong" if not topology_ok else "",
+        "topology_classification": "ENV_MISCONFIG(cwd_wrong)" if not topology_ok else "",
         "disk_free_bytes": disk_free_bytes,
         "min_free_bytes": min_bytes,
         "disk_low": int(disk_low),
@@ -324,6 +349,17 @@ def analyze_run(
         preflight=preflight,
         diagnostics_text=aux_text,
     )
+    preflight_topology_ok = True
+    if preflight and "topology_invariant_ok" in preflight:
+        preflight_topology_ok = _truthy(preflight.get("topology_invariant_ok"))
+    if not preflight_topology_ok and classified.classification != "ENV_BLOCKER":
+        classified = contract.Classification(
+            classification="ENV_MISCONFIG",
+            subtype="cwd_wrong",
+            source="runner_preflight",
+            label="ENV_MISCONFIG(cwd_wrong)",
+        )
+
     liveness_classification = str(liveness.get("classification") or "").strip().lower()
     liveness_active_source = str(liveness.get("active_source") or "").strip().lower()
     liveness_valid_stream_count = _safe_int(liveness.get("valid_stream_count"), 0)
@@ -364,6 +400,20 @@ def analyze_run(
         and review_findings_count == 0
         and review_open_questions_count == 0
     )
+
+    write_safety_warn_detected = "plugin_write_safety_inconclusive" in aux_text.lower()
+    layout_warn_detected = "workspace_layout_non_canonical_root_detected" in aux_text.lower()
+    if (
+        (write_safety_warn_detected or layout_warn_detected)
+        and classified.classification in {"FLOW_BUG", "TELEMETRY_ONLY"}
+    ):
+        classified = contract.Classification(
+            classification="TELEMETRY_ONLY",
+            subtype="write_safety_layout_signal",
+            source="diagnostics",
+            label="WARN(write_safety_layout_signal)",
+        )
+
     if review_mismatch_non_blocking and classified.classification in {"FLOW_BUG", "TELEMETRY_ONLY"}:
         classified = contract.Classification(
             classification="TELEMETRY_ONLY",
@@ -396,7 +446,11 @@ def analyze_run(
         and _is_tasks_new_context(summary, summary_path, log_text, aux_text)
         and _has_tasks_new_nested_runtime(log_text, aux_text)
     )
-    if tasks_new_partial_success and not invalid_fallback_paths:
+    if (
+        tasks_new_partial_success
+        and not invalid_fallback_paths
+        and classified.classification in {"FLOW_BUG", "TELEMETRY_ONLY"}
+    ):
         classified = contract.Classification(
             classification="TELEMETRY_ONLY",
             subtype="partial_success_no_top_level_result",
@@ -431,16 +485,35 @@ def analyze_run(
     if classified.classification == "ENV_MISCONFIG" and classified.subtype == "cwd_wrong":
         if re.search(r"05[_-].*tasks[-_ ]new|05_tasks_new", step_hint, flags=re.IGNORECASE):
             downstream_skip_hint = "NOT VERIFIED (upstream_tasks_new_failed)"
+        else:
+            downstream_skip_hint = "NOT VERIFIED (upstream_env_misconfig_cwd_wrong)"
     primary_cause = f"{classified.classification}:{classified.subtype}"
     secondary_symptoms: List[str] = []
+    secondary_telemetry: List[str] = []
     if result_count_interpretation == "no_top_level_result_confirmed":
-        secondary_symptoms.append("no_top_level_result")
+        if primary_cause == "ENV_MISCONFIG:cwd_wrong":
+            secondary_telemetry.append("no_top_level_result")
+        else:
+            secondary_symptoms.append("no_top_level_result")
     if invalid_fallback_paths:
         secondary_symptoms.append("invalid_fallback_path_detected")
     if review_mismatch_detected:
-        secondary_symptoms.append("review_spec_report_mismatch")
+        if review_mismatch_non_blocking:
+            secondary_telemetry.append("review_spec_report_mismatch")
+        else:
+            secondary_symptoms.append("review_spec_report_mismatch")
     if readiness_gate_failed:
         secondary_symptoms.append("readiness_gate_failed")
+    if write_safety_warn_detected:
+        if primary_cause == "ENV_MISCONFIG:cwd_wrong":
+            secondary_telemetry.append("plugin_write_safety_inconclusive")
+        else:
+            secondary_symptoms.append("plugin_write_safety_inconclusive")
+    if layout_warn_detected:
+        if primary_cause == "ENV_MISCONFIG:cwd_wrong":
+            secondary_telemetry.append("workspace_layout_non_canonical_root_detected")
+        else:
+            secondary_symptoms.append("workspace_layout_non_canonical_root_detected")
 
     payload: Dict[str, object] = dict(summary)
     payload.update(
@@ -477,6 +550,10 @@ def analyze_run(
             "liveness_run_start_epoch": liveness_run_start_epoch,
             "primary_cause": primary_cause,
             "secondary_symptoms": secondary_symptoms,
+            "secondary_telemetry": secondary_telemetry,
+            "write_safety_warn_detected": int(write_safety_warn_detected),
+            "workspace_layout_warn_detected": int(layout_warn_detected),
+            "topology_invariant_ok": int(preflight_topology_ok),
             "superseded_runs": [],
             "summary_path": str(summary_path),
             "summary_mtime": summary_mtime,

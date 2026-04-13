@@ -148,6 +148,25 @@ class TasksNewRuntimeTests(unittest.TestCase):
             self.assertIn("- profile: targeted", text)
             self.assertIn("./backend-mcp/gradlew test", text)
 
+    def test_tasks_new_reports_cwd_wrong_with_deterministic_reason_code(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="tasks-new-cwd-wrong-") as tmpdir:
+            plugin_root = Path(tmpdir) / "plugin-root"
+            (plugin_root / ".claude-plugin").mkdir(parents=True, exist_ok=True)
+            (plugin_root / "skills").mkdir(parents=True, exist_ok=True)
+
+            result = self._run_tasks_new(
+                plugin_root,
+                "--ticket",
+                "TASKS-CWD-1",
+                extra_env={
+                    "CLAUDE_PLUGIN_ROOT": str(plugin_root),
+                    "AIDD_PLUGIN_DIR": str(plugin_root),
+                },
+            )
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("reason_code=cwd_wrong", result.stderr)
+            self.assertIn("ENV_MISCONFIG(cwd_wrong)", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

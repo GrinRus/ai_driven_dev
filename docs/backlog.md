@@ -311,6 +311,75 @@ _Статус: plan. Основание — full audit TST-001: terminal `qa_blo
   **Effort:** M
   **Risk:** Medium
 
+## Wave 139 — TST-001 Topology Guard & Audit Signal De-noise (2026-04-13)
+
+_Статус: plan. Основание — TST-001 full run остановился на `tasks-new` из-за `ENV_MISCONFIG(cwd_wrong)` + `result_count=0`; дополнительно зафиксированы non-terminal WARN шумы (`review_spec_report_mismatch`, `tasklist_schema_parser_mismatch_recoverable`, `plugin_write_safety_inconclusive`, `workspace_layout_non_canonical_root_detected`, `readiness_gate_research_softened`)._
+
+- [ ] **W139-1 (P0) Topology invariant hard-stop + canonical launcher parity** `tests/repo_tools/aidd_stage_launcher.py`, `tests/repo_tools/aidd_audit_runner.py`, `tests/repo_tools/e2e_prompt/profile_full.md`, `tests/repo_tools/e2e_prompt/quality_profile_full.md`, `tests/repo_tools/test_aidd_stage_launcher.py`, `tests/repo_tools/test_aidd_audit_runner.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - enforce pre-run invariant `realpath(PROJECT_DIR) != realpath(PLUGIN_DIR)` до первого stage-run и на каждом retry;
+  - запретить обход canonical launcher в audit workflow;
+  - при нарушении topology завершать аудит terminal `ENV_MISCONFIG(cwd_wrong)` без каскадного запуска шагов.
+  **AC:** при `PROJECT_DIR==PLUGIN_DIR` аудит останавливается до stage sequence; нет downstream ложных причин.
+  **Deps:** -
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_aidd_stage_launcher.py tests/repo_tools/test_aidd_audit_runner.py tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [ ] **W139-2 (P0) tasks-new bounded cwd_wrong recovery + guaranteed terminal top-level result** `skills/tasks-new/SKILL.md`, `skills/tasks-new/runtime/tasks_new.py`, `tests/test_tasks_new_runtime.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - при `refusing to use plugin repository as workspace root` выполнять не более 1 корректного retry;
+  - исключить длительные debug/edit side-loops после env blocker;
+  - обеспечить deterministic terminal payload вместо `result_count=0` path.
+  **AC:** `tasks-new` при `cwd_wrong` завершает run прозрачным terminal outcome; нет `result_count=0` без top-level result.
+  **Deps:** W139-1
+  **Regression/tests:** `python3 -m pytest -q tests/test_tasks_new_runtime.py tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [ ] **W139-3 (P1) review-spec mismatch de-noise for READY/0 findings** `tests/repo_tools/aidd_audit_runner.py`, `tests/repo_tools/test_aidd_audit_runner.py`, `tests/repo_tools/e2e_prompt/profile_full.md`, `tests/repo_tools/e2e_prompt/quality_profile_full.md`:
+  - при `recommended_status=ready`, `findings_count=0`, `open_questions_count=0` классифицировать narrative mismatch как non-blocking info;
+  - убрать promotion такого кейса в prompt-exec incident.
+  **AC:** `review_spec_report_mismatch` в READY-clean кейсе не повышается выше INFO.
+  **Deps:** W139-1
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_aidd_audit_runner.py tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Effort:** S
+  **Risk:** Medium
+
+- [ ] **W139-4 (P1) Tasklist test-execution schema parity (`tasks` vs `commands`)** `skills/aidd-flow-state/runtime/tasklist_check.py`, `skills/tasks-new/runtime/tasks_new.py`, `skills/tasks-new/templates/tasklist.template.md`, `tests/test_tasklist_check.py`, `tests/test_tasks_new_runtime.py`, `tests/test_qa_agent.py`:
+  - считать `tasks_list_count>0` валидным executable contract без обязательного `commands` ключа;
+  - синхронизовать parser/probe/runtime чтобы не генерировать ложный `WARN(tasklist_schema_parser_mismatch_recoverable)`.
+  **AC:** валидный `AIDD:TEST_EXECUTION` больше не поднимает parser mismatch WARN.
+  **Deps:** W139-2
+  **Regression/tests:** `python3 -m pytest -q tests/test_tasklist_check.py tests/test_tasks_new_runtime.py tests/test_qa_agent.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W139-5 (P1) Classification precedence for write-safety/layout under upstream env blocker** `tests/repo_tools/aidd_audit_runner.py`, `tests/repo_tools/test_aidd_audit_runner.py`, `tests/repo_tools/e2e_prompt/profile_full.md`:
+  - если primary причина шага = `ENV_MISCONFIG(cwd_wrong)`, downstream `plugin_write_safety_inconclusive`/`workspace_layout_non_canonical_root_detected` помечать как secondary telemetry;
+  - убрать ошибочную эскалацию release-risk при topology misconfig run.
+  **AC:** итоговая классификация сохраняет одну primary причину и не дублирует terminal шум.
+  **Deps:** W139-1, W139-3
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_aidd_audit_runner.py`.
+  **Effort:** S
+  **Risk:** Medium
+
+- [ ] **W139-6 (P1) Preflight artifact completeness and source-of-truth alignment** `tests/repo_tools/aidd_audit_runner.py`, `tests/repo_tools/e2e_prompt/profile_full.md`, `tests/repo_tools/e2e_prompt/quality_profile_full.md`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - всегда создавать `01_gates_snapshot.json` и `01_test_policy_source_scan.txt` (или `not_available` marker);
+  - явно фиксировать, что source-of-truth plugin load = `init` payload, а `claude plugin list` — supplementary telemetry.
+  **AC:** preflight evidence deterministic и полный в каждом run.
+  **Deps:** W139-1
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py tests/repo_tools/test_aidd_audit_runner.py`.
+  **Effort:** S
+  **Risk:** Medium
+
+- [ ] **W139-7 (P2) Readiness softened signal normalization for minimal RLM baseline** `tests/repo_tools/aidd_audit_runner.py`, `tests/repo_tools/e2e_prompt/profile_full.md`, `tests/repo_tools/test_aidd_audit_runner.py`, `tests/test_gate_workflow.py`:
+  - при baseline-complete research (`targets/manifest/worklist/pack + non-empty nodes`) переводить `WARN(readiness_gate_research_softened)` в `INFO`;
+  - сохранить текущую non-terminal policy без изменения hard-block rules.
+  **AC:** expected soft-readiness не засоряет WARN-канал, но остаётся видимым в telemetry.
+  **Deps:** W139-6
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_aidd_audit_runner.py tests/test_gate_workflow.py`.
+  **Effort:** S
+  **Risk:** Low
+
 ## Wave 122 — Memory Platform (2026-04-02)
 
 _Статус: plan. Основание — low-priority cross-cutting развитие memory layer. Волна изолирована от текущей стабилизации runtime и не должна конкурировать с Core Flow fixes._

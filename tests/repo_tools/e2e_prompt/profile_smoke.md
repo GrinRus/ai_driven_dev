@@ -66,9 +66,9 @@
 - R12.2: При `FAIL` readiness gate обязателен `reason_code` из набора `prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready`; для `prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready` перед terminal-классификацией обязателен ровно один readiness-recovery цикл:
   - для `prd_not_ready|open_questions_present|answers_format_invalid`: question-closure (`idea-new` и `plan-new` compact retry при валидном trigger) -> `/feature-dev-aidd:spec-interview <ticket>` -> `/feature-dev-aidd:review-spec <ticket>` -> пересчёт `05_precondition_block.txt`;
   - для `research_not_ready`: ровно один canonical researcher recovery/probe -> пересчёт `05_precondition_block.txt`.
-- R12.2a: Если `readiness_gate=PASS` достигнут через `research_status=warn|pending` при minimal RLM baseline, фиксировать `WARN(readiness_gate_research_softened)` и продолжать downstream stages.
+- R12.2a: Если `readiness_gate=PASS` достигнут через `research_status=warn|pending` при minimal RLM baseline, фиксировать `INFO(readiness_gate_research_softened)` и продолжать downstream stages.
 - R12.3: Если после recovery-цикла `readiness_gate` остаётся `FAIL`, шаг 5 классифицируется как `NOT VERIFIED (readiness_gate_failed)` + `prompt-flow gap`; шаг 8 помечается `NOT VERIFIED (upstream_readiness_gate_failed)` без запуска.
-- R12.4: Если `review-spec` narrative расходится с `aidd/reports/prd/<ticket>.json|*.pack.json` по числу/типу findings, фиксировать `prompt-exec issue (review_spec_report_mismatch)` и принимать recovery-решение по report payload.
+- R12.4: Если `review-spec` narrative расходится с `aidd/reports/prd/<ticket>.json|*.pack.json` по числу/типу findings, фиксировать `prompt-exec issue (review_spec_report_mismatch)` и принимать recovery-решение по report payload; исключение: при `recommended_status=ready`, `findings_count=0`, `open_questions_count=0` классифицировать как `INFO(review_spec_report_mismatch_non_blocking)`.
 - R12.5: Если `review-spec` вернул `WARN|NEEDS_REVISION`, unresolved `Q*` отсутствуют и spec-файл существует, запускать findings-sync cycle:
   - PRD findings (`aidd/reports/prd/<ticket>.json|*.pack.json`) -> один sync-retry `idea-new` с compact payload `AIDD:SYNC_FROM_REVIEW ...`;
   - Plan findings (`plan_status=NEEDS_REVISION|WARN` в review payload или plan-review report) -> один sync-retry `plan-new` с compact payload `AIDD:SYNC_FROM_REVIEW ...`;
@@ -79,6 +79,7 @@
 
 ### 3.0 Launcher для stage-команд
 
+- Для всех stage-run обязателен canonical launcher `python3 $PLUGIN_DIR/tests/repo_tools/aidd_stage_launcher.py ...`; ad-hoc shell wrappers/inline-launchers запрещены.
 - Для `stream-json`:
   - `cd "$PROJECT_DIR"`
   - `claude -p "<stage command>" $CLAUDE_ARGS $CLAUDE_STREAM_FLAGS $CLAUDE_PLUGIN_FLAGS`
@@ -138,10 +139,11 @@
 - Проверить `AUDIT_MODE` (SKILL_FIRST обязателен).
 - Если не SKILL_FIRST — `NOT APPLICABLE` и stop.
 - Сохранить `claude plugin list` -> `01_plugin_list.txt`.
-- Сохранить `aidd/config/gates.json` (если есть) -> `01_gates_snapshot.json`.
+- Сохранить `aidd/config/gates.json` (если есть) -> `01_gates_snapshot.json`; если файла нет — записать marker `not_available=1`.
 - Выполнить runtime test-policy source scan и сохранить `01_test_policy_source_scan.txt`:
   - `rg -n "CLAUDE_SETTINGS_PATH|\\.claude/settings\\.json" "$PLUGIN_DIR/skills" "$PLUGIN_DIR/hooks/format-and-test.sh"`.
   - Если hit относится к runtime decision path, фиксировать `WARN(test_policy_source_non_canonical)` (не блокирует smoke run).
+  - Если scan недоступен, записать marker `not_available=1` в `01_test_policy_source_scan.txt`.
 - Запустить healthcheck: `$PLUGIN_HEALTHCHECK_CMD` через launcher.
 - Проверить `init` на `plugins/slash_commands/skills` (см. 3.1).
 - Извлечь install runtime path плагина из `init.plugins[].path` и сохранить `01_plugin_runtime_path.txt`.
@@ -252,7 +254,7 @@ RLM-only check:
   - `readiness_gate=<PASS|FAIL>`
   - `reason_code=<prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready|->`
 - `5.3/5.4/5.5` запускать только при `readiness_gate=PASS`.
-- Если `readiness_gate=PASS` через `research_status=warn|pending` при minimal baseline (`research_warn_scope=minimal_baseline_soft|links_empty_non_blocking`), зафиксировать `WARN(readiness_gate_research_softened)` и продолжать downstream stages.
+- Если `readiness_gate=PASS` через `research_status=warn|pending` при minimal baseline (`research_warn_scope=minimal_baseline_soft|links_empty_non_blocking`), зафиксировать `INFO(readiness_gate_research_softened)` и продолжать downstream stages.
 - Если `readiness_gate=FAIL`:
   - выполнить ровно один recovery-цикл по R12.2 и пересчитать `05_precondition_block.txt`;
   - если после recovery `readiness_gate` остаётся `FAIL`, не запускать `5.3/5.4/5.5`, классифицировать шаг 5 как `NOT VERIFIED (readiness_gate_failed)` + `prompt-flow gap`, шаг 8 пометить `NOT VERIFIED (upstream_readiness_gate_failed)` и перейти к шагу 99.
@@ -318,7 +320,7 @@ RLM-only check:
   - иначе повторить `/feature-dev-aidd:tasks-new $TICKET` один раз.
 - Если `tasks-new` сообщает `AIDD:TEST_EXECUTION missing tasks`:
   - сохранить `05_tasklist_test_execution_probe.txt` с полями `tasks_key_present`, `tasks_list_count`, `commands_key_present`, `classification`;
-  - если probe подтверждает `tasks_list_count>0` или наличие `command|commands` entries, классифицировать как `WARN(tasklist_schema_parser_mismatch_recoverable)` и продолжать downstream stages (не terminal blocker);
+  - если probe подтверждает `tasks_list_count>0` (canonical executable contract) или наличие `command|commands` entries, классифицировать как `INFO(tasklist_schema_parser_mismatch_recoverable)` и продолжать downstream stages (не terminal blocker);
   - если probe не подтверждает исполняемые test entries, оставлять классификацию как `prompt-flow blocker`.
 - Если hang/kill — fallback:
   - `python3 $PLUGIN_DIR/skills/tasks-new/runtime/tasks_new.py --ticket $TICKET`

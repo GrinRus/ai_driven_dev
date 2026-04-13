@@ -105,6 +105,25 @@ class TasklistCheckTests(unittest.TestCase):
                 result.message,
             )
 
+    def test_tasklist_check_accepts_commands_alias_when_tasks_key_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            ticket = "DEMO-3C"
+            tasklist = helpers.tasklist_ready_text(ticket).replace("- profile: none\n", "- profile: targeted\n", 1)
+            tasklist = tasklist.replace(
+                "- tasks: []\n",
+                "- commands:\n  - echo tasklist-alias-ok\n",
+                1,
+            )
+            helpers.write_file(root, f"docs/tasklist/{ticket}.md", tasklist)
+            write_plan(root, ticket)
+            result = tasklist_check.check_tasklist(helpers._project_root(root), ticket)
+            self.assertEqual(result.status, "ok", result.message)
+            self.assertFalse(
+                any("AIDD:TEST_EXECUTION missing tasks" in entry for entry in result.details or []),
+                result.message,
+            )
+
     def test_tasklist_check_fails_on_shell_chain_single_task_entry(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)

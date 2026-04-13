@@ -72,7 +72,19 @@ def check_tasklist_text(
     for field in ("tasks", "filters"):
         inline_value = core.extract_field_value(test_execution, field)
         list_value = core.extract_list_field(test_execution, field)
+        alias_present = False
+        if field == "tasks":
+            command_value = core.extract_field_value(test_execution, "command")
+            commands_value = core.extract_field_value(test_execution, "commands")
+            commands_list = core.extract_list_field(test_execution, "commands")
+            alias_present = bool(command_value or commands_value or commands_list)
+            if not alias_present:
+                alias_present = _has_test_execution_field_key(test_execution, "command") or _has_test_execution_field_key(
+                    test_execution, "commands"
+                )
         if inline_value or list_value or _has_test_execution_field_key(test_execution, field):
+            continue
+        if alias_present:
             continue
         add_issue("error", f"AIDD:TEST_EXECUTION missing {field}")
     parsed_test_execution = tasklist_parser.parse_test_execution(test_execution)

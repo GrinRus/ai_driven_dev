@@ -189,6 +189,8 @@ class AiddStageLauncherTests(unittest.TestCase):
             summary = (audit_dir / "05_tasks_new_run1.summary.txt").read_text(encoding="utf-8")
             self.assertIn("reason_code=cwd_wrong", summary)
             self.assertIn("classification=ENV_MISCONFIG(cwd_wrong)", summary)
+            self.assertIn("result_count=1", summary)
+            self.assertIn("top_level_result=1", summary)
             self.assertIn(f"project_dir={root.resolve()}", summary)
             self.assertIn(f"plugin_dir={root.resolve()}", summary)
             log_text = (audit_dir / "05_tasks_new_run1.log").read_text(encoding="utf-8")

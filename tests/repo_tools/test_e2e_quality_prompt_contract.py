@@ -92,14 +92,17 @@ class E2EQualityPromptContractTests(unittest.TestCase):
             "streaming enabled",
             "05_precondition_block.txt",
             "answers_format=compact_q_values",
-            "WARN(readiness_gate_research_softened)",
+            "INFO(readiness_gate_research_softened)",
             "review_spec_report_mismatch",
+            "review_spec_report_mismatch_non_blocking",
             "AIDD:SYNC_FROM_REVIEW",
             "NOT VERIFIED (findings_sync_not_converged)",
             "runtime_path_missing_or_drift",
             "prompt-flow drift (non-canonical stage orchestration)",
+            "aidd_stage_launcher.py",
             'realpath("$PROJECT_DIR") != realpath("$PLUGIN_DIR")',
             "PROJECT_DIR must differ from PLUGIN_DIR",
+            "not_available=1",
         ):
             self.assertIn(needle, text)
 

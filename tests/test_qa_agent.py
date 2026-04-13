@@ -323,6 +323,26 @@ class QaAgentTests(unittest.TestCase):
         self.assertTrue(all("Backend:" not in str(command) for command in commands))
         self.assertTrue(all("Frontend:" not in str(command) for command in commands))
 
+    def test_tasklist_commands_alias_executes_when_tasks_are_absent(self):
+        ticket = "tasklist-commands-alias"
+        write_active_feature(self.project_root, ticket)
+        tasklist = tasklist_ready_text(ticket)
+        tasklist = tasklist.replace("- profile: none\n", "- profile: targeted\n", 1)
+        tasklist = tasklist.replace("- tasks: []\n", "- commands:\n  - echo qa-command-alias\n", 1)
+        write_file(self.project_root, f"docs/tasklist/{ticket}.md", tasklist)
+        write_json(
+            self.project_root,
+            "config/gates.json",
+            {"qa": {"tests": _qa_tests_contract(["false"])}},
+        )
+        result = self.run_agent("--format", "json")
+
+        self.assertEqual(result.returncode, 2, msg=result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["tests_summary"], "pass")
+        commands = [entry.get("command") for entry in payload.get("tests_executed", [])]
+        self.assertIn("echo qa-command-alias", commands)
+
     def test_tasklist_shell_chain_single_entry_is_blocked(self):
         ticket = "tasklist-shell-chain"
         write_active_feature(self.project_root, ticket)
