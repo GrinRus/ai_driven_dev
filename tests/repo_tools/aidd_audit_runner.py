@@ -85,6 +85,27 @@ def infer_liveness_path(summary_path: Path) -> Path | None:
     return None
 
 
+def infer_termination_path(summary_path: Path) -> Path | None:
+    step, run = _parse_summary_identity(summary_path)
+    if not step or run <= 0:
+        return None
+    candidates = [
+        summary_path.with_name(f"{step}_termination_attribution_run{run}.txt"),
+        summary_path.with_name(f"{step}_termination_attribution.txt"),
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def infer_precondition_path(summary_path: Path) -> Path | None:
+    candidate = summary_path.with_name("05_precondition_block.txt")
+    if candidate.exists():
+        return candidate
+    return None
+
+
 def _parse_summary_identity(summary_path: Path) -> tuple[str, int]:
     name = summary_path.name
     match = RUN_SUMMARY_RE.match(name)
@@ -313,6 +334,15 @@ def analyze_run(
         summary_mtime = float(summary_path.stat().st_mtime)
     except OSError:
         summary_mtime = 0.0
+    if termination_path is None:
+        inferred_termination = infer_termination_path(summary_path)
+        if inferred_termination is not None:
+            termination_path = inferred_termination
+    if precondition_path is None:
+        inferred_precondition = infer_precondition_path(summary_path)
+        if inferred_precondition is not None:
+            precondition_path = inferred_precondition
+
     summary = parse_kv_file(summary_path)
     termination = parse_kv_file(termination_path) if termination_path else {}
     precondition = parse_kv_file(precondition_path) if precondition_path else {}
@@ -559,6 +589,8 @@ def analyze_run(
             "summary_mtime": summary_mtime,
             "step_key": step_key or str(summary.get("step") or ""),
             "run_index": run_index,
+            "termination_path": str(termination_path) if termination_path else "",
+            "precondition_path": str(precondition_path) if precondition_path else "",
         }
     )
     if downstream_skip_hint:

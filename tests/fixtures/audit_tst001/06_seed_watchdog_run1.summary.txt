@@ -1,0 +1,10 @@
+step=06_implement
+exit_code=143
+result_count=
+top_level_result=0
+effective_exit_code=143
+killed_flag=1
+watchdog_marker=1
+signal=SIGTERM
+stage_elapsed_seconds=3630
+stream_path_not_emitted_by_cli=1

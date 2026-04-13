@@ -370,6 +370,13 @@ class E2EPromptContractTests(unittest.TestCase):
         self.assertIn("--stage-budget-seconds $LOOP_STAGE_BUDGET_SECONDS", full_text)
         self.assertIn("budget считается по каждому запуску отдельно", full_text)
 
+    def test_full_prompt_enforces_seed_single_scope_and_dependency_fail_fast(self) -> None:
+        text = _read(AUDIT_PROMPT_FULL)
+        self.assertIn("--budget-seconds <N>", text)
+        self.assertIn("seed_scope_cascade_detected", text)
+        self.assertIn("tests_env_dependency_missing", text)
+        self.assertIn("single-scope invariant", text)
+
     def test_prompt_research_pending_finalize_contract(self) -> None:
         for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
             text = _read(prompt)

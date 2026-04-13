@@ -10,6 +10,7 @@ Status: historical
 - Incident class hardening for `06/07/08` audit fallout.
 - Runtime safety for plugin-root discovery and launcher log I/O failures.
 - Audit replay classification for deterministic RCA decisions.
+- Seed implement convergence guard for single-scope runs (`I1` must not cascade to `I2` in one seed run).
 
 ## Preflight Checklist
 1. Verify plugin root exists and has `/.claude-plugin` and `/skills`.
@@ -40,6 +41,8 @@ If disk is below threshold, stop with `ENV_MISCONFIG(no_space_left_on_device)`.
    - `exit_code=143` with `killed_flag=0` or missing watchdog marker.
 3. `PROMPT_EXEC_ISSUE`
    - `exit_code=143` with `killed_flag=1` and `watchdog_marker=1`.
+   - `reason_code=seed_scope_cascade_detected`.
+   - `reason_code=tests_env_dependency_missing`.
    - launcher tokenization/command-not-found (`127`).
    - repeated deterministic command failure without new evidence (`reason_code=repeated_command_failure_no_new_evidence`).
 4. `CONTRACT_MISMATCH`
@@ -82,15 +85,23 @@ python3 tests/repo_tools/aidd_audit_runner.py classify \
      --step <step_key> \
      --run <n> \
      --ticket <ticket> \
+     --budget-seconds <seconds> \
      --stage-command "<slash command>"
    ```
-2. Stream path extraction hierarchy:
+2. Budget watchdog attribution invariants:
+   - watchdog kill writes `*_termination_attribution.txt` with:
+     - `killed_flag=1`
+     - `watchdog_marker=1`
+     - `stage_elapsed_seconds`
+     - `signal`
+   - `rollup` classification must read sibling termination artifact, not summary-only.
+3. Stream path extraction hierarchy:
    - `source=init_json`: only from `type=system, subtype=init` JSON payload.
    - `source=loop_stream_header`: only from control lines `==> streaming enabled ... stream=... log=...`.
    - `source=fallback_scan`: only from `aidd/reports/loops/<ticket>/`.
-3. Prohibited extraction:
+4. Prohibited extraction:
    - `tool_result` content, artifact excerpts, and generic prose lines are never valid stream-path sources.
-4. Fallback freshness window:
+5. Fallback freshness window:
    - Include fallback stream files only when `mtime >= run_start_epoch - 5s`.
    - Older files are treated as stale and excluded from liveness set.
 
@@ -101,6 +112,7 @@ python3 tests/repo_tools/aidd_audit_runner.py classify \
 4. Prompt contract tests enforce:
    - disk preflight invariant
    - step-7 env wiring (`CLAUDE_PLUGIN_ROOT` + `PYTHONPATH`)
+   - step-6 single-scope invariant (`seed_scope_cascade_detected`)
 
 ## Related Closure Evidence
 - Wave stabilization closure summary: `docs/runbooks/w120-w121-w136-closure.md`.

@@ -55,6 +55,24 @@ class AiddAuditRunnerTests(unittest.TestCase):
         self.assertEqual(payload.get("classification_subtype"), "watchdog_terminated")
         self.assertIn("NOT_VERIFIED(killed)", str(payload.get("effective_classification") or ""))
 
+    def test_seed_watchdog_fixture_uses_primary_termination_attribution(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "06_seed_watchdog_run1.summary.txt"
+            log_path = Path(tmp) / "06_seed_watchdog_run1.log"
+            summary_path.write_text((FIXTURES / "06_seed_watchdog_run1.summary.txt").read_text(encoding="utf-8"), encoding="utf-8")
+            log_path.write_text((FIXTURES / "06_seed_watchdog_run1.log").read_text(encoding="utf-8"), encoding="utf-8")
+            # Use canonical sibling name so infer_termination_path resolves it automatically.
+            (Path(tmp) / "06_seed_watchdog_termination_attribution.txt").write_text(
+                (FIXTURES / "06_seed_watchdog_termination_attribution.txt").read_text(encoding="utf-8"),
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(
+                summary_path=summary_path,
+                run_log_path=log_path,
+            )
+        self.assertEqual(payload.get("classification"), "PROMPT_EXEC_ISSUE")
+        self.assertEqual(payload.get("classification_subtype"), "watchdog_terminated")
+
     def test_07_loop_run_first_attempt_classified_as_env_missing(self) -> None:
         payload = self.runner.analyze_run(
             summary_path=FIXTURES / "07_loop_run_run1.summary.txt",
@@ -739,6 +757,76 @@ class AiddAuditRunnerTests(unittest.TestCase):
         self.assertEqual(step_payload.get("run_index"), 2)
         superseded = step_payload.get("superseded_runs") or []
         self.assertTrue(any(str(summary_run1) in item for item in superseded))
+
+    def test_analyze_run_infers_sibling_termination_attribution_file(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "06_implement_run1.summary.txt"
+            summary_path.write_text(
+                "\n".join(
+                    [
+                        "step=06_implement",
+                        "exit_code=143",
+                        "result_count=0",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            termination_path = Path(tmp) / "06_implement_termination_attribution.txt"
+            termination_path.write_text(
+                "\n".join(
+                    [
+                        "exit_code=143",
+                        "signal=SIGTERM",
+                        "killed_flag=1",
+                        "watchdog_marker=1",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(summary_path=summary_path)
+        self.assertEqual(payload.get("classification"), "PROMPT_EXEC_ISSUE")
+        self.assertEqual(payload.get("classification_subtype"), "watchdog_terminated")
+        self.assertEqual(Path(str(payload.get("termination_path") or "")).name, "06_implement_termination_attribution.txt")
+
+    def test_seed_scope_cascade_reason_is_classified_as_prompt_exec_issue(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "06_implement_run1.summary.txt"
+            summary_path.write_text(
+                "\n".join(
+                    [
+                        "step=06_implement",
+                        "exit_code=2",
+                        "result_count=1",
+                        "reason_code=seed_scope_cascade_detected",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(summary_path=summary_path)
+        self.assertEqual(payload.get("classification"), "PROMPT_EXEC_ISSUE")
+        self.assertEqual(payload.get("classification_subtype"), "seed_scope_cascade_detected")
+
+    def test_tests_env_dependency_missing_reason_is_classified_as_prompt_exec_issue(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "06_implement_run1.summary.txt"
+            summary_path.write_text(
+                "\n".join(
+                    [
+                        "step=06_implement",
+                        "exit_code=2",
+                        "result_count=1",
+                        "reason_code=tests_env_dependency_missing",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(summary_path=summary_path)
+        self.assertEqual(payload.get("classification"), "PROMPT_EXEC_ISSUE")
+        self.assertEqual(payload.get("classification_subtype"), "tests_env_dependency_missing")
 
 
 if __name__ == "__main__":

@@ -3,6 +3,8 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -11,6 +13,7 @@ from typing import Any
 from aidd_runtime import actions_validate
 from aidd_runtime import launcher
 from aidd_runtime import runtime
+from aidd_runtime import stage_result as stage_result_runtime
 
 _ALLOWED_ACTION_TYPES = [
     "tasklist_ops.set_iteration_done",
@@ -34,6 +37,10 @@ _ACTION_PARAM_KEYS = (
     "user_note",
     "generated_at",
 )
+_SCOPE_GUARD_ENV = "AIDD_STAGE_RUN_LOCK_ID"
+_SCOPE_GUARD_REASON_CODE = "seed_scope_cascade_detected"
+_SCOPE_GUARD_DIR = ".cache/stage-run-locks"
+_SCOPE_GUARD_LOCK_RE = re.compile(r"[^A-Za-z0-9_.-]+")
 
 
 def _find_first_action_type_mismatch(payload: Any, *, known_types: set[str]) -> str:
@@ -174,6 +181,115 @@ def _collect_validation_errors(path: Path) -> list[str]:
     return list(actions_validate.validate_actions_data(payload))
 
 
+def _sanitize_lock_id(value: str) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    cleaned = _SCOPE_GUARD_LOCK_RE.sub("_", raw).strip("._-")
+    return cleaned or ""
+
+
+def _scope_guard_path(context: launcher.LaunchContext, lock_id: str) -> Path:
+    return context.root / _SCOPE_GUARD_DIR / f"{lock_id}.{context.stage}.json"
+
+
+def _scope_guard_payload(context: launcher.LaunchContext) -> dict[str, str]:
+    return {
+        "ticket": context.ticket,
+        "stage": context.stage,
+        "scope_key": context.scope_key,
+        "work_item_key": context.work_item_key,
+    }
+
+
+def _write_scope_guard(path: Path, payload: dict[str, str]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _emit_scope_cascade_stage_result(
+    context: launcher.LaunchContext,
+    *,
+    expected_scope_key: str,
+    expected_work_item_key: str,
+) -> int:
+    if not context.work_item_key:
+        return 1
+    reason = (
+        "single-scope seed run violated: "
+        f"expected scope={expected_scope_key or '<missing>'} "
+        f"work_item={expected_work_item_key or '<missing>'}; "
+        f"got scope={context.scope_key} work_item={context.work_item_key}"
+    )
+    args = [
+        "--ticket",
+        context.ticket,
+        "--stage",
+        context.stage,
+        "--result",
+        "blocked",
+        "--scope-key",
+        context.scope_key,
+        "--work-item-key",
+        context.work_item_key,
+        "--reason-code",
+        _SCOPE_GUARD_REASON_CODE,
+        "--reason",
+        reason,
+        "--producer",
+        "stage_actions_run",
+    ]
+    try:
+        return int(stage_result_runtime.main(args) or 0)
+    except Exception:
+        return 1
+
+
+def _enforce_single_scope_guard(context: launcher.LaunchContext) -> tuple[bool, str]:
+    if context.stage != "implement":
+        return True, ""
+    lock_id = _sanitize_lock_id(os.environ.get(_SCOPE_GUARD_ENV, ""))
+    if not lock_id:
+        return True, ""
+    if not context.work_item_key:
+        return True, ""
+
+    guard_path = _scope_guard_path(context, lock_id)
+    current = _scope_guard_payload(context)
+    if not guard_path.exists():
+        _write_scope_guard(guard_path, current)
+        return True, ""
+
+    try:
+        loaded = json.loads(guard_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        _write_scope_guard(guard_path, current)
+        return True, ""
+
+    if not isinstance(loaded, dict):
+        _write_scope_guard(guard_path, current)
+        return True, ""
+    if str(loaded.get("ticket") or "") != context.ticket or str(loaded.get("stage") or "") != context.stage:
+        _write_scope_guard(guard_path, current)
+        return True, ""
+
+    expected_scope_key = str(loaded.get("scope_key") or "").strip()
+    expected_work_item_key = str(loaded.get("work_item_key") or "").strip()
+    if expected_scope_key == context.scope_key and expected_work_item_key == context.work_item_key:
+        return True, ""
+
+    _emit_scope_cascade_stage_result(
+        context,
+        expected_scope_key=expected_scope_key,
+        expected_work_item_key=expected_work_item_key,
+    )
+    return (
+        False,
+        f"scope guard mismatch: expected {expected_scope_key}/{expected_work_item_key}, "
+        f"got {context.scope_key}/{context.work_item_key}",
+    )
+
+
 def _canonicalize_actions_payload_once(
     path: Path,
     *,
@@ -272,6 +388,12 @@ def _canonicalize_actions_payload_once(
 
 
 def _run(args: argparse.Namespace, *, context: launcher.LaunchContext, log_path: Path) -> int:
+    scope_guard_ok, scope_guard_diag = _enforce_single_scope_guard(context)
+    if not scope_guard_ok:
+        print(f"[aidd] ERROR: reason_code={_SCOPE_GUARD_REASON_CODE}", file=sys.stderr)
+        print(f"[aidd] ERROR: diagnostics={scope_guard_diag}", file=sys.stderr)
+        return 1
+
     paths = launcher.actions_paths(context)
     actions_provided = bool(args.actions)
     if actions_provided:

@@ -11,8 +11,8 @@
       "lang": "ru",
       "name": "implementer",
       "path": "agents/implementer.md",
-      "prompt_version": "1.1.42",
-      "source_version": "1.1.42"
+      "prompt_version": "1.1.43",
+      "source_version": "1.1.43"
     },
     {
       "lang": "ru",

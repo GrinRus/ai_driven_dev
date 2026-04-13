@@ -153,6 +153,164 @@ class AiddStageLauncherTests(unittest.TestCase):
             self.assertEqual(payload["classification"], "silent_stall")
             self.assertEqual(payload["active_source"], "none")
 
+    def test_run_stage_budget_watchdog_sets_kill_markers(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            log_path = root / "run.log"
+            heartbeat_path = root / "run.heartbeat.log"
+            payload = self.launcher.run_stage(
+                cmd=[sys.executable, "-c", "import time; time.sleep(5)"],
+                cwd=root,
+                log_path=log_path,
+                heartbeat_path=heartbeat_path,
+                poll_seconds=1,
+                budget_seconds=1,
+            )
+            self.assertEqual(payload.get("killed_flag"), 1)
+            self.assertEqual(payload.get("watchdog_marker"), 1)
+            self.assertIn(int(payload.get("exit_code") or 0), {137, 143})
+            self.assertIn(str(payload.get("signal") or ""), {"SIGTERM", "SIGKILL"})
+            self.assertGreaterEqual(int(payload.get("stage_elapsed_seconds") or 0), 1)
+
+    def test_run_stage_fail_fast_for_playwright_dependency_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            log_path = root / "run.log"
+            heartbeat_path = root / "run.heartbeat.log"
+            payload = self.launcher.run_stage(
+                cmd=[
+                    sys.executable,
+                    "-u",
+                    "-c",
+                    (
+                        "import time;"
+                        "print(\"Error: browserType.launch: Executable doesn't exist at /tmp/chrome\", flush=True);"
+                        "print(\"Looks like Playwright Test or Playwright was just installed or updated.\", flush=True);"
+                        "print(\"Please run: npx playwright install\", flush=True);"
+                        "time.sleep(8)"
+                    ),
+                ],
+                cwd=root,
+                log_path=log_path,
+                heartbeat_path=heartbeat_path,
+                poll_seconds=1,
+                budget_seconds=0,
+                enable_tests_env_failfast=True,
+            )
+            self.assertEqual(payload.get("reason_code"), "tests_env_dependency_missing")
+            self.assertIn(str(payload.get("reason") or ""), {"playwright_executable_missing", "playwright_install_loop_hint"})
+            self.assertEqual(int(payload.get("watchdog_marker") or 0), 0)
+            self.assertEqual(int(payload.get("killed_flag") or 0), 1)
+            self.assertIn(int(payload.get("exit_code") or 0), {137, 143})
+
+    def test_main_writes_termination_attribution_on_budget_watchdog(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            project_dir = root / "project"
+            plugin_dir = root / "plugin"
+            audit_dir = root / "audit"
+            project_dir.mkdir(parents=True, exist_ok=True)
+            plugin_dir.mkdir(parents=True, exist_ok=True)
+            audit_dir.mkdir(parents=True, exist_ok=True)
+
+            original_build_command = self.launcher.build_command
+            original_argv = list(sys.argv)
+            self.launcher.build_command = lambda **_: [sys.executable, "-c", "import time; time.sleep(5)"]
+            try:
+                sys.argv = [
+                    "aidd_stage_launcher.py",
+                    "--project-dir",
+                    str(project_dir),
+                    "--plugin-dir",
+                    str(plugin_dir),
+                    "--audit-dir",
+                    str(audit_dir),
+                    "--step",
+                    "06_implement",
+                    "--run",
+                    "1",
+                    "--ticket",
+                    "TST-001",
+                    "--stage-command",
+                    "/feature-dev-aidd:implement TST-001",
+                    "--budget-seconds",
+                    "1",
+                ]
+                rc = self.launcher.main()
+            finally:
+                self.launcher.build_command = original_build_command
+                sys.argv = original_argv
+
+            self.assertIn(rc, {137, 143})
+            term_path = audit_dir / "06_implement_termination_attribution.txt"
+            self.assertTrue(term_path.exists())
+            term_text = term_path.read_text(encoding="utf-8")
+            self.assertIn("killed_flag=1", term_text)
+            self.assertIn("watchdog_marker=1", term_text)
+            self.assertIn("watchdog_terminated", term_text)
+            summary_text = (audit_dir / "06_implement_run1.summary.txt").read_text(encoding="utf-8")
+            self.assertIn("killed_flag=1", summary_text)
+            self.assertIn("watchdog_marker=1", summary_text)
+
+    def test_main_fail_fast_classifies_tests_env_dependency_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            project_dir = root / "project"
+            plugin_dir = root / "plugin"
+            audit_dir = root / "audit"
+            project_dir.mkdir(parents=True, exist_ok=True)
+            plugin_dir.mkdir(parents=True, exist_ok=True)
+            audit_dir.mkdir(parents=True, exist_ok=True)
+
+            original_build_command = self.launcher.build_command
+            original_argv = list(sys.argv)
+            self.launcher.build_command = lambda **_: [
+                sys.executable,
+                "-u",
+                "-c",
+                (
+                    "import time;"
+                    "print(\"Error: browserType.launch: Executable doesn't exist at /tmp/chrome\", flush=True);"
+                    "print(\"Looks like Playwright Test or Playwright was just installed or updated.\", flush=True);"
+                    "print(\"Please run: npx playwright install\", flush=True);"
+                    "time.sleep(8)"
+                ),
+            ]
+            try:
+                sys.argv = [
+                    "aidd_stage_launcher.py",
+                    "--project-dir",
+                    str(project_dir),
+                    "--plugin-dir",
+                    str(plugin_dir),
+                    "--audit-dir",
+                    str(audit_dir),
+                    "--step",
+                    "06_implement",
+                    "--run",
+                    "1",
+                    "--ticket",
+                    "TST-001",
+                    "--stage-command",
+                    "/feature-dev-aidd:implement TST-001",
+                    "--budget-seconds",
+                    "120",
+                ]
+                rc = self.launcher.main()
+            finally:
+                self.launcher.build_command = original_build_command
+                sys.argv = original_argv
+
+            self.assertIn(rc, {137, 143})
+            term_path = audit_dir / "06_implement_termination_attribution.txt"
+            term_text = term_path.read_text(encoding="utf-8")
+            self.assertIn("reason_code=tests_env_dependency_missing", term_text)
+            self.assertIn("tests_env_dependency_missing", term_text)
+            self.assertIn("watchdog_marker=0", term_text)
+            summary_text = (audit_dir / "06_implement_run1.summary.txt").read_text(encoding="utf-8")
+            self.assertIn("reason_code=tests_env_dependency_missing", summary_text)
+            self.assertIn("watchdog_marker=0", summary_text)
+
     def test_main_fail_fast_when_project_equals_plugin_dir(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

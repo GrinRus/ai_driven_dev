@@ -171,6 +171,7 @@
 ### 5.0 Обязательный launcher (для каждого stage-run)
 
 - Для всех stage-run обязателен canonical launcher `python3 $PLUGIN_DIR/tests/repo_tools/aidd_stage_launcher.py ...`; ad-hoc shell wrappers/inline-launchers запрещены.
+- Для stage-run с budget обязательно передавать `--budget-seconds <N>` в canonical launcher; budget kill должен фиксироваться через `*_termination_attribution.txt` с `killed_flag=1` и `watchdog_marker=1`.
 - Для `stream-json` режимов используй шаблон:
   - `cd "$PROJECT_DIR"`
   - `claude -p "<stage command>" $CLAUDE_ARGS $CLAUDE_STREAM_FLAGS $CLAUDE_PLUGIN_FLAGS`
@@ -224,7 +225,7 @@
 
 - Сначала `ENV_BLOCKER`.
 - Затем `ENV_MISCONFIG/external_terminate`.
-- Затем `prompt-exec issue` (включая `project_contract_missing|tests_cwd_mismatch` как primary blockers; `no_top_level_result` в таких кейсах считать secondary symptom).
+- Затем `prompt-exec issue` (включая `project_contract_missing|tests_cwd_mismatch` как primary blockers; `no_top_level_result` в таких кейсах считать secondary symptom; `seed_scope_cascade_detected|tests_env_dependency_missing` — terminal).
 - Отдельно `contract mismatch`.
 - Только потом `flow bug`.
 
@@ -582,8 +583,10 @@ Anti-cascade:
 - `STEP6_IMPLEMENT_BUDGET_SECONDS=3600`
 - `STEP6_REVIEW_BUDGET_SECONDS=3600`
 - один запуск `implement`, один запуск `review`;
+- single-scope invariant: seed `implement` run обрабатывает ровно один work_item/scope; запуск второго iteration (`I<N+1>`) в том же `06_implement_run1.log` классифицируется как `NOT VERIFIED (seed_scope_cascade_detected)` + `prompt-exec issue`.
 - question retry для шага 6 запрещён;
 - если `result_count=0`, классифицировать как `NOT VERIFIED (no_top_level_result)` + `prompt-exec issue`;
+- если в seed `implement` обнаружен deterministic test-env blocker (`Playwright executable missing`, browser install dependency, аналогичные runtime dependency gaps), классифицировать как `NOT VERIFIED (tests_env_dependency_missing)` + `prompt-exec issue` и запрещать повторные install-loops в том же run;
 - если в логах есть `python3 skills/.../runtime/*.py` + `can't open file`, классифицировать как `NOT VERIFIED (prompt_flow_drift_non_canonical_runtime_path)`.
 
 Loop seed integrity checks:

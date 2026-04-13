@@ -1,5 +1,6 @@
 import io
 import json
+import os
 import tempfile
 import unittest
 from argparse import Namespace
@@ -12,6 +13,42 @@ from aidd_runtime import stage_actions_run
 
 
 class StageActionsRunTests(unittest.TestCase):
+    def test_single_scope_guard_blocks_cross_iteration_in_same_stage_run_lock(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="stage-actions-run-") as tmpdir:
+            root = Path(tmpdir)
+            lock_env = {"AIDD_STAGE_RUN_LOCK_ID": "06_implement_run1"}
+            context_i1 = launcher.LaunchContext(
+                root=root,
+                ticket="DEMO-1",
+                scope_key="iteration_id_I1",
+                work_item_key="iteration_id=I1",
+                stage="implement",
+            )
+            context_i2 = launcher.LaunchContext(
+                root=root,
+                ticket="DEMO-1",
+                scope_key="iteration_id_I2",
+                work_item_key="iteration_id=I2",
+                stage="implement",
+            )
+
+            with (
+                patch.dict(os.environ, lock_env, clear=False),
+                patch("aidd_runtime.stage_actions_run.stage_result_runtime.main", return_value=0) as stage_result_main,
+            ):
+                ok_i1, diag_i1 = stage_actions_run._enforce_single_scope_guard(context_i1)
+                ok_i2, diag_i2 = stage_actions_run._enforce_single_scope_guard(context_i2)
+
+            self.assertTrue(ok_i1)
+            self.assertEqual(diag_i1, "")
+            self.assertFalse(ok_i2)
+            self.assertIn("expected iteration_id_I1/iteration_id=I1", diag_i2)
+            self.assertIn("got iteration_id_I2/iteration_id=I2", diag_i2)
+            stage_result_main.assert_called_once()
+            emitted_args = stage_result_main.call_args.args[0]
+            self.assertIn("--reason-code", emitted_args)
+            self.assertIn("seed_scope_cascade_detected", emitted_args)
+
     def test_main_emits_launcher_reason_marker(self) -> None:
         with tempfile.TemporaryDirectory(prefix="stage-actions-run-") as tmpdir:
             root = Path(tmpdir)

@@ -37,6 +37,22 @@ class StageResultTests(unittest.TestCase):
         }
         self.assertEqual(stage_result_contract.effective_stage_result(payload), "blocked")
 
+    def test_effective_stage_result_keeps_blocked_for_seed_scope_cascade(self) -> None:
+        payload = {
+            "result": "blocked",
+            "requested_result": "done",
+            "reason_code": "seed_scope_cascade_detected",
+        }
+        self.assertEqual(stage_result_contract.effective_stage_result(payload), "blocked")
+
+    def test_effective_stage_result_keeps_blocked_for_tests_env_dependency_missing(self) -> None:
+        payload = {
+            "result": "blocked",
+            "requested_result": "done",
+            "reason_code": "tests_env_dependency_missing",
+        }
+        self.assertEqual(stage_result_contract.effective_stage_result(payload), "blocked")
+
     def test_stage_result_writer_keeps_canonical_schema_field(self) -> None:
         with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))

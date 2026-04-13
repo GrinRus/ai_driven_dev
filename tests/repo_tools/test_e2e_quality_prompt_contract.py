@@ -119,6 +119,9 @@ class E2EQualityPromptContractTests(unittest.TestCase):
             "07_stage_result_contract_check.txt",
             "07_blocking_findings_policy_check.txt",
             "07_python_only_surface_check.txt",
+            "seed_scope_cascade_detected",
+            "tests_env_dependency_missing",
+            "--budget-seconds <N>",
         ):
             self.assertIn(needle, flow_text, msg=f"flow prompt lost shared invariant: {needle}")
             self.assertIn(needle, quality_text, msg=f"quality prompt missing shared invariant: {needle}")
