@@ -4,7 +4,7 @@
 
 Owner: feature-dev-aidd
 Last reviewed: 2026-04-12
-Status: historical
+Status: active
 
 ## Scope
 - Incident class hardening for `06/07/08` audit fallout.
@@ -52,6 +52,23 @@ If disk is below threshold, stop with `ENV_MISCONFIG(no_space_left_on_device)`.
 6. `FLOW_BUG`
    - only after all higher-priority classes are not matched.
 
+## Soft-Default Policy (Wave 141)
+- Default profile for audit replay and CI verdicts: `classification_profile=soft_default`.
+- Strict profile remains available: `classification_profile=strict`.
+- For `06_implement`, soft profile can downgrade terminal implement blockers to `WARN` to preserve downstream signal (`07/08` still run).
+- Root-cause must never be lost:
+  - `strict_shadow_classification`
+  - `primary_root_cause`
+  - `softened=1|0`
+  - `softened_from`
+  - `softened_to`
+- Global env/preflight blockers (`plugin_not_loaded`, `cwd_wrong`, `no_space_left_on_device`) are never softened.
+
+### Interpreting `soft PASS + strict FAIL`
+1. Treat strict-shadow as RCA source-of-truth.
+2. Keep soft verdict for pipeline continuity and downstream evidence collection.
+3. Escalate to strict policy (manual rerun or CI toggle) when strict-shadow shows repeatable blockers on critical stages (`06/07/08`).
+
 ## `result_count=0` Policy
 - `result_count=0` is telemetry-only until top-level payload is checked.
 - Detect top-level status from run log (`status=...` or JSON status payload).
@@ -64,6 +81,7 @@ python3 tests/repo_tools/aidd_audit_runner.py classify \
   --summary <step_summary.txt> \
   --log <step_log> \
   --termination <step_termination.txt> \
+  --classification-profile soft_default \
   --aux-log <optional_loop_log> \
   --project-dir <project_dir> \
   --plugin-dir <plugin_dir>

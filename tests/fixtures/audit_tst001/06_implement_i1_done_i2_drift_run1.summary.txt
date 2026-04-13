@@ -1,0 +1,9 @@
+step=06_implement
+run=1
+exit_code=2
+effective_exit_code=2
+result_count=1
+top_level_result=1
+top_level_status=blocked
+reason_code=seed_scope_cascade_detected
+reason=single-scope seed run violated: expected scope=iteration_id_I1 work_item=iteration_id=I1; got scope=iteration_id_I2 work_item=iteration_id=I2

@@ -390,6 +390,7 @@ def _canonicalize_actions_payload_once(
 def _run(args: argparse.Namespace, *, context: launcher.LaunchContext, log_path: Path) -> int:
     scope_guard_ok, scope_guard_diag = _enforce_single_scope_guard(context)
     if not scope_guard_ok:
+        print(f"status=blocked reason_code={_SCOPE_GUARD_REASON_CODE}")
         print(f"[aidd] ERROR: reason_code={_SCOPE_GUARD_REASON_CODE}", file=sys.stderr)
         print(f"[aidd] ERROR: diagnostics={scope_guard_diag}", file=sys.stderr)
         return 1

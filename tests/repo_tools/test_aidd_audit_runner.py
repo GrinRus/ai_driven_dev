@@ -547,7 +547,7 @@ class AiddAuditRunnerTests(unittest.TestCase):
         self.assertEqual(payload.get("readiness_reason"), "prd_not_ready")
         self.assertEqual(payload.get("readiness_failure_mode"), "report_recommended_status_not_ready")
 
-    def test_repeated_command_failure_reason_is_classified_as_prompt_exec_issue(self) -> None:
+    def test_repeated_command_failure_reason_is_softened_for_06_implement_in_soft_default(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             summary_path = Path(tmp) / "06_implement_run1.summary.txt"
             summary_path.write_text(
@@ -562,8 +562,31 @@ class AiddAuditRunnerTests(unittest.TestCase):
                 encoding="utf-8",
             )
             payload = self.runner.analyze_run(summary_path=summary_path)
+        self.assertEqual(payload.get("classification"), "TELEMETRY_ONLY")
+        self.assertEqual(payload.get("classification_subtype"), "soft_default_repeated_command_failure_no_new_evidence")
+        self.assertEqual(payload.get("strict_shadow_classification_type"), "PROMPT_EXEC_ISSUE")
+        self.assertEqual(payload.get("strict_shadow_classification_subtype"), "repeated_command_failure_no_new_evidence")
+        self.assertEqual(payload.get("softened"), 1)
+
+    def test_repeated_command_failure_reason_remains_strict_when_profile_is_strict(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "06_implement_run1.summary.txt"
+            summary_path.write_text(
+                "\n".join(
+                    [
+                        "step=06_implement",
+                        "exit_code=20",
+                        "reason_code=repeated_command_failure_no_new_evidence",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(summary_path=summary_path, classification_profile="strict")
         self.assertEqual(payload.get("classification"), "PROMPT_EXEC_ISSUE")
         self.assertEqual(payload.get("classification_subtype"), "repeated_command_failure_no_new_evidence")
+        self.assertEqual(payload.get("strict_shadow_classification_type"), "PROMPT_EXEC_ISSUE")
+        self.assertEqual(payload.get("softened"), 0)
 
     def test_project_contract_missing_is_primary_even_with_no_top_level_result(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -792,6 +815,32 @@ class AiddAuditRunnerTests(unittest.TestCase):
         superseded = step_payload.get("superseded_runs") or []
         self.assertTrue(any(str(summary_run1) in item for item in superseded))
 
+    def test_rollup_keeps_soft_profile_and_strict_shadow_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "06_implement_run1.summary.txt"
+            summary_path.write_text(
+                "\n".join(
+                    [
+                        "step=06_implement",
+                        "exit_code=2",
+                        "result_count=1",
+                        "reason_code=seed_scope_cascade_detected",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(summary_path=summary_path)
+            rolled = self.runner.rollup_latest_runs([payload])
+        step_payload = (rolled.get("steps") or {}).get("06_implement")
+        self.assertIsNotNone(step_payload)
+        self.assertEqual(step_payload.get("classification_profile"), "soft_default")
+        self.assertEqual(step_payload.get("classification"), "TELEMETRY_ONLY")
+        self.assertEqual(step_payload.get("classification_subtype"), "soft_default_seed_scope_cascade_detected")
+        self.assertEqual(step_payload.get("strict_shadow_classification_subtype"), "seed_scope_cascade_detected")
+        self.assertEqual(step_payload.get("primary_root_cause"), "PROMPT_EXEC_ISSUE:seed_scope_cascade_detected")
+        self.assertEqual(step_payload.get("softened"), 1)
+
     def test_analyze_run_infers_sibling_termination_attribution_file(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             summary_path = Path(tmp) / "06_implement_run1.summary.txt"
@@ -820,11 +869,15 @@ class AiddAuditRunnerTests(unittest.TestCase):
                 encoding="utf-8",
             )
             payload = self.runner.analyze_run(summary_path=summary_path)
-        self.assertEqual(payload.get("classification"), "PROMPT_EXEC_ISSUE")
-        self.assertEqual(payload.get("classification_subtype"), "watchdog_terminated")
+        self.assertEqual(payload.get("classification"), "TELEMETRY_ONLY")
+        self.assertEqual(payload.get("classification_subtype"), "soft_default_watchdog_terminated")
+        self.assertEqual(payload.get("strict_shadow_classification_type"), "PROMPT_EXEC_ISSUE")
+        self.assertEqual(payload.get("strict_shadow_classification_subtype"), "watchdog_terminated")
+        self.assertEqual(payload.get("softened"), 1)
+        self.assertEqual(payload.get("classification_profile"), "soft_default")
         self.assertEqual(Path(str(payload.get("termination_path") or "")).name, "06_implement_termination_attribution.txt")
 
-    def test_seed_scope_cascade_reason_is_classified_as_prompt_exec_issue(self) -> None:
+    def test_seed_scope_cascade_reason_is_softened_in_soft_default_profile(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             summary_path = Path(tmp) / "06_implement_run1.summary.txt"
             summary_path.write_text(
@@ -840,10 +893,34 @@ class AiddAuditRunnerTests(unittest.TestCase):
                 encoding="utf-8",
             )
             payload = self.runner.analyze_run(summary_path=summary_path)
+        self.assertEqual(payload.get("classification"), "TELEMETRY_ONLY")
+        self.assertEqual(payload.get("classification_subtype"), "soft_default_seed_scope_cascade_detected")
+        self.assertEqual(payload.get("strict_shadow_classification_type"), "PROMPT_EXEC_ISSUE")
+        self.assertEqual(payload.get("strict_shadow_classification_subtype"), "seed_scope_cascade_detected")
+        self.assertEqual(payload.get("softened"), 1)
+
+    def test_seed_scope_cascade_reason_keeps_strict_shadow_profile(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "06_implement_run1.summary.txt"
+            summary_path.write_text(
+                "\n".join(
+                    [
+                        "step=06_implement",
+                        "exit_code=2",
+                        "result_count=1",
+                        "reason_code=seed_scope_cascade_detected",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(summary_path=summary_path, classification_profile="strict")
         self.assertEqual(payload.get("classification"), "PROMPT_EXEC_ISSUE")
         self.assertEqual(payload.get("classification_subtype"), "seed_scope_cascade_detected")
+        self.assertEqual(payload.get("strict_shadow_classification_type"), "PROMPT_EXEC_ISSUE")
+        self.assertEqual(payload.get("softened"), 0)
 
-    def test_tests_env_dependency_missing_reason_is_classified_as_prompt_exec_issue(self) -> None:
+    def test_tests_env_dependency_missing_reason_is_softened_in_soft_default_profile(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             summary_path = Path(tmp) / "06_implement_run1.summary.txt"
             summary_path.write_text(
@@ -859,8 +936,35 @@ class AiddAuditRunnerTests(unittest.TestCase):
                 encoding="utf-8",
             )
             payload = self.runner.analyze_run(summary_path=summary_path)
-        self.assertEqual(payload.get("classification"), "PROMPT_EXEC_ISSUE")
-        self.assertEqual(payload.get("classification_subtype"), "tests_env_dependency_missing")
+        self.assertEqual(payload.get("classification"), "TELEMETRY_ONLY")
+        self.assertEqual(payload.get("classification_subtype"), "soft_default_tests_env_dependency_missing")
+        self.assertEqual(payload.get("strict_shadow_classification_type"), "PROMPT_EXEC_ISSUE")
+        self.assertEqual(payload.get("strict_shadow_classification_subtype"), "tests_env_dependency_missing")
+        self.assertEqual(payload.get("softened"), 1)
+
+    def test_fixture_i1_done_i2_drift_soft_and_strict_profiles_keep_root_cause(self) -> None:
+        summary_path = FIXTURES / "06_implement_i1_done_i2_drift_run1.summary.txt"
+        log_path = FIXTURES / "06_implement_i1_done_i2_drift_run1.log"
+
+        soft_payload = self.runner.analyze_run(summary_path=summary_path, run_log_path=log_path)
+        self.assertEqual(soft_payload.get("classification_profile"), "soft_default")
+        self.assertEqual(soft_payload.get("classification"), "TELEMETRY_ONLY")
+        self.assertEqual(soft_payload.get("classification_subtype"), "soft_default_seed_scope_cascade_detected")
+        self.assertEqual(soft_payload.get("strict_shadow_classification_type"), "PROMPT_EXEC_ISSUE")
+        self.assertEqual(soft_payload.get("strict_shadow_classification_subtype"), "seed_scope_cascade_detected")
+        self.assertEqual(soft_payload.get("primary_root_cause"), "PROMPT_EXEC_ISSUE:seed_scope_cascade_detected")
+        self.assertEqual(soft_payload.get("softened"), 1)
+
+        strict_payload = self.runner.analyze_run(
+            summary_path=summary_path,
+            run_log_path=log_path,
+            classification_profile="strict",
+        )
+        self.assertEqual(strict_payload.get("classification_profile"), "strict")
+        self.assertEqual(strict_payload.get("classification"), "PROMPT_EXEC_ISSUE")
+        self.assertEqual(strict_payload.get("classification_subtype"), "seed_scope_cascade_detected")
+        self.assertEqual(strict_payload.get("primary_root_cause"), "PROMPT_EXEC_ISSUE:seed_scope_cascade_detected")
+        self.assertEqual(strict_payload.get("softened"), 0)
 
 
 if __name__ == "__main__":

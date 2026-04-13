@@ -41,6 +41,12 @@ READINESS_REASON_CODES = (
     "answers_format_invalid",
     "research_not_ready",
 )
+CLASSIFICATION_PROFILES = ("soft_default", "strict")
+SOFT_DEFAULT_IMPLEMENT_EXCLUDED_SUBTYPES = {
+    "project_contract_missing",
+    "tests_cwd_mismatch",
+    "readiness_gate_failed",
+}
 
 
 def _truthy(value: object) -> bool:
@@ -318,6 +324,28 @@ def _allow_readiness_override(classification: contract.Classification) -> bool:
     return classification.classification in {"FLOW_BUG", "TELEMETRY_ONLY"}
 
 
+def _normalize_classification_profile(raw: str | None) -> str:
+    value = str(raw or "").strip().lower()
+    if value in CLASSIFICATION_PROFILES:
+        return value
+    return "soft_default"
+
+
+def _is_softenable_implement_blocker(
+    *,
+    step_key: str,
+    classification: contract.Classification,
+) -> bool:
+    normalized_step = str(step_key or "").strip().lower()
+    if not normalized_step.startswith("06_implement"):
+        return False
+    if classification.classification not in {"PROMPT_EXEC_ISSUE", "FLOW_BUG"}:
+        return False
+    if classification.subtype in SOFT_DEFAULT_IMPLEMENT_EXCLUDED_SUBTYPES:
+        return False
+    return True
+
+
 def analyze_run(
     *,
     summary_path: Path,
@@ -327,7 +355,9 @@ def analyze_run(
     liveness_path: Path | None = None,
     preflight: Mapping[str, object] | None = None,
     aux_log_paths: List[Path] | None = None,
+    classification_profile: str = "soft_default",
 ) -> Dict[str, object]:
+    classification_profile = _normalize_classification_profile(classification_profile)
     step_key, run_index = _parse_summary_identity(summary_path)
     summary_mtime = 0.0
     try:
@@ -489,7 +519,26 @@ def analyze_run(
         )
 
     recoverable_ralph_observed = _detect_recoverable_ralph(aux_text)
-    effective_terminal_status = classified.label
+    strict_shadow = classified
+    effective = strict_shadow
+    softened = 0
+    softened_from = ""
+    softened_to = ""
+    if classification_profile == "soft_default" and _is_softenable_implement_blocker(
+        step_key=step_key or str(summary.get("step") or ""),
+        classification=strict_shadow,
+    ):
+        softened = 1
+        softened_from = strict_shadow.label
+        effective = contract.Classification(
+            classification="TELEMETRY_ONLY",
+            subtype=f"soft_default_{strict_shadow.subtype}",
+            source="soft_default_profile",
+            label=f"WARN({strict_shadow.subtype})",
+        )
+        softened_to = effective.label
+
+    effective_terminal_status = effective.label
     if top_level_status == "blocked" and recoverable_ralph_observed:
         effective_terminal_status = "BLOCKED(recoverable ralph path observed)"
     termination_exit_code = str(
@@ -501,7 +550,7 @@ def analyze_run(
         termination.get("watchdog_marker"),
         _safe_int(summary.get("watchdog_marker"), 0),
     )
-    termination_secondary_telemetry = int(classified.subtype == "cwd_wrong" and termination_exit_code == "143")
+    termination_secondary_telemetry = int(strict_shadow.subtype == "cwd_wrong" and termination_exit_code == "143")
     step_hint = "\n".join(
         [
             summary_path.name,
@@ -512,12 +561,12 @@ def analyze_run(
         ]
     )
     downstream_skip_hint = ""
-    if classified.classification == "ENV_MISCONFIG" and classified.subtype == "cwd_wrong":
+    if strict_shadow.classification == "ENV_MISCONFIG" and strict_shadow.subtype == "cwd_wrong":
         if re.search(r"05[_-].*tasks[-_ ]new|05_tasks_new", step_hint, flags=re.IGNORECASE):
             downstream_skip_hint = "NOT VERIFIED (upstream_tasks_new_failed)"
         else:
             downstream_skip_hint = "NOT VERIFIED (upstream_env_misconfig_cwd_wrong)"
-    primary_cause = f"{classified.classification}:{classified.subtype}"
+    primary_cause = f"{strict_shadow.classification}:{strict_shadow.subtype}"
     secondary_symptoms: List[str] = []
     secondary_telemetry: List[str] = []
     if result_count_interpretation == "no_top_level_result_confirmed":
@@ -551,10 +600,11 @@ def analyze_run(
             "top_level_result_present": int(top_level_result_present),
             "top_level_status": top_level_status,
             "result_count_interpretation": result_count_interpretation,
-            "classification": classified.classification,
-            "classification_subtype": classified.subtype,
-            "classification_source": classified.source,
-            "effective_classification": classified.label,
+            "classification_profile": classification_profile,
+            "classification": effective.classification,
+            "classification_subtype": effective.subtype,
+            "classification_source": effective.source,
+            "effective_classification": effective.label,
             "effective_terminal_status": effective_terminal_status,
             "termination_exit_code": termination_exit_code,
             "termination_signal": termination_signal,
@@ -578,6 +628,14 @@ def analyze_run(
             "liveness_valid_stream_count": liveness_valid_stream_count,
             "liveness_stagnation_seconds": liveness_stagnation_seconds,
             "liveness_run_start_epoch": liveness_run_start_epoch,
+            "strict_shadow_classification": strict_shadow.label,
+            "strict_shadow_classification_type": strict_shadow.classification,
+            "strict_shadow_classification_subtype": strict_shadow.subtype,
+            "strict_shadow_source": strict_shadow.source,
+            "softened": int(softened),
+            "softened_from": softened_from,
+            "softened_to": softened_to,
+            "primary_root_cause": primary_cause,
             "primary_cause": primary_cause,
             "secondary_symptoms": secondary_symptoms,
             "secondary_telemetry": secondary_telemetry,
@@ -659,6 +717,7 @@ def _build_parser() -> argparse.ArgumentParser:
     classify_parser.add_argument("--plugin-dir")
     classify_parser.add_argument("--min-free-bytes", type=int, default=DEFAULT_MIN_FREE_BYTES)
     classify_parser.add_argument("--skip-preflight", action="store_true")
+    classify_parser.add_argument("--classification-profile", choices=CLASSIFICATION_PROFILES, default="soft_default")
 
     rollup_parser = sub.add_parser("rollup", help="Analyze multiple runs and roll up latest-wins per step.")
     rollup_parser.add_argument("--summary", action="append", default=[], help="Path to *_runN.summary.txt (repeatable).")
@@ -667,6 +726,7 @@ def _build_parser() -> argparse.ArgumentParser:
     rollup_parser.add_argument("--plugin-dir")
     rollup_parser.add_argument("--min-free-bytes", type=int, default=DEFAULT_MIN_FREE_BYTES)
     rollup_parser.add_argument("--skip-preflight", action="store_true")
+    rollup_parser.add_argument("--classification-profile", choices=CLASSIFICATION_PROFILES, default="soft_default")
 
     return parser
 
@@ -712,11 +772,13 @@ def main(argv: List[str] | None = None) -> int:
             payload = analyze_run(
                 summary_path=summary_path,
                 preflight=preflight_payload,
+                classification_profile=args.classification_profile,
             )
             if preflight_payload is not None:
                 payload["runner_preflight"] = dict(preflight_payload)
             analyzed.append(payload)
         rollup = rollup_latest_runs(analyzed)
+        rollup["classification_profile"] = _normalize_classification_profile(args.classification_profile)
         if preflight_payload is not None:
             rollup["runner_preflight"] = dict(preflight_payload)
         print(json.dumps(rollup, ensure_ascii=False, indent=2))
@@ -737,6 +799,7 @@ def main(argv: List[str] | None = None) -> int:
         liveness_path=Path(args.liveness) if args.liveness else None,
         preflight=preflight_payload,
         aux_log_paths=[Path(item) for item in args.aux_log],
+        classification_profile=args.classification_profile,
     )
     if preflight_payload is not None:
         payload["runner_preflight"] = dict(preflight_payload)

@@ -153,6 +153,9 @@ class AiddStageLauncherTests(unittest.TestCase):
             self.assertEqual(payload["classification"], "silent_stall")
             self.assertEqual(payload["active_source"], "none")
 
+    def test_detect_top_level_result_accepts_status_equals_blocked(self) -> None:
+        self.assertEqual(self.launcher._detect_top_level_result("status=blocked reason_code=seed_scope_cascade_detected\n"), 1)
+
     def test_run_stage_budget_watchdog_sets_kill_markers(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

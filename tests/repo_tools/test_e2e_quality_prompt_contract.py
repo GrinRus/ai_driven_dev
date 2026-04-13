@@ -66,6 +66,7 @@ class E2EQualityPromptContractTests(unittest.TestCase):
             "BASE_PROMPT=$PLUGIN_DIR/docs/e2e/aidd_test_flow_prompt_ralph_script_full.txt",
             "BACKLOG_PATH=$PLUGIN_DIR/docs/backlog.md",
             "QUALITY_PROFILE=full|smoke",
+            "CLASSIFICATION_PROFILE=soft_default|strict",
             "QUALITY_GATE_POLICY=strict",
             "WAVE_WRITE_MODE=on-findings|always",
             "BACKLOG_SCOPE=aidd-only|mixed",
@@ -121,6 +122,9 @@ class E2EQualityPromptContractTests(unittest.TestCase):
             "07_python_only_surface_check.txt",
             "seed_scope_cascade_detected",
             "tests_env_dependency_missing",
+            "strict-shadow telemetry",
+            "strict_shadow_classification",
+            "softened=1",
             "--budget-seconds <N>",
         ):
             self.assertIn(needle, flow_text, msg=f"flow prompt lost shared invariant: {needle}")

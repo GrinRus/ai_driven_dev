@@ -39,6 +39,7 @@
 - `CLAUDE_PLUGIN_FLAGS=--plugin-dir "$PLUGIN_DIR"`
 - `PLUGIN_HEALTHCHECK_CMD=/feature-dev-aidd:status $TICKET`
 - `SEVERITY_PROFILE=conservative` (default: `conservative`)
+- `CLASSIFICATION_PROFILE=soft_default|strict` (default: `soft_default`)
 
 ## 3) Режимы
 
@@ -213,7 +214,7 @@
   - buffering/quoting/runner/hang/silent stall
   - `exit_code=127` -> `launcher_tokenization_or_command_not_found` (не `completed`)
   - `reason_code=seed_stage_budget_exhausted` -> `watchdog_terminated` по budget exhaustion
-  - `reason_code=seed_scope_cascade_detected|tests_env_dependency_missing` -> terminal `prompt-exec issue` (single-scope/depends policy)
+  - `reason_code=seed_scope_cascade_detected|tests_env_dependency_missing` -> terminal `prompt-exec issue` в `strict_shadow`; при `CLASSIFICATION_PROFILE=soft_default` для `06_implement` публикуется `WARN` + продолжаем `7/8`.
   - `reason_code=repeated_command_failure_no_new_evidence` -> bounded fail-fast без дальнейших guessed retries
   - `reason_code=project_contract_missing|tests_cwd_mismatch` -> terminal policy blocker; при одновременном `no_top_level_result` последний остаётся secondary telemetry
   - `stage_result_missing_or_invalid` + diagnostics `scope_fallback_stale_ignored|scope_shape_invalid` -> `scope_drift_recoverable`
@@ -669,11 +670,13 @@ Anti-cascade:
   - `STEP6_IMPLEMENT_BUDGET_SECONDS=3600`
   - `STEP6_REVIEW_BUDGET_SECONDS=3600`
 - один запуск `implement`, один запуск `review`.
-- single-scope invariant: seed `implement` run обрабатывает ровно один work_item/scope; запуск второго iteration (`I<N+1>`) в том же `06_implement_run1.log` классифицируется как `NOT VERIFIED (seed_scope_cascade_detected)` + `prompt-exec issue`.
+- single-scope invariant: seed `implement` run обрабатывает ровно один work_item/scope; запуск второго iteration (`I<N+1>`) в том же `06_implement_run1.log` классифицируется как `seed_scope_cascade_detected`.
+- classification policy шага 6: при `CLASSIFICATION_PROFILE=soft_default` terminal implement-blockers переводятся в `WARN` и шаги `7/8` продолжаются; одновременно обязательно сохранять strict-shadow telemetry: `primary_root_cause`, `strict_shadow_classification`, `softened=1`, `softened_from`, `softened_to`.
+- при `CLASSIFICATION_PROFILE=strict` те же причины остаются terminal `NOT VERIFIED`.
 - question retry для шага 6 запрещён (R1): если один из запусков уходит в BLOCK/questions, зафиксировать `NOT VERIFIED` и не делать второй attempt того же stage.
 - если kill/hang — отмечать `NOT VERIFIED`.
 - если `*_summary.txt` содержит `result_count=0` при валидном `init`, классифицировать как `NOT VERIFIED (no_top_level_result)` + `prompt-exec issue`.
-- если в seed `implement` обнаружен deterministic test-env blocker (`Playwright executable missing`, browser install dependency, аналогичные runtime dependency gaps), классифицировать как `NOT VERIFIED (tests_env_dependency_missing)` + `prompt-exec issue` и запрещать повторные install-loops в том же run.
+- если в seed `implement` обнаружен deterministic test-env blocker (`Playwright executable missing`, browser install dependency, аналогичные runtime dependency gaps), выставлять `reason_code=tests_env_dependency_missing`; в `soft_default` публиковать `WARN` + strict-shadow, в `strict` — `NOT VERIFIED`.
 - если в логах шага есть `python3 skills/.../runtime/*.py` + `can't open file`, классифицировать как `NOT VERIFIED (prompt_flow_drift_non_canonical_runtime_path)`.
 - Anti-cascade gate: если шаг 6 завершился terminal `NOT VERIFIED` из-за `watchdog_terminated` или `no_top_level_result`, шаги 7 и 8 пометить `NOT VERIFIED (upstream_seed_stage_failed)` и перейти к шагу 99.
 

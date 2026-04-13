@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -47,6 +48,10 @@ DEFAULT_ACTION_TYPES = [
     "context_pack_ops.context_pack_update",
 ]
 ALWAYS_ALLOW_REPORTS = ["aidd/reports/**", "aidd/reports/actions/**"]
+_SCOPE_GUARD_ENV = "AIDD_STAGE_RUN_LOCK_ID"
+_SCOPE_GUARD_REASON_CODE = "seed_scope_cascade_detected"
+_SCOPE_GUARD_DIR = ".cache/stage-run-locks"
+_SCOPE_GUARD_LOCK_RE = re.compile(r"[^A-Za-z0-9_.-]+")
 
 
 class PreflightBlocked(RuntimeError):
@@ -54,6 +59,85 @@ class PreflightBlocked(RuntimeError):
         super().__init__(reason)
         self.reason_code = reason_code
         self.reason = reason
+
+
+def _sanitize_lock_id(value: str) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    cleaned = _SCOPE_GUARD_LOCK_RE.sub("_", raw).strip("._-")
+    return cleaned or ""
+
+
+def _scope_guard_path(target: Path, *, stage: str, lock_id: str) -> Path:
+    return target / _SCOPE_GUARD_DIR / f"{lock_id}.{stage}.json"
+
+
+def _write_scope_guard(path: Path, payload: Dict[str, str]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _scope_guard_payload(context: Dict[str, str]) -> Dict[str, str]:
+    return {
+        "ticket": str(context.get("ticket") or ""),
+        "stage": str(context.get("stage") or ""),
+        "scope_key": str(context.get("scope_key") or ""),
+        "work_item_key": str(context.get("work_item_key") or ""),
+    }
+
+
+def _enforce_single_scope_guard(
+    *,
+    target: Path,
+    context: Dict[str, str],
+) -> Tuple[bool, str, str, str]:
+    if str(context.get("stage") or "") != "implement":
+        return True, "", "", ""
+    if not str(context.get("work_item_key") or "").strip():
+        return True, "", "", ""
+
+    lock_id = _sanitize_lock_id(os.environ.get(_SCOPE_GUARD_ENV, ""))
+    if not lock_id:
+        return True, "", "", ""
+
+    guard_path = _scope_guard_path(target, stage=str(context.get("stage") or ""), lock_id=lock_id)
+    current = _scope_guard_payload(context)
+    if not guard_path.exists():
+        _write_scope_guard(guard_path, current)
+        return True, "", "", ""
+
+    try:
+        loaded = json.loads(guard_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        _write_scope_guard(guard_path, current)
+        return True, "", "", ""
+    if not isinstance(loaded, dict):
+        _write_scope_guard(guard_path, current)
+        return True, "", "", ""
+
+    if str(loaded.get("ticket") or "") != str(context.get("ticket") or ""):
+        _write_scope_guard(guard_path, current)
+        return True, "", "", ""
+    if str(loaded.get("stage") or "") != str(context.get("stage") or ""):
+        _write_scope_guard(guard_path, current)
+        return True, "", "", ""
+
+    expected_scope_key = str(loaded.get("scope_key") or "").strip()
+    expected_work_item_key = str(loaded.get("work_item_key") or "").strip()
+    if expected_scope_key == str(context.get("scope_key") or "") and expected_work_item_key == str(
+        context.get("work_item_key") or ""
+    ):
+        return True, "", "", ""
+
+    reason = (
+        "single-scope seed run violated: "
+        f"expected scope={expected_scope_key or '<missing>'} "
+        f"work_item={expected_work_item_key or '<missing>'}; "
+        f"got scope={context.get('scope_key') or '<missing>'} "
+        f"work_item={context.get('work_item_key') or '<missing>'}"
+    )
+    return False, reason, expected_scope_key, expected_work_item_key
 
 
 class _SafeDict(dict):
@@ -541,6 +625,20 @@ def main(argv: List[str] | None = None) -> int:
         if not context["work_item_key"]:
             raise PreflightBlocked("work_item_key_missing", "work_item_key is required for loop-stage preflight")
 
+        scope_guard_ok, scope_guard_reason, expected_scope_key, expected_work_item_key = _enforce_single_scope_guard(
+            target=target,
+            context=context,
+        )
+        if not scope_guard_ok:
+            diagnostics = scope_guard_reason
+            if expected_scope_key or expected_work_item_key:
+                diagnostics = (
+                    f"{scope_guard_reason}; "
+                    f"locked_scope={expected_scope_key or '<missing>'}; "
+                    f"locked_work_item={expected_work_item_key or '<missing>'}"
+                )
+            raise PreflightBlocked(_SCOPE_GUARD_REASON_CODE, diagnostics)
+
         requested_scope = str(context.get("requested_scope_key") or "").strip()
         canonical_scope = str(context.get("canonical_iteration_scope") or "").strip()
         if canonical_scope and requested_scope and requested_scope != canonical_scope:
@@ -676,6 +774,7 @@ def main(argv: List[str] | None = None) -> int:
             )
         else:
             print(f"preflight_result={runtime.rel_path(result_path, target)}")
+            print(f"status=blocked reason_code={exc.reason_code}")
             print(f"summary=BLOCKED reason_code={exc.reason_code} reason={exc.reason}")
         return 2
     except Exception as exc:  # pragma: no cover - defensive

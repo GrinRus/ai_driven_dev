@@ -54,6 +54,7 @@
 - `CLAUDE_PLUGIN_FLAGS=--plugin-dir "$PLUGIN_DIR"`
 - `PLUGIN_HEALTHCHECK_CMD=/feature-dev-aidd:status $TICKET`
 - `SEVERITY_PROFILE=conservative` (default: `conservative`)
+- `CLASSIFICATION_PROFILE=soft_default|strict` (default: `soft_default`)
 - `QUALITY_GATE_POLICY=strict` (default: `strict`)
 - `WAVE_WRITE_MODE=on-findings|always` (default: `on-findings`)
 - `BACKLOG_SCOPE=aidd-only|mixed` (default: `aidd-only`)
@@ -221,7 +222,7 @@
 
 - Сначала `ENV_BLOCKER`.
 - Затем `ENV_MISCONFIG/external_terminate`.
-- Затем `prompt-exec issue` (включая `project_contract_missing|tests_cwd_mismatch` как primary blockers; `no_top_level_result` в таких кейсах считать secondary symptom; `seed_scope_cascade_detected|tests_env_dependency_missing` — terminal).
+- Затем `prompt-exec issue` (включая `project_contract_missing|tests_cwd_mismatch` как primary blockers; `no_top_level_result` в таких кейсах считать secondary symptom; `seed_scope_cascade_detected|tests_env_dependency_missing` — terminal в `strict_shadow`, а при `CLASSIFICATION_PROFILE=soft_default` для `06_implement` публикуются как `WARN` c продолжением `7/8`).
 - Отдельно `contract mismatch`.
 - Только потом `flow bug`.
 
@@ -560,10 +561,12 @@ Anti-cascade:
 - `STEP6_IMPLEMENT_BUDGET_SECONDS=3600`
 - `STEP6_REVIEW_BUDGET_SECONDS=3600`
 - один запуск `implement`, один запуск `review`;
-- single-scope invariant: seed `implement` run обрабатывает ровно один work_item/scope; запуск второго iteration (`I<N+1>`) в том же `06_implement_run1.log` классифицируется как `NOT VERIFIED (seed_scope_cascade_detected)` + `prompt-exec issue`.
+- single-scope invariant: seed `implement` run обрабатывает ровно один work_item/scope; запуск второго iteration (`I<N+1>`) в том же `06_implement_run1.log` классифицируется как `seed_scope_cascade_detected`.
+- policy под `soft_default`: terminal implement-blockers шага 6 публикуются как `WARN`; одновременно обязателен strict-shadow telemetry block: `primary_root_cause`, `strict_shadow_classification`, `softened=1`, `softened_from`, `softened_to`.
+- policy под `strict`: те же причины остаются terminal `NOT VERIFIED`.
 - question retry для шага 6 запрещён;
 - если `result_count=0`, классифицировать как `NOT VERIFIED (no_top_level_result)` + `prompt-exec issue`;
-- если в seed `implement` обнаружен deterministic test-env blocker (`Playwright executable missing`, browser install dependency, аналогичные runtime dependency gaps), классифицировать как `NOT VERIFIED (tests_env_dependency_missing)` + `prompt-exec issue` и запрещать повторные install-loops в том же run;
+- если в seed `implement` обнаружен deterministic test-env blocker (`Playwright executable missing`, browser install dependency, аналогичные runtime dependency gaps), выставлять `reason_code=tests_env_dependency_missing`; в `soft_default` публиковать `WARN` + strict-shadow, в `strict` — `NOT VERIFIED`;
 - если в логах есть `python3 skills/.../runtime/*.py` + `can't open file`, классифицировать как `NOT VERIFIED (prompt_flow_drift_non_canonical_runtime_path)`.
 
 Loop seed integrity checks:

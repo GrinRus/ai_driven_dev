@@ -437,6 +437,48 @@ _Статус: done. Основание — в full-run `06_implement` budget wa
   **Effort:** S
   **Risk:** Low
 
+## Wave 141 — TST-001 Soft-by-default Diagnostics + Implement Convergence Hard-stop (2026-04-13)
+
+_Статус: done. Основание — для шага `06_implement` нужен dual-mode verdict: мягкий основной сигнал для продолжения `7/8` и обязательный strict-shadow для сохранения root-cause._
+
+- [x] **W141-1 (P0) Implement seed single-scope hard-stop in preflight/runtime chain** `skills/aidd-loop/runtime/preflight_prepare.py`, `tests/test_preflight_prepare.py`:
+  - enforce stage-run lock in preflight path (`AIDD_STAGE_RUN_LOCK_ID`) для implement seed;
+  - при cross-iteration попытке эмитить canonical blocked preflight with `reason_code=seed_scope_cascade_detected`.
+  **AC:** cross-iteration drift в одном seed-run детерминированно блокируется с canonical reason-code.
+  **Deps:** W140-1
+  **Regression/tests:** `python3 -m pytest -q tests/test_preflight_prepare.py`.
+  **Effort:** S
+  **Risk:** Medium
+
+- [x] **W141-2 (P0) Soft-default classification profile + strict-shadow telemetry** `tests/repo_tools/aidd_audit_runner.py`, `tests/repo_tools/test_aidd_audit_runner.py`:
+  - добавить `classification_profile=soft_default|strict` (default `soft_default`);
+  - для `06_implement` soft profile понижает terminal implement blockers в `WARN`;
+  - всегда сохранять strict-shadow поля: `strict_shadow_classification`, `primary_root_cause`, `softened`, `softened_from`, `softened_to`.
+  **AC:** soft verdict продолжает downstream сигнал, strict-shadow сохраняет root-cause без потерь.
+  **Deps:** W140-3
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_aidd_audit_runner.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [x] **W141-3 (P1) Prompt-contract hardening for soft-default + strict-shadow** `tests/repo_tools/e2e_prompt/profile_full.md`, `tests/repo_tools/e2e_prompt/quality_profile_full.md`, `tests/repo_tools/test_e2e_prompt_contract.py`, `tests/repo_tools/test_e2e_quality_prompt_contract.py`, `docs/e2e/*.txt`:
+  - зафиксировать `CLASSIFICATION_PROFILE=soft_default|strict`;
+  - добавить правило soft-default continuation для шага 6 и strict-shadow telemetry block;
+  - синхронизировать generated prompt outputs.
+  **AC:** prompt contract и generated outputs согласованы с dual-profile policy.
+  **Deps:** W141-2
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py tests/repo_tools/test_e2e_quality_prompt_contract.py`.
+  **Effort:** S
+  **Risk:** Medium
+
+- [x] **W141-4 (P2) Runbook updates for soft PASS + strict FAIL interpretation** `docs/runbooks/tst001-audit-hardening.md`:
+  - документировать policy и triage для dual verdict mode;
+  - добавить guidance по manual strict rerun/escalation.
+  **AC:** runbook объясняет, как читать `soft PASS` вместе с strict-shadow failure.
+  **Deps:** W141-2
+  **Regression/tests:** docs-only.
+  **Effort:** S
+  **Risk:** Low
+
 ## Wave 122 — Memory Platform (2026-04-02)
 
 _Статус: plan. Основание — low-priority cross-cutting развитие memory layer. Волна изолирована от текущей стабилизации runtime и не должна конкурировать с Core Flow fixes._

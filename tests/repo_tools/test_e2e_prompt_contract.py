@@ -377,6 +377,14 @@ class E2EPromptContractTests(unittest.TestCase):
         self.assertIn("tests_env_dependency_missing", text)
         self.assertIn("single-scope invariant", text)
 
+    def test_full_prompt_declares_soft_default_with_strict_shadow_for_step6(self) -> None:
+        text = _read(AUDIT_PROMPT_FULL)
+        self.assertIn("CLASSIFICATION_PROFILE=soft_default|strict", text)
+        self.assertIn("(default: `soft_default`)", text)
+        self.assertIn("strict-shadow telemetry", text)
+        self.assertIn("softened=1", text)
+        self.assertIn("strict_shadow_classification", text)
+
     def test_prompt_research_pending_finalize_contract(self) -> None:
         for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
             text = _read(prompt)
