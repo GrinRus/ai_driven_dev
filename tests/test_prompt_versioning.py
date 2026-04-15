@@ -9,86 +9,86 @@ import unittest
 from .helpers import REPO_ROOT
 
 
-RU_TEMPLATE_AGENT = dedent(
+EN_TEMPLATE_AGENT = dedent(
     """
     ---
     name: {name}
-    description: ru
-    lang: ru
+    description: en
+    lang: en
     prompt_version: {version}
     source_version: {version}
     tools: Read
     model: inherit
     ---
 
-    ## Контекст
+    ## Context
     text
 
-    ## Входные артефакты
+    ## Input Artifacts
     - item
 
-    ## Автоматизация
+    ## Automation
     text
 
-    ## Пошаговый план
+    ## Steps
     1. step
 
-    ## Fail-fast и вопросы
+    ## Fail-fast and Questions
     text
 
-    ## Формат ответа
+    ## Response Format
     text
     """
 ).strip() + "\n"
 
 
 def write_prompt(root: Path, name: str, version: str = "1.0.0", kind: str = "agent") -> None:
-    ru_dir = root / ("agents" if kind == "agent" else "commands")
-    ru_dir.mkdir(parents=True, exist_ok=True)
+    prompt_dir = root / ("agents" if kind == "agent" else "commands")
+    prompt_dir.mkdir(parents=True, exist_ok=True)
     if kind == "agent":
-        ru_text = RU_TEMPLATE_AGENT.format(name=name, version=version)
+        prompt_text = EN_TEMPLATE_AGENT.format(name=name, version=version)
     else:
-        ru_text = dedent(
+        prompt_text = dedent(
             f"""
             ---
             description: "{name}"
             argument-hint: "<TICKET>"
-            lang: ru
+            lang: en
             prompt_version: {version}
             source_version: {version}
             allowed-tools: Read
             model: inherit
             ---
 
-            ## Контекст
+            ## Context
             text
 
-            ## Входные артефакты
+            ## Input Artifacts
             - item
 
-            ## Когда запускать
+            ## When to Run
             text
 
-            ## Автоматические хуки и переменные
+            ## Automatic Hooks and Variables
             text
 
-            ## Что редактируется
+            ## Files Updated
             text
 
-            ## Пошаговый план
+            ## Steps
             1. step
 
-            ## Fail-fast и вопросы
+            ## Fail-fast and Questions
             text
 
-            ## Ожидаемый вывод
+            ## Expected Output
             text
 
-            ## Примеры CLI
+            ## CLI Examples
             - `/cmd`
             """
         ).strip() + "\n"
-    (ru_dir / f"{name}.md").write_text(ru_text, encoding="utf-8")
+    (prompt_dir / f"{name}.md").write_text(prompt_text, encoding="utf-8")
 
 
 def write_stage_skill(root: Path, name: str, version: str = "1.0.0") -> None:
@@ -100,7 +100,7 @@ def write_stage_skill(root: Path, name: str, version: str = "1.0.0") -> None:
         name: {name}
         description: "{name}"
         argument-hint: "<TICKET>"
-        lang: ru
+        lang: en
         prompt_version: {version}
         source_version: {version}
         allowed-tools: Read
@@ -131,7 +131,7 @@ class PromptVersioningTests(unittest.TestCase):
                 "--kind",
                 kind,
                 "--lang",
-                "ru",
+                "en",
                 "--part",
                 part,
             ],
@@ -141,25 +141,25 @@ class PromptVersioningTests(unittest.TestCase):
             cwd=REPO_ROOT,
         )
 
-    def test_bump_updates_ru_agent(self) -> None:
+    def test_bump_updates_en_agent(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             write_prompt(root, "analyst")
             result = self.run_prompt_version(root, "analyst", "agent", "minor")
             self.assertEqual(result.returncode, 0, msg=result.stderr)
-            ru_text = (root / "agents" / "analyst.md").read_text(encoding="utf-8")
-            self.assertIn("prompt_version: 1.1.0", ru_text)
-            self.assertIn("source_version: 1.1.0", ru_text)
+            prompt_text = (root / "agents" / "analyst.md").read_text(encoding="utf-8")
+            self.assertIn("prompt_version: 1.1.0", prompt_text)
+            self.assertIn("source_version: 1.1.0", prompt_text)
 
-    def test_bump_updates_ru_command(self) -> None:
+    def test_bump_updates_en_command(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             write_prompt(root, "plan-new", kind="command")
             result = self.run_prompt_version(root, "plan-new", "command", "patch")
             self.assertEqual(result.returncode, 0, msg=result.stderr)
-            ru_text = (root / "commands" / "plan-new.md").read_text(encoding="utf-8")
-            self.assertIn("prompt_version: 1.0.1", ru_text)
-            self.assertIn("source_version: 1.0.1", ru_text)
+            prompt_text = (root / "commands" / "plan-new.md").read_text(encoding="utf-8")
+            self.assertIn("prompt_version: 1.0.1", prompt_text)
+            self.assertIn("source_version: 1.0.1", prompt_text)
 
     def test_bump_updates_stage_skill_command_fallback(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -167,9 +167,9 @@ class PromptVersioningTests(unittest.TestCase):
             write_stage_skill(root, "review", version="1.0.44")
             result = self.run_prompt_version(root, "review", "command", "patch")
             self.assertEqual(result.returncode, 0, msg=result.stderr)
-            ru_text = (root / "skills" / "review" / "SKILL.md").read_text(encoding="utf-8")
-            self.assertIn("prompt_version: 1.0.45", ru_text)
-            self.assertIn("source_version: 1.0.45", ru_text)
+            prompt_text = (root / "skills" / "review" / "SKILL.md").read_text(encoding="utf-8")
+            self.assertIn("prompt_version: 1.0.45", prompt_text)
+            self.assertIn("source_version: 1.0.45", prompt_text)
 
 
 if __name__ == "__main__":  # pragma: no cover

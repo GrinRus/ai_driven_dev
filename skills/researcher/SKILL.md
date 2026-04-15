@@ -2,9 +2,9 @@
 name: researcher
 description: Generates or refreshes research artifacts and RLM evidence for a ticket. Use when research stage should produce or update canonical RLM outputs. Do not use when the request is initial ticket bootstrap in `idea-new` or implementation planning in `plan-new`.
 argument-hint: $1 [note...] [--paths path1,path2] [--keywords kw1,kw2] [--note text]
-lang: ru
-prompt_version: 1.2.34
-source_version: 1.2.34
+lang: en
+prompt_version: 1.2.35
+source_version: 1.2.35
 allowed-tools:
   - Read
   - Edit
@@ -31,9 +31,10 @@ Follow `feature-dev-aidd:aidd-core`.
 5. Run subagent `feature-dev-aidd:researcher`. First action: read RLM pack/worklist.
 6. In `--auto` mode run bounded canonical finalize recovery once (`rlm_finalize --bootstrap-if-missing`) from stage runtime.
 7. If RLM is still pending after auto recovery, return deterministic pending reason + explicit next action (`python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_finalize.py --ticket <ticket>`) and append research handoff via `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/tasks_derive.py --source research --append`.
-8. Return the output contract with explicit next step (`/feature-dev-aidd:plan-new <ticket>` when stage handoff is ready).
-9. Runtime-path safety: execute only canonical runtime commands from this contract (`python3 ${CLAUDE_PLUGIN_ROOT}/skills/.../runtime/...`).
-10. Root-relative `/skills/...` runtime paths are forbidden; use only `${CLAUDE_PLUGIN_ROOT}/skills/.../runtime/...`.
+8. Ready path: return `/feature-dev-aidd:plan-new <ticket>` only when RLM readiness is `ready` and the research document is synchronized with the current evidence.
+9. Pending or blocked path: if readiness is not `ready`, return the deterministic blocker or pending output instead of guessing a downstream handoff.
+10. Runtime-path safety: execute only canonical runtime commands from this contract (`python3 ${CLAUDE_PLUGIN_ROOT}/skills/.../runtime/...`).
+11. Root-relative `/skills/...` runtime paths are forbidden; use only `${CLAUDE_PLUGIN_ROOT}/skills/.../runtime/...`.
 
 ## Command contracts
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py`

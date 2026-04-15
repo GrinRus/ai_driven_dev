@@ -65,7 +65,7 @@ run_prompt_version_check() {
     return
   fi
   log "running prompt-version dry-run (root: ${PROMPT_ROOT})"
-  if ! python3 tests/repo_tools/prompt-version bump --root "${PROMPT_ROOT}" --prompts analyst --kind agent --lang ru --part patch --dry-run >/dev/null; then
+  if ! python3 tests/repo_tools/prompt-version bump --root "${PROMPT_ROOT}" --prompts analyst --kind agent --lang en --part patch --dry-run >/dev/null; then
     err "prompt-version dry-run failed"
     STATUS=1
   fi

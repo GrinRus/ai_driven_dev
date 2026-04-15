@@ -2,9 +2,9 @@
 name: tasks-new
 description: Derives or refines tasklist items from PRD, plan, and spec artifacts. Use when tasklist stage prepares implementation-ready work items. Do not use when the request is plan authoring in `plan-new` or loop execution in `implement`.
 argument-hint: $1 [note...]
-lang: ru
-prompt_version: 1.1.23
-source_version: 1.1.23
+lang: en
+prompt_version: 1.1.24
+source_version: 1.1.24
 allowed-tools:
   - Read
   - Edit
@@ -33,7 +33,8 @@ Follow `feature-dev-aidd:aidd-core`.
 4. Use the existing rolling context pack as input evidence; do not invoke standalone context-pack builder scripts from this stage.
 5. Run subagent `feature-dev-aidd:tasklist-refiner` (internal orchestration role). First action: read the rolling context pack.
 6. Postflight: validate via `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/tasklist_check.py` and update `aidd/docs/tasklist/<ticket>.md` when needed.
-7. Output: return the output contract and explicit next step `/feature-dev-aidd:implement <ticket>`.
+7. Ready path: return `/feature-dev-aidd:implement <ticket>` only when `tasklist_check.py` passes and the next iteration is implementation-ready.
+8. Pending or blocked path: return the output contract with the tasklist gaps and keep the next action on `tasks-new`.
 
 ## Command contracts
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/tasks-new/runtime/tasks_new.py`

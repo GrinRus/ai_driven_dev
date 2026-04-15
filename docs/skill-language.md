@@ -10,6 +10,7 @@ This document defines the canonical prompt-language and structure policy used by
 
 ## Scope
 - Applies to every `skills/*/SKILL.md` file.
+- Applies to every `agents/*.md` prompt file.
 - Applies to stage-command skill frontmatter parity checks via migration baseline.
 
 ## Sources of Truth
@@ -20,9 +21,10 @@ This document defines the canonical prompt-language and structure policy used by
 - `https://resources.anthropic.com/hubfs/The-Complete-Guide-to-Building-Skill-for-Claude.pdf?hsLang=en`
 
 ## Rules
-- Skill prompts are EN-only for shared consistency checks.
+- Prompt corpus is EN-only: both `skills/*/SKILL.md` and `agents/*.md` must remain free of Cyrillic text.
 - Every skill frontmatter must include `name`, and `name` must match the skill directory.
 - Every skill frontmatter must include `description`, `lang`, `model`, and `user-invocable`.
+- Every agent frontmatter must include `name`, `description`, `lang`, `model`, `permissionMode`, and `skills`.
 - Every skill `description` must contain both:
   - positive trigger clause: `Use when ...`
   - anti-trigger clause: `Do not use when ...`
@@ -35,6 +37,13 @@ This document defines the canonical prompt-language and structure policy used by
 - Shared skills and stage skills must include:
   - `## Command contracts` with interface cards (`When to run`, `Inputs`, `Outputs`, `Failure mode`, `Next action`),
   - `## Additional resources` with progressive-disclosure markers (`when:` and `why:` per item).
+- Agent prompts must use canonical EN section headers:
+  - `## Context`
+  - `## Input Artifacts`
+  - `## Automation`
+  - `## Steps`
+  - `## Fail-fast and Questions`
+  - `## Response Format`
 - Every stage skill must keep `prompt_version` and `source_version` in semver format.
 - `source_version` must match `prompt_version` for current workflow policy.
 - User-invocable stage skills must expose canonical Python runtime entrypoints:
