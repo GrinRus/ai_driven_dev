@@ -123,7 +123,11 @@ Notes:
 
 ## 5. Flow Spec and Contracts
 
-### 5.1 Flow spec (`aidd/config/flow_spec.json`)
+### 5.1 Flow spec (`templates/aidd/config/flow_spec.json`)
+
+Source-of-truth policy:
+1. Canonical spec is versioned in-repo at `templates/aidd/config/flow_spec.json`.
+1. Workspace copy `aidd/config/flow_spec.json` is derived/bootstrap materialized by init and is not authoritative for CI contract checks.
 
 Minimal declarative shape:
 
@@ -228,7 +232,7 @@ Planned extraction map:
 
 ### Phase 0 (spec freeze)
 
-1. Freeze current stage/gate/reason-code semantics into `flow_spec.json` + schemas.
+1. Freeze current stage/gate/reason-code semantics into `templates/aidd/config/flow_spec.json` + schemas.
 1. Add contract validators without changing runtime behavior.
 
 Acceptance:
