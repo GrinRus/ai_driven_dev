@@ -170,11 +170,11 @@ Agent‑first правило: сначала читаем артефакты (`a
 
 ## Prompt versioning
 - Semver: `MAJOR.MINOR.PATCH`.
-- `source_version` всегда равен `prompt_version` для RU.
+- `source_version` always equals `prompt_version` for the canonical EN prompt corpus.
 - Skills/agents хранят версии в frontmatter; stage‑skills должны совпадать с baseline.
 - Preload matrix v2 (lint-enforced): `aidd-policy` для всех agents, `aidd-rlm` только для `analyst|planner|plan-reviewer|prd-reviewer|researcher|reviewer|spec-interview-writer|tasklist-refiner|validator`, `aidd-stage-research` обязательно для `researcher`, `aidd-loop` только для `implementer|reviewer|qa`. Waivers — `AGENT_PRELOAD_WAIVERS` в `tests/repo_tools/lint-prompts.py`.
 - Инструменты:
-  - `python3 tests/repo_tools/prompt-version bump --root <workflow-root> --prompts <name> --kind agent|command --lang ru --part <major|minor|patch>` (agents + historical commands)
+  - `python3 tests/repo_tools/prompt-version bump --root <workflow-root> --prompts <name> --kind agent|command --lang en --part <major|minor|patch>` (agents + historical commands)
   - `python3 tests/repo_tools/lint-prompts.py --root <workflow-root>`
 
 ## Reports format (MVP)
@@ -230,36 +230,36 @@ tools: {{TOOLS}}
 model: inherit
 ---
 
-## Контекст
-Кратко опишите роль агента, его цель и ключевые ограничения. Ссылайтесь на документы формата `@aidd/docs/...`. Подчеркните agent-first подход: какие данные агент обязан собрать сам и какие команды он запускает до обращения к пользователю.
+## Context
+Briefly describe the agent's role, goal, and key constraints. Reference documents in the form `@aidd/docs/...`. Emphasize the agent-first approach: what the agent must discover on its own and which commands it runs before asking the user anything.
 
-## Входные артефакты
-- `aidd/docs/prd/<ticket>.prd.md` — пример обязательного входа. Укажите, какие файлы требуются и что делать, если их нет.
-- Перечислите остальные артефакты (plan, tasklist, отчёты, `aidd/reports/*.json`) и отметьте условия (READY/BLOCKED). Обязательно опишите, как агент ищет ссылки (например, `rg <ticket> aidd/docs/**`, поиск по ADR, использование slug из `aidd/docs/.active.json` — внутреннее поле `slug_hint`).
+## Input Artifacts
+- `aidd/docs/prd/<ticket>.prd.md` is the baseline required input. State which files are mandatory and what to do when they are missing.
+- List the remaining artifacts (plan, tasklist, reports, `aidd/reports/*.json`) and mark the relevant conditions (READY/BLOCKED). Explain how the agent locates references, for example `rg <ticket> aidd/docs/**`, ADR lookup, or `slug_hint` from `aidd/docs/.active.json`.
 
-## Автоматизация
-- Перечислите гейты (`gate-*`), хуки и переменные (`SKIP_AUTO_TESTS`, `TEST_SCOPE`), которые агент обязан учитывать.
-- Укажите разрешённые CLI-команды (`<test-runner> …`, `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/progress_cli.py …`, `rg …`) и как агент должен логировать вывод/пути. Опишите, как реагировать на автозапуск `${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh` и когда использовать ручные команды.
+## Automation
+- List the gates (`gate-*`), hooks, and variables (`SKIP_AUTO_TESTS`, `TEST_SCOPE`) the agent must honor.
+- List the allowed CLI commands (`<test-runner> …`, `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/progress_cli.py …`, `rg …`) and how the agent should log outputs/paths. Explain how to react to `${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh` auto-runs and when manual commands are allowed.
 
-## Пошаговый план
-1. Распишите действия агента (чтение артефактов, запуск `rg`/`<test-runner>`, обновление файлов, обращение к другим агентам).
-2. Каждое действие должно приводить к измеримому результату (например, обновлённый файл, лог команды, ссылка на отчёт).
-3. Укажите, что вопросы пользователю допустимы только после перечисления проверенных артефактов и должны включать формат ответа.
+## Steps
+1. Describe the agent workflow (artifact reads, `rg`/`<test-runner>` commands, file updates, handoffs to other agents).
+2. Every step must produce a measurable result such as an updated file, a command log, or a report link.
+3. State that user questions are allowed only after listing the checked artifacts and must include the expected answer format.
 
-## Fail-fast и вопросы
-- Укажите условия, при которых агент должен остановиться и запросить данные у пользователя (например, отсутствует PRD/plan). Перед вопросом перечислите, что уже проверено.
-- Формат вопросов:
+## Fail-fast and Questions
+- Describe when the agent must stop and ask for data (for example, missing PRD/plan). Before any question, list what has already been checked.
+- Question format:
   ```
-  Вопрос N (Blocker|Clarification): ...
-  Зачем: ...
-  Варианты: A) ... B) ...
+  Question N (Blocker|Clarification): ...
+  Why: ...
+  Options: A) ... B) ...
   Default: ...
   ```
 
-## Формат ответа
-- Всегда начинайте с `Checkbox updated: ...`.
-- Далее укажите `Status: ...`, `Artifacts updated: ...`, `Next actions: ...` и ссылки на файлы/команды.
-- Если статус BLOCKED, перечислите конкретные вопросы, список проверенных артефактов и следующие шаги.
+## Response Format
+- Always start with `Checkbox updated: ...`.
+- Then include `Status: ...`, `Artifacts updated: ...`, `Next actions: ...`, and links to files/commands.
+- If the status is BLOCKED, list the concrete questions, the checked artifacts, and the next steps.
 ```
 
 ### Command template
@@ -274,32 +274,32 @@ allowed-tools: {{ALLOWED_TOOLS}}
 model: inherit
 ---
 
-## Контекст
-Опишите назначение команды, связь с агентами и обязательные предварительные условия (активный ticket, готовые артефакты и т.д.). Уточните, что команда следует agent-first принципам: собирает данные из репозитория и запускает разрешённые CLI автоматически, а вопросы пользователю задаёт только при отсутствии информации.
+## Context
+Describe the command purpose, how it relates to the agents, and the mandatory prerequisites (active ticket, ready artifacts, and so on). Clarify that the command follows agent-first principles: it gathers repository data and runs allowed CLI commands automatically, and asks the user only when information is unavailable.
 
-## Входные артефакты
-- Перечислите файлы/репорты (`aidd/docs/prd/<ticket>.prd.md`, `aidd/docs/research/<ticket>.md`, `aidd/reports/*.json`, slug в `aidd/docs/.active.json` — внутреннее поле `slug_hint`) и укажите, как команда находит их (например, `rg <ticket>`).
-- Отметьте, что делать при отсутствии входа (остановиться с BLOCKED, попросить запустить другую команду) и какие команды нужно выполнить, прежде чем просить пользователя о данных.
+## Input Artifacts
+- List the files/reports (`aidd/docs/prd/<ticket>.prd.md`, `aidd/docs/research/<ticket>.md`, `aidd/reports/*.json`, `slug_hint` in `aidd/docs/.active.json`) and explain how the command discovers them, for example with `rg <ticket>`.
+- State what to do when inputs are missing (stop with BLOCKED, tell the user which command to run next) and which commands must run before asking the user for data.
 
-## Когда запускать
-- Опишите стадии workflow, в которых команда применяется, и кто инициирует запуск.
-- Уточните ограничения (например, только после `/feature-dev-aidd:review-spec` или при статусе READY).
+## When to Run
+- Describe the workflow stages where the command applies and who triggers it.
+- Clarify the restrictions, for example only after `/feature-dev-aidd:review-spec` or only when artifacts are READY.
 
-## Автоматические хуки и переменные
-- Перечислите хуки/гейты и команды, запускаемые во время выполнения (`python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_feature.py`, `python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py`, `${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh`, `<test-runner> <args>`, `rg`).
-- Опишите переменные окружения (`SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`) и требования к логам/ссылкам на вывод команд.
+## Automatic Hooks and Variables
+- List the hooks/gates and commands that execute during the run (`python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_feature.py`, `python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py`, `${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh`, `<test-runner> <args>`, `rg`).
+- Describe the environment variables (`SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`) and the logging/output-link requirements.
 
-## Что редактируется
-- Укажите файлы/директории, которые команда должна обновлять (например, `aidd/docs/tasklist/<ticket>.md`, `src/**`), и какие артефакты нужно ссылать в ответе (diff, отчёты, логи команд).
-- Добавьте ссылки на шаблоны и требования к структуре правок, включая хранение команд и источников данных.
+## Files Updated
+- State which files/directories the command is allowed to update, for example `aidd/docs/tasklist/<ticket>.md` or `src/**`, and which artifacts must be referenced in the response (diff, reports, command logs).
+- Add links to templates and structural requirements for the edits, including where commands and evidence should be stored.
 
-## Пошаговый план
-1. Распишите последовательность действий команды (вызов саб-агентов, запуск скриптов, обновление артефактов).
-2. Добавьте проверки готовности (например, `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/progress_cli.py --source ...`).
-3. При необходимости предусмотрите ветки для ручных вмешательств.
+## Steps
+1. Describe the command workflow (subagent calls, scripts, artifact updates).
+2. Add readiness checks, for example `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/progress_cli.py --source ...`.
+3. Add manual-intervention branches only when they are truly required.
 
-## Контракты команд
-- Для каждого critical command добавьте карточку интерфейса (без пересказа реализации):
+## Command Contracts
+- For each critical command, add an interface card without retelling the implementation:
   ```md
   ### `<command>`
   - When to run: ...
@@ -310,21 +310,21 @@ model: inherit
   ```
 - Для deep details используйте supporting files и укажите в `Additional resources`, когда и зачем их читать.
 
-## Fail-fast и вопросы
-- Опишите ситуации, когда команда должна остановиться (нет PRD, отсутствует approved статус, не найден список задач).
-- Формат вопросов:
+## Fail-fast and Questions
+- Describe when the command must stop (missing PRD, missing approved status, missing task list).
+- Question format:
   ```
-  Вопрос N (Blocker|Clarification): ...
-  Зачем: ...
-  Варианты: A) ... B) ...
+  Question N (Blocker|Clarification): ...
+  Why: ...
+  Options: A) ... B) ...
   Default: ...
   ```
 
-## Ожидаемый вывод
-- Укажите, какие файлы/разделы должны быть обновлены по завершении.
-- Зафиксируйте требования к финальному сообщению: `Checkbox updated: ...`, затем `Status: ...`, `Artifacts updated: ...`, `Next actions: ...`.
+## Expected Output
+- State which files/sections must be updated when the command finishes.
+- Define the final message contract: `Checkbox updated: ...`, then `Status: ...`, `Artifacts updated: ...`, `Next actions: ...`.
 
-## Примеры CLI
-- Приведите пример вызова команды/скрипта (например, `/feature-dev-aidd:implement ABC-123` или `!bash -lc 'python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/tasks_derive.py --source qa --ticket ABC-123'`).
-- Добавьте подсказки по аргументам и типовым ошибкам.
+## CLI Examples
+- Provide an example command invocation, for example `/feature-dev-aidd:implement ABC-123` or `!bash -lc 'python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/tasks_derive.py --source qa --ticket ABC-123'`.
+- Add hints for arguments and common failure modes.
 ```

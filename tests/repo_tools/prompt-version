@@ -46,7 +46,7 @@ def bump_version(version: str, part: str) -> str:
     return f"{major}.{minor}.{patch}"
 
 
-def resolve_ru_base(root: Path, kind: str) -> Path:
+def resolve_prompt_base(root: Path, kind: str) -> Path:
     subdir = "agents" if kind == "agent" else "commands"
     candidates = [
         root / subdir,
@@ -60,8 +60,8 @@ def resolve_ru_base(root: Path, kind: str) -> Path:
 
 
 def resolve_prompt_path(root: Path, name: str, kind: str) -> Path | None:
-    ru_base = resolve_ru_base(root, kind)
-    direct = ru_base / f"{name}.md"
+    prompt_base = resolve_prompt_base(root, kind)
+    direct = prompt_base / f"{name}.md"
     if direct.exists():
         return direct
 
@@ -77,30 +77,38 @@ def resolve_prompt_path(root: Path, name: str, kind: str) -> Path | None:
 def process_prompt(
     root: Path, name: str, kind: str, langs: set[str], part: str, *, dry_run: bool
 ) -> int:
-    ru_path = resolve_prompt_path(root, name, kind)
-    if ru_path is None:
-        ru_base = resolve_ru_base(root, kind)
-        expected = ru_base / f"{name}.md"
+    if len(langs) != 1:
+        print("[prompt-version] select exactly one language per invocation", file=sys.stderr)
+        return 1
+
+    requested_lang = next(iter(langs))
+    prompt_path = resolve_prompt_path(root, name, kind)
+    if prompt_path is None:
+        prompt_base = resolve_prompt_base(root, kind)
+        expected = prompt_base / f"{name}.md"
         fallback = root / "skills" / name / "SKILL.md"
         print(
-            f"[prompt-version] RU prompt missing: {expected} (fallback: {fallback})",
+            f"[prompt-version] prompt missing: {expected} (fallback: {fallback})",
             file=sys.stderr,
         )
         return 1
 
-    ru_text = ru_path.read_text(encoding="utf-8")
-    ru_meta = parse_frontmatter(ru_text)
-    ru_version = ru_meta.get("prompt_version", "0.0.0")
-    new_version = bump_version(ru_version, part)
-
-    if "ru" not in langs or len(langs) != 1:
-        print("[prompt-version] only 'ru' is supported in this repository", file=sys.stderr)
+    prompt_text = prompt_path.read_text(encoding="utf-8")
+    prompt_meta = parse_frontmatter(prompt_text)
+    prompt_lang = prompt_meta.get("lang")
+    if prompt_lang and prompt_lang != requested_lang:
+        print(
+            f"[prompt-version] prompt `{name}` has lang `{prompt_lang}` (expected `{requested_lang}`)",
+            file=sys.stderr,
+        )
         return 1
+    prompt_version = prompt_meta.get("prompt_version", "0.0.0")
+    new_version = bump_version(prompt_version, part)
 
-    ru_text = replace_field(ru_text, "prompt_version", new_version)
-    ru_text = replace_field(ru_text, "source_version", new_version)
+    prompt_text = replace_field(prompt_text, "prompt_version", new_version)
+    prompt_text = replace_field(prompt_text, "source_version", new_version)
     if not dry_run:
-        ru_path.write_text(ru_text, encoding="utf-8")
+        prompt_path.write_text(prompt_text, encoding="utf-8")
     return 0
 
 
@@ -111,7 +119,7 @@ def main(argv: list[str] | None = None) -> int:
     bump.add_argument("--root", required=True, help="Workflow root containing agents/commands.")
     bump.add_argument("--prompts", required=True, help="Comma-separated prompt names.")
     bump.add_argument("--kind", choices=("agent", "command"), required=True)
-    bump.add_argument("--lang", default="ru", help="Comma-separated languages to bump (default: ru).")
+    bump.add_argument("--lang", default="en", help="Comma-separated languages to bump (default: en).")
     bump.add_argument("--part", choices=("patch", "minor"), default="patch", help="Version part to bump.")
     bump.add_argument("--dry-run", action="store_true", help="Calculate new versions without writing files.")
 

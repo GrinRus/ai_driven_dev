@@ -258,12 +258,12 @@ FORBIDDEN_AGENT_STAGE_TOOL_MAP = {
 }
 
 AGENT_REQUIRED_SECTIONS = [
-    "Контекст",
-    "Входные артефакты",
-    "Автоматизация",
-    "Пошаговый план",
-    "Fail-fast и вопросы",
-    "Формат ответа",
+    "Context",
+    "Input Artifacts",
+    "Automation",
+    "Steps",
+    "Fail-fast and Questions",
+    "Response Format",
 ]
 
 OUTPUT_CONTRACT_FIELDS = {
@@ -629,7 +629,9 @@ def validate_checkbox_guidance(info: PromptFile) -> List[str]:
     errors: List[str] = []
     for line in info.body.splitlines():
         lower = line.lower()
-        if "checkbox updated" in lower and ("заканч" in lower or "в конце" in lower):
+        if "checkbox updated" in lower and any(
+            token in lower for token in ("заканч", "в конце", "last", "at the end")
+        ):
             errors.append(f"{info.path}: `Checkbox updated` should be the first line, not last")
     return errors
 
@@ -646,7 +648,7 @@ def _iter_tool_scan_lines(info: PromptFile) -> Iterable[str]:
         if in_fence:
             continue
         if stripped.startswith("## "):
-            skip_examples = stripped.lower() == "## примеры cli"
+            skip_examples = stripped.lower() in {"## cli examples", "## examples", "## примеры cli"}
         if skip_examples:
             continue
         yield re.sub(r"\[[^\]]+\]\([^)]+\)", "", line)
@@ -832,7 +834,7 @@ def lint_agents(root: Path) -> Tuple[List[str], List[str], Dict[str, PromptFile]
         return [f"{agents_dir}: agents directory is missing"], warnings, agents
 
     for path in sorted(agents_dir.glob("*.md")):
-        info, load_errors = read_prompt(path, "agent", "ru")
+        info, load_errors = read_prompt(path, "agent", "en")
         if load_errors:
             errors.extend(load_errors)
             continue
@@ -868,6 +870,10 @@ def lint_agents(root: Path) -> Tuple[List[str], List[str], Dict[str, PromptFile]
         grammar_errors, grammar_warnings = validate_bash_tool_grammar(info)
         errors.extend(grammar_errors)
         warnings.extend(grammar_warnings)
+
+        raw_text = path.read_text(encoding="utf-8")
+        if CYRILLIC_RE.search(raw_text):
+            errors.append(f"{info.path}: agents must be EN-only (Cyrillic detected)")
 
         if "Output follows aidd-core skill" not in info.body:
             errors.append(f"{info.path}: missing anchor line 'Output follows aidd-core skill'")

@@ -1,38 +1,38 @@
 # AGENTS
 
-Единая точка входа для runtime‑агентов AIDD (workspace). Dev‑гайд репозитория: `AGENTS.md` в корне плагина.
+Single entrypoint for AIDD runtime agents in a workspace. Repository maintainer guidance lives in the plugin-root `AGENTS.md`.
 
-## Skill-first канон
+## Skill-first Canon
 - Core policy: `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/SKILL.md`.
 - Loop policy: `${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/SKILL.md`.
-- Этот документ — пользовательский обзор; не дублируйте алгоритмы из skills.
+- This document is a user-facing overview; do not duplicate algorithms from the skills.
 - Stage lexicon (public/internal): `aidd/docs/shared/stage-lexicon.md`.
 
-## Базовые правила
-- Все артефакты находятся в `aidd/**` (paths от root).
-- Pack‑first/read‑budget, output‑контракт, question format, DocOps и subagent‑guard — см. `skills/aidd-core`.
-- `AIDD:READ_LOG` обязателен для чтения артефактов и fallback full-read причин (см. `skills/aidd-core`).
-- Loop discipline — см. `skills/aidd-loop`.
-- Stage/shared runtime entrypoints: `skills/*/runtime/*.py` (Python-only canon).
-- Shared entrypoints: canonical путь `skills/aidd-core/runtime/*.py`, `skills/aidd-loop/runtime/*.py`, `skills/aidd-rlm/runtime/*.py`.
-- Shell wrappers допустимы только в hooks/platform glue; stage orchestration не должна зависеть от `skills/*/scripts/*`.
-- `tools/` содержит только import stubs и repo-only tooling.
-- Wrapper‑вывод: stdout ≤ 200 lines или ≤ 50KB; stderr ≤ 50 lines; большие выводы пишите в `aidd/reports/**`.
-- Stage-chain orchestration (`preflight -> run -> postflight -> stage_result`) обязательна для loop stages.
+## Baseline Rules
+- All workspace artifacts live under `aidd/**` relative to the project root.
+- For pack-first/read-budget rules, output contract, question format, DocOps, and subagent guardrails, follow `skills/aidd-core`.
+- `AIDD:READ_LOG` is required for artifact reads and for any fallback full-read reason.
+- Loop discipline lives in `skills/aidd-loop`.
+- Stage/shared runtime entrypoints use the Python-only canon: `skills/*/runtime/*.py`.
+- Shared entrypoints use canonical paths such as `skills/aidd-core/runtime/*.py`, `skills/aidd-loop/runtime/*.py`, and `skills/aidd-rlm/runtime/*.py`.
+- Shell wrappers are allowed only for hooks and platform glue; stage orchestration must not depend on `skills/*/scripts/*`.
+- `tools/` contains import stubs and repo-only tooling only.
+- Wrapper output must stay within the output budget: stdout <= 200 lines or <= 50KB, stderr <= 50 lines; send large outputs to `aidd/reports/**`.
+- Stage-chain orchestration (`preflight -> run -> postflight -> stage_result`) is mandatory for loop stages.
 
 ## Evidence read policy (summary)
-- Primary evidence (research): `aidd/reports/research/<ticket>-rlm.pack.json`.
+- Primary research evidence: `aidd/reports/research/<ticket>-rlm.pack.json`.
 - Slice on demand: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_slice.py --ticket <ticket> --query "<token>"`.
 
-## Migration policy (legacy -> RLM-only)
-- Legacy pre-RLM research context/targets artifacts не читаются гейтами и не считаются evidence.
-- Для старого workspace состояния пересоберите research stage: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py --ticket <ticket> --auto`.
-- Если после research `rlm_status=pending`, выполните handoff на shared owner: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_finalize.py --ticket <ticket>`.
-- Gate readiness для plan/review/qa требует минимальный RLM набор: `rlm-targets`, `rlm-manifest`, `rlm.worklist.pack`, `rlm.nodes`, `rlm.links`, `rlm.pack`.
+## Migration Policy (Legacy -> RLM-only)
+- Legacy pre-RLM research context/targets artifacts are not read by gates and do not count as evidence.
+- For older workspaces, rebuild the research stage with `python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py --ticket <ticket> --auto`.
+- If `rlm_status=pending` after research, hand off to the shared owner with `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_finalize.py --ticket <ticket>`.
+- Plan/review/qa readiness requires the minimum RLM set: `rlm-targets`, `rlm-manifest`, `rlm.worklist.pack`, `rlm.nodes`, `rlm.links`, and `rlm.pack`.
 
-## Ответы пользователя
-Ответы давайте в рамках той же команды (без смены стадии). Если ответы приходят в чате, попросите блок:
+## User Answers
+Keep answers within the same command run without switching stages. If answers arrive in chat, request this block:
 ```
 ## AIDD:ANSWERS
-AIDD:ANSWERS Q1=A; Q2="короткий текст с пробелами"
+AIDD:ANSWERS Q1=A; Q2="short text with spaces"
 ```

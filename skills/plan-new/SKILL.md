@@ -2,9 +2,9 @@
 name: plan-new
 description: Drafts implementation plan from ready PRD and research artifacts. Use when PRD and research gates pass and plan stage should start. Do not use when the request is feature kickoff in `idea-new` or readiness approval in `review-spec`.
 argument-hint: $1 [note...]
-lang: ru
-prompt_version: 1.1.16
-source_version: 1.1.16
+lang: en
+prompt_version: 1.1.17
+source_version: 1.1.17
 allowed-tools:
   - Read
   - Edit
@@ -27,12 +27,14 @@ Follow `feature-dev-aidd:aidd-core`.
 ## Steps
 1. Set active stage `plan` and active feature.
 2. Run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan-new/runtime/research_check.py --ticket <ticket>`.
-3. Gate readiness with `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/prd_check.py` and `python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan-new/runtime/research_check.py`; block if either fails.
+3. Gate readiness with `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/prd_check.py` and `python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan-new/runtime/research_check.py`; block early if either fails.
 4. Use the existing rolling context pack as input evidence; do not invoke standalone context-pack builder scripts from this stage.
 5. Runtime-path safety: execute only canonical runtime commands from this contract (`python3 ${CLAUDE_PLUGIN_ROOT}/skills/.../runtime/...`).
 6. Root-relative `/skills/...` runtime paths are forbidden; use only `${CLAUDE_PLUGIN_ROOT}/skills/.../runtime/...`.
-7. Run subagent `feature-dev-aidd:planner`, then run subagent `feature-dev-aidd:validator`; keep updates within plan artifacts and canonical stage outputs.
-8. Update `aidd/docs/plan/<ticket>.md` and return the output contract.
+7. Run subagent `feature-dev-aidd:planner`. The planner is the only writer for `aidd/docs/plan/<ticket>.md`.
+8. Run subagent `feature-dev-aidd:validator`. The validator is read-only and returns the narrative verdict and gap list only.
+9. Final stage readiness is sourced from `prd_check + research_check + validator verdict`; return `/feature-dev-aidd:review-spec <ticket>` only on the ready path.
+10. Otherwise return PENDING or BLOCKED with the validator gaps and the canonical next action for the current stage.
 
 ## Command contracts
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan-new/runtime/research_check.py`
@@ -41,6 +43,13 @@ Follow `feature-dev-aidd:aidd-core`.
 - Outputs: deterministic readiness verdict for plan stage.
 - Failure mode: non-zero exit if research status/artifacts do not satisfy gate policy.
 - Next action: resolve research blockers and rerun the gate check.
+
+### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/prd_check.py`
+- When to run: before planner execution and before final stage verdict normalization.
+- Inputs: active PRD artifacts for the current ticket.
+- Outputs: deterministic PRD readiness verdict used by the stage command as source-of-truth input.
+- Failure mode: non-zero exit when required PRD fields or readiness markers are missing.
+- Next action: fix the PRD blockers, then rerun the gate before planning continues.
 
 ## Notes
 - Planning stage: `AIDD:ACTIONS_LOG: n/a`.

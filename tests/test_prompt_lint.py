@@ -97,7 +97,7 @@ def build_agent(name: str) -> str:
             ---
             name: {name}
             description: test agent
-            lang: ru
+            lang: en
             prompt_version: 1.0.0
             source_version: 1.0.0
             tools: {tools}
@@ -108,22 +108,22 @@ def build_agent(name: str) -> str:
             permissionMode: inherit
             ---
 
-            ## Контекст
+            ## Context
             Output follows aidd-core skill.
 
-            ## Входные артефакты
+            ## Input Artifacts
             - item
 
-            ## Автоматизация
+            ## Automation
             Text.
 
-            ## Пошаговый план
+            ## Steps
             1. step
 
-            ## Fail-fast и вопросы
+            ## Fail-fast and Questions
             Text.
 
-            ## Формат ответа
+            ## Response Format
             Output follows aidd-core skill.
             """
         ).strip()
@@ -131,7 +131,7 @@ def build_agent(name: str) -> str:
     )
 
 
-def build_stage_skill(stage: str, *, lang: str = "ru") -> str:
+def build_stage_skill(stage: str, *, lang: str = "en") -> str:
     anti = "status"
     if stage == "status":
         anti = "aidd-observability"
@@ -575,7 +575,7 @@ class PromptLintTests(unittest.TestCase):
                         "model": "inherit",
                         "prompt_version": "1.0.0",
                         "source_version": "1.0.0",
-                        "lang": "ru",
+                        "lang": "en",
                         "argument-hint": "<TICKET>",
                     },
                 }
@@ -593,7 +593,7 @@ class PromptLintTests(unittest.TestCase):
     def write_policy(self, root: Path) -> None:
         policy_path = root / "docs" / "skill-language.md"
         policy_path.parent.mkdir(parents=True, exist_ok=True)
-        policy_path.write_text("Skills are EN-only.\n", encoding="utf-8")
+        policy_path.write_text("Prompt corpus is EN-only.\n", encoding="utf-8")
 
     def write_plugin_manifest(self, root: Path) -> None:
         skills = sorted(f"./skills/{path.parent.name}" for path in (root / "skills").glob("*/SKILL.md"))
@@ -694,7 +694,7 @@ class PromptLintTests(unittest.TestCase):
             ---
             name: implementer
             description: bad agent
-            lang: ru
+            lang: en
             prompt_version: 1.0.0
             source_version: 1.0.0
             tools: Read, Edit, Write
@@ -706,19 +706,19 @@ class PromptLintTests(unittest.TestCase):
             permissionMode: inherit
             ---
 
-            ## Контекст
+            ## Context
             Text.
 
-            ## Входные артефакты
+            ## Input Artifacts
             - item
 
-            ## Пошаговый план
+            ## Steps
             1. step
 
-            ## Fail-fast и вопросы
+            ## Fail-fast and Questions
             Text.
 
-            ## Формат ответа
+            ## Response Format
             Output follows aidd-core skill.
             """
         ).strip() + "\n"
@@ -899,7 +899,7 @@ class PromptLintTests(unittest.TestCase):
                 ---
                 name: researcher
                 description: bad
-                lang: ru
+                lang: en
                 prompt_version: 1.0.0
                 source_version: 1.0.0
                 tools: Read, Edit, Write, Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-nodes-build.sh *)
@@ -911,22 +911,22 @@ class PromptLintTests(unittest.TestCase):
                 permissionMode: inherit
                 ---
 
-                ## Контекст
+                ## Context
                 Output follows aidd-core skill.
 
-                ## Входные артефакты
+                ## Input Artifacts
                 - item
 
-                ## Автоматизация
+                ## Automation
                 Text.
 
-                ## Пошаговый план
+                ## Steps
                 1. step
 
-                ## Fail-fast и вопросы
+                ## Fail-fast and Questions
                 Text.
 
-                ## Формат ответа
+                ## Response Format
                 Output follows aidd-core skill.
                 """
             ).strip()
@@ -946,7 +946,7 @@ class PromptLintTests(unittest.TestCase):
                 ---
                 name: researcher
                 description: bad
-                lang: ru
+                lang: en
                 prompt_version: 1.0.0
                 source_version: 1.0.0
                 tools: Read, Edit, Write, Bash(${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/reports-pack.sh *)
@@ -958,22 +958,22 @@ class PromptLintTests(unittest.TestCase):
                 permissionMode: inherit
                 ---
 
-                ## Контекст
+                ## Context
                 Output follows aidd-core skill.
 
-                ## Входные артефакты
+                ## Input Artifacts
                 - item
 
-                ## Автоматизация
+                ## Automation
                 Text.
 
-                ## Пошаговый план
+                ## Steps
                 1. step
 
-                ## Fail-fast и вопросы
+                ## Fail-fast and Questions
                 Text.
 
-                ## Формат ответа
+                ## Response Format
                 Output follows aidd-core skill.
                 """
             ).strip()
@@ -987,7 +987,7 @@ class PromptLintTests(unittest.TestCase):
             self.assertIn("must not call stage/shared script internals directly", result.stderr)
 
     def test_loop_agent_manual_preflight_path_in_body_is_telemetry_only(self) -> None:
-        bad_agent = build_agent("implementer") + "\nНе используй skills/aidd-loop/runtime/preflight_prepare.py напрямую.\n"
+        bad_agent = build_agent("implementer") + "\nDo not use skills/aidd-loop/runtime/preflight_prepare.py directly.\n"
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self.write_prompts(root, agent_override={"implementer": bad_agent})
@@ -995,7 +995,7 @@ class PromptLintTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, msg=f"stdout: {result.stdout}\nstderr: {result.stderr}")
 
     def test_loop_agent_manual_stage_result_path_in_body_fails(self) -> None:
-        bad_agent = build_agent("qa") + "\nНе создавай stage.qa.result.json вручную.\n"
+        bad_agent = build_agent("qa") + "\nDo not create stage.qa.result.json manually.\n"
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self.write_prompts(root, agent_override={"qa": bad_agent})
@@ -1005,7 +1005,7 @@ class PromptLintTests(unittest.TestCase):
             self.assertIn("stage.qa.result.json", result.stderr)
 
     def test_agent_self_stage_slash_link_in_body_fails_for_implementer(self) -> None:
-        bad_agent = build_agent("implementer") + "\nДля запуска используй /feature-dev-aidd:implement.\n"
+        bad_agent = build_agent("implementer") + "\nUse /feature-dev-aidd:implement to start the run.\n"
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self.write_prompts(root, agent_override={"implementer": bad_agent})
@@ -1015,7 +1015,7 @@ class PromptLintTests(unittest.TestCase):
             self.assertIn("/feature-dev-aidd:implement", result.stderr)
 
     def test_agent_self_stage_slash_link_in_body_fails_for_qa(self) -> None:
-        bad_agent = build_agent("qa") + "\nВыполни /feature-dev-aidd:qa перед отчётом.\n"
+        bad_agent = build_agent("qa") + "\nRun /feature-dev-aidd:qa before reporting.\n"
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self.write_prompts(root, agent_override={"qa": bad_agent})
@@ -1025,7 +1025,7 @@ class PromptLintTests(unittest.TestCase):
             self.assertIn("/feature-dev-aidd:qa", result.stderr)
 
     def test_agent_self_stage_slash_link_in_body_fails_for_spec_interview_writer(self) -> None:
-        bad_agent = build_agent("spec-interview-writer") + "\nЕсли данных нет, запусти /feature-dev-aidd:spec-interview.\n"
+        bad_agent = build_agent("spec-interview-writer") + "\nIf data is missing, run /feature-dev-aidd:spec-interview.\n"
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self.write_prompts(root, agent_override={"spec-interview-writer": bad_agent})
@@ -1035,7 +1035,7 @@ class PromptLintTests(unittest.TestCase):
             self.assertIn("/feature-dev-aidd:spec-interview", result.stderr)
 
     def test_agent_non_self_stage_handoff_link_is_allowed(self) -> None:
-        good_agent = build_agent("researcher") + "\nПри готовности укажи /feature-dev-aidd:plan-new <ticket>.\n"
+        good_agent = build_agent("researcher") + "\nWhen ready, point to /feature-dev-aidd:plan-new <ticket>.\n"
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self.write_prompts(root, agent_override={"researcher": good_agent})
@@ -1125,7 +1125,7 @@ class PromptLintTests(unittest.TestCase):
             "## Additional resources",
             (
                 "## Runtime hints\n"
-                "- Не использовать python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/loop_pack.py.\n\n"
+                "- Do not use python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/loop_pack.py.\n\n"
                 "## Additional resources"
             ),
             1,
