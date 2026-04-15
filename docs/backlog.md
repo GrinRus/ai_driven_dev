@@ -3,11 +3,12 @@
 > INTERNAL/DEV-ONLY: engineering wave planning and execution tracker.
 
 Owner: feature-dev-aidd
-Last reviewed: 2026-04-14
+Last reviewed: 2026-04-15
 Status: active
 
 _Revision note (2026-04-09): стабилизационный трек `120 -> 121 -> 136` закрыт (runtime/core -> prompt/audit -> integration closure). Волны `122..125` остаются roadmap-приоритетом._
 _Priority note (2026-04-14): волны `123` и `122` закреплены как **самый низкий приоритет** до закрытия стабилизационных P0/P1 задач из активных волн._
+_Revision note (2026-04-15): выполнена ревизия backlog против текущего runtime/tests. Локальная проверка покрытия: `python3 -m pytest -q tests/test_review_run.py tests/test_tasks_new_runtime.py tests/test_tasklist_check.py tests/test_loop_step.py tests/test_loop_run.py tests/test_stage_result.py tests/test_implementer_prompt.py tests/test_stage_actions_run.py tests/test_qa_agent.py tests/test_qa_exit_code.py tests/test_prd_review_agent.py tests/test_output_contract.py tests/test_gate_workflow.py tests/test_preflight_prepare.py tests/repo_tools/test_aidd_stage_launcher.py tests/repo_tools/test_aidd_audit_runner.py tests/repo_tools/test_e2e_prompt_contract.py tests/repo_tools/test_e2e_quality_prompt_contract.py` (`365 passed`)._
 
 ## Archived Completed Waves
 
@@ -16,19 +17,26 @@ _Priority note (2026-04-14): волны `123` и `122` закреплены ка
 
 ## Active Planned Waves
 
-### Execution Queue (2026-04-14)
+### Execution Queue (2026-04-15)
 
-- Gate A (blocker-fixes before next full TST-001 rerun): `W145-2` -> `W145-1` -> `W137-1` -> `W137-2` -> `W137-3`.
-- Gate B (de-noise/diagnostics right after Gate A): `W145-3`, `W139-1` -> `W139-3` -> `W139-5`, `W137-4`.
-- Gate C (replay hardening after behavior fix): `W138-1` + (`W138-2`,`W138-3`,`W138-5`) -> `W138-6`; `W142-1` -> `W142-2`.
-- Deferred feature-flags/rework tracks: `W143-*` only after Gate A/B stable in CI.
+- Gate A (remaining blocker-fixes before next full TST-001 rerun): `W145-2` -> `W145-3`.
+- Gate B (cleanup/de-noise after Gate A): `W144-1` -> `W144-2`; `W142-1` -> `W142-2`.
+- Gate C (host-agnostic flow core refactor): `W147-1` -> `W147-2` -> `W147-3` -> `W147-4` -> `W147-5`.
+- Gate D (host-agnostic e2e live prompt refactor): `W146-1` -> `W146-2` -> `W146-3` -> `W146-4` (after `W147-1` and `W147-3`).
+- Deferred policy rework: `W143-*` после рескопинга под текущую фактическую soft/strict поверхность.
 - Lowest priority roadmap (do not start before active stabilization closes): `W123-*` and `W122-*`.
+
+### Backlog Revision Snapshot (2026-04-15)
+
+- Coverage confirmed in current code/tests (candidate-close): `W145-1`, `W137-1`, `W137-2`, `W137-3`, `W137-4`, `W137-5`, `W138-1`, `W138-2`, `W138-3`, `W138-4`, `W138-5`, `W138-6`, `W139-1`, `W139-2`, `W139-3`, `W139-4`, `W139-5`, `W139-6`, `W139-7`.
+- Needs rewrite/rescope due drift with actual behavior: `W143-1`, `W143-2` (soft/strict уже в runtime/prompt contracts, но backlog описывает отложенный rollout), `W124-*` (OpenCode-only framing superseded by host-agnostic direction for Claude/Pi/generic).
+- Active open blockers after revision: `W145-2`, `W145-3`, `W144-1`, `W144-2`, `W142-1`, `W142-2`, `W147-*`, `W146-*`.
 
 ## Wave 145 — TST-001 Run Findings Intake (2026-04-14)
 
 _Статус: plan. Основание — full run `TST-001` (audit dir `20260413T191642Z`) дал terminal incidents: `06_implement` (`exit_code=143`, `killed=0`, `watchdog_marker=0`), `07_loop` (`blocked/actions_missing` из-за отсутствующего canonical review report), `08_qa` (`exit_code=1` + API `429`) при ложной `TELEMETRY_ONLY` классификации; также зафиксированы ложные WARN-сигналы `loop_runner_env_missing` и `workspace_layout_non_canonical_root_detected`._
 
-- [ ] **W145-1 (P0) Review stage-result artifact atomicity guard** `skills/review/runtime/review_run.py`, `skills/aidd-loop/runtime/loop_step_stage_result.py`, `skills/aidd-flow-state/runtime/stage_result.py`, `tests/test_review_run.py`, `tests/test_loop_run.py`, `tests/test_stage_result.py`:
+- [x] **W145-1 (P0) Review stage-result artifact atomicity guard** `skills/review/runtime/review_run.py`, `skills/aidd-loop/runtime/loop_step_stage_result.py`, `skills/aidd-flow-state/runtime/stage_result.py`, `tests/test_review_run.py`, `tests/test_loop_run.py`, `tests/test_stage_result.py`:
   - перед эмиссией `aidd.stage_result.v1` с `result=done` проверять существование `evidence_links.review_report` и соответствие path policy;
   - при отсутствии review report переводить stage в deterministic `blocked` (`reason_code=review_report_missing`) без записи `done`-result;
   - добавить replay fixture на кейс `stage.review.result.json` с битой ссылкой на report.
@@ -37,6 +45,7 @@ _Статус: plan. Основание — full run `TST-001` (audit dir `20260
   **Regression/tests:** `python3 -m pytest -q tests/test_review_run.py tests/test_loop_run.py tests/test_stage_result.py`.
   **Effort:** M
   **Risk:** High
+  **Closure note (2026-04-15):** runtime guard + regression tests присутствуют и проходят.
 
 - [ ] **W145-2 (P0) Classification precedence: non-zero exit + top-level error must override telemetry-only** `tests/repo_tools/aidd_audit_runner.py`, `tests/repo_tools/aidd_stage_launcher.py`, `tests/repo_tools/test_aidd_audit_runner.py`, `tests/repo_tools/test_aidd_stage_launcher.py`, `tests/fixtures/audit_tst001/*`:
   - если `exit_code!=0` и есть top-level result/error payload (`is_error=true`), классифицировать run как terminal incident;
@@ -56,6 +65,114 @@ _Статус: plan. Основание — full run `TST-001` (audit dir `20260
   **Deps:** W145-2
   **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_aidd_audit_runner.py tests/repo_tools/test_e2e_prompt_contract.py`.
   **Effort:** S
+  **Risk:** Medium
+
+## Wave 147 — Host-Agnostic Flow Refactor (2026-04-15)
+
+_Статус: plan. Основание — нужен отдельный execution track по переносу AIDD flow в host-agnostic форму (Claude/Pi/generic) с сохранением текущих stage/gate guarantees. RFC source: `docs/host-agnostic-flow-rfc.md`._
+
+- [ ] **W147-1 (P0) Freeze host-agnostic flow spec and schemas (contract-first baseline)** `docs/host-agnostic-flow-rfc.md`, `templates/aidd/config/flow_spec.json`, `skills/aidd-flow-contracts/SKILL.md`, `skills/aidd-flow-contracts/schemas/*.json`, `skills/aidd-flow-contracts/runtime/validate_schema.py`, `tests/test_flow_contracts.py`:
+  - зафиксировать machine-readable `flow_spec` (stages/transitions/gates/reason-policy) как source-of-truth;
+  - добавить schema contracts: `stage_result`, `gate_decision`, `adapter_event`, `capabilities`;
+  - внедрить validator без изменения runtime behavior на этом шаге.
+  **AC:** flow-spec и contracts валидируются в CI; текущие canonical stage artifacts проходят schema validation без регрессии поведения.
+  **Deps:** -
+  **Regression/tests:** `python3 -m pytest -q tests/test_flow_contracts.py tests/test_stage_result.py tests/test_output_contract.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [ ] **W147-2 (P0) Extract policy/transition engine into shared flow-core (behavior-preserving)** `hooks/gate_workflow.py`, `skills/aidd-loop/runtime/loop_step_stage_chain.py`, `skills/aidd-loop/runtime/loop_run_parts/core.py`, `skills/aidd-flow-core/SKILL.md`, `skills/aidd-flow-core/runtime/{gate_eval.py,transition_eval.py,flow_run.py}`, `tests/test_gate_workflow.py`, `tests/test_loop_step.py`, `tests/test_loop_run.py`, `tests/test_flow_core_parity.py`:
+  - вынести gate evaluation + transition logic из hook/loop wiring в единый `flow-core`;
+  - оставить существующие entrypoints как compatibility wrappers поверх `flow-core`;
+  - обеспечить parity outputs/reason-codes относительно baseline.
+  **AC:** текущие команды/hook-path выдают те же verdicts и reason precedence, но логика выполняется через `flow-core`.
+  **Deps:** W147-1
+  **Regression/tests:** `python3 -m pytest -q tests/test_gate_workflow.py tests/test_loop_step.py tests/test_loop_run.py tests/test_flow_core_parity.py`.
+  **Effort:** L
+  **Risk:** High
+
+- [ ] **W147-3 (P1) Claude host adapter parity (reference adapter)** `skills/aidd-host-claude/SKILL.md`, `skills/aidd-host-claude/runtime/{adapter_cli.py,hooks_bridge.py}`, `hooks/hooks.json`, `hooks/gate-workflow.sh`, `tests/test_host_adapter_claude.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - ввести Claude adapter поверх `flow-core` без потери текущих hook semantics;
+  - добавить capability declaration + adapter event trace;
+  - сохранить non-interactive runner compatibility для existing audit tooling.
+  **AC:** Claude path работает через adapter layer с parity к текущему baseline; hooks остаются функционально эквивалентны.
+  **Deps:** W147-2
+  **Regression/tests:** `python3 -m pytest -q tests/test_host_adapter_claude.py tests/repo_tools/test_aidd_stage_launcher.py tests/repo_tools/test_aidd_audit_runner.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W147-4 (P1) Pi/generic adapter protocol + fallback semantics** `integrations/pi/adapter-contract.md`, `integrations/pi/examples/pi-extension-bridge.ts`, `skills/aidd-host-generic/SKILL.md`, `skills/aidd-host-generic/runtime/{adapter_cli.py,stdio_bridge.py}`, `tests/conformance/test_adapter_capabilities.py`, `tests/conformance/fixtures/*`:
+  - формализовать capability negotiation для Pi/generic hosts (`hooks/subagents/permission_gate/interactive_questions`);
+  - реализовать deterministic fallback policy (serial mode, explicit gate calls, structured BLOCKED questions);
+  - добавить replay fixtures для host-mode parity.
+  **AC:** generic adapter выполняет stage-chain end-to-end; Pi bridge имеет проверяемый protocol contract и documented fallback behavior.
+  **Deps:** W147-1, W147-2
+  **Regression/tests:** `python3 -m pytest -q tests/conformance/test_adapter_capabilities.py tests/conformance/test_stage_chain_parity.py`.
+  **Effort:** L
+  **Risk:** High
+
+- [ ] **W147-5 (P1) Conformance matrix as CI gate for host parity** `.github/workflows/ci.yml`, `tests/conformance/test_stage_chain_parity.py`, `tests/conformance/test_adapter_parity.py`, `tests/repo_tools/smoke-workflow.sh`, `tests/repo_tools/aidd_audit_runner.py`:
+  - добавить adapter matrix checks (claude baseline mandatory, generic mandatory, pi replay mandatory once adapter ready);
+  - ввести golden fixtures для key stages `06/07/08` с reason-code parity assertions;
+  - заблокировать merge при drift между adapters и baseline policy.
+  **AC:** CI детерминированно валидирует host parity по conformance suite и reason precedence.
+  **Deps:** W147-3, W147-4
+  **Regression/tests:** `python3 -m pytest -q tests/conformance/test_stage_chain_parity.py tests/conformance/test_adapter_parity.py tests/repo_tools/test_aidd_audit_runner.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W147-6 (P2) Migration docs + deprecation map (W124 -> host-agnostic track)** `docs/runbooks/host-agnostic-flow-migration.md`, `docs/backlog.md`, `AGENTS.md`, `README.md`, `README.en.md`, `CHANGELOG.md`:
+  - оформить migration playbook по phased cutover (`legacy hook-direct` -> `flow-core + adapters`);
+  - задокументировать compatibility matrix и deprecation timeline для OpenCode-only framing;
+  - синхронизовать release communication (internal + public docs).
+  **AC:** migration path и deprecation policy задокументированы; W124 references привязаны к W147 milestones.
+  **Deps:** W147-3, W147-4
+  **Regression/tests:** `python3 tests/repo_tools/release_docs_guard.py --root .`, `python3 tests/repo_tools/lint-prompts.py --root .`.
+  **Effort:** S
+  **Risk:** Low
+
+## Wave 146 — Host-Agnostic E2E Live Prompt Rework (2026-04-15)
+
+_Статус: plan. Основание — переход к host-agnostic flow (Claude/Pi/generic) требует переработки e2e prompt surface: текущие profile docs и contract tests избыточно завязаны на строковые проверки и частично дублируют policy между host-specific и host-neutral слоями._
+
+- [ ] **W146-1 (P0) Extract machine-readable live prompt contract from monolithic profiles** `tests/repo_tools/build_e2e_prompts.py`, `tests/repo_tools/e2e_prompt/profile_full.md`, `tests/repo_tools/e2e_prompt/profile_smoke.md`, `tests/repo_tools/e2e_prompt/quality_profile_full.md`, `docs/e2e/*.txt`:
+  - вынести machine-readable policy surface (stage rules, reason precedence, artifact requirements, retries) в отдельный contract source;
+  - оставить markdown profiles как human-readable overlays над contract source;
+  - обеспечить deterministic rendering full/smoke/quality outputs без ручного дублирования policy blocks.
+  **AC:** prompt builder рендерит текущие output files из contract source + overlays; drift ловится на уровне структуры, не только строк.
+  **Deps:** W147-1
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py tests/repo_tools/test_e2e_quality_prompt_contract.py`, `python3 tests/repo_tools/build_e2e_prompts.py --check`.
+  **Effort:** M
+  **Risk:** High
+
+- [ ] **W146-2 (P0) Split host-neutral policy from host adapter overlays (Claude/Pi/Generic)** `tests/repo_tools/e2e_prompt/*.md`, `tests/repo_tools/build_e2e_prompts.py`, `docs/host-agnostic-flow-rfc.md`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - выделить общий policy core (reason precedence, gates, artifact contracts) отдельно от host launch/runtime snippets;
+  - добавить host overlays для `claude`, `pi`, `generic` без копирования core policy;
+  - зафиксировать capability mapping (`hooks`, `subagents`, `permission gate`) и fallback semantics в prompt build surface.
+  **AC:** генерируются host-specific live prompts с общим policy ядром; изменения в core policy автоматически попадают во все host outputs.
+  **Deps:** W146-1, W147-3
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py tests/repo_tools/test_e2e_quality_prompt_contract.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [ ] **W146-3 (P1) Replace brittle string-only assertions with structured contract assertions** `tests/repo_tools/test_e2e_prompt_contract.py`, `tests/repo_tools/test_e2e_quality_prompt_contract.py`, `tests/repo_tools/build_e2e_prompts.py`:
+  - перейти от mass string matching к валидации структурных блоков (variables, stages, artifacts, precedence rules);
+  - оставить ограниченный smoke-набор string assertions для критичных human-readable markers;
+  - добавить regression cases на host overlays и fallback policy.
+  **AC:** contract tests проверяют semantics/structure, а не только наличие отдельных строк; flaky diffs из-за формулировок заметно снижаются.
+  **Deps:** W146-1, W146-2
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py tests/repo_tools/test_e2e_quality_prompt_contract.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W146-4 (P1) Add e2e live matrix replay profile for host adapters** `tests/repo_tools/aidd_audit_runner.py`, `tests/repo_tools/aidd_stage_launcher.py`, `tests/fixtures/audit_tst001/*`, `docs/e2e/*.txt`, `docs/runbooks/tst001-audit-hardening.md`:
+  - формализовать replay/live matrix (claude baseline, pi adapter, generic fallback) с одинаковыми reason-code expectations;
+  - расширить audit summary полями host mode + capability fallback trace;
+  - обновить runbook для triage по host mode.
+  **AC:** один matrix replay command проверяет parity ключевых сигналов `06/07/08` для поддерживаемых host modes.
+  **Deps:** W146-2, W147-4
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_aidd_audit_runner.py tests/repo_tools/test_aidd_stage_launcher.py tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Effort:** M
   **Risk:** Medium
 
 ## Wave 144 — Cleanup Signal Quality (2026-04-13)
@@ -83,7 +200,7 @@ _Статус: plan (deferred after run-stability gates). Основание —
 
 ## Wave 143 — Soft/Strict Dual Classification Rework (planned)
 
-_Статус: plan (deferred after W145/W137/W139). Цель — staged rollout dual-classification через feature-flag без изменения default verdict до стабилизации._
+_Статус: plan (requires rescope). Цель — привести backlog в соответствие с фактическим состоянием: dual-classification + strict-shadow уже присутствуют в runtime/prompt contracts, поэтому remaining scope должен быть переопределён как hardening/cleanup, а не первичный rollout._
 
 - [ ] **W143-1 (P0) Feature-flagged soft/strict classification** `tests/repo_tools/aidd_audit_runner.py`, `tests/repo_tools/aidd_audit_contract.py`, `tests/repo_tools/test_aidd_audit_runner.py`:
   - внедрить dual-classification только под явным флагом;
@@ -319,7 +436,7 @@ _Статус: plan. Основание — TST-001 full audit показал im
 
 ## Wave 124 — OpenCode Host Adaptation (2026-04-02)
 
-_Статус: plan. Основание — low-priority platform adaptation для OpenCode с целью near-full parity без форка runtime и без раздвоения stage logic. Shared Python runtime, stage templates и `aidd/**` остаются общими; Claude и OpenCode получают отдельные generated host layers._
+_Статус: plan (superseded framing). Основание — historical OpenCode-only adaptation draft; superseded by host-agnostic tracks (`Wave 147` flow-core/adapters + `Wave 146` e2e live prompts). Scope этой волны требует переименования/переноса в multi-host contract language._
 
 - [ ] **W124-1 (P2) Host-neutral runtime and environment contract** `aidd_runtime/__init__.py`, `tests/repo_tools/cli-adapter-guard.py`, `docs/skill-language.md`, `AGENTS.md`, `tests/test_prompt_lint.py`:
   - ввести host-neutral canonical alias для plugin/runtime root, чтобы runtime help, docs examples и guards не зависели только от `CLAUDE_PLUGIN_ROOT`;
