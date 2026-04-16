@@ -36,6 +36,7 @@ def _ensure_plugin_root_on_path() -> None:
 _ensure_plugin_root_on_path()
 
 from aidd_runtime import runtime
+from aidd_runtime import artifact_truth
 from aidd_runtime.prd_review_section import extract_prd_review_section
 
 SCHEMA = "aidd.ticket.v1"
@@ -159,7 +160,7 @@ def _collect_events(root: Path, ticket: str, limit: int = EVENTS_LIMIT) -> List[
     except OSError:
         return []
     events: List[Dict[str, object]] = []
-    for raw in reversed(lines):
+    for raw in lines:
         if not raw.strip():
             continue
         try:
@@ -168,9 +169,11 @@ def _collect_events(root: Path, ticket: str, limit: int = EVENTS_LIMIT) -> List[
             continue
         if isinstance(payload, dict):
             events.append(payload)
-        if len(events) >= max(limit, 0):
-            break
-    return list(reversed(events))
+    policy = artifact_truth.load_artifact_truth_config(root)
+    events = artifact_truth.collapse_events(events, enabled=bool(policy.get("collapse_event_noise", True)))
+    if limit <= 0:
+        return []
+    return events[-max(limit, 0):]
 
 
 def _find_report_variant(report_path: Path) -> Optional[Path]:
@@ -189,7 +192,6 @@ def _collect_artifacts(root: Path, ticket: str) -> List[str]:
         root / "docs" / "prd" / f"{ticket}.prd.md",
         root / "docs" / "plan" / f"{ticket}.md",
         root / "docs" / "research" / f"{ticket}.md",
-        root / "docs" / "spec" / f"{ticket}.spec.yaml",
         root / "docs" / "tasklist" / f"{ticket}.md",
     ]
     for path in candidates:
@@ -266,6 +268,14 @@ def build_index(root: Path, ticket: str, slug: str) -> Dict[str, object]:
     if not summary:
         summary = f"{ticket}"
 
+    reports = _collect_reports(root, ticket)
+    truth = artifact_truth.evaluate_artifact_truth(
+        root,
+        ticket,
+        tasklist_text=tasklist_text,
+        actual_reports=reports,
+    )
+
     return {
         "schema": SCHEMA,
         "ticket": ticket,
@@ -274,7 +284,7 @@ def build_index(root: Path, ticket: str, slug: str) -> Dict[str, object]:
         "updated": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
         "summary": summary,
         "artifacts": _collect_artifacts(root, ticket),
-        "reports": _collect_reports(root, ticket),
+        "reports": reports,
         "next3": next3,
         "open_questions": open_questions,
         "open_questions_source": open_questions_source,
@@ -282,6 +292,10 @@ def build_index(root: Path, ticket: str, slug: str) -> Dict[str, object]:
         "checks": _collect_checks(root, ticket),
         "context_pack": context_pack,
         "events": _collect_events(root, ticket),
+        "doc_statuses": truth.get("doc_statuses") or {},
+        "expected_reports": truth.get("expected_reports") or [],
+        "missing_expected_reports": truth.get("missing_expected_reports") or [],
+        "truth_checks": truth.get("truth_checks") or [],
     }
 
 

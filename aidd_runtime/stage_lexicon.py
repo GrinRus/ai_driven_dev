@@ -9,7 +9,6 @@ PUBLIC_STAGES: tuple[str, ...] = (
     "research",
     "plan",
     "review-spec",
-    "spec-interview",
     "tasklist",
     "implement",
     "review",
@@ -28,7 +27,6 @@ CANONICAL_STAGES: frozenset[str] = frozenset(PUBLIC_STAGES + INTERNAL_STAGES)
 STAGE_ALIASES: dict[str, str] = {
     "task": "tasklist",
     "tasks": "tasklist",
-    "spec": "spec-interview",
 }
 
 LOOP_STAGES: frozenset[str] = frozenset(
@@ -48,7 +46,6 @@ PLANNING_STAGES: frozenset[str] = frozenset(
         "review-spec",
         "review-plan",
         "review-prd",
-        "spec-interview",
         "tasklist",
     }
 )

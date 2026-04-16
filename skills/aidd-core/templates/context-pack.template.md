@@ -11,7 +11,6 @@ artefact_links:
 - plan: aidd/docs/plan/<ticket>.md (if exists)
 - tasklist: aidd/docs/tasklist/<ticket>.md (if exists)
 - research: aidd/docs/research/<ticket>.md (if exists)
-- spec: aidd/docs/spec/<ticket>.spec.yaml (if exists)
 - loop_pack: aidd/reports/loops/<ticket>/<scope_key>.loop.pack.md (implement/review)
 - review_pack: aidd/reports/loops/<ticket>/<scope_key>/review.latest.pack.md (if exists)
 - review_report: aidd/reports/reviewer/<ticket>/<scope_key>.json (if exists)

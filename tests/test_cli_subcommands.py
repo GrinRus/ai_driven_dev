@@ -14,7 +14,6 @@ from aidd_runtime import prd_review_gate
 from aidd_runtime import qa_run
 from aidd_runtime import rlm_targets
 from aidd_runtime import review_run
-from aidd_runtime import spec_interview
 from aidd_runtime import tasklist_check
 from aidd_runtime import tasks_new
 from aidd_runtime import tests_log
@@ -26,7 +25,6 @@ def test_cli_parses_new_subcommands():
     prd_review_gate.parse_args(["--ticket", "DEMO-1"])
     tasklist_check.parse_args(["--ticket", "DEMO-1"])
     rlm_targets.parse_args(["--ticket", "DEMO-1"])
-    spec_interview.parse_args(["--ticket", "DEMO-1"])
     tasks_new.parse_args(["--ticket", "DEMO-1"])
     tasks_new.parse_args(["--ticket", "DEMO-1", "--no-strict"])
     implement_run.parse_args(["--ticket", "DEMO-1"])

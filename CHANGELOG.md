@@ -2,6 +2,10 @@
 
 ## Unreleased
 - Runtime and audit stabilization closure for waves `120`, `121`, `136` (core contracts, prompt/audit determinism, release-gate alignment).
+- Wave 148 artifact truthfulness hardening for non-research surfaces:
+  - added shared truth evaluator for `tasklist`/`index`/`status`;
+  - split `ExpectedReports` from actual `reports` in derived state;
+  - added soft `artifact_truth` policy knob and consumer-side event de-noise for repeated `gate-tests warn`.
 - Added closure runbook and baseline evidence for stabilization sign-off:
   - `docs/runbooks/w120-w121-w136-closure.md`
   - `aidd/reports/events/w120-w121-w136-baseline-2026-04-09.md`

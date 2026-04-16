@@ -18,22 +18,22 @@
       "lang": "en",
       "name": "plan-reviewer",
       "path": "agents/plan-reviewer.md",
-      "prompt_version": "1.0.21",
-      "source_version": "1.0.21"
+      "prompt_version": "1.0.22",
+      "source_version": "1.0.22"
     },
     {
       "lang": "en",
       "name": "planner",
       "path": "agents/planner.md",
-      "prompt_version": "1.1.14",
-      "source_version": "1.1.14"
+      "prompt_version": "1.1.15",
+      "source_version": "1.1.15"
     },
     {
       "lang": "en",
       "name": "prd-reviewer",
       "path": "agents/prd-reviewer.md",
-      "prompt_version": "1.0.20",
-      "source_version": "1.0.20"
+      "prompt_version": "1.0.21",
+      "source_version": "1.0.21"
     },
     {
       "lang": "en",
@@ -58,24 +58,17 @@
     },
     {
       "lang": "en",
-      "name": "spec-interview-writer",
-      "path": "agents/spec-interview-writer.md",
-      "prompt_version": "1.0.13",
-      "source_version": "1.0.13"
-    },
-    {
-      "lang": "en",
       "name": "tasklist-refiner",
       "path": "agents/tasklist-refiner.md",
-      "prompt_version": "1.1.20",
-      "source_version": "1.1.20"
+      "prompt_version": "1.1.21",
+      "source_version": "1.1.21"
     },
     {
       "lang": "en",
       "name": "validator",
       "path": "agents/validator.md",
-      "prompt_version": "1.0.13",
-      "source_version": "1.0.13"
+      "prompt_version": "1.0.14",
+      "source_version": "1.0.14"
     }
   ],
   "schema": "aidd.entrypoints.bundle.v1",
@@ -211,8 +204,8 @@
       "lang": "en",
       "name": "review-spec",
       "path": "skills/review-spec/SKILL.md",
-      "prompt_version": "1.0.27",
-      "source_version": "1.0.27",
+      "prompt_version": "1.0.28",
+      "source_version": "1.0.28",
       "user_invocable": "true"
     },
     {
@@ -222,15 +215,6 @@
       "path": "skills/review/SKILL.md",
       "prompt_version": "1.0.46",
       "source_version": "1.0.46",
-      "user_invocable": "true"
-    },
-    {
-      "disable_model_invocation": "true",
-      "lang": "en",
-      "name": "spec-interview",
-      "path": "skills/spec-interview/SKILL.md",
-      "prompt_version": "1.0.17",
-      "source_version": "1.0.17",
       "user_invocable": "true"
     },
     {
@@ -247,8 +231,8 @@
       "lang": "en",
       "name": "tasks-new",
       "path": "skills/tasks-new/SKILL.md",
-      "prompt_version": "1.1.24",
-      "source_version": "1.1.24",
+      "prompt_version": "1.1.25",
+      "source_version": "1.1.25",
       "user_invocable": "true"
     }
   ]

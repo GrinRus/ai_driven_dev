@@ -117,38 +117,11 @@
           "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_feature.py *)"
         ],
         "model": "inherit",
-        "prompt_version": "1.0.27",
-        "source_version": "1.0.27",
+        "prompt_version": "1.0.28",
+        "source_version": "1.0.28",
         "lang": "en",
         "argument-hint": "$1 [note...]",
         "name": "review-spec"
-      }
-    },
-    {
-      "stage": "spec-interview",
-      "command_path": "commands/spec-interview.md",
-      "skill_path": "skills/spec-interview/SKILL.md",
-      "frontmatter": {
-        "allowed-tools": [
-          "Read",
-          "Edit",
-          "Write",
-          "Glob",
-          "AskUserQuestionTool",
-          "Bash(rg *)",
-          "Bash(sed *)",
-          "Bash(cat *)",
-          "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/spec-interview/runtime/spec_interview.py *)",
-          "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_slice.py *)",
-          "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_stage.py *)",
-          "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_feature.py *)"
-        ],
-        "model": "inherit",
-        "prompt_version": "1.0.17",
-        "source_version": "1.0.17",
-        "lang": "en",
-        "argument-hint": "$1 [note...]",
-        "name": "spec-interview"
       }
     },
     {
@@ -172,8 +145,8 @@
           "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/tasklist_check.py *)"
         ],
         "model": "inherit",
-        "prompt_version": "1.1.24",
-        "source_version": "1.1.24",
+        "prompt_version": "1.1.25",
+        "source_version": "1.1.25",
         "lang": "en",
         "argument-hint": "$1 [note...]",
         "name": "tasks-new"

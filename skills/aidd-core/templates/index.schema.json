@@ -17,7 +17,11 @@
   "optional": [
     "context_pack",
     "events",
-    "meta"
+    "meta",
+    "doc_statuses",
+    "expected_reports",
+    "missing_expected_reports",
+    "truth_checks"
   ],
   "notes": "Index files live at aidd/docs/index/<ticket>.json"
 }

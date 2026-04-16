@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Smoke scenario for the Claude workflow bootstrap.
 # This script is executed directly via tests/repo_tools/smoke-workflow.sh.
-# Creates a temporary project, runs init script, mimics the idea→plan→review-spec→spec-interview→tasks cycle,
+# Creates a temporary project, runs init script, mimics the idea→plan→review-spec→tasks cycle,
 # then performs a minimal loop (tasks → implement → review → qa) via CLI tools,
 # and asserts that gate-workflow blocks/permits source edits as expected.
 set -euo pipefail
@@ -47,10 +47,6 @@ run_cli() {
       ;;
     prd-review)
       entrypoint="$PLUGIN_ROOT/skills/aidd-core/runtime/prd_review.py"
-      mode="python"
-      ;;
-    spec-interview)
-      entrypoint="$PLUGIN_ROOT/skills/spec-interview/runtime/spec_interview.py"
       mode="python"
       ;;
     tasks-new)
@@ -798,51 +794,14 @@ run_cli prd-review-gate --ticket "$TICKET" --file-path "src/main/kotlin/App.kt" 
 log "expect block until tasks recorded"
 assert_gate_exit 2 "missing tasklist items"
 
-log "run stage-owned spec-interview/tasks-new python entrypoints"
-run_cli spec-interview --ticket "$TICKET" >/dev/null
+log "run stage-owned tasks-new python entrypoint"
+run_cli set-active-stage tasklist >/dev/null
 run_cli tasks-new --ticket "$TICKET" >/dev/null
 
 log "ensure tasklist template exists"
 if [[ ! -f "docs/tasklist/${TICKET}.md" ]]; then
   cp "docs/tasklist/template.md" "docs/tasklist/${TICKET}.md"
 fi
-log "ensure spec template exists"
-if [[ ! -f "docs/spec/${TICKET}.spec.yaml" ]]; then
-  mkdir -p "docs/spec"
-  cp "docs/spec/template.spec.yaml" "docs/spec/${TICKET}.spec.yaml"
-fi
-
-log "mark spec ready"
-python3 - "$TICKET" <<'PY'
-from __future__ import annotations
-
-import sys
-from datetime import date
-from pathlib import Path
-
-ticket = sys.argv[1]
-path = Path("docs/spec") / f"{ticket}.spec.yaml"
-text = path.read_text(encoding="utf-8")
-today = date.today().isoformat()
-lines = []
-has_status = False
-has_updated = False
-for line in text.splitlines():
-    if line.startswith("status:"):
-        lines.append("status: ready")
-        has_status = True
-        continue
-    if line.startswith("updated_at:"):
-        lines.append(f'updated_at: "{today}"')
-        has_updated = True
-        continue
-    lines.append(line)
-if not has_status:
-    lines.insert(0, "status: ready")
-if not has_updated:
-    lines.insert(1, f'updated_at: "{today}"')
-path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-PY
 
 log "update tasklist summary"
 python3 - "$TICKET" <<'PY'
@@ -876,18 +835,6 @@ def replace_section(text: str, title: str, new_body: str) -> str:
         return text
     return text[:start] + "\n" + new_body.strip("\n") + "\n\n" + text[end:]
 
-
-spec_pack_body = f"""Updated: {today}
-Spec: aidd/docs/spec/{ticket}.spec.yaml (status: ready)
-- Goal: smoke spec ready
-- Non-goals:
-  - none
-- Key decisions:
-  - smoke decision
-- Risks:
-  - low"""
-text = replace_section(text, "AIDD:SPEC_PACK", spec_pack_body)
-
 test_strategy_body = """- Unit: smoke
 - Integration: smoke
 - Contract: smoke
@@ -918,7 +865,7 @@ iterations_full_body = f"""- [ ] I1: Smoke bootstrap (iteration_id: I1)
   - Expected paths:
     - docs/tasklist/{ticket}.md
   - Size budget:
-    - max_files: 1
+    - max_files: 3
     - max_loc: 200
   - Commands:
     - update tasklist sections

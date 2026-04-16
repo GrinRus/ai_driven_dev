@@ -108,6 +108,7 @@ class LoopPackTests(unittest.TestCase):
             pack_path = root / "reports" / "loops" / "DEMO-NO-BND" / "iteration_id_I1.loop.pack.md"
             pack_text = pack_path.read_text(encoding="utf-8")
             self.assertIn("reason_code: auto_boundary_extend_warn", pack_text)
+            self.assertNotIn("Tasklist/PRD/Plan/Research/Spec", pack_text)
 
     def test_loop_pack_falls_back_to_context_allowed_paths(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-pack-") as tmpdir:

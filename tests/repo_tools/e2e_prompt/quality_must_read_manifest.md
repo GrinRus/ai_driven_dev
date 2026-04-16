@@ -13,7 +13,6 @@
 - `$PLUGIN_DIR/skills/aidd-loop/SKILL.md`
 - `$PLUGIN_DIR/skills/researcher/SKILL.md`
 - `$PLUGIN_DIR/skills/aidd-stage-research/SKILL.md`
-- `$PLUGIN_DIR/skills/spec-interview/SKILL.md`
 - `$PLUGIN_DIR/skills/review-spec/SKILL.md`
 - `$PLUGIN_DIR/skills/implement/SKILL.md`
 - `$PLUGIN_DIR/skills/review/SKILL.md`

@@ -31,7 +31,6 @@ _RUNTIME_DIRS = (
     _REPO_ROOT / "skills" / "plan-new" / "runtime",
     _REPO_ROOT / "skills" / "researcher" / "runtime",
     _REPO_ROOT / "skills" / "review-spec" / "runtime",
-    _REPO_ROOT / "skills" / "spec-interview" / "runtime",
     _REPO_ROOT / "skills" / "tasks-new" / "runtime",
     _REPO_ROOT / "skills" / "implement" / "runtime",
     _REPO_ROOT / "skills" / "review" / "runtime",

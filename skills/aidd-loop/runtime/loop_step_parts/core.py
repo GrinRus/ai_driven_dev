@@ -94,8 +94,6 @@ _QUESTION_REASON_CODES = {
     "answers_required",
     "missing_answers",
     "questions_pending",
-    "missing_spec_answers",
-    "spec_questions_unresolved",
 }
 _QUESTION_RETRY_REASON_CODE = "prompt_flow_blocker"
 RUNTIME_PATH_DRIFT_REASON_CODE = "runtime_path_missing_or_drift"

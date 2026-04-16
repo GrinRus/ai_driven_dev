@@ -7,7 +7,6 @@
 - `research`
 - `plan`
 - `review-spec`
-- `spec-interview` (optional)
 - `tasklist`
 - `implement`
 - `review`
@@ -19,7 +18,6 @@
 - `review-prd`
 
 ## Legacy aliases (normalized to canonical stages)
-- `spec` -> `spec-interview`
 - `tasks`/`task` -> `tasklist`
 
 ## Mapping rules
@@ -31,7 +29,7 @@
 
 ## Artifact expectations (summary)
 - Все стадии читают/пишут только в workspace `aidd/**`.
-- Planning flow (`idea/research/plan/review-spec/spec-interview/tasklist`) создаёт/обновляет docs:
+- Planning flow (`idea/research/plan/review-spec/tasklist`) создаёт/обновляет docs:
   - `aidd/docs/prd/<ticket>.prd.md`
   - `aidd/docs/research/<ticket>.md`
   - `aidd/docs/plan/<ticket>.md`

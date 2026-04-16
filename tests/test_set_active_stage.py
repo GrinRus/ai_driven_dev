@@ -12,7 +12,7 @@ class SetActiveStageTests(unittest.TestCase):
     def test_valid_stages_include_status(self) -> None:
         self.assertIn("status", set_active_stage.VALID_STAGES)
 
-    def test_spec_alias_normalizes_to_spec_interview(self) -> None:
+    def test_spec_alias_is_rejected_after_flow_simplification(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             project_root = ensure_project_root(root)
@@ -25,9 +25,11 @@ class SetActiveStageTests(unittest.TestCase):
             finally:
                 os.chdir(current)
 
-            self.assertEqual(code, 0)
-            payload = json.loads((project_root / "docs" / ".active.json").read_text(encoding="utf-8"))
-            self.assertEqual(payload.get("stage"), "spec-interview")
+            self.assertEqual(code, 2)
+            payload_path = project_root / "docs" / ".active.json"
+            if payload_path.exists():
+                payload = json.loads(payload_path.read_text(encoding="utf-8"))
+                self.assertNotEqual(payload.get("stage"), "spec-interview")
 
     def test_stage_alias_flag_is_accepted(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

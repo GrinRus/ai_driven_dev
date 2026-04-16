@@ -142,3 +142,126 @@ def test_index_sync_includes_tests_log(tmp_path):
 
     reports = payload.get("reports") or []
     assert "aidd/reports/tests/DEMO-4/DEMO-4.jsonl" in reports
+
+
+def test_index_sync_separates_expected_and_actual_reports_with_truth_checks(tmp_path):
+    project_root = ensure_project_root(tmp_path)
+    ticket = "DEMO-5"
+    write_active_feature(project_root, ticket)
+    write_active_stage(project_root, "implement")
+    write_file(
+        project_root,
+        f"docs/tasklist/{ticket}.md",
+        dedent(
+            f"""
+            ---
+            Ticket: {ticket}
+            Status: READY
+            Plan: aidd/docs/plan/{ticket}.md
+            Reports:
+              qa: aidd/reports/qa/{ticket}.json
+              review_report: aidd/reports/reviewer/{ticket}/iteration_id_I1.json
+            ---
+
+            ## AIDD:CONTEXT_PACK
+            Updated: 2024-01-01
+            Ticket: {ticket}
+            Stage: implement
+            Status: READY
+
+            ## AIDD:TEST_EXECUTION
+            - profile: none
+            - tasks: []
+            - filters: []
+            - when: manual
+            - reason: docs-only
+
+            ## AIDD:NEXT_3
+            - [ ] I1: Bootstrap (ref: iteration_id=I1)
+            """
+        ).strip()
+        + "\n",
+    )
+    write_file(
+        project_root,
+        f"docs/plan/{ticket}.md",
+        "# Plan\n\n"
+        "## Plan Review\n"
+        "Status: PENDING\n\n"
+        "## AIDD:ITERATIONS\n"
+        "- iteration_id: I1\n"
+        "  - Goal: bootstrap\n",
+    )
+    write_file(project_root, f"docs/prd/{ticket}.prd.md", "# Demo PRD\n\nStatus: READY\n")
+    write_file(project_root, f"reports/qa/{ticket}.json", json.dumps({"status": "WARN"}, indent=2))
+
+    index_path = index_sync.write_index(project_root, ticket, ticket)
+    payload = json.loads(index_path.read_text(encoding="utf-8"))
+
+    assert payload["reports"] == [f"aidd/reports/qa/{ticket}.json"]
+    assert payload["expected_reports"] == [
+        f"aidd/reports/qa/{ticket}.json",
+        f"aidd/reports/reviewer/{ticket}/iteration_id_I1.json",
+    ]
+    assert payload["missing_expected_reports"] == [f"aidd/reports/reviewer/{ticket}/iteration_id_I1.json"]
+    assert payload["doc_statuses"]["plan"] == "PENDING"
+    assert "spec" not in payload["doc_statuses"]
+    assert all("docs/spec/" not in path for path in payload["artifacts"])
+    codes = {item["code"] for item in payload.get("truth_checks") or []}
+    assert "missing_expected_report" in codes
+    assert "active_stage_vs_plan_mismatch" in codes
+
+
+def test_index_sync_collapses_repeated_gate_tests_events(tmp_path):
+    project_root = ensure_project_root(tmp_path)
+    ticket = "DEMO-6"
+    write_active_feature(project_root, ticket)
+    write_active_stage(project_root, "implement")
+    write_file(project_root, f"docs/tasklist/{ticket}.md", "## AIDD:CONTEXT_PACK\n- Demo\n")
+    write_file(project_root, f"docs/prd/{ticket}.prd.md", "# Demo PRD\n\nStatus: READY\n")
+    write_file(
+        project_root,
+        f"reports/events/{ticket}.jsonl",
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "ts": "2024-01-01T00:00:00Z",
+                        "ticket": ticket,
+                        "type": "gate-tests",
+                        "status": "warn",
+                        "source": "hook gate-tests",
+                        "details": {"summary": "docs-only skip"},
+                    }
+                ),
+                json.dumps(
+                    {
+                        "ts": "2024-01-01T00:01:00Z",
+                        "ticket": ticket,
+                        "type": "gate-tests",
+                        "status": "warn",
+                        "source": "hook gate-tests",
+                        "details": {"summary": "docs-only skip"},
+                    }
+                ),
+                json.dumps(
+                    {
+                        "ts": "2024-01-01T00:02:00Z",
+                        "ticket": ticket,
+                        "type": "progress",
+                        "status": "ok",
+                    }
+                ),
+            ]
+        )
+        + "\n",
+    )
+
+    payload = json.loads(index_sync.write_index(project_root, ticket, ticket).read_text(encoding="utf-8"))
+    events = payload.get("events") or []
+
+    assert len(events) == 2
+    assert events[0]["type"] == "gate-tests"
+    assert events[0]["repeat_count"] == 2
+    assert events[0]["first_seen"] == "2024-01-01T00:00:00Z"
+    assert events[0]["last_seen"] == "2024-01-01T00:01:00Z"

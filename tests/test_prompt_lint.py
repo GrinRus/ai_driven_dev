@@ -16,7 +16,6 @@ STAGE_SKILLS = [
     "researcher",
     "plan-new",
     "review-spec",
-    "spec-interview",
     "tasks-new",
     "implement",
     "review",
@@ -30,7 +29,6 @@ STAGE_RUNTIME_ENTRYPOINT = {
     "researcher": "skills/researcher/runtime/research.py",
     "plan-new": "skills/plan-new/runtime/research_check.py",
     "review-spec": "skills/aidd-core/runtime/prd_review.py",
-    "spec-interview": "skills/spec-interview/runtime/spec_interview.py",
     "tasks-new": "skills/tasks-new/runtime/tasks_new.py",
     "implement": "skills/implement/runtime/implement_run.py",
     "review": "skills/review/runtime/review_run.py",
@@ -45,7 +43,6 @@ AGENT_NAMES = [
     "validator",
     "plan-reviewer",
     "prd-reviewer",
-    "spec-interview-writer",
     "tasklist-refiner",
     "implementer",
     "reviewer",
@@ -54,7 +51,6 @@ AGENT_NAMES = [
 STAGE_SUBAGENT = {
     "idea-new": "analyst",
     "researcher": "researcher",
-    "spec-interview": "spec-interview-writer",
     "tasks-new": "tasklist-refiner",
     "implement": "implementer",
     "review": "reviewer",
@@ -67,7 +63,6 @@ RLM_PRELOAD_ROLES = {
     "prd-reviewer",
     "researcher",
     "reviewer",
-    "spec-interview-writer",
     "tasklist-refiner",
     "validator",
 }
@@ -81,7 +76,6 @@ CRITICAL_TEMPLATE_FILES = [
     "skills/idea-new/templates/prd.template.md",
     "skills/plan-new/templates/plan.template.md",
     "skills/researcher/templates/research.template.md",
-    "skills/spec-interview/templates/spec.template.yaml",
     "skills/tasks-new/templates/tasklist.template.md",
 ]
 
@@ -1024,15 +1018,15 @@ class PromptLintTests(unittest.TestCase):
             self.assertIn("agent must not reference own stage slash command", result.stderr)
             self.assertIn("/feature-dev-aidd:qa", result.stderr)
 
-    def test_agent_self_stage_slash_link_in_body_fails_for_spec_interview_writer(self) -> None:
-        bad_agent = build_agent("spec-interview-writer") + "\nIf data is missing, run /feature-dev-aidd:spec-interview.\n"
+    def test_agent_self_stage_slash_link_in_body_fails_for_tasklist_refiner(self) -> None:
+        bad_agent = build_agent("tasklist-refiner") + "\nIf data is missing, run /feature-dev-aidd:tasks-new.\n"
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            self.write_prompts(root, agent_override={"spec-interview-writer": bad_agent})
+            self.write_prompts(root, agent_override={"tasklist-refiner": bad_agent})
             result = self.run_lint(root)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("agent must not reference own stage slash command", result.stderr)
-            self.assertIn("/feature-dev-aidd:spec-interview", result.stderr)
+            self.assertIn("/feature-dev-aidd:tasks-new", result.stderr)
 
     def test_agent_non_self_stage_handoff_link_is_allowed(self) -> None:
         good_agent = build_agent("researcher") + "\nWhen ready, point to /feature-dev-aidd:plan-new <ticket>.\n"

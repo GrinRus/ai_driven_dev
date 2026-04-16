@@ -29,6 +29,7 @@ User‑гайд для workspace находится в `skills/aidd-core/templat
 - `AGENTS.md` (корень) — dev‑гайд для репозитория; `skills/aidd-core/templates/workspace-agents.md` — user‑гайд для проектов.
 - При изменении stage content: обновите `skills/*/templates/*` + `skills/aidd-init/runtime/init.py` seed map; `templates/aidd/**` меняйте только для bootstrap config/placeholders.
 - Workspace‑конфиги: `aidd/config/{gates.json,conventions.json,context_gc.json,allowed-deps.txt}` (источник — `templates/aidd/config/`).
+- Artifact truth policy lives in `aidd/config/gates.json -> artifact_truth`; default rollout is `soft`.
 - Hook wiring: `hooks/hooks.json` — обновляйте при добавлении/удалении хуков.
 - Permissions/cadence: `.claude/settings.json` в корне workspace (без `aidd/.claude`).
 
@@ -172,7 +173,7 @@ Agent‑first правило: сначала читаем артефакты (`a
 - Semver: `MAJOR.MINOR.PATCH`.
 - `source_version` always equals `prompt_version` for the canonical EN prompt corpus.
 - Skills/agents хранят версии в frontmatter; stage‑skills должны совпадать с baseline.
-- Preload matrix v2 (lint-enforced): `aidd-policy` для всех agents, `aidd-rlm` только для `analyst|planner|plan-reviewer|prd-reviewer|researcher|reviewer|spec-interview-writer|tasklist-refiner|validator`, `aidd-stage-research` обязательно для `researcher`, `aidd-loop` только для `implementer|reviewer|qa`. Waivers — `AGENT_PRELOAD_WAIVERS` в `tests/repo_tools/lint-prompts.py`.
+- Preload matrix v2 (lint-enforced): `aidd-policy` для всех agents, `aidd-rlm` только для `analyst|planner|plan-reviewer|prd-reviewer|researcher|reviewer|tasklist-refiner|validator`, `aidd-stage-research` обязательно для `researcher`, `aidd-loop` только для `implementer|reviewer|qa`. Waivers — `AGENT_PRELOAD_WAIVERS` в `tests/repo_tools/lint-prompts.py`.
 - Инструменты:
   - `python3 tests/repo_tools/prompt-version bump --root <workflow-root> --prompts <name> --kind agent|command --lang en --part <major|minor|patch>` (agents + historical commands)
   - `python3 tests/repo_tools/lint-prompts.py --root <workflow-root>`
@@ -189,6 +190,7 @@ Agent‑first правило: сначала читаем артефакты (`a
   - Reviewer marker: `aidd/reports/reviewer/<ticket>/<scope_key>.json`
   - Tests log: `aidd/reports/tests/<ticket>/<scope_key>.jsonl`
 - Pack‑only: читаем `*.pack.json` как источник; JSON хранится как raw‑артефакт и не используется для чтения.
+- Tasklist front‑matter uses `ExpectedReports:` only for planned downstream outputs; derived index field `reports` must list only реально существующие files in `aidd/reports/**`.
 - Для PRD readiness/recovery source-of-truth — структурный report payload (`status`/`recommended_status`), narrative вывод stage считается вспомогательным.
 - Header (минимум): `schema`, `pack_version`, `type`, `kind`, `ticket`, `slug|slug_hint`, `generated_at`, `status`, `summary` (если есть), `tests_summary` (QA), `source_path`.
 - Determinism: стабильная сериализация, stable‑truncation, стабильные `id`.

@@ -2,8 +2,8 @@
 name: prd-reviewer
 description: Review the PRD for completeness, risks, and metrics after the plan review pass.
 lang: en
-prompt_version: 1.0.20
-source_version: 1.0.20
+prompt_version: 1.0.21
+source_version: 1.0.21
 tools: Read, Edit, Write, Glob, Bash(rg *), Bash(sed *)
 skills:
   - feature-dev-aidd:aidd-core
@@ -18,7 +18,7 @@ You review the PRD and update the `## PRD Review` narrative after the plan-revie
 
 ## Input Artifacts
 - `aidd/docs/prd/<ticket>.prd.md`.
-- `aidd/docs/plan/<ticket>.md` plus research/spec artifacts when present.
+- `aidd/docs/plan/<ticket>.md` plus research artifacts when present.
 - `aidd/reports/context/<ticket>.pack.md`.
 
 ## Automation
