@@ -32,9 +32,11 @@
   - для `idea-new` и `plan-new` retry-триггер также считается валидным, если top-level `success|WARN` явно требует ответить на `Q*`/закрыть незаполненный `AIDD:ANSWERS Q<N>=...` и перевести артефакт стадии в `READY`;
   - формат payload: `Q<N>=<token>` или `Q<N>="короткий текст"` (one-line);
   - не считать trigger-ом `Q*`/`AIDD:ANSWERS`/`Question` внутри вложенных артефактов (PRD/tasklist/reports/log excerpts), если stage-return сам не запрашивает ответ;
+  - количество `Q<N>` в retry определяется только актуальным top-level stage-return последнего run; примеры payload в документации не фиксируют число вопросов;
   - `idea-new`: `ticket + IDEA_NOTE + AIDD:ANSWERS`
   - остальные stage: `ticket + AIDD:ANSWERS`
   - для runtime retry использовать canonical CLI-аргументы runtime (например, `--plan-path` для `plan-review-gate`) без legacy alias-аргументов.
+  - если для части актуальных `Q<N>` нет сопоставленных ответов, фиксировать `question_retry_incomplete` и не отправлять partial compact payload как completed retry.
 - R2: Если `BLOCKED` связан с unresolved `Q*`:
   - выполнить `/feature-dev-aidd:review-spec <ticket>` (тот же retry-шаблон),
   - перед повтором stage перепроверить `aidd/docs/prd/<ticket>.prd.md` (`Status:` и unresolved `Q*`);

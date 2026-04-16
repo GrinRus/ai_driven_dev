@@ -280,6 +280,13 @@ class E2EPromptContractTests(unittest.TestCase):
         self.assertIn("AUDIT_DIR/<step>_questions_normalized.txt", text)
         self.assertIn("AIDD:ANSWERS Q1=C; Q2=B; Q3=C; Q4=A; Q5=C", text)
 
+    def test_prompts_require_retry_payload_to_cover_current_question_set(self) -> None:
+        for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
+            text = _read(prompt)
+            self.assertIn("количество `Q<N>` в retry определяется только актуальным top-level stage-return", text)
+            self.assertIn("question_retry_incomplete", text)
+            self.assertIn("partial", text, msg=f"{prompt}: missing partial-payload guard wording")
+
     def test_full_prompt_marker_semantics_excludes_template_backup_noise(self) -> None:
         text = _read(AUDIT_PROMPT_FULL)
         self.assertIn("marker semantics", text)

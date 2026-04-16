@@ -257,7 +257,7 @@ def classify_incident(
             label="PROMPT_EXEC_ISSUE(fallback_path_assembly_bug)",
         )
 
-    if top_level in {"blocked", "done", "ship", "success", "error", "continue"}:
+    if top_level in {"blocked", "done", "ship", "success", "error", "continue", "pending"}:
         return Classification(
             classification="TELEMETRY_ONLY",
             subtype=f"top_level_{top_level}",

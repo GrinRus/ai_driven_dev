@@ -21,9 +21,9 @@ import aidd_audit_contract as contract
 DEFAULT_MIN_FREE_BYTES = 1_073_741_824
 RUN_SUMMARY_RE = re.compile(r"^(?P<step>.+)_run(?P<run>[0-9]+)\.summary\.txt$")
 TOP_LEVEL_PATTERNS = (
-    re.compile(r'"status"\s*:\s*"(blocked|done|ship|success|error|continue)"', re.IGNORECASE),
-    re.compile(r"\bstatus=(blocked|done|ship|success|error|continue)\b", re.IGNORECASE),
-    re.compile(r"\bresult=(blocked|done|ship|success|error|continue)\b", re.IGNORECASE),
+    re.compile(r'"status"\s*:\s*"(blocked|done|ship|success|error|continue|pending)"', re.IGNORECASE),
+    re.compile(r"\bstatus=(blocked|done|ship|success|error|continue|pending)\b", re.IGNORECASE),
+    re.compile(r"\bresult=(blocked|done|ship|success|error|continue|pending)\b", re.IGNORECASE),
 )
 TASKS_NEW_STAGE_HINT_RE = re.compile(r"(tasks[-_ ]new|05_tasks_new)", re.IGNORECASE)
 TASKS_NEW_RUNTIME_RE = re.compile(
@@ -75,6 +75,16 @@ def _safe_int(raw: object, default: int = 0) -> int:
         return int(str(raw).strip())
     except Exception:
         return default
+
+
+def _parse_id_list(raw: object) -> List[str]:
+    values: List[str] = []
+    for item in re.split(r"[,\s]+", str(raw or "").strip()):
+        token = item.strip()
+        if not token:
+            continue
+        values.append(token)
+    return values
 
 
 def infer_liveness_path(summary_path: Path) -> Path | None:
@@ -398,8 +408,27 @@ def analyze_run(
     top_level_status = detect_top_level_status(log_text)
     if not top_level_status and aux_text:
         top_level_status = detect_top_level_status(aux_text)
+    if not top_level_status:
+        top_level_status = str(summary.get("top_level_status") or "").strip().lower()
     top_level_result_present = detect_top_level_result_event(log_text) or detect_top_level_result_event(aux_text) or bool(top_level_status)
     result_count_interpretation = interpret_result_count(summary, top_level_present=top_level_result_present)
+    question_cycle_required = _truthy(summary.get("question_cycle_required"))
+    pending_question_count = _safe_int(summary.get("pending_question_count"), 0)
+    pending_question_ids = _parse_id_list(summary.get("pending_question_ids"))
+    retry_attempted = _truthy(summary.get("retry_attempted"))
+    answered_question_ids = _parse_id_list(summary.get("answered_question_ids"))
+    unanswered_question_ids = _parse_id_list(summary.get("unanswered_question_ids"))
+    question_retry_incomplete = _truthy(summary.get("question_retry_incomplete"))
+    question_source = str(summary.get("question_source") or "").strip()
+    pending_question_closure = bool(
+        top_level_status == "pending"
+        and (
+            question_cycle_required
+            or pending_question_count > 0
+            or pending_question_ids
+            or unanswered_question_ids
+        )
+    )
 
     classified = contract.classify_incident(
         summary=summary,
@@ -444,6 +473,17 @@ def analyze_run(
             subtype="stream_path_not_emitted_by_cli",
             source="liveness",
             label="INFO(stream_path_not_emitted_by_cli)",
+        )
+    if pending_question_closure and classified.classification in {"FLOW_BUG", "TELEMETRY_ONLY"}:
+        classified = contract.Classification(
+            classification="TELEMETRY_ONLY",
+            subtype="pending_question_closure",
+            source="top_level_payload",
+            label=(
+                "PENDING(question_retry_incomplete)"
+                if question_retry_incomplete
+                else "PENDING(question_closure_required)"
+            ),
         )
     review_mismatch_value = str(
         diagnostics.get("narrative_vs_report_mismatch")
@@ -539,8 +579,21 @@ def analyze_run(
         softened_to = effective.label
 
     effective_terminal_status = effective.label
+    if pending_question_closure:
+        effective_terminal_status = (
+            "PENDING(question_retry_incomplete)"
+            if question_retry_incomplete
+            else "PENDING(question_closure_required)"
+        )
     if top_level_status == "blocked" and recoverable_ralph_observed:
         effective_terminal_status = "BLOCKED(recoverable ralph path observed)"
+    rollup_outcome = "telemetry_only"
+    if pending_question_closure:
+        rollup_outcome = "pending_question_closure"
+    elif top_level_status in {"blocked", "error"}:
+        rollup_outcome = "blocked"
+    elif top_level_status in {"done", "ship", "success", "continue"}:
+        rollup_outcome = "completed"
     termination_exit_code = str(
         termination.get("exit_code") or summary.get("effective_exit_code") or summary.get("exit_code") or ""
     ).strip()
@@ -574,6 +627,8 @@ def analyze_run(
             secondary_telemetry.append("no_top_level_result")
         else:
             secondary_symptoms.append("no_top_level_result")
+    if question_retry_incomplete:
+        secondary_symptoms.append("question_retry_incomplete")
     if invalid_fallback_paths:
         secondary_symptoms.append("invalid_fallback_path_detected")
     if review_mismatch_detected:
@@ -600,6 +655,15 @@ def analyze_run(
             "top_level_result_present": int(top_level_result_present),
             "top_level_status": top_level_status,
             "result_count_interpretation": result_count_interpretation,
+            "rollup_outcome": rollup_outcome,
+            "question_cycle_required": int(question_cycle_required),
+            "pending_question_count": pending_question_count,
+            "pending_question_ids": pending_question_ids,
+            "retry_attempted": int(retry_attempted),
+            "answered_question_ids": answered_question_ids,
+            "unanswered_question_ids": unanswered_question_ids,
+            "question_retry_incomplete": int(question_retry_incomplete),
+            "question_source": question_source,
             "classification_profile": classification_profile,
             "classification": effective.classification,
             "classification_subtype": effective.subtype,

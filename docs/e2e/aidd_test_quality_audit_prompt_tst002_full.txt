@@ -248,10 +248,12 @@
    - retry-триггер разрешён только по текущему stage-return;
    - для `idea-new` и `plan-new` retry-триггер также валиден, если top-level `success|WARN` явно требует закрыть `Q*`;
    - не считать trigger-ом `Q*`/`AIDD:ANSWERS`/`Question` внутри вложенных артефактов;
+   - количество `Q<N>` в retry определяется только актуальным top-level stage-return последнего run; примеры payload не фиксируют число вопросов;
    - извлеки вопросы в `AUDIT_DIR/<step>_questions.txt`;
    - дополнительно сохрани `AUDIT_DIR/<step>_questions_raw.txt` и `AUDIT_DIR/<step>_questions_normalized.txt`;
    - если source содержит `TBD`/пустые значения в `AIDD:ANSWERS`, нормализуй в `Q<N>=<token>` или `Q<N>="короткий текст"`;
    - выполни **ровно один** retry;
+   - если для части актуальных `Q<N>` нет сопоставленных ответов, фиксируй `question_retry_incomplete` и не публикуй partial compact payload как completed retry;
    - рекомендуемый шаблон: `AIDD:ANSWERS Q1=C; Q2=B; Q3=C; Q4=A; Q5=C`.
 3. Retry формат:
    - `idea-new`: `ticket + IDEA_NOTE + AIDD:ANSWERS`;

@@ -10,7 +10,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Mapping, Tuple
 
 
 THIS_DIR = Path(__file__).resolve().parent
@@ -30,6 +30,28 @@ _PLAYWRIGHT_DEPENDENCY_PATTERNS = (
     re.compile(r"looks like playwright test or playwright was just installed or updated", re.IGNORECASE),
     re.compile(r"\bnpx playwright install\b", re.IGNORECASE),
 )
+TOP_LEVEL_STATUS_TOKENS = ("blocked", "done", "ship", "success", "error", "continue", "pending")
+STATUS_TEXT_PATTERNS = (
+    re.compile(r'"status"\s*:\s*"(blocked|done|ship|success|error|continue|pending)"', re.IGNORECASE),
+    re.compile(r"\bstatus=(blocked|done|ship|success|error|continue|pending)\b", re.IGNORECASE),
+    re.compile(r"\bresult=(blocked|done|ship|success|error|continue|pending)\b", re.IGNORECASE),
+    re.compile(r"\*\*\s*статус\s*:\s*(blocked|done|ship|success|error|continue|pending)\s*\*\*", re.IGNORECASE),
+    re.compile(r"\bстатус\s*:\s*(blocked|done|ship|success|error|continue|pending)\b", re.IGNORECASE),
+    re.compile(r"^\s*\*\*(blocked|done|ship|success|error|continue|pending)\*\*", re.IGNORECASE | re.MULTILINE),
+    re.compile(r"^\s*(blocked|done|ship|success|error|continue|pending)\b", re.IGNORECASE | re.MULTILINE),
+)
+QUESTION_HEADING_RE = re.compile(
+    r"^\s*(?:#+\s*)?(?:\*\*)?(?:Вопрос|Question)\s+(\d+)(?:\s*\(([^)]+)\))?(?::\s*(.*))?\s*(?:\*\*)?\s*$",
+    re.IGNORECASE,
+)
+QUESTION_NUMBER_RE = re.compile(r"\b(?:Q|Вопрос|Question)\s*([0-9]+)\b", re.IGNORECASE)
+WHY_LINE_RE = re.compile(r"^\s*(?:\*\*)?(?:Зачем|Why)(?:\*\*)?:\s*(.+?)\s*$", re.IGNORECASE)
+OPTIONS_HEADER_RE = re.compile(r"^\s*(?:\*\*)?(?:Варианты|Options|Choices)(?:\*\*)?:?\s*$", re.IGNORECASE)
+DEFAULT_LINE_RE = re.compile(r"^\s*(?:\*\*)?Default(?:\*\*)?:\s*([A-Z])\b", re.IGNORECASE)
+OPTION_LINE_RE = re.compile(r"^\s*[-*]?\s*(?:\*\*)?([A-Z])\)(?:\*\*)?\s*(.+?)\s*$")
+QUESTION_STAGE_HINT_RE = re.compile(r"(idea[-_ ]new|plan[-_ ]new|05_idea_new|05_plan_new)", re.IGNORECASE)
+AIDD_OPEN_QUESTIONS_HEADING_RE = re.compile(r"^\s*##\s+AIDD:OPEN_QUESTIONS\s*$", re.IGNORECASE | re.MULTILINE)
+SECTION_HEADING_RE = re.compile(r"^\s*##\s+.+$", re.MULTILINE)
 
 
 def build_paths(audit_dir: Path, step: str, run: int) -> Dict[str, Path]:
@@ -47,6 +69,10 @@ def build_paths(audit_dir: Path, step: str, run: int) -> Dict[str, Path]:
         "init_check": audit_dir / f"{prefix}.init_check.txt",
         "disk_preflight": audit_dir / f"{prefix}.disk_preflight.txt",
         "env_misconfig": audit_dir / f"{prefix}.env_misconfig.txt",
+        "questions_raw": audit_dir / f"{step}_questions_raw.txt",
+        "questions_normalized": audit_dir / f"{step}_questions_normalized.txt",
+        "questions_json": audit_dir / f"{step}_questions.json",
+        "retry_payload": audit_dir / f"{step}_retry_payload_run{run}.txt",
     }
 
 
@@ -394,9 +420,598 @@ def _detect_result_count(log_text: str) -> str:
 def _detect_top_level_result(log_text: str) -> int:
     if re.search(r'"type"\s*:\s*"result"', log_text):
         return 1
-    if re.search(r"\bstatus=(blocked|done|ship|success|error|continue)\b", log_text, re.IGNORECASE):
+    if re.search(r"\bstatus=(blocked|done|ship|success|error|continue|pending)\b", log_text, re.IGNORECASE):
         return 1
     return 0
+
+
+def _iter_json_events(log_text: str) -> List[Dict[str, Any]]:
+    events: List[Dict[str, Any]] = []
+    for raw in str(log_text or "").splitlines():
+        line = raw.strip()
+        if not line.startswith("{"):
+            continue
+        try:
+            payload = json.loads(line)
+        except Exception:
+            continue
+        if isinstance(payload, dict):
+            events.append(payload)
+    return events
+
+
+def _last_result_event(log_text: str) -> Dict[str, Any] | None:
+    for event in reversed(_iter_json_events(log_text)):
+        if str(event.get("type") or "").strip().lower() == "result":
+            return event
+    return None
+
+
+def _last_top_level_assistant_text(log_text: str) -> str:
+    for event in reversed(_iter_json_events(log_text)):
+        if str(event.get("type") or "").strip().lower() != "assistant":
+            continue
+        if event.get("parent_tool_use_id") is not None:
+            continue
+        message = event.get("message")
+        if not isinstance(message, dict):
+            continue
+        if str(message.get("role") or "").strip().lower() != "assistant":
+            continue
+        parts = message.get("content") or []
+        texts: List[str] = []
+        for part in parts:
+            if not isinstance(part, dict):
+                continue
+            if str(part.get("type") or "").strip().lower() != "text":
+                continue
+            text = str(part.get("text") or "").strip()
+            if text:
+                texts.append(text)
+        if texts:
+            return "\n\n".join(texts)
+    return ""
+
+
+def _clean_text(value: str) -> str:
+    text = str(value or "").strip()
+    while True:
+        updated = text.strip()
+        if updated.startswith("**") and updated.endswith("**") and len(updated) >= 4:
+            text = updated[2:-2].strip()
+            continue
+        if updated.startswith("`") and updated.endswith("`") and len(updated) >= 2:
+            text = updated[1:-1].strip()
+            continue
+        return updated
+
+
+def _plain_text_markers(value: str) -> str:
+    return str(value or "").replace("**", "").replace("`", "").strip()
+
+
+def _detect_top_level_status(log_text: str) -> str:
+    result_event = _last_result_event(log_text)
+    candidate_texts: List[str] = []
+    if result_event:
+        candidate_texts.append(str(result_event.get("result") or ""))
+        candidate_texts.append(json.dumps(result_event, ensure_ascii=False))
+    assistant_text = _last_top_level_assistant_text(log_text)
+    if assistant_text:
+        candidate_texts.append(assistant_text)
+    candidate_texts.append(str(log_text or ""))
+    for text in candidate_texts:
+        for pattern in STATUS_TEXT_PATTERNS:
+            match = pattern.search(text)
+            if match:
+                return str(match.group(1) or "").strip().lower()
+    return ""
+
+
+def _normalize_question_number(raw_number: object) -> int:
+    try:
+        value = int(str(raw_number).strip())
+    except Exception:
+        return 0
+    return value if value > 0 else 0
+
+
+def _parse_command_answers(stage_command: str) -> Dict[str, str]:
+    text = str(stage_command or "")
+    if "AIDD:ANSWERS" not in text:
+        return {}
+    _, tail = text.split("AIDD:ANSWERS", 1)
+    matches = re.finditer(r"\bQ([0-9]+)=((?:\"[^\"]*\")|(?:'[^']*')|[^;\s]+)", tail)
+    payload: Dict[str, str] = {}
+    for match in matches:
+        number = _normalize_question_number(match.group(1))
+        if not number:
+            continue
+        value = str(match.group(2) or "").strip()
+        payload[f"Q{number}"] = value
+    return payload
+
+
+def _normalize_choice(value: str) -> str:
+    token = str(value or "").strip().upper()
+    if re.fullmatch(r"[A-Z]", token):
+        return token
+    return ""
+
+
+def _extract_number_from_header_or_text(header: str, text: str) -> int:
+    for source in (text, header):
+        match = QUESTION_NUMBER_RE.search(str(source or ""))
+        if match:
+            return _normalize_question_number(match.group(1))
+    return 0
+
+
+def _extract_default_from_options(options: List[Dict[str, str]]) -> str:
+    for option in options:
+        label = str(option.get("label") or "")
+        description = str(option.get("description") or "")
+        if "recommended" in label.lower() or "recommended" in description.lower():
+            choice = _normalize_choice(option.get("choice") or "")
+            if choice:
+                return choice
+    return ""
+
+
+def _normalize_option_entry(raw_label: str, raw_description: str) -> Dict[str, str]:
+    label = _clean_text(raw_label)
+    description = _clean_text(raw_description)
+    choice = ""
+    match = re.match(r"^\s*([A-Z])\)", label)
+    if match:
+        choice = _normalize_choice(match.group(1))
+        label = label[match.end() :].strip()
+    if not choice:
+        match = re.match(r"^\s*([A-Z])\)", description)
+        if match:
+            choice = _normalize_choice(match.group(1))
+            description = description[match.end() :].strip()
+    return {
+        "choice": choice,
+        "label": label,
+        "description": description,
+    }
+
+
+def _build_question_entry(
+    *,
+    number: int,
+    source: str,
+    kind: str = "",
+    header: str = "",
+    question: str = "",
+    why: str = "",
+    options: List[Dict[str, str]] | None = None,
+    default: str = "",
+) -> Dict[str, Any]:
+    return {
+        "id": f"Q{number}",
+        "number": number,
+        "source": source,
+        "kind": _clean_text(kind),
+        "header": _clean_text(header),
+        "question": _clean_text(question),
+        "why": _clean_text(why),
+        "options": list(options or []),
+        "default": _normalize_choice(default),
+    }
+
+
+def _extract_questions_from_permission_denials(result_event: Mapping[str, Any]) -> List[Dict[str, Any]]:
+    questions: List[Dict[str, Any]] = []
+    permission_denials = result_event.get("permission_denials") or []
+    for denial in permission_denials:
+        if not isinstance(denial, dict):
+            continue
+        if str(denial.get("tool_name") or "").strip() != "AskUserQuestion":
+            continue
+        tool_input = denial.get("tool_input")
+        if not isinstance(tool_input, dict):
+            continue
+        for raw_item in tool_input.get("questions") or []:
+            if not isinstance(raw_item, dict):
+                continue
+            prompt_text = str(raw_item.get("question") or "").strip()
+            header = str(raw_item.get("header") or "").strip()
+            heading_match = QUESTION_HEADING_RE.match(prompt_text)
+            number = _extract_number_from_header_or_text(header, prompt_text)
+            if not number:
+                continue
+            kind = heading_match.group(2) if heading_match else ""
+            question = heading_match.group(3) if heading_match and heading_match.group(3) else prompt_text
+            options: List[Dict[str, str]] = []
+            for raw_option in raw_item.get("options") or []:
+                if not isinstance(raw_option, dict):
+                    continue
+                options.append(
+                    _normalize_option_entry(
+                        str(raw_option.get("label") or ""),
+                        str(raw_option.get("description") or ""),
+                    )
+                )
+            questions.append(
+                _build_question_entry(
+                    number=number,
+                    source="result_permission_denials",
+                    kind=kind,
+                    header=header,
+                    question=question,
+                    options=options,
+                    default=_extract_default_from_options(options),
+                )
+            )
+    return _dedupe_questions(questions)
+
+
+def _extract_questions_from_text(text: str, *, source: str) -> List[Dict[str, Any]]:
+    lines = str(text or "").splitlines()
+    headings: List[Tuple[int, re.Match[str]]] = []
+    for idx, raw in enumerate(lines):
+        match = QUESTION_HEADING_RE.match(raw)
+        if match:
+            headings.append((idx, match))
+    if not headings:
+        return []
+
+    questions: List[Dict[str, Any]] = []
+    for pos, (line_idx, match) in enumerate(headings):
+        number = _normalize_question_number(match.group(1))
+        if not number:
+            continue
+        kind = match.group(2) or ""
+        inline_question = _clean_text(match.group(3) or "")
+        next_idx = headings[pos + 1][0] if pos + 1 < len(headings) else len(lines)
+        body = lines[line_idx + 1 : next_idx]
+
+        question_text = inline_question
+        why = ""
+        options: List[Dict[str, str]] = []
+        default = ""
+        in_options = False
+
+        for raw in body:
+            line = raw.strip()
+            if not line:
+                continue
+            plain_line = _plain_text_markers(line)
+            why_match = WHY_LINE_RE.match(plain_line)
+            if why_match and not why:
+                why = why_match.group(1).strip()
+                in_options = False
+                continue
+            default_match = DEFAULT_LINE_RE.match(plain_line)
+            if default_match and not default:
+                default = default_match.group(1).strip().upper()
+                in_options = False
+                continue
+            if OPTIONS_HEADER_RE.match(plain_line):
+                in_options = True
+                continue
+            option_match = OPTION_LINE_RE.match(line)
+            if option_match:
+                in_options = True
+                options.append(
+                    {
+                        "choice": _normalize_choice(option_match.group(1)),
+                        "label": "",
+                        "description": _clean_text(option_match.group(2)),
+                    }
+                )
+                continue
+            if in_options:
+                choice_matches = re.findall(r"([A-Z])\)\s*([^A-Z]+?)(?=(?:\s+[A-Z]\))|$)", line)
+                if choice_matches:
+                    for choice, description in choice_matches:
+                        options.append(
+                            {
+                                "choice": _normalize_choice(choice),
+                                "label": "",
+                                "description": _clean_text(description),
+                            }
+                        )
+                    continue
+            if not question_text:
+                question_text = _clean_text(line)
+        questions.append(
+            _build_question_entry(
+                number=number,
+                source=source,
+                kind=kind,
+                question=question_text,
+                why=why,
+                options=options,
+                default=default,
+            )
+        )
+    return _dedupe_questions(questions)
+
+
+def _extract_questions_from_persisted_doc(project_dir: Path, ticket: str) -> List[Dict[str, Any]]:
+    if not ticket:
+        return []
+    aidd_root = project_dir / "aidd"
+    if not aidd_root.exists():
+        aidd_root = project_dir
+    candidates = [
+        aidd_root / "docs" / "prd" / f"{ticket}.prd.md",
+        aidd_root / "docs" / "plan" / f"{ticket}.md",
+    ]
+    for candidate in candidates:
+        if not candidate.exists():
+            continue
+        text = candidate.read_text(encoding="utf-8", errors="replace")
+        open_ids = _extract_open_question_ids_from_persisted_doc(text)
+        questions = _extract_questions_from_text(text, source=f"persisted_doc:{candidate.name}")
+        if open_ids:
+            filtered = [item for item in questions if int(item.get("number") or 0) in open_ids]
+            if filtered:
+                return filtered
+        if questions:
+            return questions
+    return []
+
+
+def _extract_open_question_ids_from_persisted_doc(text: str) -> set[int]:
+    match = AIDD_OPEN_QUESTIONS_HEADING_RE.search(text)
+    if not match:
+        return set()
+    start = match.end()
+    next_heading = SECTION_HEADING_RE.search(text, start)
+    end = next_heading.start() if next_heading else len(text)
+    section = text[start:end]
+    if re.search(r"^\s*-\s*`?none`?\s*$", section, re.IGNORECASE | re.MULTILINE):
+        return set()
+    ids = {
+        _normalize_question_number(found.group(1))
+        for found in re.finditer(r"\bQ([0-9]+)\b", section)
+    }
+    return {number for number in ids if number > 0}
+
+
+def _dedupe_questions(questions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    deduped: Dict[int, Dict[str, Any]] = {}
+    for question in questions:
+        number = _normalize_question_number(question.get("number"))
+        if not number:
+            continue
+        current = deduped.get(number)
+        if current is None:
+            deduped[number] = dict(question)
+            continue
+        current_score = sum(
+            1
+            for key in ("question", "why", "default", "header", "kind")
+            if str(current.get(key) or "").strip()
+        ) + len(current.get("options") or [])
+        new_score = sum(
+            1
+            for key in ("question", "why", "default", "header", "kind")
+            if str(question.get(key) or "").strip()
+        ) + len(question.get("options") or [])
+        if new_score > current_score:
+            deduped[number] = dict(question)
+    return [deduped[number] for number in sorted(deduped)]
+
+
+def extract_question_cycle(
+    *,
+    log_text: str,
+    project_dir: Path,
+    ticket: str,
+) -> Dict[str, Any]:
+    result_event = _last_result_event(log_text)
+    top_level_status = _detect_top_level_status(log_text)
+    sources: List[Tuple[str, List[Dict[str, Any]]]] = []
+    if result_event:
+        sources.append(
+            (
+                "result_permission_denials",
+                _extract_questions_from_permission_denials(result_event),
+            )
+        )
+        sources.append(
+            (
+                "result_text",
+                _extract_questions_from_text(str(result_event.get("result") or ""), source="result_text"),
+            )
+        )
+    assistant_text = _last_top_level_assistant_text(log_text)
+    if assistant_text:
+        sources.append(("assistant_text", _extract_questions_from_text(assistant_text, source="assistant_text")))
+    persisted_questions = _extract_questions_from_persisted_doc(project_dir=project_dir, ticket=ticket)
+    if persisted_questions:
+        sources.append(("persisted_doc", persisted_questions))
+
+    selected_source = "none"
+    selected_questions: List[Dict[str, Any]] = []
+    for source, questions in sources:
+        if questions:
+            selected_source = source
+            selected_questions = questions
+            break
+
+    pending_ids = [str(item.get("id") or f"Q{item.get('number')}") for item in selected_questions]
+    question_cycle_required = int(bool(selected_questions))
+    return {
+        "source": selected_source,
+        "top_level_status": top_level_status,
+        "question_cycle_required": question_cycle_required,
+        "pending_question_count": len(selected_questions),
+        "pending_question_ids": pending_ids,
+        "questions": selected_questions,
+    }
+
+
+def _format_questions_raw(question_cycle: Mapping[str, Any]) -> str:
+    lines = [
+        f"source={str(question_cycle.get('source') or 'none')}",
+        f"top_level_status={str(question_cycle.get('top_level_status') or '')}",
+        f"question_cycle_required={int(bool(question_cycle.get('question_cycle_required')))}",
+        f"pending_question_count={int(question_cycle.get('pending_question_count') or 0)}",
+        "pending_question_ids=" + ",".join(str(item) for item in question_cycle.get("pending_question_ids") or []),
+    ]
+    for question in question_cycle.get("questions") or []:
+        if not isinstance(question, dict):
+            continue
+        lines.extend(
+            [
+                "",
+                f"## {question.get('id')}",
+                f"kind={question.get('kind') or ''}",
+                f"header={question.get('header') or ''}",
+                f"question={question.get('question') or ''}",
+                f"why={question.get('why') or ''}",
+                f"default={question.get('default') or ''}",
+            ]
+        )
+        options = question.get("options") or []
+        if isinstance(options, list):
+            for option in options:
+                if not isinstance(option, dict):
+                    continue
+                lines.append(
+                    "option="
+                    + f"{option.get('choice') or ''}|{option.get('label') or ''}|{option.get('description') or ''}"
+                )
+    return "\n".join(lines).strip() + "\n"
+
+
+def _format_questions_normalized(question_cycle: Mapping[str, Any]) -> str:
+    lines = [
+        f"source={str(question_cycle.get('source') or 'none')}",
+        f"top_level_status={str(question_cycle.get('top_level_status') or '')}",
+        f"question_cycle_required={int(bool(question_cycle.get('question_cycle_required')))}",
+    ]
+    for question in question_cycle.get("questions") or []:
+        if not isinstance(question, dict):
+            continue
+        options = question.get("options") or []
+        choices = ",".join(
+            str(option.get("choice") or "").strip()
+            for option in options
+            if isinstance(option, dict) and str(option.get("choice") or "").strip()
+        )
+        lines.append(
+            "|".join(
+                [
+                    str(question.get("id") or ""),
+                    f"kind={question.get('kind') or ''}",
+                    f"default={question.get('default') or ''}",
+                    f"choices={choices}",
+                    f"header={question.get('header') or ''}",
+                    "question=" + str(question.get("question") or "").replace("\n", " ").strip(),
+                ]
+            )
+        )
+    return "\n".join(lines).strip() + "\n"
+
+
+def write_question_sidecars(question_cycle: Mapping[str, Any], *, raw_path: Path, normalized_path: Path, json_path: Path) -> None:
+    raw_path.write_text(_format_questions_raw(question_cycle), encoding="utf-8")
+    normalized_path.write_text(_format_questions_normalized(question_cycle), encoding="utf-8")
+    json_path.write_text(json.dumps(question_cycle, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def _load_question_cycle_from_normalized_file(path: Path) -> Dict[str, Any]:
+    if not path.exists():
+        return {"questions": []}
+    lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    questions: List[Dict[str, Any]] = []
+    for raw in lines:
+        line = raw.strip()
+        if not line or "|" not in line or not line.startswith("Q"):
+            continue
+        parts = line.split("|")
+        question_id = parts[0].strip()
+        match = re.fullmatch(r"Q([0-9]+)", question_id)
+        if not match:
+            continue
+        number = _normalize_question_number(match.group(1))
+        if not number:
+            continue
+        questions.append({"id": f"Q{number}", "number": number})
+    return {"questions": questions}
+
+
+def materialize_retry_payload(
+    question_cycle: Mapping[str, Any],
+    answers_map: Mapping[str, object],
+) -> Dict[str, Any]:
+    normalized_answers: Dict[int, str] = {}
+    for raw_key, raw_value in dict(answers_map).items():
+        value = str(raw_value or "").strip()
+        if not value:
+            continue
+        key_text = str(raw_key or "").strip()
+        match = QUESTION_NUMBER_RE.search(key_text)
+        number = _normalize_question_number(match.group(1)) if match else _normalize_question_number(key_text)
+        if not number:
+            continue
+        if re.fullmatch(r"[A-Za-z]", value):
+            value = value.upper()
+        elif " " in value and not (value.startswith('"') and value.endswith('"')):
+            value = json.dumps(value, ensure_ascii=False)
+        normalized_answers[number] = value
+
+    pending_numbers = [
+        _normalize_question_number(question.get("number"))
+        for question in question_cycle.get("questions") or []
+        if isinstance(question, dict)
+    ]
+    pending_numbers = [number for number in pending_numbers if number > 0]
+    unanswered_ids = [f"Q{number}" for number in pending_numbers if number not in normalized_answers]
+    answered_ids = [f"Q{number}" for number in pending_numbers if number in normalized_answers]
+    if unanswered_ids:
+        return {
+            "retry_attempted": int(bool(normalized_answers)),
+            "complete": False,
+            "payload": "",
+            "answered_question_ids": answered_ids,
+            "unanswered_question_ids": unanswered_ids,
+        }
+    if not pending_numbers:
+        return {
+            "retry_attempted": int(bool(normalized_answers)),
+            "complete": False,
+            "payload": "",
+            "answered_question_ids": [],
+            "unanswered_question_ids": [],
+        }
+    parts = [f"Q{number}={normalized_answers[number]}" for number in pending_numbers]
+    return {
+        "retry_attempted": int(bool(normalized_answers)),
+        "complete": True,
+        "payload": "AIDD:ANSWERS " + "; ".join(parts),
+        "answered_question_ids": answered_ids,
+        "unanswered_question_ids": [],
+    }
+
+
+def materialize_retry_payload_from_normalized_file(normalized_path: Path, stage_command: str) -> Dict[str, Any]:
+    question_cycle = _load_question_cycle_from_normalized_file(normalized_path)
+    answers_map = _parse_command_answers(stage_command)
+    payload = materialize_retry_payload(question_cycle, answers_map)
+    payload["source"] = "normalized_questions+stage_command"
+    payload["command_answer_ids"] = sorted(answers_map)
+    return payload
+
+
+def write_retry_payload_sidecar(payload: Mapping[str, Any], out_path: Path) -> None:
+    lines = [
+        f"source={str(payload.get('source') or '')}",
+        f"retry_attempted={int(payload.get('retry_attempted') or 0)}",
+        f"complete={int(bool(payload.get('complete')))}",
+        "answered_question_ids=" + ",".join(str(item) for item in payload.get("answered_question_ids") or []),
+        "unanswered_question_ids=" + ",".join(str(item) for item in payload.get("unanswered_question_ids") or []),
+        "command_answer_ids=" + ",".join(str(item) for item in payload.get("command_answer_ids") or []),
+        f"payload={str(payload.get('payload') or '')}",
+    ]
+    out_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def parse_init(log_text: str) -> Dict[str, int]:
@@ -633,6 +1248,29 @@ def main() -> int:
         encoding="utf-8",
     )
 
+    question_cycle = extract_question_cycle(
+        log_text=log_text,
+        project_dir=project_dir,
+        ticket=str(args.ticket or ""),
+    )
+    write_question_sidecars(
+        question_cycle,
+        raw_path=paths["questions_raw"],
+        normalized_path=paths["questions_normalized"],
+        json_path=paths["questions_json"],
+    )
+    retry_payload = materialize_retry_payload_from_normalized_file(
+        paths["questions_normalized"],
+        args.stage_command,
+    )
+    write_retry_payload_sidecar(retry_payload, paths["retry_payload"])
+    retry_attempted = int(retry_payload.get("retry_attempted") or 0)
+    question_retry_incomplete = int(
+        retry_attempted
+        and not bool(retry_payload.get("complete"))
+        and bool(retry_payload.get("unanswered_question_ids") or [])
+    )
+
     stream_result = aidd_stream_paths.resolve_stream_paths(
         log_path=paths["log"],
         out_path=paths["stream_paths"],
@@ -659,6 +1297,15 @@ def main() -> int:
         f"stage_elapsed_seconds={int(stage_run.get('stage_elapsed_seconds') or 0)}",
         f"result_count={_detect_result_count(log_text)}",
         f"top_level_result={_detect_top_level_result(log_text)}",
+        f"top_level_status={str(question_cycle.get('top_level_status') or '')}",
+        f"question_cycle_required={int(bool(question_cycle.get('question_cycle_required')))}",
+        f"pending_question_count={int(question_cycle.get('pending_question_count') or 0)}",
+        "pending_question_ids=" + ",".join(str(item) for item in question_cycle.get("pending_question_ids") or []),
+        f"retry_attempted={retry_attempted}",
+        "answered_question_ids=" + ",".join(str(item) for item in retry_payload.get("answered_question_ids") or []),
+        "unanswered_question_ids=" + ",".join(str(item) for item in retry_payload.get("unanswered_question_ids") or []),
+        f"question_retry_incomplete={question_retry_incomplete}",
+        f"question_source={str(question_cycle.get('source') or 'none')}",
         f"primary_stream_count={stream_result['primary_candidates']}",
         f"valid_stream_count={stream_result['valid_count']}",
         f"invalid_stream_count={stream_result['invalid_count']}",

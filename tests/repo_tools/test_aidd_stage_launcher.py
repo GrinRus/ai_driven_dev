@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import os
 import sys
 import tempfile
@@ -22,6 +23,10 @@ def _load_module(path: Path, name: str):
     sys.modules[name] = module
     spec.loader.exec_module(module)
     return module
+
+
+def json_line(payload: dict) -> str:
+    return json.dumps(payload, ensure_ascii=False)
 
 
 class AiddStageLauncherTests(unittest.TestCase):
@@ -155,6 +160,189 @@ class AiddStageLauncherTests(unittest.TestCase):
 
     def test_detect_top_level_result_accepts_status_equals_blocked(self) -> None:
         self.assertEqual(self.launcher._detect_top_level_result("status=blocked reason_code=seed_scope_cascade_detected\n"), 1)
+
+    def test_extract_question_cycle_prefers_top_level_permission_denials(self) -> None:
+        log_text = "\n".join(
+            [
+                '{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"**Статус: PENDING** — нужно закрыть 4 вопроса."}]},"parent_tool_use_id":null}',
+                json_line(
+                    {
+                        "type": "result",
+                        "subtype": "success",
+                        "result": "**Статус: PENDING** — нужно закрыть 4 вопроса.",
+                        "permission_denials": [
+                            {
+                                "tool_name": "AskUserQuestion",
+                                "tool_input": {
+                                    "questions": [
+                                        {
+                                            "header": "Q1 DTO",
+                                            "question": "Вопрос 1 (Blocker): Какой DTO использовать?",
+                                            "options": [
+                                                {"label": "A) Existing DTO", "description": "reuse current payload"},
+                                                {"label": "B) New DTO (Recommended)", "description": "strict schema"},
+                                            ],
+                                        },
+                                        {
+                                            "header": "Q2 Storage",
+                                            "question": "Вопрос 2 (Clarification): Где хранить state?",
+                                            "options": [
+                                                {"label": "A) DB", "description": "persistent"},
+                                                {"label": "B) Cache", "description": "transient"},
+                                            ],
+                                        },
+                                    ]
+                                },
+                            }
+                        ],
+                    }
+                ),
+            ]
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            payload = self.launcher.extract_question_cycle(
+                log_text=log_text,
+                project_dir=Path(tmp),
+                ticket="TST-001",
+            )
+        self.assertEqual(payload["source"], "result_permission_denials")
+        self.assertEqual(payload["top_level_status"], "pending")
+        self.assertEqual(payload["pending_question_ids"], ["Q1", "Q2"])
+        self.assertEqual(payload["questions"][0]["default"], "B")
+
+    def test_extract_question_cycle_ignores_nested_tool_result_noise(self) -> None:
+        log_text = "\n".join(
+            [
+                '{"type":"user","message":{"role":"user","content":[{"type":"tool_result","content":[{"type":"text","text":"Question 1 (Blocker): hidden nested question"}]}]}}',
+                '{"type":"result","subtype":"success","result":"done"}',
+            ]
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            payload = self.launcher.extract_question_cycle(
+                log_text=log_text,
+                project_dir=Path(tmp),
+                ticket="TST-001",
+            )
+        self.assertEqual(payload["source"], "none")
+        self.assertEqual(payload["pending_question_count"], 0)
+        self.assertEqual(payload["pending_question_ids"], [])
+
+    def test_extract_question_cycle_falls_back_to_final_assistant_text(self) -> None:
+        log_text = "\n".join(
+            [
+                json_line(
+                    {
+                        "type": "assistant",
+                        "message": {
+                            "role": "assistant",
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": "**PENDING**\n\nQuestion 4 (Blocker): Which mode should be used?\nWhy: This decides the retry payload.\nOptions:\nA) Minimal\nB) Full\nDefault: B",
+                                }
+                            ],
+                        },
+                        "parent_tool_use_id": None,
+                    }
+                ),
+                json_line({"type": "result", "subtype": "success", "result": "**PENDING**"}),
+            ]
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            payload = self.launcher.extract_question_cycle(
+                log_text=log_text,
+                project_dir=Path(tmp),
+                ticket="TST-001",
+            )
+        self.assertEqual(payload["source"], "assistant_text")
+        self.assertEqual(payload["top_level_status"], "pending")
+        self.assertEqual(payload["pending_question_ids"], ["Q4"])
+
+    def test_extract_question_cycle_persisted_doc_uses_open_questions_section_only(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project_dir = Path(tmp)
+            prd_path = project_dir / "aidd" / "docs" / "prd" / "TST-001.prd.md"
+            prd_path.parent.mkdir(parents=True, exist_ok=True)
+            prd_path.write_text(
+                (
+                    "# PRD\n\n"
+                    "## Диалог analyst\n"
+                    "Вопрос 1: Already answered?\n"
+                    "Вопрос 4: Still pending?\n\n"
+                    "## AIDD:ANSWERS\n"
+                    "AIDD:ANSWERS Q1=A\n\n"
+                    "## AIDD:OPEN_QUESTIONS\n"
+                    "- Q4: Остался открытым\n"
+                ),
+                encoding="utf-8",
+            )
+            payload = self.launcher.extract_question_cycle(
+                log_text=json_line({"type": "result", "subtype": "success", "result": "**PENDING**"}),
+                project_dir=project_dir,
+                ticket="TST-001",
+            )
+        self.assertEqual(payload["source"], "persisted_doc")
+        self.assertEqual(payload["pending_question_ids"], ["Q4"])
+
+    def test_materialize_retry_payload_rejects_partial_answer_map(self) -> None:
+        question_cycle = {
+            "questions": [
+                {"id": "Q1", "number": 1},
+                {"id": "Q2", "number": 2},
+                {"id": "Q3", "number": 3},
+                {"id": "Q4", "number": 4},
+            ]
+        }
+        payload = self.launcher.materialize_retry_payload(
+            question_cycle,
+            {"Q1": "A", "Q2": "B", "Q3": "A"},
+        )
+        self.assertFalse(payload["complete"])
+        self.assertEqual(payload["payload"], "")
+        self.assertEqual(payload["unanswered_question_ids"], ["Q4"])
+
+    def test_materialize_retry_payload_builds_one_line_compact_answers(self) -> None:
+        question_cycle = {
+            "questions": [
+                {"id": "Q1", "number": 1},
+                {"id": "Q2", "number": 2},
+                {"id": "Q3", "number": 3},
+                {"id": "Q4", "number": 4},
+            ]
+        }
+        payload = self.launcher.materialize_retry_payload(
+            question_cycle,
+            {"Q1": "A", "Q2": "B", "Q3": "A", "Q4": "C"},
+        )
+        self.assertTrue(payload["complete"])
+        self.assertEqual(payload["payload"], "AIDD:ANSWERS Q1=A; Q2=B; Q3=A; Q4=C")
+
+    def test_materialize_retry_payload_from_normalized_file_uses_full_current_question_set(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            normalized_path = Path(tmp) / "05_idea_new_questions_normalized.txt"
+            normalized_path.write_text(
+                "\n".join(
+                    [
+                        "source=result_text",
+                        "top_level_status=pending",
+                        "question_cycle_required=1",
+                        "Q1|kind=Blocker|default=A|choices=A,B|header=Q1|question=First question",
+                        "Q2|kind=Blocker|default=B|choices=A,B|header=Q2|question=Second question",
+                        "Q3|kind=Clarification|default=A|choices=A,B|header=Q3|question=Third question",
+                        "Q4|kind=Blocker|default=B|choices=A,B|header=Q4|question=Fourth question",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            payload = self.launcher.materialize_retry_payload_from_normalized_file(
+                normalized_path,
+                "/feature-dev-aidd:idea-new TST-001 note AIDD:ANSWERS Q1=A; Q2=B; Q3=A",
+            )
+        self.assertEqual(payload["retry_attempted"], 1)
+        self.assertFalse(payload["complete"])
+        self.assertEqual(payload["unanswered_question_ids"], ["Q4"])
+        self.assertEqual(payload["command_answer_ids"], ["Q1", "Q2", "Q3"])
 
     def test_run_stage_budget_watchdog_sets_kill_markers(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -399,6 +587,118 @@ class AiddStageLauncherTests(unittest.TestCase):
             self.assertIn("reason_code=cwd_wrong", summary)
             env_misconfig = (audit_dir / "04_aidd_init_run1.env_misconfig.txt").read_text(encoding="utf-8")
             self.assertIn("reason_detail=project_dir_looks_like_plugin_root", env_misconfig)
+
+    def test_main_writes_pending_question_sidecars_and_summary_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            project_dir = root / "project"
+            plugin_dir = root / "plugin"
+            audit_dir = root / "audit"
+            project_dir.mkdir(parents=True, exist_ok=True)
+            plugin_dir.mkdir(parents=True, exist_ok=True)
+            audit_dir.mkdir(parents=True, exist_ok=True)
+
+            pending_line = json_line(
+                {
+                    "type": "result",
+                    "subtype": "success",
+                    "result": "**PENDING** — остался один вопрос.\n\n### Вопрос 4 (Blocker)\n**Какой режим выбрать?**\n**Зачем:** Это закрывает scope.\n**Варианты:**\n- **A)** Read only\n- **B)** Full flow\n\n**Default:** B",
+                }
+            )
+
+            original_build_command = self.launcher.build_command
+            original_argv = list(sys.argv)
+            self.launcher.build_command = lambda **_: [sys.executable, "-c", f"print({pending_line!r})"]
+            try:
+                sys.argv = [
+                    "aidd_stage_launcher.py",
+                    "--project-dir",
+                    str(project_dir),
+                    "--plugin-dir",
+                    str(plugin_dir),
+                    "--audit-dir",
+                    str(audit_dir),
+                    "--step",
+                    "05_idea_new",
+                    "--run",
+                    "2",
+                    "--ticket",
+                    "TST-001",
+                    "--stage-command",
+                    "/feature-dev-aidd:idea-new TST-001 note AIDD:ANSWERS Q1=A",
+                ]
+                rc = self.launcher.main()
+            finally:
+                self.launcher.build_command = original_build_command
+                sys.argv = original_argv
+
+            self.assertEqual(rc, 0)
+            summary_text = (audit_dir / "05_idea_new_run2.summary.txt").read_text(encoding="utf-8")
+            self.assertIn("top_level_status=pending", summary_text)
+            self.assertIn("question_cycle_required=1", summary_text)
+            self.assertIn("pending_question_count=1", summary_text)
+            self.assertIn("pending_question_ids=Q4", summary_text)
+            self.assertIn("retry_attempted=1", summary_text)
+            self.assertIn("answered_question_ids=", summary_text)
+            self.assertIn("unanswered_question_ids=Q4", summary_text)
+            self.assertIn("question_retry_incomplete=1", summary_text)
+            raw_text = (audit_dir / "05_idea_new_questions_raw.txt").read_text(encoding="utf-8")
+            normalized_text = (audit_dir / "05_idea_new_questions_normalized.txt").read_text(encoding="utf-8")
+            retry_payload_text = (audit_dir / "05_idea_new_retry_payload_run2.txt").read_text(encoding="utf-8")
+            self.assertIn("## Q4", raw_text)
+            self.assertIn("Q4|kind=Blocker|default=B|choices=A,B", normalized_text)
+            self.assertIn("retry_attempted=1", retry_payload_text)
+            self.assertIn("unanswered_question_ids=Q4", retry_payload_text)
+
+    def test_main_does_not_mark_retry_incomplete_when_retry_was_not_attempted(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            project_dir = root / "project"
+            plugin_dir = root / "plugin"
+            audit_dir = root / "audit"
+            project_dir.mkdir(parents=True, exist_ok=True)
+            plugin_dir.mkdir(parents=True, exist_ok=True)
+            audit_dir.mkdir(parents=True, exist_ok=True)
+
+            pending_line = json_line(
+                {
+                    "type": "result",
+                    "subtype": "success",
+                    "result": "**PENDING** — нужны два ответа.\n\n### Question 1 (Blocker)\nNeed first answer.\n\n### Question 2 (Clarification)\nNeed second answer.",
+                }
+            )
+
+            original_build_command = self.launcher.build_command
+            original_argv = list(sys.argv)
+            self.launcher.build_command = lambda **_: [sys.executable, "-c", f"print({pending_line!r})"]
+            try:
+                sys.argv = [
+                    "aidd_stage_launcher.py",
+                    "--project-dir",
+                    str(project_dir),
+                    "--plugin-dir",
+                    str(plugin_dir),
+                    "--audit-dir",
+                    str(audit_dir),
+                    "--step",
+                    "05_idea_new",
+                    "--run",
+                    "1",
+                    "--ticket",
+                    "TST-001",
+                    "--stage-command",
+                    "/feature-dev-aidd:idea-new TST-001 note",
+                ]
+                rc = self.launcher.main()
+            finally:
+                self.launcher.build_command = original_build_command
+                sys.argv = original_argv
+
+            self.assertEqual(rc, 0)
+            summary_text = (audit_dir / "05_idea_new_run1.summary.txt").read_text(encoding="utf-8")
+            self.assertIn("retry_attempted=0", summary_text)
+            self.assertIn("question_retry_incomplete=0", summary_text)
+            self.assertIn("unanswered_question_ids=", summary_text)
 
 
 if __name__ == "__main__":

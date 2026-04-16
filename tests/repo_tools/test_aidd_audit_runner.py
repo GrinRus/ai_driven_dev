@@ -369,6 +369,44 @@ class AiddAuditRunnerTests(unittest.TestCase):
         self.assertEqual(payload.get("top_level_result_present"), 1)
         self.assertEqual(payload.get("result_count_interpretation"), "telemetry_only_top_level_present")
 
+    def test_pending_question_closure_is_promoted_to_primary_rollup_outcome(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "05_idea_new_run2.summary.txt"
+            log_path = Path(tmp) / "05_idea_new_run2.log"
+            summary_path.write_text(
+                "\n".join(
+                    [
+                        "step=05_idea_new",
+                        "exit_code=0",
+                        "result_count=1",
+                        "top_level_status=pending",
+                        "question_cycle_required=1",
+                        "pending_question_count=1",
+                        "pending_question_ids=Q4",
+                        "retry_attempted=1",
+                        "answered_question_ids=",
+                        "unanswered_question_ids=Q4",
+                        "question_retry_incomplete=1",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            log_path.write_text(
+                '{"type":"result","subtype":"success","result":"**PENDING** — остался один обязательный вопрос."}\n',
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(summary_path=summary_path, run_log_path=log_path)
+        self.assertEqual(payload.get("classification"), "TELEMETRY_ONLY")
+        self.assertEqual(payload.get("classification_subtype"), "pending_question_closure")
+        self.assertEqual(payload.get("effective_classification"), "PENDING(question_retry_incomplete)")
+        self.assertEqual(payload.get("effective_terminal_status"), "PENDING(question_retry_incomplete)")
+        self.assertEqual(payload.get("rollup_outcome"), "pending_question_closure")
+        self.assertEqual(payload.get("question_cycle_required"), 1)
+        self.assertEqual(payload.get("retry_attempted"), 1)
+        self.assertEqual(payload.get("pending_question_ids"), ["Q4"])
+        self.assertIn("question_retry_incomplete", payload.get("secondary_symptoms") or [])
+
     def test_project_contract_reason_overrides_exit_143_external_terminate(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             summary_path = Path(tmp) / "06_review_run1.summary.txt"

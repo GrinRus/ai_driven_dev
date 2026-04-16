@@ -2,8 +2,8 @@
 name: analyst
 description: Analyze the initial idea, draft the PRD, and prepare only the missing user questions needed to continue.
 lang: en
-prompt_version: 1.3.18
-source_version: 1.3.18
+prompt_version: 1.3.19
+source_version: 1.3.19
 tools: Read, Edit, Write, Glob, Bash(rg *), Bash(sed *)
 skills:
   - feature-dev-aidd:aidd-core
@@ -33,6 +33,7 @@ Persisted PRD writes in the analyst dialog section must follow the labels from `
 3. Write the persisted analyst dialog block with the exact labels from `skills/idea-new/templates/prd.template.md`; do not leave English placeholders or comment-only TODO markers in the PRD.
 4. Normalize `AIDD:OPEN_QUESTIONS` and `AIDD:DECISIONS`; only ask for decision-critical inputs that remain unresolved after artifact review.
 5. Return a research handoff only when the PRD contains the required idea-stage fields and no required question is silently skipped.
+6. If unresolved questions remain, return the full current remaining-question set back to the parent stage; do not assume the `AskUserQuestion` side-panel alone is sufficient for non-interactive callers.
 
 ## Fail-fast and Questions
 - If the PRD template is missing, return BLOCKED.

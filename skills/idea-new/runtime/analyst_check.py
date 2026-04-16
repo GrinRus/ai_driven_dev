@@ -70,7 +70,9 @@ def main(argv: list[str] | None = None) -> int:
             min_questions_override=args.min_questions,
         )
     except AnalystValidationError as exc:
+        runtime.maybe_sync_index(target, ticket, context.slug_hint, reason="idea-analyst-check")
         raise RuntimeError(str(exc)) from exc
+    runtime.maybe_sync_index(target, ticket, context.slug_hint, reason="idea-analyst-check")
 
     if summary.status is None:
         print("[aidd] analyst gate disabled; nothing to validate.")
