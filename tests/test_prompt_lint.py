@@ -1438,6 +1438,18 @@ class PromptLintTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("legacy Bash wildcard syntax is forbidden by policy", result.stderr)
 
+    def test_idea_new_repo_prompts_keep_russian_persisted_prd_override(self) -> None:
+        analyst_text = (REPO_ROOT / "agents" / "analyst.md").read_text(encoding="utf-8")
+        skill_text = (REPO_ROOT / "skills" / "idea-new" / "SKILL.md").read_text(encoding="utf-8")
+
+        self.assertIn("keep the template-native Russian wording and do not translate those labels into English", analyst_text)
+        self.assertIn("Placeholder comments are not valid analyst output", analyst_text)
+        self.assertIn(
+            "override the global interactive question wording and copy the analyst-dialog labels from `templates/prd.template.md` verbatim",
+            skill_text,
+        )
+        self.assertIn("transitional `Question / Why / Options / Default`", skill_text)
+
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()

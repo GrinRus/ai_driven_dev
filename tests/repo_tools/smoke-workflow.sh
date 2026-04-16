@@ -453,6 +453,37 @@ if not research_path.exists():
     research_path.write_text("# Research\n\nStatus: pending\n", encoding="utf-8")
 PY
 
+log "analyst-check rejects placeholder-only dialog before compact-answers parsing"
+cp "aidd/docs/prd/${TICKET}.prd.md" "aidd/docs/prd/${TICKET}.prd.md.bak"
+python3 - "$TICKET" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+ticket = sys.argv[1]
+path = Path("aidd/docs/prd") / f"{ticket}.prd.md"
+text = path.read_text(encoding="utf-8")
+question_re = re.compile(r"^Вопрос 1[^\n]*\n(?:Зачем:[^\n]*\n)?(?:Варианты:[^\n]*\n)?(?:Default:[^\n]*\n)?", re.MULTILINE)
+if not question_re.search(text):
+    raise SystemExit("[smoke] expected seeded analyst question block is missing")
+text = question_re.sub("<!-- Analyst will populate questions here after reviewing context -->\n", text, count=1)
+text = text.replace("AIDD:ANSWERS Q1=TBD", "> Используй только compact формат.", 1)
+path.write_text(text, encoding="utf-8")
+PY
+set +e
+placeholder_output="$(run_cli analyst-check --ticket "$TICKET" 2>&1)"
+placeholder_rc=$?
+set -e
+if [[ "$placeholder_rc" -eq 0 ]]; then
+  echo "[smoke] analyst-check unexpectedly passed for placeholder-only dialog" >&2
+  exit 1
+fi
+if [[ "$placeholder_output" != *"нет ни одного валидного вопроса"* ]]; then
+  printf '[smoke] analyst-check placeholder failure mismatch\n%s\n' "$placeholder_output" >&2
+  exit 1
+fi
+mv "aidd/docs/prd/${TICKET}.prd.md.bak" "aidd/docs/prd/${TICKET}.prd.md"
+
 log "run researcher stage (generate RLM artifacts)"
 pushd "$WORKDIR" >/dev/null
 run_cli research --ticket "$TICKET" --auto --paths src/main --rlm-paths src/main --keywords checkout >/dev/null

@@ -28,10 +28,11 @@ Follow `feature-dev-aidd:aidd-core`.
 2. Slug synthesis: generate a short LLM summary from `idea_note`, normalize it into kebab-case token (`[a-z0-9-]`, 2-6 words), and use it as internal `slug_hint`; if `idea_note` is empty, fallback to `<ticket>` token. Do not ask user for `slug_hint`.
 3. Preflight: set active stage `idea` and active feature with `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_stage.py` and `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_feature.py <ticket> --slug-note "<generated-slug>"`.
 4. Orchestration: build/update the rolling context pack `aidd/reports/context/<ticket>.pack.md` and run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/idea-new/runtime/analyst_check.py --ticket <ticket>`.
-5. Run subagent `feature-dev-aidd:analyst`. First action: read the rolling context pack.
-6. Postflight: if answers already exist, rerun `python3 ${CLAUDE_PLUGIN_ROOT}/skills/idea-new/runtime/analyst_check.py --ticket <ticket>` and sync PRD readiness status.
-7. Ready path: return `/feature-dev-aidd:researcher <ticket>` only when `analyst_check.py` confirms idea-stage readiness.
-8. Pending path: if required questions remain or PRD fields are incomplete, return PENDING with the remaining questions and keep the next action on `idea-new`.
+5. Run subagent `feature-dev-aidd:analyst`. First action: read the rolling context pack. For the persisted PRD artifact, override the global interactive question wording and copy the analyst-dialog labels from `templates/prd.template.md` verbatim.
+6. Postflight: reject comment-only placeholders as invalid analyst output. Read-time compatibility still accepts transitional `Question / Why / Options / Default`, but the canonical persisted PRD write format remains the template-native Russian wording.
+7. Postflight: if answers already exist, rerun `python3 ${CLAUDE_PLUGIN_ROOT}/skills/idea-new/runtime/analyst_check.py --ticket <ticket>` and sync PRD readiness status.
+8. Ready path: return `/feature-dev-aidd:researcher <ticket>` only when `analyst_check.py` confirms idea-stage readiness.
+9. Pending path: if required questions remain or PRD fields are incomplete, return PENDING with the remaining questions and keep the next action on `idea-new`.
 
 ## Command contracts
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_feature.py`
@@ -49,7 +50,8 @@ Follow `feature-dev-aidd:aidd-core`.
 - Next action: update PRD/QA artifacts, then rerun the same validator.
 
 ## Notes
-- Use the aidd-core question format.
+- Interactive chat questions still follow the shared aidd-policy format.
+- Persisted PRD artifact language is stage-local here: the analyst dialog must use the exact labels from `templates/prd.template.md`, and placeholder comments do not count as a valid question block.
 - Planning stage: `AIDD:ACTIONS_LOG: n/a`.
 
 ## Additional resources

@@ -105,6 +105,23 @@ def test_markdown_questions_allowed(tmp_path):
     assert summary.answered_count == 1
 
 
+def test_english_question_markers_are_accepted_on_read_path(tmp_path):
+    project = tmp_path / "aidd"
+    project.mkdir(parents=True, exist_ok=True)
+    ensure_gates_config(project)
+    slug = "demo"
+    prd = """# PRD\n\n## Диалог analyst\nStatus: READY\nСсылка: docs/research/demo.md\n\nQuestion 1 (Blocker): What needs clarification?\nWhy: This changes the API boundary.\nOptions: A) Keep REST B) Switch to websocket\nDefault: A\n\n## AIDD:ANSWERS\nAIDD:ANSWERS Q1=A\n\n## AIDD:OPEN_QUESTIONS\n- none\n\n## 1. Обзор\n- **Название продукта/фичи**: Demo\n"""
+    _write_prd(project, slug, prd)
+    _write_research(project, slug)
+    settings = load_settings(project)
+
+    summary = validate_prd(project, slug, settings=settings)
+
+    assert summary.status == "READY"
+    assert summary.question_count == 1
+    assert summary.answered_count == 1
+
+
 def test_compact_answers_allow_quoted_short_text(tmp_path):
     project = tmp_path / "aidd"
     project.mkdir(parents=True, exist_ok=True)
@@ -311,6 +328,40 @@ def test_non_compact_answers_payload_is_rejected(tmp_path):
         validate_prd(project, slug, settings=settings)
 
     assert "должен быть в compact формате" in str(excinfo.value)
+
+
+def test_placeholder_comment_is_rejected_before_answers_format_check(tmp_path):
+    project = tmp_path / "aidd"
+    project.mkdir(parents=True, exist_ok=True)
+    ensure_gates_config(project)
+    slug = "demo"
+    prd = """# PRD\n\nStatus: BLOCKED\n\n## Диалог analyst\nСсылка: docs/research/demo.md\n\n<!-- Analyst will populate questions here after reviewing context -->\n\n## AIDD:ANSWERS\n> Единый формат ответов из чата.\n> Используй только compact формат.\n"""
+    _write_prd(project, slug, prd)
+    _write_research(project, slug)
+    settings = load_settings(project)
+
+    with pytest.raises(AnalystValidationError) as excinfo:
+        validate_prd(project, slug, settings=settings)
+
+    assert "нет ни одного валидного вопроса" in str(excinfo.value)
+    assert "compact формате" not in str(excinfo.value)
+
+
+def test_placeholder_comment_with_dialog_metadata_uses_placeholder_failure(tmp_path):
+    project = tmp_path / "aidd"
+    project.mkdir(parents=True, exist_ok=True)
+    ensure_gates_config(project)
+    slug = "demo"
+    prd = """# PRD\n\n## Диалог analyst\nStatus: BLOCKED\nСсылка на исследование: `aidd/docs/research/demo.md`\n\n> Этот раздел создаётся автоматически после idea-new.\n\n<!-- Analyst will populate questions here after reviewing context -->\n\n## AIDD:ANSWERS\n> Единый формат ответов из чата.\n"""
+    _write_prd(project, slug, prd)
+    _write_research(project, slug)
+    settings = load_settings(project)
+
+    with pytest.raises(AnalystValidationError) as excinfo:
+        validate_prd(project, slug, settings=settings)
+
+    assert "Placeholder-комментарии не считаются вопросом" in str(excinfo.value)
+    assert "compact формате" not in str(excinfo.value)
 
 
 def test_compact_answers_with_tbd_are_rejected(tmp_path):
