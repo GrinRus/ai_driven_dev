@@ -260,7 +260,6 @@ class TasksNewRuntimeTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, msg=result.stderr)
             self.assertIn("tasklist-check: error", result.stderr)
             self.assertIn("docs-only rewrite mode continues", result.stderr)
-
     def test_tasks_new_does_not_require_or_create_spec_yaml(self) -> None:
         with tempfile.TemporaryDirectory(prefix="tasks-new-no-spec-") as tmpdir:
             workspace = Path(tmpdir) / "workspace"
