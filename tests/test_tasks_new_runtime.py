@@ -116,6 +116,30 @@ class TasksNewRuntimeTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("reason_code=project_contract_missing", result.stderr)
 
+    def test_tasks_new_docs_only_allows_missing_project_test_contract(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="tasks-new-contract-missing-docs-only-") as tmpdir:
+            workspace = Path(tmpdir) / "workspace"
+            workspace.mkdir(parents=True, exist_ok=True)
+            bootstrap_workspace(workspace)
+            project_root = workspace / "aidd"
+            ticket = "TASKS-CONTRACT-DOCS-1"
+            write_active_feature(project_root, ticket)
+            write_active_stage(project_root, "tasklist")
+            gates_path = project_root / "config" / "gates.json"
+            payload = json.loads(gates_path.read_text(encoding="utf-8"))
+            payload.setdefault("qa", {}).setdefault("tests", {}).update(
+                {
+                    "profile_default": "targeted",
+                    "commands": [],
+                }
+            )
+            gates_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+            result = self._run_tasks_new(workspace, "--ticket", ticket, "--docs-only")
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            self.assertIn("docs_only_mode=1", result.stderr)
+            self.assertIn("reason_code=project_contract_missing", result.stderr)
+
     def test_tasks_new_materializes_test_execution_from_contract(self) -> None:
         with tempfile.TemporaryDirectory(prefix="tasks-new-contract-materialize-") as tmpdir:
             workspace = Path(tmpdir) / "workspace"
@@ -220,6 +244,22 @@ class TasksNewRuntimeTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("category=repairable_structure", result.stderr)
             self.assertIn("bounded retry applies only once", result.stderr)
+
+    def test_tasks_new_docs_only_continues_on_tasklist_check_error(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="tasks-new-docs-only-error-") as tmpdir:
+            workspace = Path(tmpdir) / "workspace"
+            workspace.mkdir(parents=True, exist_ok=True)
+            bootstrap_workspace(workspace)
+            project_root = workspace / "aidd"
+            ticket = "TASKS-DOCS-ERR-1"
+            write_active_feature(project_root, ticket)
+            write_active_stage(project_root, "tasklist")
+            write_file(project_root, f"docs/tasklist/{ticket}.md", "# broken tasklist\n")
+
+            result = self._run_tasks_new(workspace, "--ticket", ticket, "--docs-only")
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            self.assertIn("tasklist-check: error", result.stderr)
+            self.assertIn("docs-only rewrite mode continues", result.stderr)
 
     def test_tasks_new_does_not_require_or_create_spec_yaml(self) -> None:
         with tempfile.TemporaryDirectory(prefix="tasks-new-no-spec-") as tmpdir:

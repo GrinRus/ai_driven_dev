@@ -68,6 +68,31 @@ class ReviewRunTests(unittest.TestCase):
             self.assertEqual(code, 0)
             stage_actions_main.assert_called_once()
 
+    def test_main_docs_only_allows_missing_review_report(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="review-run-") as tmpdir:
+            root = Path(tmpdir)
+            context = launcher.LaunchContext(
+                root=root,
+                ticket="DEMO-1",
+                scope_key="iteration_id_I1",
+                work_item_key="iteration_id=I1",
+                stage="review",
+            )
+            report_path = root / "reports" / "reviewer" / "DEMO-1" / "iteration_id_I1.json"
+
+            stderr = io.StringIO()
+            with (
+                patch("aidd_runtime.review_run.launcher.resolve_context", return_value=context),
+                patch("aidd_runtime.review_run._resolve_review_report_path", return_value=report_path),
+                patch("aidd_runtime.review_run.stage_actions_run.main", return_value=0) as stage_actions_main,
+                redirect_stderr(stderr),
+            ):
+                code = review_run.main(["--ticket", "DEMO-1", "--docs-only"])
+
+            self.assertEqual(code, 0)
+            stage_actions_main.assert_called_once()
+            self.assertIn("docs-only rewrite mode bypasses missing review report", stderr.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -5,7 +5,7 @@ import io
 import sys
 import tempfile
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -90,6 +90,36 @@ class IdeaNewAnalystCheckTests(unittest.TestCase):
 
         sync_mock.assert_called_once_with(target, "TST-001", "demo-slug", reason="idea-analyst-check")
         self.assertIn("missing dialog question", str(excinfo.exception))
+
+    def test_main_docs_only_softens_validation_failure(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="idea-analyst-check-") as tmpdir:
+            target = Path(tmpdir) / "aidd"
+            target.mkdir(parents=True, exist_ok=True)
+            context = SimpleNamespace(slug_hint="demo-slug", resolved_ticket="TST-001")
+            stderr = io.StringIO()
+
+            with patch.object(self.module.runtime, "require_workflow_root", return_value=(target.parent, target)), patch.object(
+                self.module.runtime,
+                "require_ticket",
+                return_value=("TST-001", context),
+            ), patch.object(
+                self.module,
+                "load_settings",
+                return_value={},
+            ), patch.object(
+                self.module,
+                "validate_prd",
+                side_effect=self.module.AnalystValidationError("missing dialog question"),
+            ), patch.object(
+                self.module.runtime,
+                "maybe_sync_index",
+                return_value=None,
+            ) as sync_mock, redirect_stderr(stderr):
+                exit_code = self.module.main(["--ticket", "TST-001", "--docs-only"])
+
+        self.assertEqual(exit_code, 0)
+        sync_mock.assert_called_once_with(target, "TST-001", "demo-slug", reason="idea-analyst-check")
+        self.assertIn("docs-only rewrite mode bypasses analyst validation blocker", stderr.getvalue())
 
 
 if __name__ == "__main__":

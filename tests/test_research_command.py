@@ -84,6 +84,70 @@ class ResearchCommandTest(unittest.TestCase):
                 os.chdir(old_cwd)
             self.assertIn("AIDD:RESEARCH_HINTS", str(exc.exception))
 
+    def test_research_command_docs_only_softens_missing_research_hints(self):
+        with tempfile.TemporaryDirectory(prefix="aidd-research-hints-docs-") as tmpdir:
+            workspace = Path(tmpdir) / "workspace"
+            project_root = workspace / "aidd"
+            project_root.mkdir(parents=True, exist_ok=True)
+            subprocess.run(
+                cli_cmd("init"),
+                cwd=workspace,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=cli_env(),
+            )
+
+            args = research.parse_args(
+                [
+                    "--ticket",
+                    "HINTS-0",
+                    "--auto",
+                    "--docs-only",
+                ]
+            )
+            stderr = io.StringIO()
+            old_cwd = Path.cwd()
+            os.chdir(workspace)
+            try:
+                with contextlib.redirect_stderr(stderr):
+                    exit_code = research.run(args)
+            finally:
+                os.chdir(old_cwd)
+
+            self.assertEqual(exit_code, 0)
+            self.assertIn("docs-only rewrite mode bypasses research hints blocker", stderr.getvalue())
+
+    def test_research_command_manual_reinvoke_allowed_after_blocked_run(self):
+        with tempfile.TemporaryDirectory(prefix="aidd-research-reinvoke-") as tmpdir:
+            workspace = Path(tmpdir) / "workspace"
+            project_root = workspace / "aidd"
+            project_root.mkdir(parents=True, exist_ok=True)
+            subprocess.run(
+                cli_cmd("init"),
+                cwd=workspace,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=cli_env(),
+            )
+
+            blocked_args = research.parse_args(["--ticket", "HINTS-1", "--auto"])
+            docs_args = research.parse_args(["--ticket", "HINTS-1", "--auto", "--docs-only"])
+            old_cwd = Path.cwd()
+            os.chdir(workspace)
+            try:
+                with self.assertRaises(RuntimeError):
+                    research.run(blocked_args)
+                stderr = io.StringIO()
+                with contextlib.redirect_stderr(stderr):
+                    exit_code = research.run(docs_args)
+            finally:
+                os.chdir(old_cwd)
+
+            self.assertEqual(exit_code, 0)
+            self.assertIn("reinvoke_allowed=1", stderr.getvalue())
+
     def test_research_command_uses_workspace_root_with_deep_code(self):
         with tempfile.TemporaryDirectory(prefix="aidd-research-ws-") as tmpdir:
             workspace = Path(tmpdir) / "workspace"

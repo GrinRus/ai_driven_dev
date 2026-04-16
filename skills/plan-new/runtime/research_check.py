@@ -93,6 +93,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default="plan",
         help="Stage context override for downstream research validation (default: plan).",
     )
+    parser.add_argument(
+        "--docs-only",
+        action="store_true",
+        help="Enable docs-only rewrite mode for this invocation.",
+    )
     return parser.parse_args(argv)
 
 
@@ -105,6 +110,7 @@ def main(argv: list[str] | None = None) -> int:
         slug_hint=getattr(args, "slug_hint", None),
     )
     settings = load_settings(target)
+    docs_only_mode = runtime.docs_only_mode_requested(explicit=getattr(args, "docs_only", False))
     plan_pending_soft_mode = _is_plan_pending_soft_mode(args.expected_stage)
     try:
         summary = validate_research(
@@ -118,6 +124,13 @@ def main(argv: list[str] | None = None) -> int:
     except ResearchValidationError as exc:
         reason_code = _extract_reason_code(str(exc))
         if reason_code != "rlm_status_pending":
+            if docs_only_mode:
+                print(
+                    "[aidd] WARN: docs-only rewrite mode bypasses research gate blocker "
+                    f"(diagnostics={str(exc).strip() or 'validation_error'}).",
+                    file=sys.stderr,
+                )
+                return 0
             raise RuntimeError(str(exc)) from exc
         finalize_exit_code = rlm_finalize.main(["--ticket", ticket, "--emit-json"])
         if finalize_exit_code != 0:
@@ -138,6 +151,13 @@ def main(argv: list[str] | None = None) -> int:
             except ResearchValidationError as retry_exc:
                 retry_reason_code = _extract_reason_code(str(retry_exc))
                 if not (plan_pending_soft_mode and retry_reason_code == "rlm_status_pending"):
+                    if docs_only_mode:
+                        print(
+                            "[aidd] WARN: docs-only rewrite mode bypasses research finalize blocker "
+                            f"(diagnostics={str(retry_exc).strip() or 'validation_error'}).",
+                            file=sys.stderr,
+                        )
+                        return 0
                     raise RuntimeError(
                         f"{exc}\n[aidd] INFO: auto_recovery_attempted=1 "
                         "(recovery_path=research_finalize_probe)\n"
@@ -163,7 +183,17 @@ def main(argv: list[str] | None = None) -> int:
             print("[aidd] research gate disabled; nothing to validate.")
         return 0
 
-    _enforce_minimum_rlm_artifacts(target, ticket)
+    try:
+        _enforce_minimum_rlm_artifacts(target, ticket)
+    except RuntimeError as exc:
+        if docs_only_mode:
+            print(
+                "[aidd] WARN: docs-only rewrite mode bypasses missing/invalid RLM artifact blocker "
+                f"(diagnostics={str(exc).strip()}).",
+                file=sys.stderr,
+            )
+            return 0
+        raise
 
     label = runtime.format_ticket_label(context, fallback=ticket)
     details = [f"status: {summary.status}"]

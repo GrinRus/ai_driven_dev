@@ -59,11 +59,19 @@ def setup_base(tmp_path: Path) -> None:
     )
 
 
-def run_prd_gate(tmp_path: Path, file_path: str, *, skip_on_prd_edit: bool = True) -> tuple[int, str]:
+def run_prd_gate(
+    tmp_path: Path,
+    file_path: str,
+    *,
+    skip_on_prd_edit: bool = True,
+    docs_only: bool = False,
+) -> tuple[int, str]:
     project_root = ensure_project_root(tmp_path)
     args = ["--ticket", "demo-checkout", "--file-path", file_path]
     if skip_on_prd_edit:
         args.append("--skip-on-prd-edit")
+    if docs_only:
+        args.append("--docs-only")
     parsed = prd_review_gate.parse_args(args)
     out = io.StringIO()
     prev_cwd = Path.cwd()
@@ -272,3 +280,35 @@ def test_allows_when_report_missing_but_allowed(tmp_path):
 
     status, output = run_prd_gate(tmp_path, SRC_PATH)
     assert status == 0, output
+
+
+def test_docs_only_softens_prd_review_not_ready(tmp_path):
+    setup_base(tmp_path)
+    write_file(tmp_path, "docs/prd/demo-checkout.prd.md", make_prd("PENDING"))
+
+    status, output = run_prd_gate(tmp_path, SRC_PATH, docs_only=True)
+    assert status == 0
+    assert "WARN:" in output
+    assert "docs_only_mode=1" in output
+    assert "reinvoke_allowed=1" in output
+
+
+def test_docs_only_still_blocks_corrupted_prd_review_report(tmp_path):
+    setup_base(tmp_path)
+    write_file(tmp_path, "docs/prd/demo-checkout.prd.md", make_prd("READY"))
+    write_file(tmp_path, "reports/prd/demo-checkout.json", "{broken-json")
+
+    status, output = run_prd_gate(tmp_path, SRC_PATH, docs_only=True)
+    assert status == 1
+    assert "поврежд" in output.lower()
+
+
+def test_prd_review_manual_reinvoke_allowed_after_blocked_run(tmp_path):
+    setup_base(tmp_path)
+    write_file(tmp_path, "docs/prd/demo-checkout.prd.md", make_prd("PENDING"))
+
+    first_status, _ = run_prd_gate(tmp_path, SRC_PATH, docs_only=False)
+    second_status, second_output = run_prd_gate(tmp_path, SRC_PATH, docs_only=True)
+    assert first_status == 1
+    assert second_status == 0
+    assert "reinvoke_allowed=1" in second_output

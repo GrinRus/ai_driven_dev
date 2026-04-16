@@ -49,8 +49,9 @@ def main(argv: list[str] | None = None) -> int:
         stage=args.stage,
         default_stage=DEFAULT_STAGE,
     )
+    docs_only_mode = runtime.docs_only_mode_requested(explicit=getattr(args, "docs_only", False))
     report_path = _resolve_review_report_path(context)
-    if not report_path.exists():
+    if not report_path.exists() and not docs_only_mode:
         report_rel = runtime.rel_path(report_path, context.root)
         print("[aidd] ERROR: reason_code=review_report_missing", file=sys.stderr)
         print(f"[aidd] ERROR: report_path={report_rel}", file=sys.stderr)
@@ -59,6 +60,12 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 2
+    if not report_path.exists() and docs_only_mode:
+        report_rel = runtime.rel_path(report_path, context.root)
+        print(
+            f"[aidd] WARN: docs-only rewrite mode bypasses missing review report ({report_rel}).",
+            file=sys.stderr,
+        )
     return stage_actions_run.main(
         argv,
         default_stage=DEFAULT_STAGE,

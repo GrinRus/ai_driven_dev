@@ -101,6 +101,23 @@ class PrdReviewCliTests(unittest.TestCase):
 
             self.assertEqual(rc, 0)
 
+    def test_require_ready_docs_only_softens_pending_prd(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="prd-review-") as tmpdir:
+            workspace = Path(tmpdir)
+            project_root = ensure_project_root(workspace)
+            ticket = "DEMO-REQUIRE-READY-DOCS"
+            _write_prd(project_root, ticket, status="PENDING")
+            (project_root / "reports" / "prd").mkdir(parents=True, exist_ok=True)
+
+            cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+                rc = self.mod.main(["--ticket", ticket, "--require-ready", "--docs-only"])
+            finally:
+                os.chdir(cwd)
+
+            self.assertEqual(rc, 0)
+
 
 if __name__ == "__main__":
     unittest.main()

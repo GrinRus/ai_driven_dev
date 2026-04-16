@@ -45,6 +45,7 @@ def _ensure_plugin_root_on_path() -> None:
 _ensure_plugin_root_on_path()
 
 from aidd_runtime import gates
+from aidd_runtime import runtime
 from aidd_runtime.feature_ids import resolve_aidd_root
 from aidd_runtime.prd_review_section import extract_prd_review_section
 
@@ -117,6 +118,11 @@ def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
         "--skip-on-prd-edit",
         action="store_true",
         help="Return success when the PRD file itself is being edited.",
+    )
+    parser.add_argument(
+        "--docs-only",
+        action="store_true",
+        help="Enable docs-only rewrite mode for this invocation.",
     )
     return parser.parse_args(list(argv) if argv is not None else None)
 
@@ -268,6 +274,7 @@ def extract_dialog_status(content: str) -> str | None:
 
 def run_gate(args: argparse.Namespace) -> int:
     root = detect_project_root()
+    docs_only_mode = runtime.docs_only_mode_requested(explicit=getattr(args, "docs_only", False))
     config_path = Path(args.config)
     if not config_path.is_absolute():
         config_path = root / config_path
@@ -278,6 +285,21 @@ def run_gate(args: argparse.Namespace) -> int:
 
     ticket = args.ticket.strip()
     slug_hint = args.slug_hint.strip() or None
+
+    def emit(message: str, reason_code: str) -> int:
+        if docs_only_mode:
+            rendered = message.strip()
+            if rendered.startswith("BLOCK:"):
+                rendered = "WARN:" + rendered[len("BLOCK:") :]
+            elif not rendered.startswith("WARN:"):
+                rendered = f"WARN: {rendered}"
+            print(
+                f"{rendered} (reason_code={reason_code}, docs_only_mode=1, "
+                "reinvoke_allowed=1, retry_scope=invocation)"
+            )
+            return 0
+        print(message)
+        return 1
 
     enabled = bool(gate.get("enabled", True))
     if not enabled:
@@ -301,8 +323,14 @@ def run_gate(args: argparse.Namespace) -> int:
     prd_path = root / "docs" / "prd" / f"{ticket}.prd.md"
     if not prd_path.is_file():
         expected = prd_path.as_posix()
-        print(f"BLOCK: нет PRD (ожидается {expected}) → откройте aidd/docs/prd/{ticket}.prd.md, допишите диалог и завершите /feature-dev-aidd:review-spec {feature_label(ticket, slug_hint) or ticket}.")
-        return 1
+        return emit(
+            (
+                "BLOCK: нет PRD (ожидается "
+                f"{expected}) → откройте aidd/docs/prd/{ticket}.prd.md, допишите диалог и завершите "
+                f"/feature-dev-aidd:review-spec {feature_label(ticket, slug_hint) or ticket}."
+            ),
+            "prd_missing",
+        )
 
     allow_missing = bool(gate.get("allow_missing_section", False))
     require_closed = bool(gate.get("require_action_items_closed", True))
@@ -312,29 +340,24 @@ def run_gate(args: argparse.Namespace) -> int:
     content = prd_path.read_text(encoding="utf-8")
     dialog_status = extract_dialog_status(content)
     if dialog_status == "draft":
-        print(format_message("draft_dialog", ticket, slug_hint))
-        return 1
+        return emit(format_message("draft_dialog", ticket, slug_hint), "prd_dialog_draft")
     found, status, action_items = parse_review_section(content)
 
     if not found:
         if allow_missing:
             return 0
-        print(format_message("missing_section", ticket, slug_hint))
-        return 1
+        return emit(format_message("missing_section", ticket, slug_hint), "prd_review_missing_section")
 
     if status in blocking:
-        print(format_message("blocking_status", ticket, slug_hint, status))
-        return 1
+        return emit(format_message("blocking_status", ticket, slug_hint, status), "prd_review_blocked_status")
 
     if approved and status not in approved:
-        print(format_message("not_approved", ticket, slug_hint, status))
-        return 1
+        return emit(format_message("not_approved", ticket, slug_hint, status), "prd_review_not_ready")
 
     if require_closed:
         for item in action_items:
             if item.startswith("- [ ]"):
-                print(format_message("open_actions", ticket, slug_hint, status))
-                return 1
+                return emit(format_message("open_actions", ticket, slug_hint, status), "prd_review_open_action_items")
 
     allow_missing_report = bool(gate.get("allow_missing_report", False))
     report_template = gate.get("report_path") or "aidd/reports/prd/{ticket}.json"
@@ -346,7 +369,8 @@ def run_gate(args: argparse.Namespace) -> int:
         try:
             report_data = json.loads(report_path.read_text(encoding="utf-8"))
         except Exception:
-            print(format_message("report_corrupted", ticket, slug_hint))
+            message = format_message("report_corrupted", ticket, slug_hint)
+            print(f"{message} (reason_code=prd_review_report_corrupted)")
             return 1
     else:
         if report_path.suffix == ".json":
@@ -355,7 +379,8 @@ def run_gate(args: argparse.Namespace) -> int:
                 try:
                     report_data = json.loads(candidate.read_text(encoding="utf-8"))
                 except Exception:
-                    print(format_message("report_corrupted", ticket, slug_hint))
+                    message = format_message("report_corrupted", ticket, slug_hint)
+                    print(f"{message} (reason_code=prd_review_report_corrupted)")
                     return 1
 
     report_status = ""
@@ -367,8 +392,10 @@ def run_gate(args: argparse.Namespace) -> int:
             if not report_status:
                 report_status = normalize_review_status(str(report_data.get("status") or "").strip())
         if report_status and status and report_status != status:
-            print(format_message("status_mismatch", ticket, slug_hint, status, report_status))
-            return 1
+            return emit(
+                format_message("status_mismatch", ticket, slug_hint, status, report_status),
+                "prd_review_report_status_mismatch",
+            )
 
     if report_data is not None:
         raw_findings = report_data.get("findings") or []
@@ -383,18 +410,20 @@ def run_gate(args: argparse.Namespace) -> int:
                     severity = str(finding.get("severity") or "").lower()
                 if severity and severity in blocking_severities:
                     label = feature_label(ticket, slug_hint)
-                    print(
-                        f"BLOCK: PRD Review содержит findings уровня '{severity}' → обновите PRD и повторно вызовите /feature-dev-aidd:review-spec {label or ticket}."
+                    return emit(
+                        (
+                            f"BLOCK: PRD Review содержит findings уровня '{severity}' → обновите PRD и повторно "
+                            f"вызовите /feature-dev-aidd:review-spec {label or ticket}."
+                        ),
+                        "prd_review_blocking_findings",
                     )
-                    return 1
     elif not allow_missing_report:
         if "{ticket}" in report_template or "{slug}" in report_template:
             message = format_message("missing_report", ticket, slug_hint)
         else:
             label = feature_label(ticket, slug_hint)
             message = f"BLOCK: нет отчёта PRD Review ({report_path}) → перезапустите /feature-dev-aidd:review-spec {label or ticket}"
-        print(message)
-        return 1
+        return emit(message, "prd_review_report_missing")
 
     return 0
 

@@ -59,6 +59,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_false",
         help="Allow continuation on tasklist-check:error only with AIDD_ALLOW_TASKLIST_ERROR_SUCCESS=1.",
     )
+    parser.add_argument(
+        "--docs-only",
+        action="store_true",
+        help="Enable docs-only rewrite mode for this invocation.",
+    )
     return parser.parse_args(argv)
 
 
@@ -262,6 +267,7 @@ def main(argv: list[str] | None = None) -> int:
         ticket=getattr(args, "ticket", None),
         slug_hint=getattr(args, "slug_hint", None),
     )
+    docs_only_mode = runtime.docs_only_mode_requested(explicit=getattr(args, "docs_only", False))
     slug = (context.slug_hint or ticket).strip() or ticket
     today = date.today().isoformat()
     scope_key = runtime.resolve_scope_key(work_item_key=None, ticket=ticket)
@@ -287,13 +293,27 @@ def main(argv: list[str] | None = None) -> int:
 
     contract_lines, contract_error = _render_test_execution_from_contract(target)
     if contract_error:
-        print(
-            "[tasks-new] BLOCK: project test execution contract missing/invalid "
-            "(reason_code=project_contract_missing). "
-            "Update aidd/config/gates.json -> qa.tests.",
-            file=sys.stderr,
-        )
-        return 2
+        if docs_only_mode:
+            print(
+                "[tasks-new] WARN: docs-only rewrite mode bypasses project test execution contract blocker "
+                "(reason_code=project_contract_missing, docs_only_mode=1).",
+                file=sys.stderr,
+            )
+            contract_lines = [
+                "- profile: none",
+                "- tasks: []",
+                "- filters: []",
+                "- when: manual",
+                "- reason: docs-only rewrite mode",
+            ]
+        else:
+            print(
+                "[tasks-new] BLOCK: project test execution contract missing/invalid "
+                "(reason_code=project_contract_missing). "
+                "Update aidd/config/gates.json -> qa.tests.",
+                file=sys.stderr,
+            )
+            return 2
     if contract_lines:
         tasklist_text = tasklist_path.read_text(encoding="utf-8")
         tasklist_text = _replace_section(tasklist_text, "AIDD:TEST_EXECUTION", contract_lines)
@@ -334,14 +354,21 @@ def main(argv: list[str] | None = None) -> int:
                 "do not create upstream artifacts manually in this stage"
             )
         print(f"[tasks-new] remediation: {remediation}", file=sys.stderr)
-        allow_error_success = os.getenv("AIDD_ALLOW_TASKLIST_ERROR_SUCCESS", "").strip() == "1"
-        if args.strict or not allow_error_success:
-            return result.exit_code()
-        print(
-            "[tasks-new] WARN: non-strict success override enabled "
-            "(AIDD_ALLOW_TASKLIST_ERROR_SUCCESS=1).",
-            file=sys.stderr,
-        )
+        if docs_only_mode:
+            print(
+                "[tasks-new] WARN: docs-only rewrite mode continues despite tasklist-check:error "
+                "(invocation-local override).",
+                file=sys.stderr,
+            )
+        else:
+            allow_error_success = os.getenv("AIDD_ALLOW_TASKLIST_ERROR_SUCCESS", "").strip() == "1"
+            if args.strict or not allow_error_success:
+                return result.exit_code()
+            print(
+                "[tasks-new] WARN: non-strict success override enabled "
+                "(AIDD_ALLOW_TASKLIST_ERROR_SUCCESS=1).",
+                file=sys.stderr,
+            )
     else:
         print(f"[tasks-new] tasklist-check: {result.status}")
 
@@ -355,6 +382,8 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     runtime.maybe_sync_index(target, ticket, slug, reason="tasks-new")
+    if docs_only_mode:
+        print("[tasks-new] docs_only_mode=1 reinvoke_allowed=1 retry_scope=invocation", file=sys.stderr)
     return 0
 
 

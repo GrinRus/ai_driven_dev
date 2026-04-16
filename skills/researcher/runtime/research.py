@@ -508,11 +508,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Automation-friendly mode for /feature-dev-aidd:researcher.",
     )
+    parser.add_argument(
+        "--docs-only",
+        action="store_true",
+        help="Enable docs-only rewrite mode for this invocation.",
+    )
     return parser.parse_args(argv)
 
 
 def run(args: argparse.Namespace) -> int:
     _, target = runtime.require_workflow_root()
+    docs_only_mode = runtime.docs_only_mode_requested(explicit=getattr(args, "docs_only", False))
     ticket, feature_context = runtime.require_ticket(
         target,
         ticket=getattr(args, "ticket", None),
@@ -534,10 +540,19 @@ def run(args: argparse.Namespace) -> int:
     extra_notes = prd_hints.merge_unique(_parse_notes(getattr(args, "notes", None), target))
 
     if not (hints.paths or hints.keywords or explicit_paths or extra_keywords):
-        raise RuntimeError(
+        message = (
             "BLOCK: AIDD:RESEARCH_HINTS must define Paths or Keywords "
             f"in aidd/docs/prd/{ticket}.prd.md (or pass --paths/--keywords/--rlm-paths)."
         )
+        if docs_only_mode:
+            print(
+                "[aidd] WARN: docs-only rewrite mode bypasses research hints blocker "
+                f"(reason_code=research_hints_missing, diagnostics={message}, "
+                "docs_only_mode=1, reinvoke_allowed=1, retry_scope=invocation).",
+                file=sys.stderr,
+            )
+            return 0
+        raise RuntimeError(message)
 
     settings = load_rlm_settings(target)
     targets_payload = rlm_targets.build_targets(
@@ -804,6 +819,8 @@ def run(args: argparse.Namespace) -> int:
         )
 
     runtime.maybe_sync_index(target, ticket, feature_context.slug_hint, reason="research")
+    if docs_only_mode:
+        print("[aidd] docs_only_mode=1 reinvoke_allowed=1 retry_scope=invocation", file=sys.stderr)
     return 0
 
 

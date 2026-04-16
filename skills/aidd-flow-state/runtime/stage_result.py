@@ -122,6 +122,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--evidence-link", action="append", help="Evidence link (repeatable, supports key=path).")
     parser.add_argument("--evidence-links", action="append", help="Evidence links list (comma/space separated, supports key=path).")
     parser.add_argument("--producer", default="command", help="Producer label (default: command).")
+    parser.add_argument(
+        "--docs-only",
+        action="store_true",
+        help="Enable docs-only rewrite mode for this invocation.",
+    )
     parser.add_argument("--format", choices=("json", "yaml"), help="Emit structured output to stdout.")
     return parser.parse_args(argv)
 
@@ -454,12 +459,13 @@ def main(argv: list[str] | None = None) -> int:
             reason = f"{reason}; {skip_reason}"
     missing_tests = tests_required and not tests_evidence
     docs_only_skip = skip_reason_code == "docs_only"
+    docs_only_mode = runtime.docs_only_mode_requested(explicit=getattr(args, "docs_only", False)) or docs_only_skip
     tests_reason_codes = {"missing_test_evidence", "no_tests_soft", "no_tests_hard"}
     if skip_reason_code:
         tests_reason_codes.add(skip_reason_code)
     tests_reason = bool(reason_code and reason_code in tests_reason_codes)
     if missing_tests:
-        if tests_block and not docs_only_skip:
+        if tests_block and not docs_only_mode:
             result = "blocked"
             if stage == "review":
                 verdict = "BLOCKED"
@@ -597,6 +603,13 @@ def main(argv: list[str] | None = None) -> int:
     if not evidence_links:
         evidence_links = {}
 
+    primary_reason = reason_code if reason_code else ("blocked_without_reason" if result == "blocked" else "")
+    secondary_symptom = None
+    if (
+        primary_reason in contract_reason_codes
+        and any(str(item).strip().lower() == "no_top_level_result" for item in errors)
+    ):
+        secondary_symptom = "no_top_level_result"
     payload = {
         "schema": "aidd.stage_result.v1",
         "ticket": ticket,
@@ -611,6 +624,12 @@ def main(argv: list[str] | None = None) -> int:
         "artifacts": artifacts,
         "errors": errors,
         "evidence_links": evidence_links,
+        "invocation_terminal": result == "blocked",
+        "reinvoke_allowed": True,
+        "retry_scope": "invocation",
+        "docs_only_mode": bool(docs_only_mode),
+        "primary_reason": primary_reason or None,
+        "secondary_symptom": secondary_symptom,
         "updated_at": utc_timestamp(),
         "producer": producer,
     }

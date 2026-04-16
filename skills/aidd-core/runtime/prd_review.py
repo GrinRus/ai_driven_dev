@@ -33,6 +33,7 @@ if str(plugin_root) not in sys.path:
     sys.path.insert(0, str(plugin_root))
 
 from aidd_runtime import id_utils
+from aidd_runtime import runtime
 from aidd_runtime.feature_ids import resolve_aidd_root, resolve_identifiers
 from aidd_runtime.prd_review_section import (
     extract_prd_review_section,
@@ -198,6 +199,11 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         "--require-ready",
         action="store_true",
         help="Return non-zero when recommended_status is not ready.",
+    )
+    parser.add_argument(
+        "--docs-only",
+        action="store_true",
+        help="Enable docs-only rewrite mode for this invocation.",
     )
     return parser.parse_args(argv)
 
@@ -541,13 +547,20 @@ def run(args: argparse.Namespace) -> int:
         if not same_target:
             with suppress(OSError):
                 output_path.unlink()
-    if getattr(args, "require_ready", False) and report.recommended_status != "ready":
+    docs_only_mode = runtime.docs_only_mode_requested(explicit=getattr(args, "docs_only", False))
+    if getattr(args, "require_ready", False) and report.recommended_status != "ready" and not docs_only_mode:
         print(
             "[prd-review] ERROR: report is not ready "
             f"(reason_code=review_not_ready, recommended_status={report.recommended_status})",
             file=sys.stderr,
         )
         return 2
+    if getattr(args, "require_ready", False) and report.recommended_status != "ready" and docs_only_mode:
+        print(
+            "[prd-review] WARN: docs-only rewrite mode bypasses review_not_ready gate "
+            f"(recommended_status={report.recommended_status}).",
+            file=sys.stderr,
+        )
     return 0
 
 
