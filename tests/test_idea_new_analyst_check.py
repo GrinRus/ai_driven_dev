@@ -121,6 +121,5 @@ class IdeaNewAnalystCheckTests(unittest.TestCase):
         sync_mock.assert_called_once_with(target, "TST-001", "demo-slug", reason="idea-analyst-check")
         self.assertIn("docs-only rewrite mode bypasses analyst validation blocker", stderr.getvalue())
 
-
 if __name__ == "__main__":
     unittest.main()
