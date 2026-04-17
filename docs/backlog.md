@@ -3,16 +3,17 @@
 > INTERNAL/DEV-ONLY: engineering wave planning and execution tracker.
 
 Owner: feature-dev-aidd
-Last reviewed: 2026-04-15
+Last reviewed: 2026-04-18
 Status: active
 
-_Revision note (2026-04-09): стабилизационный трек `120 -> 121 -> 136` закрыт (runtime/core -> prompt/audit -> integration closure). Волны `122..125` остаются roadmap-приоритетом._
+_Revision note (2026-04-09, updated 2026-04-18): стабилизационный трек `120 -> 121 -> 136` закрыт (runtime/core -> prompt/audit -> integration closure). Волны `122` и `123` остаются roadmap-приоритетом._
 _Priority note (2026-04-14): волны `123` и `122` закреплены как **самый низкий приоритет** до закрытия стабилизационных P0/P1 задач из активных волн._
 _Revision note (2026-04-15): выполнена ревизия backlog против текущего runtime/tests. Локальная проверка покрытия: `python3 -m pytest -q tests/test_review_run.py tests/test_tasks_new_runtime.py tests/test_tasklist_check.py tests/test_loop_step.py tests/test_loop_run.py tests/test_stage_result.py tests/test_implementer_prompt.py tests/test_stage_actions_run.py tests/test_qa_agent.py tests/test_qa_exit_code.py tests/test_prd_review_agent.py tests/test_output_contract.py tests/test_gate_workflow.py tests/test_preflight_prepare.py tests/repo_tools/test_aidd_stage_launcher.py tests/repo_tools/test_aidd_audit_runner.py tests/repo_tools/test_e2e_prompt_contract.py tests/repo_tools/test_e2e_quality_prompt_contract.py` (`365 passed`)._
 
 ## Archived Completed Waves
 
 - Historical completed waves `120`, `121`, `136` moved to `docs/backlog-archive-w120-w121-w136.md`.
+- Superseded/rescope waves `124`, `143` moved to `docs/backlog-archive-superseded-w124-w143.md`.
 - Local evidence note: references like `aidd/reports/**` point to workspace-local artifacts and are not part of this git repository.
 
 ## Active Planned Waves
@@ -23,13 +24,13 @@ _Revision note (2026-04-15): выполнена ревизия backlog прот�
 - Gate B (cleanup/de-noise after Gate A): `W144-1` -> `W144-2`; `W142-1` -> `W142-2`.
 - Gate C (host-agnostic flow core refactor): `W147-1` -> `W147-2` -> `W147-3` -> `W147-4` -> `W147-5`.
 - Gate D (host-agnostic e2e live prompt refactor): `W146-1` -> `W146-2` -> `W146-3` -> `W146-4` (after `W147-1` and `W147-3`).
-- Deferred policy rework: `W143-*` после рескопинга под текущую фактическую soft/strict поверхность.
+- Superseded/rescope backlog moved out of active queue: `W143-*`, `W124-*` -> `docs/backlog-archive-superseded-w124-w143.md`.
 - Lowest priority roadmap (do not start before active stabilization closes): `W123-*` and `W122-*`.
 
 ### Backlog Revision Snapshot (2026-04-15)
 
 - Coverage confirmed in current code/tests (candidate-close): `W145-1`, `W137-1`, `W137-2`, `W137-3`, `W137-4`, `W137-5`, `W138-1`, `W138-2`, `W138-3`, `W138-4`, `W138-5`, `W138-6`, `W139-1`, `W139-2`, `W139-3`, `W139-4`, `W139-5`, `W139-6`, `W139-7`.
-- Needs rewrite/rescope due drift with actual behavior: `W143-1`, `W143-2` (soft/strict уже в runtime/prompt contracts, но backlog описывает отложенный rollout), `W124-*` (OpenCode-only framing superseded by host-agnostic direction for Claude/Pi/generic).
+- Superseded/rescope waves were removed from the active queue: `W143-*`, `W124-*` -> `docs/backlog-archive-superseded-w124-w143.md`.
 - Active open blockers after revision: `W145-2`, `W145-3`, `W144-1`, `W144-2`, `W142-1`, `W142-2`, `W147-*`, `W146-*`.
 
 ## Wave 148 — Artifact Truthfulness Hardening (Research Excluded) (2026-04-16)
@@ -244,28 +245,9 @@ _Статус: plan (deferred after run-stability gates). Основание —
   **Effort:** S
   **Risk:** Low
 
-## Wave 143 — Soft/Strict Dual Classification Rework (planned)
+## Wave 143 — Soft/Strict Dual Classification Rework
 
-_Статус: plan (requires rescope). Цель — привести backlog в соответствие с фактическим состоянием: dual-classification + strict-shadow уже присутствуют в runtime/prompt contracts, поэтому remaining scope должен быть переопределён как hardening/cleanup, а не первичный rollout._
-
-- [ ] **W143-1 (P0) Feature-flagged soft/strict classification** `tests/repo_tools/aidd_audit_runner.py`, `tests/repo_tools/aidd_audit_contract.py`, `tests/repo_tools/test_aidd_audit_runner.py`:
-  - внедрить dual-classification только под явным флагом;
-  - default режим оставить strict-compatible до завершения rollout.
-  - execution note: не начинать до стабилизации `W145-2`, `W137-3`, `W139-5`.
-  **AC:** без флага output не меняется; с флагом есть полная telemetry секция без влияния на default verdict.
-  **Deps:** W145-2, W137-3, W139-5
-  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_aidd_audit_runner.py`.
-  **Effort:** M
-  **Risk:** High
-
-- [ ] **W143-2 (P1) Contract tests + prompt sync before rollout** `tests/repo_tools/test_e2e_prompt_contract.py`, `tests/repo_tools/test_e2e_quality_prompt_contract.py`, `tests/repo_tools/e2e_prompt/profile_full.md`, `tests/repo_tools/e2e_prompt/quality_profile_full.md`, `docs/e2e/*.txt`:
-  - добавить contract/replay coverage до включения feature-flag по умолчанию;
-  - синхронизировать prompt surface только после подтверждённой стабильности.
-  **AC:** rollout защищён replay и contract-тестами до merge.
-  **Deps:** W143-1
-  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py tests/repo_tools/test_e2e_quality_prompt_contract.py`.
-  **Effort:** S
-  **Risk:** Medium
+_Moved to `docs/backlog-archive-superseded-w124-w143.md` on 2026-04-18. The original rollout framing drifted from the implemented runtime/prompt state; if this work returns, it should be reintroduced as a new hardening wave rather than resumed from the archived plan._
 
 ## Wave 142 — Seed Convergence Rework (planned)
 
@@ -480,59 +462,9 @@ _Статус: plan. Основание — TST-001 full audit показал im
   **Effort:** S
   **Risk:** Medium
 
-## Wave 124 — OpenCode Host Adaptation (2026-04-02)
+## Wave 124 — OpenCode Host Adaptation
 
-_Статус: plan (superseded framing). Основание — historical OpenCode-only adaptation draft; superseded by host-agnostic tracks (`Wave 147` flow-core/adapters + `Wave 146` e2e live prompts). Scope этой волны требует переименования/переноса в multi-host contract language._
-
-- [ ] **W124-1 (P2) Host-neutral runtime and environment contract** `aidd_runtime/__init__.py`, `tests/repo_tools/cli-adapter-guard.py`, `docs/skill-language.md`, `AGENTS.md`, `tests/test_prompt_lint.py`:
-  - ввести host-neutral canonical alias для plugin/runtime root, чтобы runtime help, docs examples и guards не зависели только от `CLAUDE_PLUGIN_ROOT`;
-  - сохранить `CLAUDE_PLUGIN_ROOT` как compatibility alias для Claude host;
-  - отделить canonical Python runtime contract от host-specific launcher examples и invocation semantics.
-  **AC:** runtime entrypoints, help-output и doc examples поддерживают host-neutral env contract; Claude compatibility остаётся рабочей без special-case regressions.
-  **Deps:** -
-  **Regression/tests:** `python3 -m pytest -q tests/test_prompt_lint.py`, `python3 tests/repo_tools/cli-adapter-guard.py`.
-  **Effort:** M
-  **Risk:** Medium
-
-- [ ] **W124-2 (P2) Generated OpenCode commands and agents from shared source** `agents/*.md`, `skills/*/SKILL.md`, `.claude-plugin/plugin.json`, `.opencode/commands/*.md`, `.opencode/agents/*.md`, `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`:
-  - определить canonical metadata source для генерации host surfaces из существующих stage commands и agent prompts;
-  - генерировать OpenCode command и agent surfaces без ручного дублирования prompt content;
-  - зафиксировать mapping между Claude slash commands и OpenCode command surface на одном canonical source.
-  **AC:** все публичные стадии и ключевые stage agents имеют generated OpenCode host surfaces; изменения в shared prompt source воспроизводимо отражаются и в Claude, и в OpenCode layers.
-  **Deps:** W124-1
-  **Regression/tests:** `python3 -m pytest -q tests/test_prompt_lint.py`, `python3 tests/repo_tools/lint-prompts.py --root .`.
-  **Effort:** L
-  **Risk:** High
-
-- [ ] **W124-3 (P2) OpenCode launcher, loop, and non-interactive runner parity** `skills/aidd-loop/runtime/loop_run.py`, `skills/aidd-loop/runtime/loop_step.py`, `tests/repo_tools/aidd_stage_launcher.py`, `tests/repo_tools/aidd_audit_runner.py`, `tests/test_loop_run.py`, `tests/test_loop_step.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
-  - ввести host adapter для runner selection вместо жёсткой привязки к `claude -p`;
-  - адаптировать seed-stage и auto-loop non-interactive execution под OpenCode runner path;
-  - формализовать OpenCode-safe init evidence и diagnostics так, чтобы audit tooling различал host mode без branch explosion.
-  **AC:** seed stages и loop runner могут запускаться через OpenCode non-interactive surface; runtime и audit не считают `claude -p` единственным допустимым launcher.
-  **Deps:** W124-1, W124-2
-  **Regression/tests:** `python3 -m pytest -q tests/test_loop_run.py tests/test_loop_step.py tests/repo_tools/test_e2e_prompt_contract.py`.
-  **Effort:** L
-  **Risk:** High
-
-- [ ] **W124-4 (P2) Host-aware lint, smoke, and audit tooling** `tests/repo_tools/ci-lint.sh`, `tests/repo_tools/smoke-workflow.sh`, `tests/repo_tools/aidd_stage_launcher.py`, `tests/repo_tools/aidd_audit_runner.py`, `tests/repo_tools/test_aidd_stage_launcher.py`, `tests/repo_tools/test_aidd_audit_runner.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
-  - разделить canonical runtime checks и host-specific checks для Claude и OpenCode;
-  - добавить host selector в smoke/audit fixtures и repo tools, где сейчас зашит Claude-only init/launcher contract;
-  - исключить ложные FAIL/WARN из-за host mismatch при сохранении текущего Claude CI baseline.
-  **AC:** tooling валидирует Claude и OpenCode независимо; canonical runtime checks больше не содержат Claude-only assumptions, а host-specific audit checks остаются детерминированными.
-  **Deps:** W124-1, W124-2, W124-3
-  **Regression/tests:** `tests/repo_tools/ci-lint.sh`, `tests/repo_tools/smoke-workflow.sh`, `python3 -m pytest -q tests/repo_tools/test_aidd_stage_launcher.py tests/repo_tools/test_aidd_audit_runner.py tests/repo_tools/test_e2e_prompt_contract.py`.
-  **Effort:** M
-  **Risk:** High
-
-- [ ] **W124-5 (P2) Host-aware docs and installation/distribution surfaces** `README.md`, `README.en.md`, `AGENTS.md`, `.claude-plugin/plugin.json`, `opencode.json`, `.opencode/plugins/*`, `CHANGELOG.md`:
-  - отделить Claude-specific install/use path от canonical AIDD runtime model;
-  - добавить OpenCode installation, usage и host-compatibility guidance;
-  - явно зафиксировать supported hosts, compatibility layer и границы parity в user/dev docs и release surfaces.
-  **AC:** документация и package surfaces больше не описывают AIDD как Claude-only plugin; documented install/use path присутствует и для Claude, и для OpenCode.
-  **Deps:** W124-1, W124-2
-  **Regression/tests:** `tests/repo_tools/ci-lint.sh`, `python3 tests/repo_tools/lint-prompts.py --root .`.
-  **Effort:** S
-  **Risk:** Medium
+_Moved to `docs/backlog-archive-superseded-w124-w143.md` on 2026-04-18. This OpenCode-only framing was superseded by the host-agnostic tracks (`Wave 147` flow-core/adapters + `Wave 146` e2e live prompts) and no longer belongs in the active queue as a standalone roadmap._
 
 ## Wave 123 — DAG / Parallel Loop Roadmap (2026-04-02)
 

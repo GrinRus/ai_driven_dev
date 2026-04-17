@@ -3,7 +3,7 @@
 > INTERNAL/DEV-ONLY: closure summary for stabilization waves `120`, `121`, `136`.
 
 Owner: feature-dev-aidd
-Last reviewed: 2026-04-12
+Last reviewed: 2026-04-18
 Status: historical
 
 _Local evidence note: references like `aidd/reports/**` point to workspace-local artifacts and are not part of this git repository._
@@ -90,4 +90,5 @@ _Local evidence note: references like `aidd/reports/**` point to workspace-local
 - Advisory-only skill-eval path requires `ANTHROPIC_API_KEY`; not a blocker for required checks.
 
 ## Next Roadmap
-- Move active backlog focus to Waves `122..125` after this closure.
+- Historical next step at closure time: move backlog focus to Waves `122..125`.
+- Current source of truth for active roadmap priority is `docs/backlog.md`.
