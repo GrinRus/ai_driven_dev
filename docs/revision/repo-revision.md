@@ -3,17 +3,17 @@
 > INTERNAL/DEV-ONLY: generated maintainer report for repository topology and cleanup planning.
 
 Owner: feature-dev-aidd
-Last reviewed: 2026-04-13
+Last reviewed: 2026-04-17
 Status: active
 
 schema: `aidd.repo_revision.v1`
-generated_at: `2026-04-13T12:22:37Z`
+generated_at: `2026-04-17T20:53:14Z`
 
 ## Executive summary
 
-- Total nodes: **408**
-- Total edges: **835**
-- User-invocable commands: **11**
+- Total nodes: **413**
+- Total edges: **836**
+- User-invocable commands: **10**
 - Reachable runtimes from command chain: **90**
 - Detached agents: **0**
 
@@ -150,10 +150,6 @@ Key findings:
 - Templates: none
 - Reachable from root chain: `True`
 
-### `/feature-dev-aidd:spec-interview`
-- Historical note: stage removed from active planning flow in Wave 149.
-- Current status: archived, not reachable from root chain, runtime/template assets removed from repository.
-
 ### `/feature-dev-aidd:status`
 - Skill: `skills/status/SKILL.md`
 - Runtime refs: 2
@@ -224,8 +220,7 @@ Key findings:
 
 ### Safe-to-delete
 
-- `docs/runtime-module-decomposition-plan.md`: action=`delete`, confidence=`high`, risk=`low`
-  - reason: no inbound references in graph or textual mentions
+- none
 
 ### Candidates
 
@@ -233,8 +228,7 @@ Key findings:
 
 ## Cleanup plan
 
-1. `docs/runtime-module-decomposition-plan.md` -> `delete` (risk: `low`)
-   - reason: no inbound references in graph or textual mentions
+- none
 
 Validation commands:
 - `python3 tests/repo_tools/repo_topology_audit.py --repo-root . --output-json docs/revision/repo-revision.graph.json --output-md docs/revision/repo-revision.md --output-cleanup docs/revision/repo-cleanup-plan.json`
@@ -251,13 +245,13 @@ Validation commands:
   - `skills_glob`: `skills/*/SKILL.md`
   - `template_seed_map`: `skills/aidd-init/runtime/init.py:SKILL_TEMPLATE_SEEDS`
 - Edge types:
-  - `agent_preload_skill`: 35
-  - `command_subagent`: 11
-  - `doc_ref_runtime`: 184
+  - `agent_preload_skill`: 32
+  - `command_subagent`: 10
+  - `doc_ref_runtime`: 189
   - `hook_event_to_hook`: 16
   - `hook_ref_runtime`: 5
   - `runtime_dynamic_load`: 8
-  - `runtime_import`: 242
-  - `skill_runtime_ref`: 112
-  - `skill_template_ref`: 10
-  - `test_ref_runtime`: 212
+  - `runtime_import`: 253
+  - `skill_runtime_ref`: 108
+  - `skill_template_ref`: 9
+  - `test_ref_runtime`: 206

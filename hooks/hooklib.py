@@ -87,10 +87,6 @@ DEFAULT_CONFIG: Dict[str, Any] = {
 _HOOK_PAYLOAD_CACHE: Dict[str, Any] | None = None
 
 
-class HookLibError(RuntimeError):
-    """Base hook error for consistent messaging."""
-
-
 @dataclass(frozen=True)
 class HookContext:
     hook_event_name: str
@@ -99,13 +95,6 @@ class HookContext:
     cwd: Optional[str]
     permission_mode: Optional[str]
     raw: Dict[str, Any]
-
-
-def require_plugin_root() -> Path:
-    raw = os.environ.get("CLAUDE_PLUGIN_ROOT")
-    if not raw:
-        raise HookLibError("CLAUDE_PLUGIN_ROOT is required to run AIDD hooks.")
-    return Path(raw).expanduser().resolve()
 
 
 def _read_payload_text() -> str:
