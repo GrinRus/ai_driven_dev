@@ -653,6 +653,32 @@ class ResearchCommandTest(unittest.TestCase):
             self.assertNotIn("{{rlm_status}}", updated_text)
             self.assertNotIn("{{", updated_text)
 
+    def test_research_status_reconcile_normalizes_ready_alias(self):
+        with tempfile.TemporaryDirectory(prefix="aidd-research-status-alias-") as tmpdir:
+            doc_path = Path(tmpdir) / "research.md"
+            doc_path.write_text("# Research\n\nStatus: ready\n", encoding="utf-8")
+
+            payload = research._reconcile_research_doc_status(doc_path)
+
+            updated_text = doc_path.read_text(encoding="utf-8")
+            self.assertIn("Status: reviewed", updated_text)
+            self.assertEqual(payload.get("status"), "reviewed")
+            self.assertEqual(payload.get("marker"), "research_status_alias_normalized=ready->reviewed")
+            self.assertTrue(bool(payload.get("updated")))
+
+    def test_research_status_reconcile_rewrites_noncanonical_to_warn(self):
+        with tempfile.TemporaryDirectory(prefix="aidd-research-status-drift-") as tmpdir:
+            doc_path = Path(tmpdir) / "research.md"
+            doc_path.write_text("# Research\n\nStatus: draft\n", encoding="utf-8")
+
+            payload = research._reconcile_research_doc_status(doc_path)
+
+            updated_text = doc_path.read_text(encoding="utf-8")
+            self.assertIn("Status: warn", updated_text)
+            self.assertEqual(payload.get("status"), "warn")
+            self.assertEqual(payload.get("marker"), "research_status_noncanonical_rewritten=draft->warn")
+            self.assertTrue(bool(payload.get("updated")))
+
 
 
 if __name__ == "__main__":

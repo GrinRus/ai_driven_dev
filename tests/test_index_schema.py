@@ -203,12 +203,12 @@ def test_index_sync_separates_expected_and_actual_reports_with_truth_checks(tmp_
         f"aidd/reports/qa/{ticket}.json",
         f"aidd/reports/reviewer/{ticket}/iteration_id_I1.json",
     ]
-    assert payload["missing_expected_reports"] == [f"aidd/reports/reviewer/{ticket}/iteration_id_I1.json"]
+    assert payload["missing_expected_reports"] == []
     assert payload["doc_statuses"]["plan"] == "PENDING"
     assert "spec" not in payload["doc_statuses"]
     assert all("docs/spec/" not in path for path in payload["artifacts"])
     codes = {item["code"] for item in payload.get("truth_checks") or []}
-    assert "missing_expected_report" in codes
+    assert "missing_expected_report" not in codes
     assert "active_stage_vs_plan_mismatch" in codes
 
 

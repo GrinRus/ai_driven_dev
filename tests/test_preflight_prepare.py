@@ -4,10 +4,25 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from aidd_runtime import preflight_prepare
 from tests.helpers import cli_cmd, cli_env, ensure_project_root, write_active_state, write_tasklist_ready
 
 
 class PreflightPrepareTests(unittest.TestCase):
+    def test_preflight_prepare_sanitize_paths_drops_pseudopath_tokens(self) -> None:
+        kept, dropped = preflight_prepare._sanitize_paths(
+            [
+                "aidd/reports/qa/TST-001.json",
+                "domain/adapter/MCP",
+                "<placeholder>",
+                "src/**",
+            ]
+        )
+        self.assertIn("aidd/reports/qa/TST-001.json", kept)
+        self.assertIn("src/**", kept)
+        self.assertIn("domain/adapter/MCP", dropped)
+        self.assertIn("<placeholder>", dropped)
+
     def test_preflight_prepare_generates_maps_and_template(self) -> None:
         with tempfile.TemporaryDirectory(prefix="preflight-prepare-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))

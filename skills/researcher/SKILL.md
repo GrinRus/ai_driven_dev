@@ -23,6 +23,8 @@ user-invocable: true
 
 Follow `feature-dev-aidd:aidd-core`.
 
+Status source-of-truth for this stage is only current top-level runtime output plus canonical research reports (`aidd/reports/research/*.pack.json`). Nested excerpts, `tool_result`, and persisted template fragments are telemetry-only and must not drive gate/retry decisions.
+
 ## Steps
 1. Set active feature and stage `research`.
 2. Run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py --ticket <ticket> --auto`.
@@ -33,8 +35,10 @@ Follow `feature-dev-aidd:aidd-core`.
 7. If RLM is still pending after auto recovery, return deterministic pending reason + explicit next action (`python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_finalize.py --ticket <ticket>`) and append research handoff via `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/tasks_derive.py --source research --append`.
 8. Ready path: return `/feature-dev-aidd:plan-new <ticket>` only when RLM readiness is `ready` and the research document is synchronized with the current evidence.
 9. Pending or blocked path: if readiness is not `ready`, return the deterministic blocker or pending output instead of guessing a downstream handoff.
-10. Runtime-path safety: execute only canonical runtime commands from this contract (`python3 ${CLAUDE_PLUGIN_ROOT}/skills/.../runtime/...`).
-11. Root-relative `/skills/...` runtime paths are forbidden; use only `${CLAUDE_PLUGIN_ROOT}/skills/.../runtime/...`.
+10. Manual status drift is forbidden: do not upgrade `warn|pending` to `ready|reviewed` manually. Runtime canonicalization owns status normalization (`ready -> reviewed`; non-canonical values degrade to `warn` with telemetry).
+11. Treat nested excerpts/tool_result/persisted template snippets as telemetry-only; gate and retry decisions must follow top-level runtime status + canonical report payload.
+12. Runtime-path safety: execute only canonical runtime commands from this contract (`python3 ${CLAUDE_PLUGIN_ROOT}/skills/.../runtime/...`).
+13. Root-relative `/skills/...` runtime paths are forbidden; use only `${CLAUDE_PLUGIN_ROOT}/skills/.../runtime/...`.
 
 ## Command contracts
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py`

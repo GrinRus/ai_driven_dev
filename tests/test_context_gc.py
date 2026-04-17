@@ -610,6 +610,38 @@ class SessionStartInjectTests(unittest.TestCase):
             self.assertIn("AIDD Working Set", context)
             self.assertIn("Ticket: demo-ticket", context)
 
+    def test_sessionstart_additional_context_stays_compact(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+            root = Path(tmpdir)
+            write_active_feature(root, "demo-ticket")
+            write_file(
+                root,
+                "reports/context/demo-ticket.pack.md",
+                "# Context Pack\n\n" + ("very long context line\n" * 300),
+            )
+            write_json(
+                root,
+                "config/context_gc.json",
+                {
+                    "working_set": {
+                        "include_git_status": False,
+                        "max_chars": 420,
+                        "context_pack_max_lines": 8,
+                        "context_pack_max_chars": 220,
+                    }
+                },
+            )
+            payload = {"hook_event_name": "SessionStart"}
+            result = _run_hook_script(SESSIONSTART_MODULE, payload, _env_for_workspace(root), root)
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            data = json.loads(result.stdout)
+            hook_output = data.get("hookSpecificOutput", {})
+            context = hook_output.get("additionalContext", "")
+            self.assertLessEqual(len(context), 420)
+            self.assertLessEqual(context.count("#### "), 2)
+            self.assertIn("#### Context Pack (rolling)", context)
+
 
 class PreToolUseGuardTests(unittest.TestCase):
     def _pretool_env(self, root: Path) -> dict[str, str]:
@@ -1176,6 +1208,66 @@ class StopUpdateTests(unittest.TestCase):
                 root / "aidd" / "reports" / "context" / "by-ticket" / "demo-ticket" / "latest_working_set.md"
             )
             self.assertTrue(ticket_latest.exists())
+
+    def test_stop_update_repairs_contaminated_context_pack_and_keeps_working_set_compact(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+            root = Path(tmpdir)
+            write_active_feature(root, "demo-ticket")
+            write_file(
+                root,
+                "reports/context/demo-ticket.pack.md",
+                "# AIDD Context Pack — <stage>\n\nStatus: draft\nOwner: <name/team>\n<stage-specific goal>\n",
+            )
+            write_json(
+                root,
+                "config/context_gc.json",
+                {"working_set": {"include_git_status": False}},
+            )
+            payload = {"hook_event_name": "Stop"}
+            result = _run_hook_script(STOP_MODULE, payload, _env_for_workspace(root), root)
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            latest_path = root / "aidd" / "reports" / "context" / "latest_working_set.md"
+            self.assertTrue(latest_path.exists())
+            content = latest_path.read_text(encoding="utf-8")
+            self.assertIn("quality_repair: hard_replace", content)
+            self.assertNotIn("<stage-specific goal>", content)
+            self.assertNotIn("Owner: <name/team>", content)
+            self.assertEqual(content.count("### AIDD Working Set (auto-generated)"), 1)
+
+    def test_stop_update_latest_working_set_files_do_not_leak_template_placeholders(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+            root = Path(tmpdir)
+            write_active_feature(root, "demo-ticket")
+            write_file(
+                root,
+                "reports/context/demo-ticket.pack.md",
+                (
+                    "# AIDD Context Pack — <stage>\n\n"
+                    "Status: draft\n"
+                    "Owner: <name/team>\n"
+                    "<ticket>\n"
+                    "<stage-specific goal>\n"
+                ),
+            )
+            write_json(
+                root,
+                "config/context_gc.json",
+                {"working_set": {"include_git_status": False}},
+            )
+            payload = {"hook_event_name": "Stop"}
+            result = _run_hook_script(STOP_MODULE, payload, _env_for_workspace(root), root)
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            latest_path = root / "aidd" / "reports" / "context" / "latest_working_set.md"
+            ticket_latest_path = (
+                root / "aidd" / "reports" / "context" / "by-ticket" / "demo-ticket" / "latest_working_set.md"
+            )
+            latest = latest_path.read_text(encoding="utf-8")
+            ticket_latest = ticket_latest_path.read_text(encoding="utf-8")
+            for content in (latest, ticket_latest):
+                self.assertNotRegex(content, r"<(?:ticket|name/team|stage-specific goal)>")
+                self.assertIn("quality_repair: hard_replace", content)
 
 
 if __name__ == "__main__":

@@ -880,6 +880,75 @@ class StageResultTests(unittest.TestCase):
             self.assertEqual(payload.get("retry_scope"), "invocation")
             self.assertEqual(payload.get("primary_reason"), "tests_cwd_mismatch")
 
+    def test_stage_result_emits_invocation_reinvoke_fields_for_review_and_qa(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            write_review_context_pack(root, "DEMO-INVOKE-REVIEW")
+            review_result = subprocess.run(
+                cli_cmd(
+                    "stage-result",
+                    "--ticket",
+                    "DEMO-INVOKE-REVIEW",
+                    "--stage",
+                    "review",
+                    "--result",
+                    "blocked",
+                    "--work-item-key",
+                    "iteration_id=I2",
+                    "--reason-code",
+                    "project_contract_missing",
+                ),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(review_result.returncode, 0, msg=review_result.stdout + review_result.stderr)
+            review_payload = json.loads(
+                (
+                    root
+                    / "reports"
+                    / "loops"
+                    / "DEMO-INVOKE-REVIEW"
+                    / "iteration_id_I2"
+                    / "stage.review.result.json"
+                ).read_text(encoding="utf-8")
+            )
+            self.assertTrue(review_payload.get("invocation_terminal"))
+            self.assertTrue(review_payload.get("reinvoke_allowed"))
+            self.assertEqual(review_payload.get("retry_scope"), "invocation")
+            self.assertEqual(review_payload.get("primary_reason"), "project_contract_missing")
+
+            qa_result = subprocess.run(
+                cli_cmd(
+                    "stage-result",
+                    "--ticket",
+                    "DEMO-INVOKE-QA",
+                    "--stage",
+                    "qa",
+                    "--result",
+                    "blocked",
+                    "--work-item-key",
+                    "iteration_id=I3",
+                    "--reason-code",
+                    "qa_tests_failed",
+                ),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(qa_result.returncode, 0, msg=qa_result.stdout + qa_result.stderr)
+            qa_payload = json.loads(
+                (root / "reports" / "loops" / "DEMO-INVOKE-QA" / "iteration_id_I3" / "stage.qa.result.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertTrue(qa_payload.get("invocation_terminal"))
+            self.assertTrue(qa_payload.get("reinvoke_allowed"))
+            self.assertEqual(qa_payload.get("retry_scope"), "invocation")
+            self.assertEqual(qa_payload.get("primary_reason"), "qa_tests_failed")
+
     def test_review_missing_tests_hard_docs_only_does_not_block(self) -> None:
         with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))

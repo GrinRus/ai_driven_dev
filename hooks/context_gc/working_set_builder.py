@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional, Tuple
 
+from aidd_runtime import artifact_quality
 from hooks.hooklib import load_config, resolve_aidd_root, resolve_context_gc_mode
 
 
@@ -150,10 +151,21 @@ def build_working_set(project_dir: Path) -> WorkingSet:
         context_pack_path = aidd_root / "reports" / "context" / f"{ticket}.pack.md"
         tasklist = aidd_root / "docs" / "tasklist" / f"{ticket}.md"
         if context_pack_path.exists():
-            md = _strip_long_code_blocks(_read_text(context_pack_path))
-            excerpt = _extract_pack_excerpt(md, pack_max_lines, pack_max_chars)
+            repaired, markers = artifact_quality.repair_context_pack_if_contaminated(
+                aidd_root,
+                ticket,
+                context_pack_path,
+            )
+            md = _read_text(context_pack_path)
+            excerpt = artifact_quality.render_context_pack_excerpt(
+                md,
+                max_lines=pack_max_lines,
+                max_chars=pack_max_chars,
+            )
             if excerpt:
                 parts.append("#### Context Pack (rolling)")
+                if repaired and markers:
+                    parts.append(f"- quality_repair: hard_replace ({', '.join(markers)})")
                 parts.append(excerpt)
                 parts.append("")
 

@@ -20,6 +20,11 @@ Follow `feature-dev-aidd:aidd-core` for output contract and DocOps.
 9. `ralph` uses policy matrix v2 (`hard_block|recoverable_retry|warn_continue`) with bounded retries for recoverable reasons.
 10. For recoverable blocked retries, emit observability fields: `recoverable_blocked`, `recovery_path`, `retry_attempt`, plus `ralph_reason_class|strict_recoverable_reason_class`.
 11. Scope mismatch fallback is telemetry-only (`scope_mismatch_non_authoritative=1`): emit `expected_scope_key`/`selected_scope_key`; do not treat mismatched fallback as authoritative transition input.
+12. Retry trigger source: current run top-level stage result/reason only; nested excerpts and persisted template content are telemetry noise.
+13. Context hygiene: context pack/working set must be compact structured summaries; never inline raw template bodies.
+14. Forbidden bypass recovery: do not set, request, or rely on `AIDD_ALLOW_PLUGIN_WORKSPACE=1`; plugin-workspace bypass is non-canonical for loop orchestration.
+15. Forbidden self-diagnosis recovery: do not read runtime source files as primary recovery path; use top-level stage result + canonical report payload only.
+16. No-question parity rule: if `AIDD:OPEN_QUESTIONS=none` and top-level stage result does not request Q/A, set `question_cycle_required=0` and do not start question retry.
 
 ## Preload matrix v2
 - Roles: `implementer`, `reviewer`, `qa`.

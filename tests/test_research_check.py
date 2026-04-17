@@ -15,6 +15,7 @@ from tests.helpers import REPO_ROOT
 sys.path.append(str(REPO_ROOT))
 
 from aidd_runtime import research_check  # noqa: E402
+from aidd_runtime import research_guard  # noqa: E402
 
 from .helpers import (
     ensure_gates_config,
@@ -98,6 +99,29 @@ class ResearchCheckTests(unittest.TestCase):
                 "status": status,
                 "entries": entries if entries is not None else [{"file_id": "file-app"}],
             },
+        )
+
+    def _write_rlm_ready_evidence(self, root: Path, ticket: str) -> None:
+        self._write_rlm_baseline(root, ticket, status="ready", entries=[])
+        write_file(
+            root,
+            f"reports/research/{ticket}-rlm.nodes.jsonl",
+            '{"node_kind":"file","file_id":"file-app","id":"file-app","path":"src/main/kotlin/App.kt","rev_sha":"rev-app"}\n',
+        )
+        write_file(
+            root,
+            f"reports/research/{ticket}-rlm.links.jsonl",
+            '{"link_kind":"import","source":"file-app","target":"file-app","id":"link-1"}\n',
+        )
+        write_json(
+            root,
+            f"reports/research/{ticket}-rlm.links.stats.json",
+            {"links_total": 1},
+        )
+        write_json(
+            root,
+            f"reports/research/{ticket}-rlm.pack.json",
+            {"schema": "aidd.report.pack.v1", "type": "rlm", "status": "ready"},
         )
 
     def test_research_check_blocks_missing_report(self) -> None:
@@ -574,6 +598,102 @@ class ResearchCheckTests(unittest.TestCase):
             research_check.main(args)
         finally:
             os.chdir(old_cwd)
+
+    def test_research_guard_normalizes_ready_alias_for_plan_gate(self) -> None:
+        workspace, project_root = self._setup_workspace()
+        ticket = "demo-ready-alias"
+        write_active_feature(project_root, ticket)
+        write_active_stage(project_root, "plan")
+        self._write_base_research(project_root, ticket, status="ready")
+        self._write_rlm_ready_evidence(project_root, ticket)
+
+        old_cwd = Path.cwd()
+        os.chdir(workspace)
+        try:
+            settings = research_guard.load_settings(project_root)
+            summary = research_guard.validate_research(
+                project_root,
+                ticket,
+                settings=settings,
+                expected_stage="plan",
+            )
+        finally:
+            os.chdir(old_cwd)
+
+        self.assertEqual(summary.status, "reviewed")
+        self.assertIn("research_status_alias_normalized=ready->reviewed", summary.warnings or [])
+
+    def test_research_check_plan_gate_accepts_ready_alias(self) -> None:
+        workspace, project_root = self._setup_workspace()
+        ticket = "demo-ready-alias-main"
+        write_active_feature(project_root, ticket)
+        write_active_stage(project_root, "plan")
+        self._write_base_research(project_root, ticket, status="ready")
+        self._write_rlm_ready_evidence(project_root, ticket)
+
+        args = ["--ticket", ticket, "--expected-stage", "plan"]
+        old_cwd = Path.cwd()
+        os.chdir(workspace)
+        try:
+            exit_code = research_check.main(args)
+        finally:
+            os.chdir(old_cwd)
+
+        self.assertEqual(exit_code, 0)
+
+    def test_research_guard_softens_warn_for_all_downstream_stages(self) -> None:
+        stages = ("plan", "review", "qa", "loop")
+        for stage in stages:
+            with self.subTest(stage=stage):
+                workspace = self.tmp_path / f"workspace-{stage}"
+                workspace.mkdir()
+                project_root = ensure_project_root(workspace)
+                ensure_gates_config(project_root)
+                ticket = f"demo-warn-{stage}"
+                write_active_feature(project_root, ticket)
+                write_active_stage(project_root, stage)
+                self._write_base_research(project_root, ticket, status="warn")
+                self._write_rlm_ready_evidence(project_root, ticket)
+
+                old_cwd = Path.cwd()
+                os.chdir(workspace)
+                try:
+                    settings = research_guard.load_settings(project_root)
+                    summary = research_guard.validate_research(
+                        project_root,
+                        ticket,
+                        settings=settings,
+                        expected_stage=stage,
+                    )
+                finally:
+                    os.chdir(old_cwd)
+
+                self.assertEqual(summary.status, "warn")
+                self.assertIn("research_status_warn_softened", summary.warnings or [])
+
+    def test_research_guard_keeps_invalid_status_blocking(self) -> None:
+        workspace, project_root = self._setup_workspace()
+        ticket = "demo-invalid-status"
+        write_active_feature(project_root, ticket)
+        write_active_stage(project_root, "plan")
+        self._write_base_research(project_root, ticket, status="draft")
+        self._write_rlm_ready_evidence(project_root, ticket)
+
+        old_cwd = Path.cwd()
+        os.chdir(workspace)
+        try:
+            settings = research_guard.load_settings(project_root)
+            with self.assertRaises(research_guard.ResearchValidationError) as excinfo:
+                research_guard.validate_research(
+                    project_root,
+                    ticket,
+                    settings=settings,
+                    expected_stage="plan",
+                )
+        finally:
+            os.chdir(old_cwd)
+
+        self.assertIn("reason_code=research_status_invalid", str(excinfo.exception))
 
 
 if __name__ == "__main__":

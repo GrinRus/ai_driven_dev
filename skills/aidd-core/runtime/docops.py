@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Tuple
 
+from aidd_runtime import artifact_quality
 from aidd_runtime import runtime
 from aidd_runtime.tasklist_check import (
     CHECKBOX_RE,
@@ -286,6 +287,7 @@ def context_pack_update(root: Path, ticket: str, payload: dict) -> DocOpsResult:
     context_path = root / "reports" / "context" / f"{ticket}.pack.md"
     if not context_path.exists():
         return DocOpsResult(False, f"context pack missing: {runtime.rel_path(context_path, root)}", error=True)
+    repaired, markers = artifact_quality.repair_context_pack_if_contaminated(root, ticket, context_path)
     text = context_path.read_text(encoding="utf-8")
     lines = text.splitlines()
     changed = False
@@ -320,8 +322,35 @@ def context_pack_update(root: Path, ticket: str, payload: dict) -> DocOpsResult:
         lines, updated = _replace_first_list_item(lines, "## User note", user_note)
         changed = changed or updated
 
+    final_text = _ensure_trailing_newline("\n".join(lines))
+    post_markers = artifact_quality.detect_template_leakage(final_text)
+    if post_markers:
+        final_text = artifact_quality.build_clean_context_pack(
+            root,
+            ticket,
+            existing_text=final_text,
+            contamination=post_markers,
+        )
+        changed = True
+        repaired = True
+        markers = sorted(set(list(markers) + post_markers))
+
     if not changed:
+        if repaired and markers:
+            return DocOpsResult(
+                True,
+                "context pack repaired: hard_replace("
+                + ",".join(markers)
+                + ")",
+            )
         return DocOpsResult(False, "context pack already up to date")
 
-    context_path.write_text(_ensure_trailing_newline("\n".join(lines)), encoding="utf-8")
+    context_path.write_text(final_text, encoding="utf-8")
+    if repaired and markers:
+        return DocOpsResult(
+            True,
+            "context pack repaired+updated: hard_replace("
+            + ",".join(markers)
+            + ")",
+        )
     return DocOpsResult(True, "context pack updated")

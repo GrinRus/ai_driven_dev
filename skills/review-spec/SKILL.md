@@ -42,6 +42,11 @@ Follow `feature-dev-aidd:aidd-core`.
 13. `Proceed to implementation` is forbidden when `recommended_status != ready`.
 14. Runtime-path safety: execute only canonical runtime commands from this contract (`python3 ${CLAUDE_PLUGIN_ROOT}/skills/.../runtime/...`).
 15. Root-relative `/skills/...` runtime paths are forbidden; use only `python3 ${CLAUDE_PLUGIN_ROOT}/skills/.../runtime/...`.
+16. Question cycle contract: use top-level stage-return + canonical report payload as source-of-truth; treat nested `tool_result` excerpts and persisted template sections as telemetry-only and do not extract retry questions from them.
+17. Context hygiene: include compact context summaries only; never embed raw template documents into context pack/working-set outputs.
+18. Forbidden bypass recovery: do not set, request, or rely on `AIDD_ALLOW_PLUGIN_WORKSPACE=1`; plugin-workspace bypass is non-canonical for this stage.
+19. Forbidden self-diagnosis recovery: do not read runtime source files as primary recovery path; use top-level stage return + canonical report payload only.
+20. No-question parity rule: if `AIDD:OPEN_QUESTIONS=none` and top-level stage return does not request Q/A, set `question_cycle_required=0` and do not start question retry.
 
 ## Command contracts
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/runtime/prd_review.py`

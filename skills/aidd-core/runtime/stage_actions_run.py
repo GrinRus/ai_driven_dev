@@ -7,6 +7,8 @@ import os
 import re
 import shutil
 import sys
+from contextlib import redirect_stderr, redirect_stdout
+from io import StringIO
 from pathlib import Path
 from typing import Any
 
@@ -41,6 +43,65 @@ _SCOPE_GUARD_ENV = "AIDD_STAGE_RUN_LOCK_ID"
 _SCOPE_GUARD_REASON_CODE = "seed_scope_cascade_detected"
 _SCOPE_GUARD_DIR = ".cache/stage-run-locks"
 _SCOPE_GUARD_LOCK_RE = re.compile(r"[^A-Za-z0-9_.-]+")
+_REASON_CODE_RE = re.compile(r"\breason_code=([a-z0-9_.:-]+)", re.IGNORECASE)
+
+
+def _stage_result_path_for_context(context: launcher.LaunchContext) -> Path:
+    return context.root / "reports" / "loops" / context.ticket / context.scope_key / f"stage.{context.stage}.result.json"
+
+
+def _stage_result_mtime_ns(path: Path) -> int:
+    try:
+        return int(path.stat().st_mtime_ns)
+    except OSError:
+        return -1
+
+
+def _extract_reason_code(stderr_text: str, launcher_reason: str) -> str:
+    matches = list(_REASON_CODE_RE.finditer(str(stderr_text or "")))
+    if matches:
+        return str(matches[-1].group(1) or "").strip().lower()
+    fallback = str(launcher_reason or "").strip().lower()
+    return fallback or "error_during_execution"
+
+
+def _emit_invocation_failure_stage_result(
+    context: launcher.LaunchContext,
+    *,
+    reason_code: str,
+    reason: str,
+    docs_only_mode: bool,
+) -> tuple[bool, str]:
+    args = [
+        "--ticket",
+        context.ticket,
+        "--stage",
+        context.stage,
+        "--result",
+        "blocked",
+        "--scope-key",
+        context.scope_key,
+        "--reason-code",
+        str(reason_code or "error_during_execution").strip().lower(),
+        "--reason",
+        str(reason or "stage runtime failed before canonical stage_result emission").strip(),
+        "--producer",
+        "stage_actions_run",
+        "--error",
+        "error_during_execution",
+    ]
+    if context.work_item_key:
+        args.extend(["--work-item-key", context.work_item_key])
+    if docs_only_mode:
+        args.append("--docs-only")
+    try:
+        with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+            rc = int(stage_result_runtime.main(args) or 0)
+        if rc != 0:
+            return False, f"stage_result.main exited with code {rc}"
+        return True, ""
+    except Exception as exc:  # pragma: no cover - defensive
+        return False, str(exc).strip() or exc.__class__.__name__
 
 
 def _find_first_action_type_mismatch(payload: Any, *, known_types: set[str]) -> str:
@@ -484,6 +545,9 @@ def main(
         stage=args.stage,
         default_stage=default_stage,
     )
+    docs_only_mode = runtime.docs_only_mode_requested(explicit=getattr(args, "docs_only", False))
+    stage_result_path = _stage_result_path_for_context(context)
+    stage_result_mtime_before = _stage_result_mtime_ns(stage_result_path)
     log_path = launcher.log_path(context.root, context.stage, context.ticket, context.scope_key, "run")
     result = launcher.run_guarded(
         lambda: _run(args, context=context, log_path=log_path),
@@ -497,4 +561,24 @@ def main(
         marker = f"[aidd] ERROR: reason_code={result.launcher_error_reason}\n"
         if marker not in result.stderr:
             sys.stderr.write(marker)
+    if result.exit_code != 0:
+        stage_result_mtime_after = _stage_result_mtime_ns(stage_result_path)
+        emitted_by_run = stage_result_mtime_after > stage_result_mtime_before
+        if not emitted_by_run:
+            reason_code = _extract_reason_code(result.stderr, result.launcher_error_reason)
+            reason = (
+                f"{context.stage} invocation failed before stage_result emission "
+                f"(exit_code={result.exit_code})"
+            )
+            emitted, emit_error = _emit_invocation_failure_stage_result(
+                context,
+                reason_code=reason_code,
+                reason=reason,
+                docs_only_mode=docs_only_mode,
+            )
+            if not emitted:
+                sys.stderr.write(
+                    "[aidd] ERROR: reason_code=stage_result_emit_failed "
+                    f"details={emit_error}\n"
+                )
     return result.exit_code

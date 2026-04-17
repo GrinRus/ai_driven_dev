@@ -1,0 +1,5 @@
+exit_code=143
+signal=SIGTERM
+killed_flag=0
+watchdog_marker=0
+classification=ENV_MISCONFIG(cwd_wrong)

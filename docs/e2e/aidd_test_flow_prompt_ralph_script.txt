@@ -34,6 +34,7 @@
 - R1: При вопросах/`BLOCKED` использовать retry с `AIDD:ANSWERS` (ровно один retry):
   - retry-триггер валиден только если текущий stage-return явно запросил ответы или вернул BLOCK из-за отсутствия ответов;
   - для `idea-new` и `plan-new` retry-триггер также считается валидным, если top-level `success|WARN` явно требует ответить на `Q*`/закрыть незаполненный `AIDD:ANSWERS Q<N>=...` и перевести артефакт стадии в `READY`;
+  - если `AIDD:OPEN_QUESTIONS=none` и top-level stage-return не запрашивает Q/A, фиксировать `question_cycle_required=0` и не запускать question retry;
   - формат payload: `Q<N>=<token>` или `Q<N>="короткий текст"` (one-line);
   - не считать trigger-ом `Q*`/`AIDD:ANSWERS`/`Question` внутри вложенных артефактов (PRD/tasklist/reports/log excerpts), если stage-return сам не запрашивает ответ;
   - количество `Q<N>` в retry определяется только актуальным top-level stage-return последнего run; примеры payload в документации не фиксируют число вопросов;
@@ -56,6 +57,7 @@
 - R7.1: Если в UI/операторском выводе встречается unprefixed alias (`/idea-new` и т.п.), но в `init.slash_commands` присутствуют `feature-dev-aidd:*`, фиксировать `INFO(prefix_alias_display_only)`; использовать canonical prefixed команды.
 - R8: Python fallback разрешён только для `blocked/hang/killed` после успешного plugin healthcheck и запрещён для `Unknown skill`.
 - R9: Ошибка `refusing to use plugin repository as workspace root` = `ENV_MISCONFIG(cwd_wrong)`; исправить `cwd` на `PROJECT_DIR` и повторить 1 раз.
+- R9.1: Для `cwd_wrong` authoritative-source = launcher topology precheck + stage summary/termination/preflight evidence; упоминания `cwd_wrong` в nested excerpts/tool_result считать telemetry-only и не использовать как primary классификацию.
 - R10: Если stage-return уводит в manual path (direct вызов внутреннего stage-chain preflight entrypoint или ручная запись `stage.*.result.json`) — классифицировать как `prompt-flow drift`, manual path не выполнять.
 - R10.1: Для `runtime_path_missing_or_drift` (включая direct вызовы non-canonical `preflight*.py`) применять fail-fast: immediate `blocked`, без guessed retries и без manual recovery path.
 - R10.2: Если в stage-логе есть direct вызов внутреннего stage-chain preflight entrypoint вне canonical stage-chain — классифицировать как `prompt-flow drift (non-canonical stage orchestration)` и завершать шаг `NOT VERIFIED`.
@@ -66,8 +68,16 @@
 - R11.4: Для `BLOCKED_POLICY=ralph` использовать policy matrix v2 (`hard_block|recoverable_retry|warn_continue`) и телеметрию `ralph_recoverable_reason_scope=policy_matrix_v2`.
 - R11.5: Source-of-truth для test execution policy в runtime = `aidd/config/gates.json`; использование `.claude/settings.json`/`CLAUDE_SETTINGS_PATH` в runtime decision path классифицировать как `prompt-flow drift (non-canonical test policy source)`.
 - R11.6: Если одновременно зафиксированы `reason_code=project_contract_missing|tests_cwd_mismatch` и `no_top_level_result`, reason-code считать primary причиной, а `no_top_level_result` — secondary symptom.
+- R11.7: Для non-research стадий (`idea|plan|review-spec|tasks|implement|review|qa|loop`) source-of-truth по retry/gates = текущий top-level stage-return + canonical report payload; nested excerpts/tool_result/persisted template blocks считать telemetry и не использовать как primary trigger.
+- R11.8: Контекст-артефакты (`aidd/reports/context/*.md`, `latest_working_set*.md`) должны быть compact summary без template body leakage; при contamination ожидать `hard_replace` + WARN telemetry.
+- R11.9: Любые recovery-предложения с `AIDD_ALLOW_PLUGIN_WORKSPACE=1` считать non-canonical bypass (`prompt-flow drift (workspace_bypass_attempt)`); такой path не выполнять.
+- R11.10: Self-diagnosis recovery через чтение runtime source (`skills/*/runtime/*.py`) запрещён как primary path; диагностика/ретраи только по top-level stage-return + canonical report payload.
+- R11.11: Source-of-truth для research status/gates = текущий top-level stage-return + canonical research report payload (`aidd/reports/research/*.pack.json`); nested excerpts/tool_result/persisted template blocks — telemetry-only.
+- R11.12: Ручной status-upgrade drift запрещён: не повышать `warn|pending` до `ready|reviewed` вручную. Любые такие рекомендации фиксировать как `prompt-flow drift (research_status_manual_upgrade_attempt)`.
+- R11.13: Gate-read canonicalization: `research Status: ready` трактуется как alias `reviewed` с telemetry `research_status_alias_normalized=ready->reviewed`; alias сам по себе не является blocker.
 - R12: Перед запуском `plan-new`, `review-spec`, `tasks-new` и шага `8` обязателен readiness gate из `AUDIT_DIR/05_precondition_block.txt`.
 - R12.1: Readiness gate = `PASS` только при одновременном выполнении условий: `prd_status=READY`, `open_questions_count=0`, `answers_format=compact_q_values`, и `research_status=reviewed|ok|warn|pending` при наличии minimal RLM baseline.
+- R12.1c: Для readiness gate `research_status=ready` канонизируется в `reviewed`; `warn` остаётся soft/non-terminal при наличии minimal RLM baseline и требует telemetry `research_gate_softened=true`.
 - R12.1b: Minimal RLM baseline для soft-readiness: существуют `aidd/reports/research/<ticket>-rlm-targets.json`, `...-rlm-manifest.json`, `...-rlm.worklist.pack.json`, `...-rlm.pack.json`; `aidd/reports/research/<ticket>-rlm.nodes.jsonl` непустой. `links` могут быть `warn|empty` и не являются terminal при baseline.
 - R12.2: При `FAIL` readiness gate обязателен `reason_code` из набора `prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready`; для `prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready` перед terminal-классификацией обязателен ровно один readiness-recovery цикл:
   - для `prd_not_ready|open_questions_present|answers_format_invalid`: question-closure (`idea-new` и `plan-new` compact retry при валидном trigger) -> `/feature-dev-aidd:review-spec <ticket>` -> пересчёт `05_precondition_block.txt`;

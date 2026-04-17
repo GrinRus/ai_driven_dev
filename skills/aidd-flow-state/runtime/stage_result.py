@@ -34,6 +34,7 @@ def _ensure_plugin_root_on_path() -> None:
 _ensure_plugin_root_on_path()
 
 from aidd_runtime import gates
+from aidd_runtime import artifact_quality
 from aidd_runtime import runtime
 from aidd_runtime.io_utils import dump_yaml, parse_front_matter, utc_timestamp
 
@@ -280,7 +281,7 @@ def _review_context_pack_placeholder(target: Path, ticket: str) -> bool:
         content = pack_path.read_text(encoding="utf-8")
     except OSError:
         return False
-    return "<stage-specific goal>" in content
+    return artifact_quality.has_template_leakage(content)
 
 
 def _normalize_work_item_key(value: str) -> str:
