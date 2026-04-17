@@ -67,6 +67,7 @@ done
 
 # Canonical shared observability runtime entrypoints must exist.
 for entrypoint in \
+  skills/aidd-observability/runtime/artifact_audit.py \
   skills/aidd-observability/runtime/doctor.py \
   skills/aidd-observability/runtime/tools_inventory.py \
   skills/aidd-observability/runtime/tests_log.py \

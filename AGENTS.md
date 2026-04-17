@@ -3,7 +3,7 @@
 > INTERNAL/DEV-ONLY: maintainer guide for repository development and release process.
 
 Owner: feature-dev-aidd
-Last reviewed: 2026-04-12
+Last reviewed: 2026-04-17
 Status: active
 
 Этот файл — единая dev‑документация репозитория. Все dev‑правила и шаблоны живут здесь.
@@ -11,6 +11,7 @@ User‑гайд для workspace находится в `skills/aidd-core/templat
 
 ## Репозиторий и структура
 - Runtime (плагин): `agents/`, `skills/`, `hooks/`, `.claude-plugin/`.
+- Codex-native repo-local quality eval lives in `.agents/skills/aidd-e2e-quality-audit/`; optional read-only helper agents live in `.codex/agents/`.
 - Workspace bootstrap‑шаблоны: `templates/aidd/` (config/placeholders only; копируются в `./aidd` через `/feature-dev-aidd:aidd-init`).
 - Тесты: `tests/`.
 - Repo tools: `tests/repo_tools/`.
@@ -24,6 +25,8 @@ User‑гайд для workspace находится в `skills/aidd-core/templat
 
 ## Источник истины (dev vs user)
 - Stage content templates (`prd/plan/research/tasklist/spec/loop/context-pack`) — источник истины в `skills/*/templates/*`.
+- Для live/e2e quality eval используйте `.agents/skills/aidd-e2e-quality-audit/`; не копируйте TST-002 megapropt в `AGENTS.md`, reusable fragments держите в `references/` skill-а.
+- Не зеркальте весь `skills/*` каталог в `.agents/skills`; для `v1` туда вынесен только переиспользуемый Codex-native quality audit слой, остальное остаётся cross-agent/runtime surface.
 - `templates/aidd/**` — bootstrap source только для config/placeholders/infra-директорий; не хранит stage content templates.
 - `aidd/**` появляется в workspace после `/feature-dev-aidd:aidd-init` и не хранится в repo (кроме шаблонов).
 - `AGENTS.md` (корень) — dev‑гайд для репозитория; `skills/aidd-core/templates/workspace-agents.md` — user‑гайд для проектов.
@@ -88,7 +91,7 @@ User‑гайд для workspace находится в `skills/aidd-core/templat
 - `skills/aidd-core/runtime/*`: shared core runtime API (canonical).
 - `skills/aidd-docio/runtime/*`: shared DocIO runtime API (`md_*`, `actions_*`, `context_*`).
 - `skills/aidd-flow-state/runtime/*`: shared flow/state runtime API (`set-active-*`, `progress*`, `tasklist*`, `stage_result`, `status_summary`, `prd_check`, `tasks_derive`).
-- `skills/aidd-observability/runtime/*`: shared observability runtime API (`doctor`, `tools_inventory`, `tests_log`, `dag_export`, `identifiers`).
+- `skills/aidd-observability/runtime/*`: shared observability runtime API (`artifact_audit`, `doctor`, `tools_inventory`, `tests_log`, `dag_export`, `identifiers`).
 - `skills/aidd-policy/SKILL.md` + `skills/aidd-policy/references/*`: shared policy contract (output/question/read/safety).
 - `skills/aidd-loop/runtime/*`: shared loop orchestration runtime API (canonical).
 - `skills/<stage>/runtime/*`: stage-local runtime API owned by one stage.

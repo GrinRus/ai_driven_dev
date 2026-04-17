@@ -665,6 +665,7 @@ def cli_cmd(*args: str) -> list[str]:
             "tasks-derive": "tasks_derive.py",
         }
         observability_runtime_map = {
+            "artifact-audit": "artifact_audit.py",
             "dag-export": "dag_export.py",
             "doctor": "doctor.py",
             "identifiers": "identifiers.py",
