@@ -1,6 +1,9 @@
 # Release Notes
 
 ## Unreleased
+- No user-facing changes yet.
+
+## 0.1.1 - 2026-04-17
 - Runtime and audit stabilization closure for waves `120`, `121`, `136` (core contracts, prompt/audit determinism, release-gate alignment).
 - Wave 148 artifact truthfulness hardening for non-research surfaces:
   - added shared truth evaluator for `tasklist`/`index`/`status`;
@@ -19,6 +22,7 @@
     - `aidd_runtime.stage_lexicon.normalize_stage_list`
     - `aidd_runtime.test_settings_defaults.detect_build_tools`
     - `aidd_runtime.test_settings_defaults.test_settings_payload`
+- Stabilized `idea-new` retry closure semantics so partial retry materialization no longer reports optimistic completion and the retry path stays truthful in audit/status surfaces.
 
 ## 0.1.0 - 2026-03-10
 - First public self-hosted release of `feature-dev-aidd`.
