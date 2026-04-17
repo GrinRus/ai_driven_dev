@@ -23,7 +23,6 @@ from aidd_runtime.feature_ids import write_active_state
 from aidd_runtime.rlm_config import load_rlm_settings
 
 _TEMPLATE_MARKER_RE = re.compile(r"\{\{[^{}]+\}\}")
-_ALLOWED_RESEARCH_DOC_STATUSES = {"reviewed", "pending", "warn"}
 
 
 def _render_template(template_text: str, replacements: dict[str, str]) -> str:
@@ -79,36 +78,6 @@ def _doc_status_from_rlm(rlm_status: str) -> str:
     if normalized == "warn":
         return "warn"
     return "pending"
-
-
-def _canonicalize_research_doc_status(raw_status: Optional[str]) -> tuple[str, str]:
-    status = (raw_status or "").strip().lower()
-    if status == "ready":
-        return "reviewed", "research_status_alias_normalized=ready->reviewed"
-    if status in _ALLOWED_RESEARCH_DOC_STATUSES:
-        return status, ""
-    token = status or "missing"
-    return "warn", f"research_status_noncanonical_rewritten={token}->warn"
-
-
-def _reconcile_research_doc_status(path: Path) -> dict[str, object]:
-    if not path.exists():
-        return {}
-    from aidd_runtime import research_guard
-
-    text = path.read_text(encoding="utf-8")
-    source_status = research_guard._extract_status(text)  # noqa: SLF001 - shared canonical parser
-    canonical_status, marker = _canonicalize_research_doc_status(source_status)
-    updated = _upsert_header_field(text, "Status", canonical_status)
-    changed = updated != text
-    if changed:
-        path.write_text(updated, encoding="utf-8")
-    return {
-        "status": canonical_status,
-        "source_status": source_status or "",
-        "marker": marker,
-        "updated": changed,
-    }
 
 
 def _ensure_research_doc(
@@ -721,7 +690,6 @@ def run(args: argparse.Namespace) -> int:
     pending_reason_code = ""
     pending_next_action = ""
     baseline_marker = "none"
-    status_reconcile_payload: dict[str, object] = {}
     if rlm_status != "ready":
         finalized_reason = str(finalize_outcome.get("reason_code") or "").strip()
         finalized_next = str(finalize_outcome.get("next_action") or "").strip()
@@ -792,10 +760,6 @@ def run(args: argparse.Namespace) -> int:
         if not doc_path:
             print("[aidd] research summary template not found; skipping materialisation.")
         else:
-            status_reconcile_payload = _reconcile_research_doc_status(doc_path)
-            status_reconcile_marker = str(status_reconcile_payload.get("marker") or "").strip()
-            if status_reconcile_marker:
-                print(f"[aidd] INFO: {status_reconcile_marker}.", file=sys.stderr)
             rel_doc = doc_path.relative_to(target).as_posix()
             if created == "created":
                 print(f"[aidd] research summary created at {rel_doc}.")
@@ -849,10 +813,6 @@ def run(args: argparse.Namespace) -> int:
                 "recovery_path": str(finalize_outcome.get("recovery_path") or "") or None,
                 "handoff_appended": handoff_appended,
                 "handoff_error": handoff_error or None,
-                "research_doc_status": str(status_reconcile_payload.get("status") or "") or None,
-                "research_doc_status_source": str(status_reconcile_payload.get("source_status") or "") or None,
-                "research_status_reconcile_marker": str(status_reconcile_payload.get("marker") or "") or None,
-                "research_status_reconciled": bool(status_reconcile_payload.get("updated")),
             },
             report_path=Path(runtime.rel_path(rlm_pack_path if pack_exists else worklist_path, target)),
             source="aidd research",

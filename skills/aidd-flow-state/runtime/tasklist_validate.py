@@ -578,13 +578,9 @@ def check_tasklist_text(
         add_issue("error", "large code fence without report link")
 
     truth = artifact_truth.evaluate_artifact_truth(root, ticket, tasklist_text=text)
-    truth_codes: set[str] = set()
     for check in truth.get("truth_checks") or []:
         if not isinstance(check, dict):
             continue
-        code = str(check.get("code") or "").strip()
-        if code:
-            truth_codes.add(code)
         summary = str(check.get("summary") or check.get("code") or "").strip()
         if not summary:
             continue
@@ -597,37 +593,6 @@ def check_tasklist_text(
             code=str(check.get("code") or "").strip() or None,
             category="advisory_truth",
         )
-
-    # Tasklist-check keeps READY-level downstream report visibility even when
-    # artifact_truth suppresses stage-local expected_reports for index stability.
-    if front_status == "READY" and stage in {"", "unknown", "implement", "review", "qa", "status"}:
-        expected_reports = [str(item).strip() for item in (truth.get("expected_reports") or []) if str(item).strip()]
-        actual_reports = {str(item).strip() for item in (truth.get("actual_reports") or []) if str(item).strip()}
-        ready_missing_expected: list[str] = []
-        for rel in expected_reports:
-            if "/reports/tests/" in rel and test_profile in {"", "none"}:
-                continue
-            if rel in actual_reports:
-                continue
-            abs_path = core.runtime.resolve_path_for_target(Path(rel), root)
-            if abs_path.exists():
-                continue
-            ready_missing_expected.append(rel)
-
-        if ready_missing_expected and "missing_expected_report" not in truth_codes:
-            add_issue(
-                "warn",
-                f"missing expected reports: {', '.join(sorted(ready_missing_expected))}",
-                code="missing_expected_report",
-                category="advisory_truth",
-            )
-        if ready_missing_expected and "tasklist_ready_without_actual_downstream_reports" not in truth_codes:
-            add_issue(
-                "warn",
-                "tasklist is READY but expected downstream reports are still missing",
-                code="tasklist_ready_without_actual_downstream_reports",
-                category="advisory_truth",
-            )
 
     if errors:
         return core.TasklistCheckResult(

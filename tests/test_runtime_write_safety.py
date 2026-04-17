@@ -67,17 +67,6 @@ class RuntimeWriteSafetyTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "must point to plugin root"):
                 runtime.require_plugin_root()
 
-    def test_docs_only_mode_requested_uses_env_fallback_when_explicit_false(self) -> None:
-        os.environ["AIDD_DOCS_ONLY"] = "1"
-        self.assertTrue(runtime.docs_only_mode_requested(explicit=False))
-
-    def test_docs_only_mode_requested_explicit_true_wins_without_env(self) -> None:
-        os.environ.pop("AIDD_DOCS_ONLY", None)
-        os.environ.pop("AIDD_DOCS_ONLY_MODE", None)
-        os.environ.pop("CLAUDE_DOCS_ONLY", None)
-        self.assertTrue(runtime.docs_only_mode_requested(explicit=True))
-        self.assertFalse(runtime.docs_only_mode_requested(explicit=False))
-
     def test_resolve_plugin_root_with_fallback_from_runtime_file(self) -> None:
         with tempfile.TemporaryDirectory(prefix="runtime-plugin-fallback-") as tmpdir:
             plugin_root = Path(tmpdir) / "plugin"

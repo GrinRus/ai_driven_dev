@@ -6,7 +6,6 @@ from typing import Any, Sequence
 
 from aidd_runtime import gates
 from aidd_runtime import runtime
-from aidd_runtime import artifact_quality
 from aidd_runtime import tasklist_check
 from aidd_runtime import tasklist_parser
 from aidd_runtime.plan_review_gate import parse_review_section as parse_plan_review_section
@@ -122,7 +121,7 @@ def _front_path_to_rel(root: Path, raw: str) -> str:
     return runtime.rel_path(path, root)
 
 
-def _extract_expected_reports(front: dict[str, Any], root: Path) -> tuple[list[str], list[str]]:
+def _extract_expected_reports(front: dict[str, Any], root: Path) -> list[str]:
     for key in ("ExpectedReports", "Reports", "expected_reports", "reports"):
         raw = front.get(key)
         if isinstance(raw, dict):
@@ -138,9 +137,8 @@ def _extract_expected_reports(front: dict[str, Any], root: Path) -> tuple[list[s
             rel = _front_path_to_rel(root, str(value))
             if rel and rel not in paths:
                 paths.append(rel)
-        normalized, dropped = artifact_quality.normalize_expected_report_paths(paths)
-        return normalized, dropped
-    return [], []
+        return paths
+    return []
 
 
 def _extract_referenced_paths(front: dict[str, Any], root: Path) -> list[str]:
@@ -151,19 +149,6 @@ def _extract_referenced_paths(front: dict[str, Any], root: Path) -> list[str]:
         if rel and rel not in refs:
             refs.append(rel)
     return refs
-
-
-def _expected_report_required_now(*, report_path: str, active_stage: str, test_profile: str) -> bool:
-    normalized = str(report_path or "").strip().lower()
-    stage = str(active_stage or "").strip().lower()
-    profile = str(test_profile or "").strip().lower()
-    if "/reports/tests/" in normalized:
-        return profile not in {"", "none"}
-    if "/reports/reviewer/" in normalized:
-        return stage in {"review", "qa", "status"}
-    if "/reports/qa/" in normalized:
-        return stage in {"qa", "status"}
-    return True
 
 
 def _extract_first_status(text: str) -> str:
@@ -213,7 +198,6 @@ def evaluate_artifact_truth(
     tasklist_text: str | None = None,
     actual_reports: Sequence[str] | None = None,
 ) -> dict[str, Any]:
-    root = root.resolve()
     policy = load_artifact_truth_config(root)
     tasklist_path = root / "docs" / "tasklist" / f"{ticket}.md"
     tasklist_body = tasklist_text if tasklist_text is not None else _read_text(tasklist_path)
@@ -228,7 +212,6 @@ def evaluate_artifact_truth(
         else []
     )
     parsed_test_execution = tasklist_parser.parse_test_execution(test_execution)
-    test_profile = str(parsed_test_execution.get("profile") or "").strip().lower()
 
     active_stage = _normalize_stage(runtime.read_active_stage(root))
     context_stage = _normalize_stage(tasklist_check.extract_field_value(context_pack, "Stage") or "")
@@ -244,16 +227,7 @@ def evaluate_artifact_truth(
         "active_stage": active_stage,
     }
 
-    expected_reports, dropped_expected_reports = _extract_expected_reports(front, root)
-    expected_reports_required = [
-        path
-        for path in expected_reports
-        if _expected_report_required_now(
-            report_path=path,
-            active_stage=active_stage,
-            test_profile=test_profile,
-        )
-    ]
+    expected_reports = _extract_expected_reports(front, root)
     actual_report_set = {str(item).strip() for item in (actual_reports or []) if str(item).strip()}
     if not actual_report_set:
         for rel in expected_reports:
@@ -263,7 +237,7 @@ def evaluate_artifact_truth(
     actual_reports_list = sorted(actual_report_set)
     missing_expected_reports = [
         rel
-        for rel in expected_reports_required
+        for rel in expected_reports
         if rel not in actual_report_set and not runtime.resolve_path_for_target(Path(rel), root).exists()
     ]
 
@@ -319,33 +293,6 @@ def evaluate_artifact_truth(
             paths=stale_references,
         )
 
-    tasklist_template_markers = artifact_quality.detect_template_leakage(tasklist_body)
-    if tasklist_template_markers:
-        add_check(
-            "template_leakage",
-            "tasklist contains template leakage markers: "
-            + ", ".join(tasklist_template_markers),
-            paths=[runtime.rel_path(tasklist_path, root)],
-        )
-
-    context_pack_path = root / "reports" / "context" / f"{ticket}.pack.md"
-    if context_pack_path.exists():
-        context_pack_markers = artifact_quality.detect_template_leakage(_read_text(context_pack_path))
-        if context_pack_markers:
-            add_check(
-                "context_template_leakage",
-                "context pack contains template leakage markers: "
-                + ", ".join(context_pack_markers),
-                paths=[runtime.rel_path(context_pack_path, root)],
-            )
-
-    if dropped_expected_reports:
-        add_check(
-            "expected_report_drift",
-            "ExpectedReports contains non-canonical or unsupported report paths",
-            paths=dropped_expected_reports,
-        )
-
     malformed_tasks = parsed_test_execution.get("malformed_tasks") or []
     if malformed_tasks:
         reasons = sorted(
@@ -361,20 +308,10 @@ def evaluate_artifact_truth(
             paths=[runtime.rel_path(tasklist_path, root)],
         )
 
-    status_drift_markers = artifact_quality.detect_status_drift(tasklist_body)
-    if status_drift_markers:
-        add_check(
-            "status_drift",
-            "tasklist status drift between top-level Status and review subsections",
-            paths=[runtime.rel_path(tasklist_path, root)],
-        )
-
     return {
         "policy": policy,
         "doc_statuses": doc_statuses,
         "expected_reports": expected_reports,
-        "expected_reports_required_now": expected_reports_required,
-        "dropped_expected_reports": dropped_expected_reports,
         "actual_reports": actual_reports_list,
         "missing_expected_reports": missing_expected_reports,
         "truth_checks": truth_checks,

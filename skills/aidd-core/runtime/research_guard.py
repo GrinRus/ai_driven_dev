@@ -64,9 +64,6 @@ RESEARCH_TEMPLATE_MARKERS = (
 )
 STATUS_LINE_RE = re.compile(r"^\*{0,2}\s*status\s*\*{0,2}\s*:\s*(.+)$", re.IGNORECASE)
 LIST_ITEM_RE = re.compile(r"^(?:[-+*])\s+")
-RESEARCH_STATUS_ALIAS_MAP = {
-    "ready": "reviewed",
-}
 
 
 @dataclass
@@ -236,16 +233,6 @@ def _extract_status(doc_text: str) -> Optional[str]:
         if normalized:
             return normalized
     return None
-
-
-def _normalize_research_status(status: Optional[str]) -> tuple[Optional[str], Optional[str]]:
-    normalized = (status or "").strip().lower()
-    if not normalized:
-        return None, None
-    canonical = RESEARCH_STATUS_ALIAS_MAP.get(normalized)
-    if canonical:
-        return canonical, f"research_status_alias_normalized={normalized}->{canonical}"
-    return normalized, None
 
 
 def _resolve_report_path(root: Path, raw: Optional[str]) -> Optional[Path]:
@@ -488,9 +475,9 @@ def _validate_rlm_evidence(
 
     stage = str(expected_stage or _load_stage(root) or "").strip().lower()
     normalized_status = (doc_status or "").strip().lower()
-    ready_required = stage in {"plan", "review", "qa", "loop"} or normalized_status == "reviewed"
+    ready_required = stage in {"plan", "review", "qa"} or normalized_status == "reviewed"
     downstream_soft_mode = (
-        settings.downstream_gate_mode == "always_soft" and stage in {"plan", "review", "qa", "loop"}
+        settings.downstream_gate_mode == "always_soft" and stage in {"plan", "review", "qa"}
     )
 
     nodes_exists = rlm_nodes_path.exists()
@@ -575,8 +562,7 @@ def _validate_rlm_evidence(
                 warnings.append("rlm_links_empty_warn_non_blocking")
                 print(
                     "[aidd] WARN: downstream research gate softened "
-                    f"(reason_code=rlm_links_empty_warn, policy=warn_continue, stage={stage}, "
-                    "research_gate_softened=true, research_gate_soft_reason=rlm_links_empty_warn).",
+                    f"(reason_code=rlm_links_empty_warn, policy=warn_continue, stage={stage}).",
                     file=sys.stderr,
                 )
             else:
@@ -596,8 +582,7 @@ def _validate_rlm_evidence(
                 warnings.append("rlm_status_pending_softened")
                 print(
                     "[aidd] WARN: downstream research gate softened "
-                    f"(reason_code=rlm_status_pending, policy=warn_continue, stage={stage}, "
-                    "research_gate_softened=true, research_gate_soft_reason=rlm_status_pending).",
+                    f"(reason_code=rlm_status_pending, policy=warn_continue, stage={stage}).",
                     file=sys.stderr,
                 )
                 return warnings
@@ -684,11 +669,11 @@ def validate_research(
             _research_cmd_hint(ticket),
         )
 
-    status, alias_normalization_marker = _normalize_research_status(_extract_status(doc_text))
+    status = _extract_status(doc_text)
     stage = str(expected_stage or _load_stage(root) or "").strip().lower()
     baseline_stage_allowed = stage in {"research"}
-    downstream_stage = stage in {"plan", "review", "qa", "implement", "loop"}
-    downstream_soft_mode = settings.downstream_gate_mode == "always_soft" and stage in {"plan", "review", "qa", "loop"}
+    downstream_stage = stage in {"plan", "review", "qa", "implement"}
+    downstream_soft_mode = settings.downstream_gate_mode == "always_soft" and stage in {"plan", "review", "qa"}
     status_softened_warning = ""
     required_statuses = settings.require_status or ["reviewed"]
     required_statuses = [item for item in required_statuses if item]
@@ -778,21 +763,12 @@ def validate_research(
         allow_scoped_links_empty_warn=allow_scoped_links_empty_warn,
         auto_recovery_attempted=auto_recovery_attempted,
     )
-    if alias_normalization_marker:
-        warnings = list(warnings)
-        warnings.append(alias_normalization_marker)
-        print(
-            "[aidd] INFO: research status alias normalized "
-            f"({alias_normalization_marker}, stage={stage or 'n/a'}).",
-            file=sys.stderr,
-        )
     if status_softened_warning:
         warnings = list(warnings)
         warnings.append(status_softened_warning)
         print(
             "[aidd] WARN: downstream research status softened "
-            f"(status={status}, policy=warn_continue, stage={stage or 'n/a'}, "
-            f"research_gate_softened=true, research_gate_soft_reason={status_softened_warning}).",
+            f"(status={status}, policy=warn_continue, stage={stage or 'n/a'}).",
             file=sys.stderr,
         )
 

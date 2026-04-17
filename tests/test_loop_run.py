@@ -734,7 +734,7 @@ class LoopRunTests(unittest.TestCase):
             probe_mock.assert_not_called()
             step_mock.assert_called_once()
 
-    def test_loop_run_research_gate_strict_softens_research_status_warn(self) -> None:
+    def test_loop_run_research_gate_strict_softens_research_status_invalid(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             ticket = "DEMO-RLM-GATE-STRICT-SOFT-STATUS"
@@ -763,10 +763,10 @@ class LoopRunTests(unittest.TestCase):
                         with patch(
                             "aidd_runtime.loop_run._validate_loop_research_gate",
                             return_value=(
-                                True,
-                                "research_status_warn_softened",
-                                "",
-                                "",
+                                False,
+                                "research_status_invalid",
+                                "BLOCK: статус Researcher `warn` не входит в ['reviewed'] (reason_code=research_status_invalid)",
+                                "python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py --ticket DEMO-RLM-GATE-STRICT-SOFT-STATUS --auto",
                             ),
                         ):
                             with patch("aidd_runtime.loop_run._run_research_gate_probe") as probe_mock:
@@ -796,13 +796,13 @@ class LoopRunTests(unittest.TestCase):
             self.assertEqual(payload.get("status"), "ship")
             self.assertEqual(payload.get("blocked_policy"), "strict")
             self.assertTrue(payload.get("research_gate_softened"))
-            self.assertEqual(payload.get("research_gate_soft_reason"), "research_status_warn_softened")
+            self.assertEqual(payload.get("research_gate_soft_reason"), "research_status_invalid")
             self.assertEqual(payload.get("research_gate_soft_policy"), "always")
             probe_mock.assert_not_called()
             step_mock.assert_called_once()
             loop_log = (root / "reports" / "loops" / ticket / "loop.run.log").read_text(encoding="utf-8")
-            self.assertIn("event=research-gate-softened-by-guard", loop_log)
-            self.assertIn("reason_code=research_status_warn_softened", loop_log)
+            self.assertIn("event=research-gate-warn-continue", loop_log)
+            self.assertIn("reason_code=research_status_invalid", loop_log)
 
     def test_loop_run_ralph_retries_blocking_findings(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:

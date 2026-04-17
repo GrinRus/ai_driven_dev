@@ -33,7 +33,6 @@ class ReviewRunTests(unittest.TestCase):
             with (
                 patch("aidd_runtime.review_run.launcher.resolve_context", return_value=context),
                 patch("aidd_runtime.review_run._resolve_review_report_path", return_value=report_path),
-                patch("aidd_runtime.review_run._emit_missing_report_stage_result") as emit_stage_result,
                 patch("aidd_runtime.review_run.stage_actions_run.main") as stage_actions_main,
                 redirect_stderr(stderr),
             ):
@@ -41,7 +40,6 @@ class ReviewRunTests(unittest.TestCase):
 
             self.assertEqual(code, 2)
             stage_actions_main.assert_not_called()
-            emit_stage_result.assert_called_once()
             output = stderr.getvalue()
             self.assertIn("reason_code=review_report_missing", output)
             self.assertIn("diagnostics=canonical_review_report_required", output)

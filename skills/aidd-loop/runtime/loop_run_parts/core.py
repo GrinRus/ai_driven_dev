@@ -113,7 +113,7 @@ DEFAULT_RESEARCH_GATE_PROBE_TIMEOUT_SECONDS = 180
 LOOP_RESULT_SCHEMA = "aidd.loop_result.v1"
 PROMPT_FLOW_DRIFT_REASON_FAMILY = "prompt_flow_drift_non_canonical_runtime_path"
 LOOP_RESEARCH_SOFT_REASON_CODES = {
-    "research_status_warn_softened",
+    "research_status_invalid",
     "rlm_links_empty_warn",
     "rlm_status_pending",
 }
@@ -578,8 +578,6 @@ def _validate_loop_research_gate(target: Path, ticket: str) -> tuple[bool, str, 
     warnings = [str(item).strip().lower() for item in (summary.warnings or []) if str(item).strip()]
     if "rlm_links_empty_warn_non_blocking" in warnings:
         return True, "rlm_links_empty_warn", "", ""
-    if "research_status_warn_softened" in warnings:
-        return True, "research_status_warn_softened", "", ""
     if "rlm_status_pending_softened" in warnings or "research_status_pending_softened" in warnings:
         return True, "rlm_status_pending", "", ""
     return True, "", "", ""

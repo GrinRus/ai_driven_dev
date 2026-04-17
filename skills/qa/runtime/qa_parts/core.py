@@ -28,51 +28,6 @@ def _resolve_qa_scope_context(target: Path, ticket: str) -> tuple[str, str]:
     return "", runtime.resolve_scope_key("", ticket)
 
 
-def _emit_qa_blocked_stage_result(
-    target: Path,
-    *,
-    ticket: str,
-    reason_code: str,
-    reason: str,
-    docs_only_mode: bool = False,
-) -> tuple[bool, str]:
-    qa_work_item_key, qa_scope_key = _resolve_qa_scope_context(target, ticket)
-    args = [
-        "--ticket",
-        ticket,
-        "--stage",
-        "qa",
-        "--result",
-        "blocked",
-        "--scope-key",
-        qa_scope_key,
-        "--reason-code",
-        str(reason_code or "error_during_execution").strip().lower(),
-        "--reason",
-        str(reason or "qa invocation failed before stage_result emission").strip(),
-        "--producer",
-        "qa",
-        "--error",
-        "error_during_execution",
-    ]
-    if docs_only_mode:
-        args.append("--docs-only")
-    if qa_work_item_key:
-        args.extend(["--work-item-key", qa_work_item_key])
-    try:
-        from aidd_runtime import stage_result as _stage_result
-        import io
-        from contextlib import redirect_stderr, redirect_stdout
-
-        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
-            rc = int(_stage_result.main(args) or 0)
-        if rc != 0:
-            return False, f"stage_result.main exited with code {rc}"
-        return True, ""
-    except Exception as exc:  # pragma: no cover - defensive
-        return False, str(exc).strip() or exc.__class__.__name__
-
-
 def _sync_active_stage_to_qa(target: Path, ticket: str) -> tuple[bool, str]:
     active_before = str(runtime.read_active_stage(target) or "").strip().lower()
     if active_before == "qa":
@@ -520,19 +475,6 @@ def main(argv: list[str] | None = None) -> int:
             f"(reason_code=active_stage_sync_failed): {message}",
             file=sys.stderr,
         )
-        emitted, emit_error = _emit_qa_blocked_stage_result(
-            target,
-            ticket=ticket,
-            reason_code="active_stage_sync_failed",
-            reason=message,
-            docs_only_mode=docs_only_mode,
-        )
-        if not emitted:
-            print(
-                "[aidd] ERROR: reason_code=qa_stage_result_emit_failed "
-                f"details={emit_error}",
-                file=sys.stderr,
-            )
         return 2
     if stage_sync_applied:
         print(
@@ -557,22 +499,6 @@ def main(argv: list[str] | None = None) -> int:
                     f"Next action: `/feature-dev-aidd:implement {ticket}`.",
                     file=sys.stderr,
                 )
-                emitted, emit_error = _emit_qa_blocked_stage_result(
-                    target,
-                    ticket=ticket,
-                    reason_code="preflight_missing",
-                    reason=(
-                        "qa stage-chain context missing "
-                        f"(scope_key={stage_chain_scope or 'n/a'})"
-                    ),
-                    docs_only_mode=docs_only_mode,
-                )
-                if not emitted:
-                    print(
-                        "[aidd] ERROR: reason_code=qa_stage_result_emit_failed "
-                        f"details={emit_error}",
-                        file=sys.stderr,
-                    )
                 return 2
 
     branch = args.branch or runtime.detect_branch(target)

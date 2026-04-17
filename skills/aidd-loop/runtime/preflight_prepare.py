@@ -34,7 +34,6 @@ def _ensure_plugin_root_on_path() -> None:
 _ensure_plugin_root_on_path()
 
 from aidd_runtime import actions_validate
-from aidd_runtime import artifact_quality
 from aidd_runtime import context_map_validate
 from aidd_runtime import preflight_result_validate
 from aidd_runtime import runtime
@@ -159,11 +158,6 @@ def _render_items(items: Iterable[str], context: Dict[str, str]) -> List[str]:
     return rendered
 
 
-def _sanitize_paths(values: Iterable[str]) -> tuple[List[str], List[str]]:
-    kept, dropped = artifact_quality.filter_plausible_paths(values)
-    return _dedupe_str(kept), _dedupe_str(dropped)
-
-
 def _parse_ref(ref: str) -> Tuple[str, str]:
     raw = str(ref or "").strip()
     if not raw:
@@ -205,26 +199,6 @@ def _contract_entries(items: Any, context: Dict[str, str], *, required: bool) ->
             }
         )
     return entries
-
-
-def _sanitize_contract_entries(entries: List[Dict[str, Any]]) -> tuple[List[Dict[str, Any]], List[str]]:
-    sanitized: List[Dict[str, Any]] = []
-    dropped: List[str] = []
-    for entry in entries:
-        if not isinstance(entry, dict):
-            continue
-        path = str(entry.get("path") or "").strip()
-        kept, removed = _sanitize_paths([path])
-        if removed or not kept:
-            dropped.append(path or str(entry.get("ref") or ""))
-            continue
-        normalized_path = kept[0]
-        selector = str(entry.get("selector") or "").strip()
-        normalized = dict(entry)
-        normalized["path"] = normalized_path
-        normalized["ref"] = f"{normalized_path}{selector}" if selector else normalized_path
-        sanitized.append(normalized)
-    return sanitized, _dedupe_str(dropped)
 
 
 def _dedupe_str(items: Iterable[str]) -> List[str]:
@@ -294,12 +268,6 @@ def _render_readmap_md(readmap: Dict[str, Any]) -> str:
     else:
         lines.append("- (none)")
 
-    quality_warnings = readmap.get("quality_warnings") or []
-    if quality_warnings:
-        lines.extend(["", "## Quality Warnings"])
-        for item in quality_warnings:
-            lines.append(f"- {item}")
-
     return "\n".join(lines).rstrip() + "\n"
 
 
@@ -335,11 +303,6 @@ def _render_writemap_md(writemap: Dict[str, Any]) -> str:
     lines.extend(["", "## Always Allow"])
     for item in writemap.get("always_allow", []):
         lines.append(f"- {item}")
-    quality_warnings = writemap.get("quality_warnings") or []
-    if quality_warnings:
-        lines.extend(["", "## Quality Warnings"])
-        for item in quality_warnings:
-            lines.append(f"- {item}")
     return "\n".join(lines).rstrip() + "\n"
 
 def _write_text(path: Path, text: str) -> None:
@@ -448,8 +411,6 @@ def _build_readmap(
     reads = contract.get("reads") if isinstance(contract, dict) else {}
     required_entries = _contract_entries((reads or {}).get("required"), context, required=True)
     optional_entries = _contract_entries((reads or {}).get("optional"), context, required=False)
-    required_entries, dropped_required_entries = _sanitize_contract_entries(required_entries)
-    optional_entries, dropped_optional_entries = _sanitize_contract_entries(optional_entries)
 
     if loop_pack_rel and loop_pack_rel not in [entry["path"] for entry in required_entries + optional_entries]:
         required_entries.insert(
@@ -475,14 +436,7 @@ def _build_readmap(
         )
 
     entries = required_entries + optional_entries
-    allowed_paths, dropped_allowed_paths = _sanitize_paths([entry["path"] for entry in entries] + ALWAYS_ALLOW_REPORTS)
-    loop_allowed_paths, dropped_loop_allowed_paths = _sanitize_paths(loop_allowed_paths)
-    quality_warnings = _dedupe_str(
-        [f"dropped_required_entry:{item}" for item in dropped_required_entries]
-        + [f"dropped_optional_entry:{item}" for item in dropped_optional_entries]
-        + [f"dropped_allowed_path:{item}" for item in dropped_allowed_paths]
-        + [f"dropped_loop_allowed_path:{item}" for item in dropped_loop_allowed_paths]
-    )
+    allowed_paths = _dedupe_str([entry["path"] for entry in entries] + ALWAYS_ALLOW_REPORTS)
     readmap = {
         "schema": "aidd.readmap.v1",
         "ticket": context["ticket"],
@@ -493,11 +447,9 @@ def _build_readmap(
         "source_contract": runtime.rel_path(Path(context["contract_path"]), target),
         "entries": entries,
         "allowed_paths": allowed_paths,
-        "loop_allowed_paths": loop_allowed_paths,
+        "loop_allowed_paths": _dedupe_str(loop_allowed_paths),
         "always_allow": ALWAYS_ALLOW_REPORTS,
     }
-    if quality_warnings:
-        readmap["quality_warnings"] = quality_warnings
     return readmap
 
 
@@ -511,30 +463,16 @@ def _build_writemap(
     writes = contract.get("writes") if isinstance(contract, dict) else {}
     outputs = contract.get("outputs") if isinstance(contract, dict) else []
 
-    files, dropped_files = _sanitize_paths(_render_items((writes or {}).get("files") or [], context))
-    patterns, dropped_patterns = _sanitize_paths(_render_items((writes or {}).get("patterns") or [], context))
-    rendered_outputs, dropped_outputs = _sanitize_paths(
-        _render_items(outputs if isinstance(outputs, list) else [], context)
-    )
+    files = _render_items((writes or {}).get("files") or [], context)
+    patterns = _render_items((writes or {}).get("patterns") or [], context)
+    rendered_outputs = _render_items(outputs if isinstance(outputs, list) else [], context)
 
     via = (writes or {}).get("via") or {}
-    docops_only_paths, dropped_docops_only = _sanitize_paths(_render_items((via or {}).get("docops_only") or [], context))
+    docops_only_paths = _render_items((via or {}).get("docops_only") or [], context)
 
-    write_blocks, dropped_write_blocks = _sanitize_paths(_render_items((writes or {}).get("blocks") or [], context))
+    write_blocks = _render_items((writes or {}).get("blocks") or [], context)
 
-    loop_allowed_paths, dropped_loop_allowed_paths = _sanitize_paths(loop_allowed_paths)
-    allowed_paths, dropped_allowed_paths = _sanitize_paths(
-        files + patterns + rendered_outputs + list(loop_allowed_paths) + ALWAYS_ALLOW_REPORTS
-    )
-    quality_warnings = _dedupe_str(
-        [f"dropped_files:{item}" for item in dropped_files]
-        + [f"dropped_patterns:{item}" for item in dropped_patterns]
-        + [f"dropped_outputs:{item}" for item in dropped_outputs]
-        + [f"dropped_docops_only:{item}" for item in dropped_docops_only]
-        + [f"dropped_write_blocks:{item}" for item in dropped_write_blocks]
-        + [f"dropped_loop_allowed_path:{item}" for item in dropped_loop_allowed_paths]
-        + [f"dropped_allowed_path:{item}" for item in dropped_allowed_paths]
-    )
+    allowed_paths = _dedupe_str(files + patterns + rendered_outputs + list(loop_allowed_paths) + ALWAYS_ALLOW_REPORTS)
     writemap = {
         "schema": "aidd.writemap.v1",
         "ticket": context["ticket"],
@@ -544,13 +482,11 @@ def _build_writemap(
         "generated_at": utc_timestamp(),
         "source_contract": runtime.rel_path(Path(context["contract_path"]), target),
         "allowed_paths": allowed_paths,
-        "loop_allowed_paths": loop_allowed_paths,
-        "docops_only_paths": docops_only_paths,
+        "loop_allowed_paths": _dedupe_str(loop_allowed_paths),
+        "docops_only_paths": _dedupe_str(docops_only_paths),
         "always_allow": ALWAYS_ALLOW_REPORTS,
         "write_blocks": write_blocks,
     }
-    if quality_warnings:
-        writemap["quality_warnings"] = quality_warnings
     return writemap
 
 

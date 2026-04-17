@@ -204,7 +204,6 @@ class AiddStageLauncherTests(unittest.TestCase):
                 log_text=log_text,
                 project_dir=Path(tmp),
                 ticket="TST-001",
-                stage_command="/feature-dev-aidd:idea-new TST-001 note",
             )
         self.assertEqual(payload["source"], "result_permission_denials")
         self.assertEqual(payload["top_level_status"], "pending")
@@ -223,7 +222,6 @@ class AiddStageLauncherTests(unittest.TestCase):
                 log_text=log_text,
                 project_dir=Path(tmp),
                 ticket="TST-001",
-                stage_command="/feature-dev-aidd:review-spec TST-001",
             )
         self.assertEqual(payload["source"], "none")
         self.assertEqual(payload["pending_question_count"], 0)
@@ -255,7 +253,6 @@ class AiddStageLauncherTests(unittest.TestCase):
                 log_text=log_text,
                 project_dir=Path(tmp),
                 ticket="TST-001",
-                stage_command="/feature-dev-aidd:idea-new TST-001 note",
             )
         self.assertEqual(payload["source"], "assistant_text")
         self.assertEqual(payload["top_level_status"], "pending")
@@ -280,124 +277,12 @@ class AiddStageLauncherTests(unittest.TestCase):
                 encoding="utf-8",
             )
             payload = self.launcher.extract_question_cycle(
-                log_text=json_line(
-                    {
-                        "type": "result",
-                        "subtype": "success",
-                        "result": "**PENDING**\nAIDD:ANSWERS Q4=<token> is required to move PRD to READY.",
-                    }
-                ),
+                log_text=json_line({"type": "result", "subtype": "success", "result": "**PENDING**"}),
                 project_dir=project_dir,
                 ticket="TST-001",
-                stage_command="/feature-dev-aidd:idea-new TST-001 note",
             )
         self.assertEqual(payload["source"], "persisted_doc")
         self.assertEqual(payload["pending_question_ids"], ["Q4"])
-
-    def test_extract_question_cycle_does_not_use_persisted_doc_without_top_level_trigger(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            project_dir = Path(tmp)
-            prd_path = project_dir / "aidd" / "docs" / "prd" / "TST-001.prd.md"
-            prd_path.parent.mkdir(parents=True, exist_ok=True)
-            prd_path.write_text(
-                (
-                    "# PRD\n\n"
-                    "## Диалог analyst\n"
-                    "Вопрос 2: Placeholder\n\n"
-                    "## AIDD:OPEN_QUESTIONS\n"
-                    "- Q2: stale pending\n"
-                ),
-                encoding="utf-8",
-            )
-            payload = self.launcher.extract_question_cycle(
-                log_text=json_line({"type": "result", "subtype": "success", "result": "done"}),
-                project_dir=project_dir,
-                ticket="TST-001",
-                stage_command="/feature-dev-aidd:idea-new TST-001 note",
-            )
-        self.assertEqual(payload["source"], "none")
-        self.assertEqual(payload["pending_question_count"], 0)
-
-    def test_extract_question_cycle_open_questions_none_keeps_question_cycle_disabled(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            project_dir = Path(tmp)
-            prd_path = project_dir / "aidd" / "docs" / "prd" / "TST-001.prd.md"
-            prd_path.parent.mkdir(parents=True, exist_ok=True)
-            prd_path.write_text(
-                (
-                    "# PRD\n\n"
-                    "Question 3 (Blocker): Legacy placeholder\n\n"
-                    "## AIDD:OPEN_QUESTIONS\n"
-                    "- none\n"
-                ),
-                encoding="utf-8",
-            )
-            payload = self.launcher.extract_question_cycle(
-                log_text=json_line({"type": "result", "subtype": "success", "result": "done"}),
-                project_dir=project_dir,
-                ticket="TST-001",
-                stage_command="/feature-dev-aidd:idea-new TST-001 note",
-            )
-        self.assertEqual(payload["source"], "none")
-        self.assertEqual(payload["question_cycle_required"], 0)
-        self.assertEqual(payload["pending_question_count"], 0)
-        self.assertEqual(payload["pending_question_ids"], [])
-
-    def test_extract_question_cycle_never_uses_persisted_doc_for_review_spec(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            project_dir = Path(tmp)
-            plan_path = project_dir / "aidd" / "docs" / "plan" / "TST-001.md"
-            plan_path.parent.mkdir(parents=True, exist_ok=True)
-            plan_path.write_text(
-                (
-                    "# Plan\n\n"
-                    "## AIDD:OPEN_QUESTIONS\n"
-                    "- Q1: stale question\n"
-                ),
-                encoding="utf-8",
-            )
-            payload = self.launcher.extract_question_cycle(
-                log_text=json_line(
-                    {
-                        "type": "result",
-                        "subtype": "success",
-                        "result": "**WARN** AIDD:ANSWERS Q1=A",
-                    }
-                ),
-                project_dir=project_dir,
-                ticket="TST-001",
-                stage_command="/feature-dev-aidd:review-spec TST-001",
-            )
-        self.assertEqual(payload["source"], "none")
-        self.assertEqual(payload["pending_question_count"], 0)
-
-    def test_extract_question_cycle_never_uses_persisted_doc_for_tasks_new(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            project_dir = Path(tmp)
-            tasklist_path = project_dir / "aidd" / "docs" / "tasklist" / "TST-001.md"
-            tasklist_path.parent.mkdir(parents=True, exist_ok=True)
-            tasklist_path.write_text(
-                (
-                    "# Tasklist\n\n"
-                    "## AIDD:OPEN_QUESTIONS\n"
-                    "- Q2: stale question from persisted doc\n"
-                ),
-                encoding="utf-8",
-            )
-            payload = self.launcher.extract_question_cycle(
-                log_text=json_line(
-                    {
-                        "type": "result",
-                        "subtype": "success",
-                        "result": "**WARN** AIDD:ANSWERS Q2=A",
-                    }
-                ),
-                project_dir=project_dir,
-                ticket="TST-001",
-                stage_command="/feature-dev-aidd:tasks-new TST-001",
-            )
-        self.assertEqual(payload["source"], "none")
-        self.assertEqual(payload["pending_question_count"], 0)
 
     def test_materialize_retry_payload_rejects_partial_answer_map(self) -> None:
         question_cycle = {

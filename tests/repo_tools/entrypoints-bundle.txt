@@ -46,8 +46,8 @@
       "lang": "en",
       "name": "researcher",
       "path": "agents/researcher.md",
-      "prompt_version": "1.2.32",
-      "source_version": "1.2.32"
+      "prompt_version": "1.2.31",
+      "source_version": "1.2.31"
     },
     {
       "lang": "en",
