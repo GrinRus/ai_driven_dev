@@ -35,6 +35,8 @@ Follow `feature-dev-aidd:aidd-core`.
 8. Run subagent `feature-dev-aidd:validator`. The validator is read-only and returns the narrative verdict and gap list only.
 9. Final stage readiness is sourced from `prd_check + research_check + validator verdict`; return `/feature-dev-aidd:review-spec <ticket>` only on the ready path.
 10. Otherwise return PENDING or BLOCKED with the validator gaps and the canonical next action for the current stage.
+11. Question trigger contract: use only the latest top-level stage return from this run as retry source-of-truth; nested excerpts and persisted template snippets are telemetry only.
+12. Context hygiene: use rolling context-pack summary only; never copy raw template markdown bodies into context artifacts.
 
 ## Command contracts
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan-new/runtime/research_check.py`

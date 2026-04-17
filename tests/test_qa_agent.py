@@ -471,6 +471,19 @@ class QaAgentTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2, msg=result.stderr)
         self.assertIn("reason_code=preflight_missing", result.stderr)
         self.assertIn("/feature-dev-aidd:implement demo-ticket", result.stderr)
+        stage_result = (
+            self.project_root
+            / "reports"
+            / "loops"
+            / "demo-ticket"
+            / "iteration_id_I1"
+            / "stage.qa.result.json"
+        )
+        self.assertTrue(stage_result.exists(), "QA preflight-missing path should still emit stage_result")
+        payload = json.loads(stage_result.read_text(encoding="utf-8"))
+        self.assertEqual(payload.get("reason_code"), "preflight_missing")
+        self.assertTrue(payload.get("invocation_terminal"))
+        self.assertTrue(payload.get("reinvoke_allowed"))
 
     def test_qa_loop_mode_accepts_ticket_scope_stage_chain_logs(self):
         write_active_state(self.project_root, ticket="demo-ticket", stage="qa", work_item="iteration_id=I1")

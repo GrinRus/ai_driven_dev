@@ -102,6 +102,8 @@
 - R15.3: Для `review-spec` источником истины по finding/recommended status считать `aidd/reports/prd/<ticket>.json` (или `*.pack.json`); narrative top-level текста использовать только как supplementary telemetry.
 - R15.4: Source-of-truth для test execution policy в runtime = `aidd/config/gates.json`; использование `.claude/settings.json`/`CLAUDE_SETTINGS_PATH` в runtime decision path классифицировать как `prompt-flow drift (non-canonical test policy source)`.
 - R15.5: Если зафиксированы `reason_code=project_contract_missing|tests_cwd_mismatch` и одновременно `no_top_level_result`, reason-code считать primary причиной, а `no_top_level_result` — secondary symptom.
+- R15.6: Для non-research стадий (`idea|plan|review-spec|tasks|implement|review|qa|loop`) source-of-truth по retry/gates = текущий top-level stage-return + canonical report payload; nested excerpts/tool_result/persisted template blocks считать telemetry и не использовать как primary trigger.
+- R15.7: Контекст-артефакты (`aidd/reports/context/*.md`, `latest_working_set*.md`) должны быть compact summary без template body leakage; при contamination ожидать `hard_replace` + WARN telemetry.
 - R16: Для launcher избегать tokenization drift: не передавать флаги как один неразделённый токен; при первом фейле quoting/tokenization делать ровно один shell-safe retry с явными отдельными аргументами.
 - R17: Early-kill prohibition (strict):
   - не останавливать stage-run до исчерпания budget этапа, если есть liveness (`main log` и/или stream-файлы растут);

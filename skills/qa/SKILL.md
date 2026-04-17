@@ -50,6 +50,8 @@ Follow `feature-dev-aidd:aidd-core` and `feature-dev-aidd:aidd-loop`.
 11. Canonical stage-chain: internal preflight -> stage runtime -> actions_apply.py/postflight -> `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py`. `[AIDD_LOOP_POLICY:CANONICAL_STAGE_RESULT_PATH]`
 12. Non-canonical stage-result path under `skills/aidd-loop/runtime/` is forbidden (treat as prompt-flow drift). `[AIDD_LOOP_POLICY:NON_CANONICAL_STAGE_RESULT_FORBIDDEN]`
 13. Output: return QA status contract with report paths and explicit canonical next action (`/feature-dev-aidd:status <ticket>` or `/feature-dev-aidd:tasks-new <ticket>` when follow-up tasks are required). Ensure one terminal payload per run (no repeated guessed recovery loops).
+14. Question cycle contract: retry/blocked handling uses current run top-level stage return only; nested excerpts or persisted template snippets are non-authoritative.
+15. Context hygiene: keep context-pack and working-set content compact/structured; do not embed template markdown bodies.
 
 ## Command contracts
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/qa/runtime/qa_run.py`

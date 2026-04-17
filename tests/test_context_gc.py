@@ -1177,6 +1177,32 @@ class StopUpdateTests(unittest.TestCase):
             )
             self.assertTrue(ticket_latest.exists())
 
+    def test_stop_update_repairs_contaminated_context_pack_and_keeps_working_set_compact(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+            root = Path(tmpdir)
+            write_active_feature(root, "demo-ticket")
+            write_file(
+                root,
+                "reports/context/demo-ticket.pack.md",
+                "# AIDD Context Pack — <stage>\n\nStatus: draft\nOwner: <name/team>\n<stage-specific goal>\n",
+            )
+            write_json(
+                root,
+                "config/context_gc.json",
+                {"working_set": {"include_git_status": False}},
+            )
+            payload = {"hook_event_name": "Stop"}
+            result = _run_hook_script(STOP_MODULE, payload, _env_for_workspace(root), root)
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            latest_path = root / "aidd" / "reports" / "context" / "latest_working_set.md"
+            self.assertTrue(latest_path.exists())
+            content = latest_path.read_text(encoding="utf-8")
+            self.assertIn("quality_repair: hard_replace", content)
+            self.assertNotIn("<stage-specific goal>", content)
+            self.assertNotIn("Owner: <name/team>", content)
+            self.assertEqual(content.count("### AIDD Working Set (auto-generated)"), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

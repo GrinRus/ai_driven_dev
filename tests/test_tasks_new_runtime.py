@@ -362,6 +362,72 @@ class TasksNewRuntimeTests(unittest.TestCase):
             self.assertIn("ExpectedReports:", updated)
             self.assertNotIn("\nReports:\n", updated)
 
+    def test_tasks_new_normalizes_frontmatter_placeholders_and_reports_for_profile_none(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="tasks-new-frontmatter-normalize-") as tmpdir:
+            workspace = Path(tmpdir) / "workspace"
+            workspace.mkdir(parents=True, exist_ok=True)
+            bootstrap_workspace(workspace)
+            project_root = workspace / "aidd"
+            ticket = "TASKS-NORMALIZE-1"
+            scope_key = ticket
+            write_active_feature(project_root, ticket)
+            write_active_stage(project_root, "tasklist")
+            write_plan_iterations(project_root, ticket)
+            tasklist_path = write_tasklist_ready(project_root, ticket)
+            text = tasklist_path.read_text(encoding="utf-8")
+            text = text.replace(f"Ticket: {ticket}\n", f"Ticket: {ticket}\nOwner: <name/team>\n", 1)
+            text = text.replace("Status: READY", "# Status: PENDING|READY|WARN|BLOCKED\nStatus: READY", 1)
+            text = text.replace(
+                f"Plan: aidd/docs/plan/{ticket}.md\n",
+                f"Plan: aidd/docs/plan/{ticket}.md\n"
+                "Reports:\n"
+                "  qa: aidd/reports/qa/legacy.json\n",
+                1,
+            )
+            tasklist_path.write_text(text, encoding="utf-8")
+
+            result = self._run_tasks_new(workspace, "--ticket", ticket)
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+
+            updated = tasklist_path.read_text(encoding="utf-8")
+            self.assertNotIn("Owner: <name/team>", updated)
+            self.assertIn("Owner: team", updated)
+            self.assertNotIn("# Status: PENDING|READY|WARN|BLOCKED", updated)
+            self.assertIn("ExpectedReports:", updated)
+            self.assertIn(f"review_report: aidd/reports/reviewer/{ticket}/{scope_key}.json", updated)
+            self.assertIn(f"reviewer_marker: aidd/reports/reviewer/{ticket}/{scope_key}.tests.json", updated)
+            self.assertIn(f"qa: aidd/reports/qa/{ticket}.json", updated)
+            self.assertNotIn(f"tests: aidd/reports/tests/{ticket}/{scope_key}.jsonl", updated)
+
+    def test_tasks_new_expected_reports_include_tests_when_profile_requires_tests(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="tasks-new-frontmatter-profile-") as tmpdir:
+            workspace = Path(tmpdir) / "workspace"
+            workspace.mkdir(parents=True, exist_ok=True)
+            bootstrap_workspace(workspace)
+            project_root = workspace / "aidd"
+            ticket = "TASKS-NORMALIZE-2"
+            scope_key = ticket
+            write_active_feature(project_root, ticket)
+            write_active_stage(project_root, "tasklist")
+            write_plan_iterations(project_root, ticket)
+            gates_path = project_root / "config" / "gates.json"
+            gates_payload = json.loads(gates_path.read_text(encoding="utf-8"))
+            gates_payload.setdefault("qa", {}).setdefault("tests", {}).update(
+                {
+                    "profile_default": "targeted",
+                    "commands": [
+                        {"id": "unit", "command": ["python3", "-m", "pytest", "-q"], "cwd": ".", "profiles": ["targeted"]}
+                    ],
+                }
+            )
+            gates_path.write_text(json.dumps(gates_payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+            result = self._run_tasks_new(workspace, "--ticket", ticket)
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+
+            updated = (project_root / "docs" / "tasklist" / f"{ticket}.md").read_text(encoding="utf-8")
+            self.assertIn(f"tests: aidd/reports/tests/{ticket}/{scope_key}.jsonl", updated)
+
 
 if __name__ == "__main__":
     unittest.main()
