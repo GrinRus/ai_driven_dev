@@ -53,6 +53,11 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Validate PRD Status: READY.")
     parser.add_argument("--ticket", help="Ticket identifier (defaults to docs/.active.json).")
     parser.add_argument("--prd", help="Override PRD path.")
+    parser.add_argument(
+        "--docs-only",
+        action="store_true",
+        help="Enable docs-only rewrite mode for this invocation.",
+    )
     return parser.parse_args(argv)
 
 
@@ -130,15 +135,33 @@ def _collect_compact_answers(section: str) -> dict[int, str]:
     return answers
 
 
+def _soften_block_for_docs_only(message: str, *, reason_code: str) -> int:
+    rendered = message.strip()
+    if rendered.startswith("BLOCK:"):
+        rendered = "WARN:" + rendered[len("BLOCK:") :]
+    elif not rendered.startswith("WARN:"):
+        rendered = f"WARN: {rendered}"
+    print(
+        f"[prd-check] {rendered} (reason_code={reason_code}, docs_only_mode=1, "
+        "reinvoke_allowed=1, retry_scope=invocation)",
+        file=sys.stderr,
+    )
+    return 0
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     args = parse_args(argv)
     _, project_root = runtime.require_workflow_root()
+    docs_only_mode = runtime.docs_only_mode_requested(explicit=getattr(args, "docs_only", False))
     ticket, _ = runtime.require_ticket(project_root, ticket=args.ticket, slug_hint=None)
 
     prd_path = _resolve_prd_path(project_root, ticket, args.prd)
     if not prd_path.exists():
         rel = runtime.rel_path(prd_path, project_root)
-        raise SystemExit(f"BLOCK: PRD не найден: {rel}")
+        message = f"BLOCK: PRD не найден: {rel}"
+        if docs_only_mode:
+            return _soften_block_for_docs_only(message, reason_code="prd_missing")
+        raise SystemExit(message)
 
     text = prd_path.read_text(encoding="utf-8")
     current_hash = _hash_prd(text)
@@ -153,25 +176,33 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 0
     match = STATUS_RE.search(text)
     if not match:
-        raise SystemExit("BLOCK: PRD не содержит строку `Status:` → установите Status: READY перед plan-new.")
+        message = "BLOCK: PRD не содержит строку `Status:` → установите Status: READY перед plan-new."
+        if docs_only_mode:
+            return _soften_block_for_docs_only(message, reason_code="prd_status_missing")
+        raise SystemExit(message)
 
     status = match.group(1).strip().upper()
     if status != "READY":
-        raise SystemExit(
-            f"BLOCK: PRD Status: {status} → установите Status: READY перед /feature-dev-aidd:plan-new {ticket}."
-        )
+        message = f"BLOCK: PRD Status: {status} → установите Status: READY перед /feature-dev-aidd:plan-new {ticket}."
+        if docs_only_mode:
+            return _soften_block_for_docs_only(message, reason_code="prd_not_ready")
+        raise SystemExit(message)
     open_questions = _extract_section(text, AIDD_OPEN_QUESTIONS_HEADING)
     if open_questions and _has_open_items(open_questions):
-        raise SystemExit(
+        message = (
             "BLOCK: PRD Status: READY, но AIDD:OPEN_QUESTIONS содержит незакрытые пункты. "
             "Закройте вопросы перед /feature-dev-aidd:plan-new."
         )
+        if docs_only_mode:
+            return _soften_block_for_docs_only(message, reason_code="prd_open_questions_present")
+        raise SystemExit(message)
     answers_section = _extract_section(text, AIDD_ANSWERS_HEADING) or ""
     answers_map = _collect_compact_answers(answers_section)
     if answers_section.strip() and not answers_map:
-        raise SystemExit(
-            "BLOCK: AIDD:ANSWERS должен быть в compact формате `Q<N>=<value>`."
-        )
+        message = "BLOCK: AIDD:ANSWERS должен быть в compact формате `Q<N>=<value>`."
+        if docs_only_mode:
+            return _soften_block_for_docs_only(message, reason_code="answers_format_invalid")
+        raise SystemExit(message)
     invalid_numbers = sorted(
         number
         for number, value in answers_map.items()
@@ -183,9 +214,10 @@ def main(argv: Optional[List[str]] = None) -> int:
         sample = ", ".join(f"Q{num}" for num in invalid_numbers[:3])
         if len(invalid_numbers) > 3:
             sample = f"{sample}, …"
-        raise SystemExit(
-            f"BLOCK: AIDD:ANSWERS содержит недопустимые значения для {sample} (TBD/TODO/empty)."
-        )
+        message = f"BLOCK: AIDD:ANSWERS содержит недопустимые значения для {sample} (TBD/TODO/empty)."
+        if docs_only_mode:
+            return _soften_block_for_docs_only(message, reason_code="answers_placeholder_values")
+        raise SystemExit(message)
 
     print(f"[aidd] PRD ready for `{ticket}` (status: READY).")
     _write_cache(cache_path, ticket=ticket, hash_value=current_hash)

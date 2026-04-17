@@ -54,12 +54,9 @@ Each skill must keep frontmatter `description` aligned with this table using exp
   - Do not use when: idea kickoff (`idea-new`) or final readiness review (`review-spec`) is requested.
 - `review-spec`
   - Use when: reviewing plan and PRD readiness gate before implementation is requested.
-  - Do not use when: plan authoring (`plan-new`) or unresolved spec interview sync (`spec-interview`) is requested.
-- `spec-interview`
-  - Use when: collecting unresolved spec inputs and syncing answers into `spec.yaml` is requested.
-  - Do not use when: readiness gate review (`review-spec`) or task derivation (`tasks-new`) is requested.
+  - Do not use when: plan authoring (`plan-new`) or task derivation (`tasks-new`) is requested.
 - `tasks-new`
-  - Use when: deriving/refining tasklist from PRD, plan, and spec artifacts is requested.
+  - Use when: deriving/refining tasklist from PRD and plan artifacts is requested.
   - Do not use when: plan authoring (`plan-new`) or loop-stage execution (`implement`) is requested.
 - `implement`
   - Use when: implement-stage loop execution and actions/postflight update is requested.

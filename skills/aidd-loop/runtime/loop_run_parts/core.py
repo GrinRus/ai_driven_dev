@@ -1058,6 +1058,24 @@ def emit(fmt: str | None, payload: Dict[str, object]) -> None:
     print(json.dumps(event, ensure_ascii=False))
 
 
+def _enrich_invocation_contract(payload: Dict[str, object]) -> Dict[str, object]:
+    enriched = dict(payload or {})
+    status = str(enriched.get("status") or "").strip().lower()
+    reason_code = str(enriched.get("reason_code") or "").strip().lower()
+    primary_reason = reason_code or ("blocked_without_reason" if status == "blocked" else "")
+    secondary_symptom = None
+    if primary_reason in {"project_contract_missing", "tests_cwd_mismatch"} and not enriched.get("last_step"):
+        secondary_symptom = "no_top_level_result"
+
+    enriched.setdefault("invocation_terminal", status in {"blocked", "error", "ship", "max-iterations"})
+    enriched.setdefault("reinvoke_allowed", True)
+    enriched.setdefault("retry_scope", "invocation")
+    enriched.setdefault("docs_only_mode", runtime.docs_only_mode_requested())
+    enriched.setdefault("primary_reason", primary_reason or None)
+    enriched.setdefault("secondary_symptom", secondary_symptom)
+    return enriched
+
+
 def _ralph_recoverable_semantics(
     *,
     blocked_policy: str,
@@ -1163,6 +1181,12 @@ def main(argv: List[str] | None = None) -> int:
         payload["research_gate_soft_policy"] = research_gate_soft_policy
         return payload
 
+    def _emit_payload(payload: Dict[str, object]) -> None:
+        emit(
+            args.format,
+            _enrich_invocation_contract(_attach_research_gate_telemetry(payload)),
+        )
+
     if args.work_item_key and not runtime.is_valid_work_item_key(args.work_item_key):
         clear_active_mode(target)
         payload = {
@@ -1182,7 +1206,7 @@ def main(argv: List[str] | None = None) -> int:
             f"{utc_timestamp()} ticket={ticket} iteration=0 status=blocked reason_code=work_item_invalid_format",
         )
         append_log(cli_log_path, f"{utc_timestamp()} event=blocked iterations=0 reason_code=work_item_invalid_format")
-        emit(args.format, _attach_research_gate_telemetry(payload))
+        _emit_payload(payload)
         return BLOCKED_CODE
 
     if not args.work_item_key:
@@ -1235,7 +1259,7 @@ def main(argv: List[str] | None = None) -> int:
                     f"{utc_timestamp()} ticket={ticket} iteration=0 status=blocked reason_code=work_item_missing",
                 )
                 append_log(cli_log_path, f"{utc_timestamp()} event=blocked iterations=0 reason_code=work_item_missing")
-                emit(args.format, _attach_research_gate_telemetry(payload))
+                _emit_payload(payload)
                 return BLOCKED_CODE
 
     if _should_enforce_loop_research_gate(target, ticket, research_gate_mode):
@@ -1413,7 +1437,7 @@ def main(argv: List[str] | None = None) -> int:
                         )
                     ),
                 )
-                emit(args.format, _attach_research_gate_telemetry(payload))
+                _emit_payload(payload)
                 return BLOCKED_CODE
 
     last_payload: Dict[str, object] = {}
@@ -1510,7 +1534,7 @@ def main(argv: List[str] | None = None) -> int:
                 ),
             )
             clear_active_mode(target)
-            emit(args.format, _attach_research_gate_telemetry(payload))
+            _emit_payload(payload)
             return BLOCKED_CODE
 
         if stream_mode:
@@ -1634,7 +1658,7 @@ def main(argv: List[str] | None = None) -> int:
                 ),
             )
             clear_active_mode(target)
-            emit(args.format, _attach_research_gate_telemetry(payload))
+            _emit_payload(payload)
             return out_code
         parse_error = ""
         try:
@@ -2104,7 +2128,7 @@ def main(argv: List[str] | None = None) -> int:
                 "updated_at": utc_timestamp(),
             }
             append_log(cli_log_path, f"{utc_timestamp()} event=done iterations={iteration}")
-            emit(args.format, _attach_research_gate_telemetry(payload))
+            _emit_payload(payload)
             return DONE_CODE
         if step_exit_code == BLOCKED_CODE:
             step_stage = str(step_payload.get("stage") or "").strip().lower()
@@ -2191,7 +2215,7 @@ def main(argv: List[str] | None = None) -> int:
                         recoverable_retry_budget=recoverable_retry_budget,
                     ),
                 }
-                emit(args.format, _attach_research_gate_telemetry(payload))
+                _emit_payload(payload)
                 return BLOCKED_CODE
             if log_reason_code == "seed_stage_active_stream_timeout" and not budget_exhausted:
                 if command_failure_signature and consecutive_command_failure_hits >= _REPEATED_FAILURE_WINDOW:
@@ -2271,7 +2295,7 @@ def main(argv: List[str] | None = None) -> int:
                             recoverable_retry_budget=recoverable_retry_budget,
                         ),
                     }
-                    emit(args.format, _attach_research_gate_telemetry(payload))
+                    _emit_payload(payload)
                     return BLOCKED_CODE
                 append_log(
                     log_path,
@@ -2449,7 +2473,7 @@ def main(argv: List[str] | None = None) -> int:
                 **ralph_semantics,
             }
             append_log(cli_log_path, f"{utc_timestamp()} event=blocked iterations={iteration}")
-            emit(args.format, _attach_research_gate_telemetry(payload))
+            _emit_payload(payload)
             return BLOCKED_CODE
         if sleep_seconds:
             time.sleep(sleep_seconds)
@@ -2494,7 +2518,7 @@ def main(argv: List[str] | None = None) -> int:
         )
     clear_active_mode(target)
     append_log(cli_log_path, f"{utc_timestamp()} event=max-iterations iterations={max_iterations}")
-    emit(args.format, _attach_research_gate_telemetry(payload))
+    _emit_payload(payload)
     return MAX_ITERATIONS_CODE
 
 

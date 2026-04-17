@@ -373,7 +373,6 @@ def build_excerpt(block: List[str], max_lines: int = 30) -> Tuple[str, ...]:
         "- boundaries:",
         "- commands:",
         "- acceptance mapping:",
-        "- spec:",
     )
     capture_block = False
     capture_indent = 0
@@ -664,7 +663,7 @@ def build_pack(
     lines.append(f"- goal: {work_item.goal}")
     lines.append("")
     lines.append("## Read order")
-    lines.append("- Prefer excerpt; read full tasklist/PRD/Plan/Research/Spec only if excerpt misses Goal/DoD/Boundaries/Expected paths/Size budget/Tests/Acceptance or REVISE needs context.")
+    lines.append("- Prefer excerpt; read full tasklist/PRD/Plan/Research only if excerpt misses Goal/DoD/Boundaries/Expected paths/Size budget/Tests/Acceptance or REVISE needs context.")
     lines.append("- Большие логи/диффы — только ссылки на отчёты")
     lines.append("")
     lines.append("## Boundaries")

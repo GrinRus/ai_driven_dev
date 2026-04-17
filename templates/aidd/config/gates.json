@@ -216,6 +216,12 @@
     }
   },
   "review_pack_v2_required": false,
+  "artifact_truth": {
+    "mode": "soft",
+    "collapse_event_noise": true,
+    "warn_on_missing_expected_reports": true,
+    "warn_on_stage_doc_drift": true
+  },
   "loop": {
     "blocked_policy": "ralph",
     "strict_recoverable_reason_codes": [

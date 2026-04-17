@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Dict, List
 
 from aidd_runtime import tasklist_check as core
+from aidd_runtime import artifact_truth
 from aidd_runtime import tasklist_normalize as normalize
 from aidd_runtime import tasklist_parser
 
@@ -16,6 +17,11 @@ from aidd_runtime import tasklist_parser
 def _has_test_execution_field_key(lines: List[str], field: str) -> bool:
     pattern = re.compile(rf"^\s*-\s*{re.escape(field)}\s*:\s*(?:.*)$", re.IGNORECASE)
     return any(pattern.match(line) for line in lines)
+
+
+def _slugify_issue_code(message: str) -> str:
+    normalized = re.sub(r"[^a-z0-9]+", "_", str(message or "").strip().lower()).strip("_")
+    return normalized or "tasklist_issue"
 
 
 def check_tasklist_text(
@@ -31,9 +37,35 @@ def check_tasklist_text(
 
     errors: List[str] = []
     warnings: List[str] = []
+    issues: List[core.TasklistIssue] = []
 
-    def add_issue(severity: str, message: str) -> None:
-        if severity == "error":
+    def add_issue(
+        severity: str,
+        message: str,
+        *,
+        code: str | None = None,
+        category: str | None = None,
+    ) -> None:
+        normalized_severity = "error" if severity == "error" else "warn"
+        normalized_code = code or _slugify_issue_code(message)
+        if category:
+            normalized_category = category
+        elif normalized_code in {"plan_not_found", "plan_missing_iteration_ids", "project_contract_missing"}:
+            normalized_category = "upstream_blocker"
+        elif normalized_severity == "error":
+            normalized_category = "repairable_structure"
+        else:
+            normalized_category = "hygiene_warn"
+
+        issues.append(
+            core.TasklistIssue(
+                code=normalized_code,
+                severity=normalized_severity,
+                category=normalized_category,
+                message=message,
+            )
+        )
+        if normalized_severity == "error":
             errors.append(message)
         else:
             warnings.append(message)
@@ -44,11 +76,12 @@ def check_tasklist_text(
             "error",
             f"duplicate AIDD sections: {', '.join(sorted(duplicate_titles))} "
             "(run tasklist-check --fix)",
+            code="duplicate_aidd_sections",
         )
 
     for title in core.REQUIRED_SECTIONS:
         if title not in section_map:
-            add_issue("error", f"missing section: ## {title}")
+            add_issue("error", f"missing section: ## {title}", code="missing_required_section")
 
     context_pack = core.section_body(section_map.get("AIDD:CONTEXT_PACK", [None])[0]) if section_map.get("AIDD:CONTEXT_PACK") else []
     stage = core.resolve_stage(root, context_pack)
@@ -59,16 +92,16 @@ def check_tasklist_text(
     front_status = (front.get("Status") or front.get("status") or "").strip().upper()
     context_status = (core.extract_field_value(context_pack, "Status") or "").strip().upper()
     if front_status and context_status and front_status != context_status:
-        add_issue("error", f"Status mismatch (front-matter={front_status}, CONTEXT_PACK={context_status})")
+        add_issue("error", f"Status mismatch (front-matter={front_status}, CONTEXT_PACK={context_status})", code="status_mismatch")
     if not front_status:
-        add_issue("error", "missing front-matter Status")
+        add_issue("error", "missing front-matter Status", code="missing_front_matter_status")
     if front_status and not context_status:
-        add_issue("error", "missing CONTEXT_PACK Status")
+        add_issue("error", "missing CONTEXT_PACK Status", code="missing_context_pack_status")
 
     test_execution = core.section_body(section_map.get("AIDD:TEST_EXECUTION", [None])[0]) if section_map.get("AIDD:TEST_EXECUTION") else []
     for field in ("profile", "when", "reason"):
         if not core.extract_field_value(test_execution, field):
-            add_issue("error", f"AIDD:TEST_EXECUTION missing {field}")
+            add_issue("error", f"AIDD:TEST_EXECUTION missing {field}", code=f"missing_test_execution_{field}")
     for field in ("tasks", "filters"):
         inline_value = core.extract_field_value(test_execution, field)
         list_value = core.extract_list_field(test_execution, field)
@@ -86,7 +119,7 @@ def check_tasklist_text(
             continue
         if alias_present:
             continue
-        add_issue("error", f"AIDD:TEST_EXECUTION missing {field}")
+        add_issue("error", f"AIDD:TEST_EXECUTION missing {field}", code=f"missing_test_execution_{field}")
     parsed_test_execution = tasklist_parser.parse_test_execution(test_execution)
     malformed_test_tasks = parsed_test_execution.get("malformed_tasks") or []
     malformed_codes = {str(item.get("reason_code") or "").strip() for item in malformed_test_tasks if isinstance(item, dict)}
@@ -94,11 +127,13 @@ def check_tasklist_text(
         add_issue(
             "error",
             "AIDD:TEST_EXECUTION contains single-entry shell chain task (`&&`, `||`, `;`); split into separate tasks",
+            code="tasklist_shell_chain_single_entry",
         )
     if "tasklist_non_command_entry" in malformed_codes:
         add_issue(
             "error",
             "AIDD:TEST_EXECUTION contains non-command/prose task entry; use executable commands only",
+            code="tasklist_non_command_entry",
         )
 
     test_profile = str(parsed_test_execution.get("profile") or "").strip().lower()
@@ -108,12 +143,14 @@ def check_tasklist_text(
             "error",
             "AIDD:TEST_EXECUTION missing executable tasks for active profile "
             "(reason_code=project_contract_missing)",
+            code="project_contract_missing",
+            category="upstream_blocker",
         )
 
     iterations_section = section_map.get("AIDD:ITERATIONS_FULL")
     iter_items = core.parse_iteration_items(core.section_body(iterations_section[0])) if iterations_section else []
     if not iter_items:
-        add_issue("error", "AIDD:ITERATIONS_FULL has no iterations")
+        add_issue("error", "AIDD:ITERATIONS_FULL has no iterations", code="iterations_full_empty")
 
     handoff_section = section_map.get("AIDD:HANDOFF_INBOX")
     handoff_items = core.parse_handoff_items(core.section_body(handoff_section[0]) if handoff_section else [])
@@ -156,45 +193,23 @@ def check_tasklist_text(
                 add_issue("warn", f"iteration {iteration.item_id} max_loc={max_loc} outside 80-400")
 
     plan_path = core.resolve_plan_path(root, front, ticket)
-    prd_path = core.resolve_prd_path(root, front, ticket)
-    spec_path = core.resolve_spec_path(root, front, ticket)
-    spec_hint_path = spec_path or (root / "docs" / "spec" / f"{ticket}.spec.yaml")
     plan_ids: List[str] = []
     if plan_path.exists():
         plan_ids = core.parse_plan_iteration_ids(root, plan_path)
         if not plan_ids:
-            add_issue(core.severity_for_stage(stage), "AIDD:ITERATIONS missing iteration_id")
-    else:
-        add_issue(structural_severity(), f"plan not found: {plan_path}")
-
-    if (plan_path.exists() or prd_path.exists()) and not (spec_path and spec_path.exists()):
-        plan_text = core.read_text(plan_path) if plan_path.exists() else ""
-        prd_text = core.read_text(prd_path) if prd_path.exists() else ""
-        plan_mentions_ui = core.mentions_spec_required(
-            core.extract_section_text(
-                plan_text,
-                ("AIDD:FILES_TOUCHED", "AIDD:ITERATIONS", "AIDD:DESIGN", "AIDD:TEST_STRATEGY"),
-            )
-        )
-        prd_mentions_ui = core.mentions_spec_required(
-            core.extract_section_text(
-                prd_text,
-                ("AIDD:ACCEPTANCE", "AIDD:GOALS", "AIDD:NON_GOALS", "AIDD:ROLL_OUT"),
-            )
-        )
-        if plan_mentions_ui or prd_mentions_ui:
-            sources = []
-            if plan_mentions_ui:
-                sources.append("plan")
-            if prd_mentions_ui:
-                sources.append("prd")
-            source_label = ", ".join(sources)
             add_issue(
-                "error",
-                "spec required for UI/UX/frontend or API/DATA/E2E changes "
-                f"(detected in {source_label}); missing {core.rel_path(root, spec_hint_path)}. "
-                "Run /feature-dev-aidd:spec-interview.",
+                core.severity_for_stage(stage),
+                "AIDD:ITERATIONS missing iteration_id",
+                code="plan_missing_iteration_ids",
+                category="upstream_blocker",
             )
+    else:
+        add_issue(
+            structural_severity(),
+            f"plan not found: {plan_path}",
+            code="plan_not_found",
+            category="upstream_blocker",
+        )
 
     iteration_ids = [item.item_id for item in iter_items if item.item_id]
     if plan_ids:
@@ -204,6 +219,7 @@ def check_tasklist_text(
             add_issue(
                 missing_ids_severity,
                 f"AIDD:ITERATIONS_FULL missing iteration_id(s): {', '.join(missing_from_tasklist)}",
+                code="tasklist_missing_iteration_ids_from_plan",
             )
         for iteration in iter_items:
             if not iteration.item_id:
@@ -410,7 +426,7 @@ def check_tasklist_text(
     progress_section = core.section_body(section_map.get("AIDD:PROGRESS_LOG", [None])[0]) if section_map.get("AIDD:PROGRESS_LOG") else []
     progress_entries, invalid_progress = core.progress_entries_from_lines(progress_section)
     if invalid_progress:
-        add_issue(structural_severity(), "invalid PROGRESS_LOG format")
+        add_issue(structural_severity(), "invalid PROGRESS_LOG format", code="invalid_progress_log_format")
     for line in progress_section:
         if line.strip().startswith("-") and len(line) > 240:
             add_issue(core.severity_for_stage(stage), "PROGRESS_LOG entry exceeds 240 chars")
@@ -561,8 +577,36 @@ def check_tasklist_text(
     if core.large_code_fence_without_report(lines):
         add_issue("error", "large code fence without report link")
 
+    truth = artifact_truth.evaluate_artifact_truth(root, ticket, tasklist_text=text)
+    for check in truth.get("truth_checks") or []:
+        if not isinstance(check, dict):
+            continue
+        summary = str(check.get("summary") or check.get("code") or "").strip()
+        if not summary:
+            continue
+        if summary in errors or summary in warnings:
+            continue
+        severity = str(check.get("severity") or "warn").strip().lower()
+        add_issue(
+            "error" if severity == "error" else "warn",
+            summary,
+            code=str(check.get("code") or "").strip() or None,
+            category="advisory_truth",
+        )
+
     if errors:
-        return core.TasklistCheckResult(status="error", message="tasklist check failed", details=errors, warnings=warnings)
+        return core.TasklistCheckResult(
+            status="error",
+            message="tasklist check failed",
+            details=errors,
+            warnings=warnings,
+            issues=issues,
+        )
     if warnings:
-        return core.TasklistCheckResult(status="warn", message="tasklist check warning", details=warnings)
-    return core.TasklistCheckResult(status="ok", message="tasklist ready")
+        return core.TasklistCheckResult(
+            status="warn",
+            message="tasklist check warning",
+            details=warnings,
+            issues=issues,
+        )
+    return core.TasklistCheckResult(status="ok", message="tasklist ready", issues=issues)

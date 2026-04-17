@@ -129,6 +129,11 @@ def build_parser(*, default_stage: str, description: str) -> argparse.ArgumentPa
     parser.add_argument("--work-item-key", dest="work_item_key", help="Work item key override.")
     parser.add_argument("--stage", help=f"Stage override (defaults to {default_stage}).")
     parser.add_argument("--actions", help="Explicit actions payload path.")
+    parser.add_argument(
+        "--docs-only",
+        action="store_true",
+        help="Enable docs-only rewrite mode for this invocation.",
+    )
     return parser
 
 
@@ -388,6 +393,9 @@ def _canonicalize_actions_payload_once(
 
 
 def _run(args: argparse.Namespace, *, context: launcher.LaunchContext, log_path: Path) -> int:
+    if runtime.docs_only_mode_requested(explicit=getattr(args, "docs_only", False)):
+        os.environ["AIDD_DOCS_ONLY_MODE"] = "1"
+        print("docs_only_mode=1")
     scope_guard_ok, scope_guard_diag = _enforce_single_scope_guard(context)
     if not scope_guard_ok:
         print(f"status=blocked reason_code={_SCOPE_GUARD_REASON_CODE}")

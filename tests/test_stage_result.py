@@ -847,6 +847,108 @@ class StageResultTests(unittest.TestCase):
                 "aidd/reports/loops/DEMO-STREAM/cli.loop-step.20240101-000000.stream.jsonl",
             )
 
+    def test_stage_result_emits_invocation_reinvoke_fields(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            result = subprocess.run(
+                cli_cmd(
+                    "stage-result",
+                    "--ticket",
+                    "DEMO-INVOKE",
+                    "--stage",
+                    "implement",
+                    "--result",
+                    "blocked",
+                    "--work-item-key",
+                    "iteration_id=I1",
+                    "--reason-code",
+                    "tests_cwd_mismatch",
+                ),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            payload = json.loads(
+                (root / "reports" / "loops" / "DEMO-INVOKE" / "iteration_id_I1" / "stage.implement.result.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertTrue(payload.get("invocation_terminal"))
+            self.assertTrue(payload.get("reinvoke_allowed"))
+            self.assertEqual(payload.get("retry_scope"), "invocation")
+            self.assertEqual(payload.get("primary_reason"), "tests_cwd_mismatch")
+
+    def test_review_missing_tests_hard_docs_only_does_not_block(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ensure_gates_config(root, {"tests_required": "hard"})
+            write_review_context_pack(root, "DEMO-DOCS-ONLY")
+
+            result = subprocess.run(
+                cli_cmd(
+                    "stage-result",
+                    "--ticket",
+                    "DEMO-DOCS-ONLY",
+                    "--stage",
+                    "review",
+                    "--result",
+                    "done",
+                    "--work-item-key",
+                    "iteration_id=I7",
+                    "--docs-only",
+                ),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            payload = json.loads(
+                (root / "reports" / "loops" / "DEMO-DOCS-ONLY" / "iteration_id_I7" / "stage.review.result.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(payload.get("requested_result"), "done")
+            self.assertEqual(payload.get("result"), "continue")
+            self.assertEqual(payload.get("reason_code"), "no_tests_hard")
+            self.assertTrue(payload.get("docs_only_mode"))
+            self.assertTrue(payload.get("reinvoke_allowed"))
+
+    def test_stage_result_reason_precedence_sets_secondary_symptom(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            result = subprocess.run(
+                cli_cmd(
+                    "stage-result",
+                    "--ticket",
+                    "DEMO-PRECEDENCE",
+                    "--stage",
+                    "implement",
+                    "--result",
+                    "blocked",
+                    "--work-item-key",
+                    "iteration_id=I1",
+                    "--reason-code",
+                    "project_contract_missing",
+                    "--error",
+                    "no_top_level_result",
+                ),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            payload = json.loads(
+                (root / "reports" / "loops" / "DEMO-PRECEDENCE" / "iteration_id_I1" / "stage.implement.result.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(payload.get("primary_reason"), "project_contract_missing")
+            self.assertEqual(payload.get("secondary_symptom"), "no_top_level_result")
+
 
 if __name__ == "__main__":
     unittest.main()

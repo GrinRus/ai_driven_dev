@@ -151,17 +151,8 @@ Key findings:
 - Reachable from root chain: `True`
 
 ### `/feature-dev-aidd:spec-interview`
-- Skill: `skills/spec-interview/SKILL.md`
-- Runtime refs: 4
-  - `skills/aidd-flow-state/runtime/set_active_feature.py`
-  - `skills/aidd-flow-state/runtime/set_active_stage.py`
-  - `skills/aidd-rlm/runtime/rlm_slice.py`
-  - `skills/spec-interview/runtime/spec_interview.py`
-- Subagents: `spec-interview-writer`
-  - `spec-interview-writer` preloads: `aidd-core`, `aidd-policy`, `aidd-rlm`
-- Templates:
-  - `skills/spec-interview/templates/spec.template.yaml`
-- Reachable from root chain: `True`
+- Historical note: stage removed from active planning flow in Wave 149.
+- Current status: archived, not reachable from root chain, runtime/template assets removed from repository.
 
 ### `/feature-dev-aidd:status`
 - Skill: `skills/status/SKILL.md`
@@ -191,7 +182,7 @@ Key findings:
 
 ### `aidd-core`
 - Skill path: `skills/aidd-core/SKILL.md`
-- Preloaded by agents: `analyst`, `implementer`, `plan-reviewer`, `planner`, `prd-reviewer`, `qa`, `researcher`, `reviewer`, `spec-interview-writer`, `tasklist-refiner`, `validator`
+- Preloaded by agents: `analyst`, `implementer`, `plan-reviewer`, `planner`, `prd-reviewer`, `qa`, `researcher`, `reviewer`, `tasklist-refiner`, `validator`
 - Direct command runtime refs: `implement`, `review`, `review-spec`
 
 ### `aidd-docio`
@@ -202,7 +193,7 @@ Key findings:
 ### `aidd-flow-state`
 - Skill path: `skills/aidd-flow-state/SKILL.md`
 - Preloaded by agents: none
-- Direct command runtime refs: `idea-new`, `implement`, `plan-new`, `qa`, `researcher`, `review`, `review-spec`, `spec-interview`, `tasks-new`
+- Direct command runtime refs: `idea-new`, `implement`, `plan-new`, `qa`, `researcher`, `review`, `review-spec`, `tasks-new`
 
 ### `aidd-loop`
 - Skill path: `skills/aidd-loop/SKILL.md`
@@ -216,13 +207,13 @@ Key findings:
 
 ### `aidd-policy`
 - Skill path: `skills/aidd-policy/SKILL.md`
-- Preloaded by agents: `analyst`, `implementer`, `plan-reviewer`, `planner`, `prd-reviewer`, `qa`, `researcher`, `reviewer`, `spec-interview-writer`, `tasklist-refiner`, `validator`
+- Preloaded by agents: `analyst`, `implementer`, `plan-reviewer`, `planner`, `prd-reviewer`, `qa`, `researcher`, `reviewer`, `tasklist-refiner`, `validator`
 - Direct command runtime refs: none
 
 ### `aidd-rlm`
 - Skill path: `skills/aidd-rlm/SKILL.md`
-- Preloaded by agents: `analyst`, `plan-reviewer`, `planner`, `prd-reviewer`, `researcher`, `reviewer`, `spec-interview-writer`, `tasklist-refiner`, `validator`
-- Direct command runtime refs: `idea-new`, `implement`, `plan-new`, `qa`, `researcher`, `review`, `review-spec`, `spec-interview`, `tasks-new`
+- Preloaded by agents: `analyst`, `plan-reviewer`, `planner`, `prd-reviewer`, `researcher`, `reviewer`, `tasklist-refiner`, `validator`
+- Direct command runtime refs: `idea-new`, `implement`, `plan-new`, `qa`, `researcher`, `review`, `review-spec`, `tasks-new`
 
 ### `aidd-stage-research`
 - Skill path: `skills/aidd-stage-research/SKILL.md`

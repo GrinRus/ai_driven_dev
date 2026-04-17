@@ -102,15 +102,22 @@ run_entrypoints_bundle_guard() {
     return
   fi
   log "running entrypoints bundle guard"
-  if ! python3 tests/repo_tools/entrypoints_bundle.py --root "${ROOT_DIR}"; then
+  local expected="${ROOT_DIR}/tests/repo_tools/entrypoints-bundle.txt"
+  local tmp_output
+  tmp_output="$(mktemp "${TMPDIR:-/tmp}/aidd-entrypoints-bundle.XXXXXX")"
+  trap 'rm -f "${tmp_output}"' RETURN
+  if ! python3 tests/repo_tools/entrypoints_bundle.py --root "${ROOT_DIR}" --output "${tmp_output}"; then
     err "entrypoints bundle generation failed"
     STATUS=1
+    rm -f "${tmp_output}"
     return
   fi
-  if ! git diff --exit-code -- "${ROOT_DIR}/tests/repo_tools/entrypoints-bundle.txt" >/dev/null; then
+  if ! cmp -s "${expected}" "${tmp_output}"; then
     err "entrypoints-bundle.txt out of date; rerun tests/repo_tools/entrypoints_bundle.py"
     STATUS=1
   fi
+  rm -f "${tmp_output}"
+  trap - RETURN
 }
 
 

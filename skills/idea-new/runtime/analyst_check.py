@@ -47,6 +47,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         type=int,
         help="Override minimum number of analyst questions.",
     )
+    parser.add_argument(
+        "--docs-only",
+        action="store_true",
+        help="Enable docs-only rewrite mode for this invocation.",
+    )
     return parser.parse_args(argv)
 
 
@@ -59,6 +64,7 @@ def main(argv: list[str] | None = None) -> int:
         slug_hint=getattr(args, "slug_hint", None),
     )
     settings = load_settings(target)
+    docs_only_mode = runtime.docs_only_mode_requested(explicit=getattr(args, "docs_only", False))
     try:
         summary = validate_prd(
             target,
@@ -70,7 +76,16 @@ def main(argv: list[str] | None = None) -> int:
             min_questions_override=args.min_questions,
         )
     except AnalystValidationError as exc:
+        runtime.maybe_sync_index(target, ticket, context.slug_hint, reason="idea-analyst-check")
+        if docs_only_mode:
+            print(
+                "[aidd] WARN: docs-only rewrite mode bypasses analyst validation blocker "
+                f"(diagnostics={str(exc).strip() or 'validation_error'}).",
+                file=sys.stderr,
+            )
+            return 0
         raise RuntimeError(str(exc)) from exc
+    runtime.maybe_sync_index(target, ticket, context.slug_hint, reason="idea-analyst-check")
 
     if summary.status is None:
         print("[aidd] analyst gate disabled; nothing to validate.")

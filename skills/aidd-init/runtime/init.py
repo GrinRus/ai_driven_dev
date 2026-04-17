@@ -23,7 +23,6 @@ SKILL_TEMPLATE_SEEDS: tuple[tuple[str, str], ...] = (
     ("skills/idea-new/templates/prd.template.md", "docs/prd/template.md"),
     ("skills/plan-new/templates/plan.template.md", "docs/plan/template.md"),
     ("skills/researcher/templates/research.template.md", "docs/research/template.md"),
-    ("skills/spec-interview/templates/spec.template.yaml", "docs/spec/template.spec.yaml"),
     ("skills/tasks-new/templates/tasklist.template.md", "docs/tasklist/template.md"),
     ("skills/aidd-loop/templates/loop-pack.template.md", "docs/loops/template.loop-pack.md"),
     ("skills/aidd-core/templates/context-pack.template.md", "reports/context/template.context-pack.md"),

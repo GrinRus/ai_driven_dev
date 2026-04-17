@@ -44,59 +44,9 @@ from aidd_runtime.feature_ids import resolve_aidd_root, resolve_identifiers
 
 PLACEHOLDER_VALUES = {"", "...", "<...>", "tbd", "<tbd>", "todo", "<todo>"}
 NONE_VALUES = {"none", "нет", "n/a", "na"}
-SPEC_PLACEHOLDERS = {"none", "нет", "n/a", "na", "-", "missing"}
-SPEC_REQUIRED_PATTERNS = [
-    re.compile(pattern, re.IGNORECASE)
-    for pattern in (
-        r"\bui\b",
-        r"\bux\b",
-        r"\bui/ux\b",
-        r"\bfrontend\b",
-        r"\bfront[- ]end\b",
-        r"/ui/",
-        r"/ux/",
-        r"/frontend/",
-        r"/front-end/",
-        r"\bweb\b",
-        r"\bинтерфейс",
-        r"\bэкран",
-        r"\bстраниц",
-        r"\bформа\b",
-        r"\bдизайн\b",
-        r"\bвизуал",
-        r"\bмакет",
-        r"\blayout\b",
-        r"\bapi\b",
-        r"\bendpoint\b",
-        r"\brest\b",
-        r"\bgrpc\b",
-        r"\bgraphql\b",
-        r"\bcontract\b",
-        r"\bschema\b",
-        r"\bmigration\b",
-        r"\bdb\b",
-        r"\bdatabase\b",
-        r"\bdata\b",
-        r"\btable\b",
-        r"\bcolumn\b",
-        r"\bконтракт\b",
-        r"\bсхем",
-        r"\bмиграц",
-        r"\bбаз",
-        r"\bданн",
-        r"\bтаблиц",
-        r"\bколонк",
-        r"\be2e\b",
-        r"\bend[- ]to[- ]end\b",
-        r"\bstaging\b",
-        r"\bstand\b",
-        r"\bстенд\b",
-    )
-]
 
 REQUIRED_SECTIONS = {
     "AIDD:CONTEXT_PACK",
-    "AIDD:SPEC_PACK",
     "AIDD:TEST_STRATEGY",
     "AIDD:TEST_EXECUTION",
     "AIDD:ITERATIONS_FULL",
@@ -149,9 +99,18 @@ class TasklistCheckResult:
     message: str = ""
     details: List[str] | None = None
     warnings: List[str] | None = None
+    issues: List["TasklistIssue"] | None = None
 
     def exit_code(self) -> int:
         return 0 if self.status in {"ok", "warn", "skip"} else 2
+
+
+@dataclass(frozen=True)
+class TasklistIssue:
+    code: str
+    severity: str
+    category: str
+    message: str
 
 
 @dataclass
@@ -644,6 +603,8 @@ def progress_entries_from_lines(lines: List[str]) -> tuple[List[dict], List[str]
         if not raw.strip().startswith("-"):
             continue
         stripped = raw.strip().lower()
+        if stripped == "---":
+            continue
         if stripped.startswith("- (empty)") or stripped.startswith("- ..."):
             continue
         match = PROGRESS_LINE_RE.match(raw)
@@ -920,21 +881,6 @@ def resolve_prd_path(root: Path, front: dict[str, str], ticket: str) -> Path:
     return root / "docs" / "prd" / f"{ticket}.prd.md"
 
 
-def resolve_spec_path(root: Path, front: dict[str, str], ticket: str) -> Path | None:
-    spec = front.get("Spec") or front.get("spec") or ""
-    if spec:
-        lowered = spec.strip().lower()
-        if is_placeholder(spec) or lowered in SPEC_PLACEHOLDERS:
-            return None
-        raw = Path(spec)
-        if not raw.is_absolute():
-            if raw.parts and raw.parts[0] == "aidd" and root.name == "aidd":
-                return root / Path(*raw.parts[1:])
-            return root / raw
-        return raw
-    return root / "docs" / "spec" / f"{ticket}.spec.yaml"
-
-
 def rel_path(root: Path, path: Path) -> str:
     try:
         return path.relative_to(root).as_posix()
@@ -950,12 +896,6 @@ def extract_section_text(text: str, titles: Iterable[str]) -> str:
         for section in section_map.get(title, []):
             collected.extend(section_body(section))
     return "\n".join(collected) if collected else text
-
-
-def mentions_spec_required(text: str) -> bool:
-    if not text:
-        return False
-    return any(pattern.search(text) for pattern in SPEC_REQUIRED_PATTERNS)
 
 
 def tasklist_path_for(root: Path, ticket: str) -> Path:
@@ -1150,25 +1090,53 @@ def run_check(args: argparse.Namespace) -> int:
                     config_hash=config_hash,
                 )
             if result.status == "error":
-                if result.details:
+                if result.issues:
+                    for issue in result.issues:
+                        print(
+                            "[tasklist-check] "
+                            f"severity={issue.severity} category={issue.category} code={issue.code}: {issue.message}",
+                            file=sys.stderr,
+                        )
+                elif result.details:
                     for entry in result.details:
                         print(f"[tasklist-check] {entry}", file=sys.stderr)
                 print(f"[tasklist-check] FAIL: {result.message}", file=sys.stderr)
                 return result.exit_code()
             if result.status == "warn":
-                if result.details:
+                if result.issues:
+                    for issue in result.issues:
+                        print(
+                            "[tasklist-check] "
+                            f"WARN severity={issue.severity} category={issue.category} code={issue.code}: {issue.message}",
+                            file=sys.stderr,
+                        )
+                elif result.details:
                     for entry in result.details:
                         print(f"[tasklist-check] WARN: {entry}", file=sys.stderr)
             return result.exit_code()
     if result.status == "error":
-        if result.details:
+        if result.issues:
+            for issue in result.issues:
+                print(
+                    "[tasklist-check] "
+                    f"severity={issue.severity} category={issue.category} code={issue.code}: {issue.message}",
+                    file=sys.stderr,
+                )
+        elif result.details:
             for entry in result.details:
                 print(f"[tasklist-check] {entry}", file=sys.stderr)
         print(f"[tasklist-check] FAIL: {result.message}", file=sys.stderr)
         return result.exit_code()
 
     if result.status == "warn":
-        if result.details:
+        if result.issues:
+            for issue in result.issues:
+                print(
+                    "[tasklist-check] "
+                    f"WARN severity={issue.severity} category={issue.category} code={issue.code}: {issue.message}",
+                    file=sys.stderr,
+                )
+        elif result.details:
             for entry in result.details:
                 print(f"[tasklist-check] WARN: {entry}", file=sys.stderr)
         return result.exit_code()

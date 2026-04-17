@@ -36,11 +36,13 @@
   - для `idea-new` и `plan-new` retry-триггер также считается валидным, если top-level `success|WARN` явно требует ответить на `Q*`/закрыть незаполненный `AIDD:ANSWERS Q<N>=...` и перевести артефакт стадии в `READY`;
   - формат payload: `Q<N>=<token>` или `Q<N>="короткий текст"` (one-line);
   - не считать trigger-ом `Q*`/`AIDD:ANSWERS`/`Question` внутри вложенных артефактов (PRD/tasklist/reports/log excerpts), если stage-return сам не запрашивает ответ;
+  - количество `Q<N>` в retry определяется только актуальным top-level stage-return последнего run; примеры payload в документации не фиксируют число вопросов;
   - `idea-new`: `ticket + IDEA_NOTE + AIDD:ANSWERS`
   - остальные stage: `ticket + AIDD:ANSWERS`
   - для runtime retry использовать canonical CLI-аргументы runtime (например, `--plan-path` для `plan-review-gate`) без legacy alias-аргументов.
-- R2: Если `BLOCKED` связан с missing spec (`aidd/docs/spec/<ticket>.spec.yaml`) или unresolved `Q*`:
-  - выполнить `/feature-dev-aidd:spec-interview <ticket>` (тот же retry-шаблон),
+  - если для части актуальных `Q<N>` нет сопоставленных ответов, фиксировать `question_retry_incomplete` и не отправлять partial compact payload как completed retry.
+- R2: Если `BLOCKED` связан с unresolved `Q*`:
+  - выполнить `/feature-dev-aidd:review-spec <ticket>` (тот же retry-шаблон),
   - перед повтором stage перепроверить `aidd/docs/prd/<ticket>.prd.md` (`Status:` и unresolved `Q*`);
   - если PRD остаётся `Status != READY` при `open_questions_count=0`, выполнить findings-sync cycle (`idea-new` и/или `plan-new` с `AIDD:SYNC_FROM_REVIEW ...`) и затем повторить `review-spec`;
   - если после findings-sync PRD остаётся `Status != READY`, классифицировать как `NOT VERIFIED (findings_sync_not_converged)` + `prompt-flow gap` и не повторять stage, требующий `PRD READY`.
@@ -68,12 +70,12 @@
 - R12.1: Readiness gate = `PASS` только при одновременном выполнении условий: `prd_status=READY`, `open_questions_count=0`, `answers_format=compact_q_values`, и `research_status=reviewed|ok|warn|pending` при наличии minimal RLM baseline.
 - R12.1b: Minimal RLM baseline для soft-readiness: существуют `aidd/reports/research/<ticket>-rlm-targets.json`, `...-rlm-manifest.json`, `...-rlm.worklist.pack.json`, `...-rlm.pack.json`; `aidd/reports/research/<ticket>-rlm.nodes.jsonl` непустой. `links` могут быть `warn|empty` и не являются terminal при baseline.
 - R12.2: При `FAIL` readiness gate обязателен `reason_code` из набора `prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready`; для `prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready` перед terminal-классификацией обязателен ровно один readiness-recovery цикл:
-  - для `prd_not_ready|open_questions_present|answers_format_invalid`: question-closure (`idea-new` и `plan-new` compact retry при валидном trigger) -> `/feature-dev-aidd:spec-interview <ticket>` -> `/feature-dev-aidd:review-spec <ticket>` -> пересчёт `05_precondition_block.txt`;
+  - для `prd_not_ready|open_questions_present|answers_format_invalid`: question-closure (`idea-new` и `plan-new` compact retry при валидном trigger) -> `/feature-dev-aidd:review-spec <ticket>` -> пересчёт `05_precondition_block.txt`;
   - для `research_not_ready`: ровно один canonical researcher recovery/probe -> пересчёт `05_precondition_block.txt`.
 - R12.2a: Если `readiness_gate=PASS` достигнут через `research_status=warn|pending` при minimal RLM baseline, фиксировать `INFO(readiness_gate_research_softened)` и продолжать downstream stages.
 - R12.3: Если после recovery-цикла `readiness_gate` остаётся `FAIL`, шаг 5 классифицируется как `NOT VERIFIED (readiness_gate_failed)` + `prompt-flow gap`; шаг 8 помечается `NOT VERIFIED (upstream_readiness_gate_failed)` без запуска.
 - R12.4: Если `review-spec` narrative расходится с `aidd/reports/prd/<ticket>.json|*.pack.json` по числу/типу findings, фиксировать `prompt-exec issue (review_spec_report_mismatch)` и принимать recovery-решение по report payload; исключение: при `recommended_status=ready`, `findings_count=0`, `open_questions_count=0` классифицировать как `INFO(review_spec_report_mismatch_non_blocking)`.
-- R12.5: Если `review-spec` вернул `WARN|NEEDS_REVISION`, unresolved `Q*` отсутствуют и spec-файл существует, запускать findings-sync cycle:
+- R12.5: Если `review-spec` вернул `WARN|NEEDS_REVISION`, unresolved `Q*` отсутствуют, запускать findings-sync cycle:
   - PRD findings (`aidd/reports/prd/<ticket>.json|*.pack.json`) -> один sync-retry `idea-new` с compact payload `AIDD:SYNC_FROM_REVIEW ...`;
   - Plan findings (`plan_status=NEEDS_REVISION|WARN` в review payload или plan-review report) -> один sync-retry `plan-new` с compact payload `AIDD:SYNC_FROM_REVIEW ...`;
   - после sync-retry повторить `/feature-dev-aidd:review-spec <ticket>` и пересчитать `05_precondition_block.txt`.
@@ -293,9 +295,8 @@ RLM-only check:
 - First run: `/feature-dev-aidd:review-spec $TICKET`.
 - При вопросах: retry.
 - После каждого run сохранить `05_review_spec_report_check_run<N>.txt`:
-  - `report_path`, `recommended_status`, `findings_count`, `open_questions_count`, `spec_exists`, `prd_findings_sync_needed`, `plan_findings_sync_needed`, `narrative_vs_report_mismatch`.
-- Если итог `WARN/BLOCKED` из-за unresolved `Q*` или missing spec:
-  - выполнить `/feature-dev-aidd:spec-interview $TICKET`;
+  - `report_path`, `recommended_status`, `findings_count`, `open_questions_count`, `prd_findings_sync_needed`, `plan_findings_sync_needed`, `narrative_vs_report_mismatch`.
+- Если итог `WARN/BLOCKED` из-за unresolved `Q*`:
   - повторить `/feature-dev-aidd:review-spec $TICKET` один раз.
 - Если `prd_findings_sync_needed=1`, `open_questions_count=0`:
   - сохранить `05_prd_findings_sync_request.txt`;
@@ -317,11 +318,10 @@ RLM-only check:
   - если после findings-sync `Status != READY`, классифицировать как `NOT VERIFIED (findings_sync_not_converged)` + `prompt-flow gap` и не запускать `tasks-new`.
 - First run: `/feature-dev-aidd:tasks-new $TICKET`.
 - При вопросах: retry.
-- Если ответ содержит `Missing Spec File` / `aidd/docs/spec/$TICKET.spec.yaml` / unresolved `Q*`:
-  - выполнить `/feature-dev-aidd:spec-interview $TICKET`;
+- Если ответ содержит `upstream_blocker` / unresolved `Q*`:
   - перед retry проверить PRD header (`Status:` + unresolved `Q*`); если `Status != READY`, сначала выполнить findings-sync cycle (idea-new/plan-new), затем повторно проверить `Status`;
   - если после findings-sync `Status != READY`, классифицировать как `NOT VERIFIED (findings_sync_not_converged)` + `prompt-flow gap` и не выполнять retry;
-  - иначе повторить `/feature-dev-aidd:tasks-new $TICKET` один раз.
+  - иначе повторить `/feature-dev-aidd:tasks-new $TICKET` один раз только при `repairable_structure`.
 - Если `tasks-new` сообщает `AIDD:TEST_EXECUTION missing tasks`:
   - сохранить `05_tasklist_test_execution_probe.txt` с полями `tasks_key_present`, `tasks_list_count`, `commands_key_present`, `classification`;
   - если probe подтверждает `tasks_list_count>0` (canonical executable contract) или наличие `command|commands` entries, классифицировать как `INFO(tasklist_schema_parser_mismatch_recoverable)` и продолжать downstream stages (не terminal blocker);

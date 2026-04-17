@@ -23,6 +23,12 @@ _PLUGIN_WRITE_SAFETY_IGNORED_SUFFIXES = (".pyc", ".pyo")
 _PLUGIN_WRITE_SAFETY_IGNORED_DIR_MARKERS = ("/__pycache__/", "/.pytest_cache/")
 _PLUGIN_WRITE_SAFETY_IGNORED_PREFIXES = (".pytest_cache/",)
 _PLUGIN_WRITE_SAFETY_IGNORED_BASENAMES = (".coverage",)
+_DOCS_ONLY_ENV_KEYS = (
+    "AIDD_DOCS_ONLY",
+    "AIDD_DOCS_ONLY_MODE",
+    "AIDD_REWRITE_DOCS",
+    "CLAUDE_DOCS_ONLY",
+)
 
 
 try:
@@ -221,6 +227,19 @@ def detect_branch(target: Path) -> Optional[str]:
 
 def _truthy_env(value: str | None) -> bool:
     return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def docs_only_mode_requested(*, explicit: object | None = None) -> bool:
+    """Return True when docs-only rewrite mode is explicitly requested.
+
+    The mode is invocation-scoped and must never persist across runs.
+    """
+    if explicit is not None:
+        return _truthy_env(str(explicit))
+    for key in _DOCS_ONLY_ENV_KEYS:
+        if _truthy_env(os.environ.get(key)):
+            return True
+    return False
 
 
 def plugin_write_safety_enabled() -> bool:

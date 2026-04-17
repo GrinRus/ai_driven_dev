@@ -37,6 +37,7 @@ def _ensure_plugin_root_on_path() -> None:
 _ensure_plugin_root_on_path()
 
 from aidd_runtime import gates
+from aidd_runtime import runtime
 from aidd_runtime.feature_ids import resolve_aidd_root
 
 DEFAULT_APPROVED = {"ready"}
@@ -66,6 +67,11 @@ def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
         "--skip-on-plan-edit",
         action="store_true",
         help="Return success when the plan file itself is being edited.",
+    )
+    parser.add_argument(
+        "--docs-only",
+        action="store_true",
+        help="Enable docs-only rewrite mode for this invocation.",
     )
     return parser.parse_args(list(argv) if argv is not None else None)
 
@@ -148,8 +154,25 @@ def parse_review_section(content: str) -> tuple[bool, str, List[str]]:
     return found, status, action_items
 
 
+def _emit_gate_outcome(message: str, *, docs_only_mode: bool, reason_code: str) -> int:
+    if docs_only_mode:
+        rendered = message.strip()
+        if rendered.startswith("BLOCK:"):
+            rendered = "WARN:" + rendered[len("BLOCK:") :]
+        elif not rendered.startswith("WARN:"):
+            rendered = f"WARN: {rendered}"
+        print(
+            f"{rendered} (reason_code={reason_code}, docs_only_mode=1, "
+            "reinvoke_allowed=1, retry_scope=invocation)"
+        )
+        return 0
+    print(message)
+    return 1
+
+
 def run_gate(args: argparse.Namespace) -> int:
     root = detect_project_root()
+    docs_only_mode = runtime.docs_only_mode_requested(explicit=getattr(args, "docs_only", False))
     config_path = Path(args.config)
     if not config_path.is_absolute():
         config_path = root / config_path
@@ -171,8 +194,11 @@ def run_gate(args: argparse.Namespace) -> int:
     ticket = args.ticket.strip()
     plan_path = root / "docs" / "plan" / f"{ticket}.md"
     if not plan_path.is_file():
-        print(f"BLOCK: нет плана (docs/plan/{ticket}.md) → выполните /feature-dev-aidd:plan-new {ticket}")
-        return 1
+        return _emit_gate_outcome(
+            f"BLOCK: нет плана (docs/plan/{ticket}.md) → выполните /feature-dev-aidd:plan-new {ticket}",
+            docs_only_mode=docs_only_mode,
+            reason_code="plan_missing",
+        )
 
     normalized = normalize_path(args.file_path, root)
     if args.skip_on_plan_edit and normalized.endswith(f"docs/plan/{ticket}.md"):
@@ -185,25 +211,37 @@ def run_gate(args: argparse.Namespace) -> int:
     if not found:
         if allow_missing:
             return 0
-        print(f"BLOCK: нет раздела '## Plan Review' в docs/plan/{ticket}.md → выполните /feature-dev-aidd:review-spec {ticket}")
-        return 1
+        return _emit_gate_outcome(
+            f"BLOCK: нет раздела '## Plan Review' в docs/plan/{ticket}.md → выполните /feature-dev-aidd:review-spec {ticket}",
+            docs_only_mode=docs_only_mode,
+            reason_code="plan_review_missing_section",
+        )
 
     approved: Set[str] = {str(item).lower() for item in gate.get("approved_statuses", DEFAULT_APPROVED)}
     blocking: Set[str] = {str(item).lower() for item in gate.get("blocking_statuses", DEFAULT_BLOCKING)}
 
     if status in blocking:
-        print(f"BLOCK: Plan Review помечен как '{status.upper()}' → устраните блокеры через /feature-dev-aidd:review-spec {ticket}")
-        return 1
+        return _emit_gate_outcome(
+            f"BLOCK: Plan Review помечен как '{status.upper()}' → устраните блокеры через /feature-dev-aidd:review-spec {ticket}",
+            docs_only_mode=docs_only_mode,
+            reason_code="plan_review_blocked_status",
+        )
 
     if approved and status not in approved:
-        print(f"BLOCK: Plan Review не READY (Status: {status.upper() or 'PENDING'}) → выполните /feature-dev-aidd:review-spec {ticket}")
-        return 1
+        return _emit_gate_outcome(
+            f"BLOCK: Plan Review не READY (Status: {status.upper() or 'PENDING'}) → выполните /feature-dev-aidd:review-spec {ticket}",
+            docs_only_mode=docs_only_mode,
+            reason_code="plan_review_not_ready",
+        )
 
     if bool(gate.get("require_action_items_closed", True)):
         for item in action_items:
             if item.startswith("- [ ]"):
-                print(f"BLOCK: В Plan Review остались незакрытые action items → обновите docs/plan/{ticket}.md")
-                return 1
+                return _emit_gate_outcome(
+                    f"BLOCK: В Plan Review остались незакрытые action items → обновите docs/plan/{ticket}.md",
+                    docs_only_mode=docs_only_mode,
+                    reason_code="plan_review_open_action_items",
+                )
 
     return 0
 

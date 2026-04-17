@@ -80,8 +80,23 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  - {item}")
     reports = index_payload.get("reports") or []
     if reports:
-        print("- Reports:")
+        print("- Reports (actual):")
         for item in reports:
+            print(f"  - {item}")
+    doc_statuses = index_payload.get("doc_statuses") or {}
+    if isinstance(doc_statuses, dict) and doc_statuses:
+        print("- Document statuses:")
+        for key, value in doc_statuses.items():
+            print(f"  - {key}: {value}")
+    expected_reports = index_payload.get("expected_reports") or []
+    if expected_reports:
+        print("- Expected reports (planned):")
+        for item in expected_reports:
+            print(f"  - {item}")
+    missing_expected_reports = index_payload.get("missing_expected_reports") or []
+    if missing_expected_reports:
+        print("- Missing expected reports:")
+        for item in missing_expected_reports:
             print(f"  - {item}")
     next3 = index_payload.get("next3") or []
     if next3:
@@ -109,17 +124,37 @@ def main(argv: list[str] | None = None) -> int:
             if path:
                 label += f" ({path})"
             print(f"  - {label}")
+    truth_checks = index_payload.get("truth_checks") or []
+    if truth_checks:
+        print("- Truth checks:")
+        for item in truth_checks:
+            if not isinstance(item, dict):
+                print(f"  - {item}")
+                continue
+            summary_text = item.get("summary") or item.get("code") or "truth-check"
+            severity = str(item.get("severity") or "").strip().lower()
+            label = f"[{severity}] {summary_text}" if severity else str(summary_text)
+            print(f"  - {label}")
 
-    events = _events.read_events(target, ticket, limit=args.events)
+    events = index_payload.get("events") or _events.read_events(target, ticket, limit=args.events)
     if events:
         print("- Events:")
         for entry in events:
-            line = f"{entry.get('ts')} [{entry.get('type')}]"
+            repeat_count = int(entry.get("repeat_count") or 1)
+            if repeat_count > 1 and entry.get("first_seen") and entry.get("last_seen"):
+                line = f"{entry.get('first_seen')}..{entry.get('last_seen')} [{entry.get('type')}]"
+            else:
+                line = f"{entry.get('ts')} [{entry.get('type')}]"
             status = entry.get("status")
             if status:
                 line += f" {status}"
+            if repeat_count > 1:
+                line += f" x{repeat_count}"
             details = entry.get("details")
-            if isinstance(details, dict) and details.get("summary"):
+            sample_reason = entry.get("sample_reason")
+            if sample_reason:
+                line += f" — {sample_reason}"
+            elif isinstance(details, dict) and details.get("summary"):
                 line += f" — {details.get('summary')}"
             print(f"  - {line}")
     test_events = _tests_log.read_log(target, ticket, limit=args.events)

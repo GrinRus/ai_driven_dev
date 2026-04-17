@@ -41,11 +41,9 @@ class RepoTopologyAuditTests(unittest.TestCase):
                     "agents": [
                         "./agents/planner.md",
                         "./agents/validator.md",
-                        "./agents/spec-interview-writer.md",
                     ],
                     "skills": [
                         "./skills/plan-new",
-                        "./skills/spec-interview",
                         "./skills/qa",
                         "./skills/review",
                         "./skills/aidd-core",
@@ -68,19 +66,6 @@ Run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan-new/runtime/research_check.py --t
 """,
         )
         _write(root / "skills" / "plan-new" / "runtime" / "research_check.py", "from aidd_runtime import runtime\n")
-
-        _write(
-            root / "skills" / "spec-interview" / "SKILL.md",
-            """---
-name: spec-interview
-user-invocable: true
----
-
-Run subagent `feature-dev-aidd:spec-interview-writer`.
-Run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/spec-interview/runtime/spec_interview.py --ticket <ticket>`.
-""",
-        )
-        _write(root / "skills" / "spec-interview" / "runtime" / "spec_interview.py", "print('ok')\n")
 
         _write(
             root / "skills" / "qa" / "SKILL.md",
@@ -142,16 +127,6 @@ skills:
 ---
 """,
         )
-        _write(
-            root / "agents" / "spec-interview-writer.md",
-            """---
-name: spec-interview-writer
-skills:
-  - feature-dev-aidd:aidd-core
----
-""",
-        )
-
         _write(
             root / "hooks" / "hooks.json",
             json.dumps(
@@ -217,14 +192,6 @@ skills:
             targets = sorted(edge.get("target") for edge in command_edges)
             self.assertEqual(targets, ["agent:planner", "agent:validator"])
 
-            spec_edges = [
-                edge
-                for edge in payload.get("edges", [])
-                if edge.get("type") == "command_subagent"
-                and edge.get("source") == "command_skill:spec-interview"
-            ]
-            self.assertEqual([edge.get("target") for edge in spec_edges], ["agent:spec-interview-writer"])
-
     def test_deterministic_payload_with_fixed_timestamp(self) -> None:
         with tempfile.TemporaryDirectory(prefix="repo-topology-deterministic-") as tmp:
             root = Path(tmp)
@@ -243,8 +210,6 @@ skills:
             payload = self.audit.build_revision_payload(root, generated_at="2026-02-24T00:00:00Z")
             candidates = payload.get("unused", {}).get("candidates", [])
             by_path = {item.get("path"): item for item in candidates}
-
-            self.assertNotIn("agents/spec-interview-writer.md", by_path)
 
             self.assertNotIn("skills/review/runtime/context_pack.py", by_path)
 

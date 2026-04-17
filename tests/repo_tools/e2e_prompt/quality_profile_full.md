@@ -137,7 +137,7 @@
 - R18.2: При `FAIL` readiness gate обязателен `reason_code` из набора `prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready`; шаг 5 классифицируется как `NOT VERIFIED (readiness_gate_failed)` + `prompt-flow gap`.
 - R18.2c: Если `readiness_gate=PASS` достигнут через `research_status=warn|pending` при minimal RLM baseline, фиксировать `INFO(readiness_gate_research_softened)` и продолжать downstream stages.
 - R18.4: Если `review-spec` top-level narrative и `aidd/reports/prd/<ticket>.json|*.pack.json` расходятся по findings, фиксировать `prompt-exec issue (review_spec_report_mismatch)` и принимать recovery-решение по report payload; исключение: при `recommended_status=ready`, `findings_count=0`, `open_questions_count=0` классифицировать как `INFO(review_spec_report_mismatch_non_blocking)`.
-- R18.5: Если `review-spec` вернул `WARN|NEEDS_REVISION`, unresolved `Q*` отсутствуют и spec-файл существует, запускать findings-sync cycle с compact payload `AIDD:SYNC_FROM_REVIEW ...`.
+- R18.5: Если `review-spec` вернул `WARN|NEEDS_REVISION`, unresolved `Q*` отсутствуют, запускать findings-sync cycle с compact payload `AIDD:SYNC_FROM_REVIEW ...`.
 - R18.6: Если после findings-sync cycle `readiness_gate` остаётся `FAIL`, классифицировать как `NOT VERIFIED (findings_sync_not_converged)` + `prompt-flow gap`.
 
 ## 4.1 Дополнительные правила quality-аудита
@@ -244,10 +244,12 @@
    - retry-триггер разрешён только по текущему stage-return;
    - для `idea-new` и `plan-new` retry-триггер также валиден, если top-level `success|WARN` явно требует закрыть `Q*`;
    - не считать trigger-ом `Q*`/`AIDD:ANSWERS`/`Question` внутри вложенных артефактов;
+   - количество `Q<N>` в retry определяется только актуальным top-level stage-return последнего run; примеры payload не фиксируют число вопросов;
    - извлеки вопросы в `AUDIT_DIR/<step>_questions.txt`;
    - дополнительно сохрани `AUDIT_DIR/<step>_questions_raw.txt` и `AUDIT_DIR/<step>_questions_normalized.txt`;
    - если source содержит `TBD`/пустые значения в `AIDD:ANSWERS`, нормализуй в `Q<N>=<token>` или `Q<N>="короткий текст"`;
    - выполни **ровно один** retry;
+   - если для части актуальных `Q<N>` нет сопоставленных ответов, фиксируй `question_retry_incomplete` и не публикуй partial compact payload как completed retry;
    - рекомендуемый шаблон: `AIDD:ANSWERS Q1=C; Q2=B; Q3=C; Q4=A; Q5=C`.
 3. Retry формат:
    - `idea-new`: `ticket + IDEA_NOTE + AIDD:ANSWERS`;
@@ -256,9 +258,8 @@
 4. Если после retry всё ещё BLOCKED:
    - зафиксируй `WARN`/`FAIL` с причиной;
    - продолжай по сценарию, где это возможно.
-5. Если причина BLOCKED связана с отсутствующим spec или `PRD Status != READY`:
-   - сначала пройди `/feature-dev-aidd:spec-interview <ticket>`;
-   - затем `/feature-dev-aidd:review-spec <ticket>`;
+5. Если причина BLOCKED связана с unresolved `Q*` или `PRD Status != READY`:
+   - сначала пройди `/feature-dev-aidd:review-spec <ticket>`;
    - затем findings-sync cycle при необходимости;
    - если после findings-sync `Status != READY`, классифицируй как `NOT VERIFIED (findings_sync_not_converged)` + `prompt-flow gap`.
 6. Если stage-return содержит `Unknown skill`, классифицировать как `ENV_BLOCKER(plugin_not_loaded)` и остановить аудит.
@@ -531,8 +532,8 @@ Anti-cascade:
 - first run ticket-only;
 - при вопросах: retry;
 - после каждого run сохранять `05_review_spec_report_check_run<N>.txt`:
-  - `report_path`, `recommended_status`, `findings_count`, `open_questions_count`, `spec_exists`, `prd_findings_sync_needed`, `plan_findings_sync_needed`, `narrative_vs_report_mismatch`
-- если есть unresolved `Q*` или отсутствующий spec, выполнить `/feature-dev-aidd:spec-interview $TICKET`, затем повторить `/feature-dev-aidd:review-spec $TICKET` один раз.
+  - `report_path`, `recommended_status`, `findings_count`, `open_questions_count`, `prd_findings_sync_needed`, `plan_findings_sync_needed`, `narrative_vs_report_mismatch`
+- если есть unresolved `Q*`, повторить `/feature-dev-aidd:review-spec $TICKET` один раз.
 - при `prd_findings_sync_needed=1` выполнить один sync-retry через `idea-new`, затем ещё раз `review-spec`.
 - при `plan_findings_sync_needed=1` выполнить один sync-retry через `plan-new`, затем ещё раз `review-spec`.
 - если hang/kill: runtime probe
@@ -542,10 +543,10 @@ Anti-cascade:
 
 Сделать:
 - запускать только при `readiness_gate=PASS`;
-- если PRD не `READY` или есть unresolved `Q*`, выполнить required recovery (`spec-interview`, `review-spec`, findings-sync`) и только потом retry.
+- если PRD не `READY` или есть unresolved `Q*`, выполнить required recovery (`review-spec`, findings-sync`) и только потом retry.
 - first run ticket-only;
 - при вопросах: retry;
-- если tasks-new сообщает `Missing Spec File` или unresolved `Q*`, классифицировать как prompt-flow gap и выполнить один repair/retry cycle.
+- если tasks-new сообщает `upstream_blocker` или unresolved `Q*`, классифицировать как prompt-flow gap; один retry допускается только для `repairable_structure`.
 - если `tasks-new` сообщает `AIDD:TEST_EXECUTION missing tasks`:
   - сохранить `05_tasklist_test_execution_probe.txt`;
   - если `tasks_list_count>0` (canonical executable contract) или есть `command|commands`, классифицировать как `INFO(tasklist_schema_parser_mismatch_recoverable)` и продолжать downstream stages.

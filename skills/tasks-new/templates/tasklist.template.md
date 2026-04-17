@@ -8,9 +8,8 @@ Owner: <name/team>
 PRD: aidd/docs/prd/<ABC-123>.prd.md
 Plan: aidd/docs/plan/<ABC-123>.md
 Research: aidd/docs/research/<ABC-123>.md
-Spec: aidd/docs/spec/<ABC-123>.spec.yaml
-Reports:
-  tests: aidd/reports/tests/<ABC-123>/<scope_key>.jsonl  # optional
+ExpectedReports:
+  tests: aidd/reports/tests/<ABC-123>/<scope_key>.jsonl
   review_report: aidd/reports/reviewer/<ABC-123>/<scope_key>.json
   reviewer_marker: aidd/reports/reviewer/<ABC-123>/<scope_key>.tests.json
   qa: aidd/reports/qa/<ABC-123>.json
@@ -19,12 +18,12 @@ Reports:
 # Tasklist: <ABC-123> — <short-slug>
 
 > Единственный источник правды для implement/review/qa.
-> Всегда начинайте чтение с `## AIDD:CONTEXT_PACK`, затем `## AIDD:SPEC_PACK`, затем `## AIDD:TEST_EXECUTION`, затем `## AIDD:ITERATIONS_FULL`, затем `## AIDD:NEXT_3`.
+> Всегда начинайте чтение с `## AIDD:CONTEXT_PACK`, затем `## AIDD:TEST_EXECUTION`, затем `## AIDD:ITERATIONS_FULL`, затем `## AIDD:NEXT_3`.
 
 ## AIDD:CONTEXT_PACK
 Updated: <YYYY-MM-DD>
 Ticket: <ABC-123>
-Stage: <idea|research|plan|review-spec|review-plan|review-prd|spec-interview|tasklist|implement|review|qa|status>
+Stage: <idea|research|plan|review-spec|review-plan|review-prd|tasklist|implement|review|qa|status>
 Status: PENDING
 
 ### TL;DR
@@ -44,7 +43,7 @@ Status: PENDING
 
 ### Decisions & defaults (living)
 - Feature flag: <none|flag_name + default>
-- Contract/API: <ссылка на spec или 1 строка>
+- Contract/API: <1 строка или ссылка на PRD/plan section>
 - Data model changes: <none|schema changes needed: ...>
 - Observability: <logs/metrics/tracing expectations>
 
@@ -69,27 +68,13 @@ Status: PENDING
 - <handoff-id> — <1 строка, почему блокирует>
 
 ### References
-- Spec: aidd/docs/spec/<ABC-123>.spec.yaml
 - PRD: aidd/docs/prd/<ABC-123>.prd.md (ищи #AIDD:ACCEPTANCE, #AIDD:ROLL_OUT)
 - Research: aidd/docs/research/<ABC-123>.md (ищи #AIDD:INTEGRATION_POINTS)
 - Plan: aidd/docs/plan/<ABC-123>.md (ищи #AIDD:FILES_TOUCHED, #AIDD:ITERATIONS)
-- Reports:
+- Expected reports (planned outputs):
   - review_report: aidd/reports/reviewer/<ABC-123>/<scope_key>.json
   - reviewer_marker: aidd/reports/reviewer/<ABC-123>/<scope_key>.tests.json
   - qa: aidd/reports/qa/<ABC-123>.json
-
----
-
-## AIDD:SPEC_PACK
-Updated: <YYYY-MM-DD>
-Spec: aidd/docs/spec/<ABC-123>.spec.yaml (status: <draft|ready>|none)
-- Goal: <1–2 строки>
-- Non-goals:
-  - <...>
-- Key decisions:
-  - <...>
-- Risks:
-  - <...>
 
 ## AIDD:TEST_STRATEGY
 - Unit: <scope>
@@ -114,66 +99,97 @@ Spec: aidd/docs/spec/<ABC-123>.spec.yaml (status: <draft|ready>|none)
 > Полный список итераций реализации (от 1 до N). Должен быть **детальнее плана** и не оставлять пробелов.
 > Канонический формат итерации: `- [ ] I7: <title> (iteration_id: I7)`
 - [ ] I1: <краткое название> (iteration_id: I1)
-  - parent_iteration_id: <I0|none>  # optional
+  - parent_iteration_id: none
   - Goal: <что именно делаем>
-  - Outputs: <артефакты итерации>
-  - DoD: <как проверить готовность>
-  - Boundaries: <пути/модули + что не трогаем>
-  - Priority: <low|medium|high>  # optional
-  - Blocking: <true|false>       # optional
+  - Outputs: tasklist updated for implement handoff
+  - DoD: iteration description is implementation-ready
+  - Boundaries: docs/tasklist/<ABC-123>.md
+  - Priority: medium
+  - Blocking: false
   - deps: []
   - locks: []
   - Expected paths:
-    - <path1/**>
-    - <path2/**>
+    - docs/tasklist/<ABC-123>.md
   - Size budget:
-    - max_files: <N>
-    - max_loc: <N>
+    - max_files: 3
+    - max_loc: 120
   - Commands:
     - <doc/ref or command>
   - Exit criteria:
-    - <критерий 1>
-    - <критерий 2>
+    - current iteration is scoped to one bounded implement step
+    - validator findings are triaged for the iteration
   - Steps:
-    - <шаг 1>
-    - <шаг 2>
-    - <шаг 3>
+    - refine scope from plan/PRD
+    - confirm boundaries and DoD
+    - validate tasklist structure
   - Tests:
-    - profile: <fast|targeted|full|none>
-    - tasks: <команды/таски>
-    - filters: <фильтры>
-  - Acceptance mapping: <AC-1, spec:...>
-  - Risks & mitigations: <риск → митигация>
-  - Dependencies: <сервисы/фичефлаги/данные>
+    - profile: none
+    - tasks: []
+    - filters: []
+  - Acceptance mapping: PRD:pending
+  - Risks & mitigations: low -> none
+  - Dependencies: none
 - [ ] I2: <...> (iteration_id: I2)
-  - parent_iteration_id: <I1|none>  # optional
+  - parent_iteration_id: I1
   - Goal: <...>
-  - Outputs: <...>
-  - DoD: <...>
-  - Boundaries: <...>
-  - Priority: <low|medium|high>  # optional
-  - Blocking: <true|false>       # optional
+  - Outputs: tasklist updated for implement handoff
+  - DoD: iteration description is implementation-ready
+  - Boundaries: docs/tasklist/<ABC-123>.md
+  - Priority: medium
+  - Blocking: false
   - deps: []
   - locks: []
   - Expected paths:
-    - <path1/**>
+    - docs/tasklist/<ABC-123>.md
   - Size budget:
-    - max_files: <N>
-    - max_loc: <N>
+    - max_files: 3
+    - max_loc: 120
   - Commands:
     - <doc/ref or command>
   - Exit criteria:
-    - <...>
+    - current iteration is scoped to one bounded implement step
   - Steps:
-    - <...>
+    - refine scope from plan/PRD
+    - confirm boundaries and DoD
+    - validate tasklist structure
   - Tests:
-    - profile: <fast|targeted|full|none>
-    - tasks: <...>
-    - filters: <...>
-  - Acceptance mapping: <...>
-  - Risks & mitigations: <...>
-  - Dependencies: <...>
-<!-- Добавьте I3..N по мере необходимости (формат как выше). -->
+    - profile: none
+    - tasks: []
+    - filters: []
+  - Acceptance mapping: PRD:pending
+  - Risks & mitigations: low -> none
+  - Dependencies: none
+- [ ] I3: <...> (iteration_id: I3)
+  - parent_iteration_id: I2
+  - Goal: <...>
+  - Outputs: tasklist updated for implement handoff
+  - DoD: iteration description is implementation-ready
+  - Boundaries: docs/tasklist/<ABC-123>.md
+  - Priority: medium
+  - Blocking: false
+  - deps: []
+  - locks: []
+  - Expected paths:
+    - docs/tasklist/<ABC-123>.md
+  - Size budget:
+    - max_files: 3
+    - max_loc: 120
+  - Commands:
+    - <doc/ref or command>
+  - Exit criteria:
+    - current iteration is scoped to one bounded implement step
+  - Steps:
+    - refine scope from plan/PRD
+    - confirm boundaries and DoD
+    - validate tasklist structure
+  - Tests:
+    - profile: none
+    - tasks: []
+    - filters: []
+  - Acceptance mapping: PRD:pending
+  - Risks & mitigations: low -> none
+  - Dependencies: none
+<!-- Добавьте I4..N по мере необходимости (формат как выше). -->
 
 ---
 
@@ -181,6 +197,7 @@ Spec: aidd/docs/spec/<ABC-123>.spec.yaml (status: <draft|ready>|none)
 > 3 ближайших implement‑чекбокса. Pointer list: 1–2 строки и `ref:` на детализацию.
 - [ ] I1: <кратко о текущем шаге> (ref: iteration_id=I1)
 - [ ] I2: <следующий шаг> (ref: iteration_id=I2)
+- [ ] I3: <третий шаг> (ref: iteration_id=I3)
 
 ---
 
@@ -262,7 +279,6 @@ Spec: aidd/docs/spec/<ABC-123>.spec.yaml (status: <draft|ready>|none)
 - [ ] Research: Status reviewed
 - [ ] Plan: существует и валиден
 - [ ] Review Spec: Plan Review READY + PRD Review READY
-- [ ] Spec interview (optional): spec обновлён; затем `/feature-dev-aidd:tasks-new` для синхронизации tasklist
 
 ### AIDD:CHECKLIST_IMPLEMENT
 - [ ] Реализован функционал для checkbox #1 из AIDD:NEXT_3
@@ -299,7 +315,7 @@ Spec: aidd/docs/spec/<ABC-123>.spec.yaml (status: <draft|ready>|none)
 > Формат записи:
 > `- YYYY-MM-DD source=implement id=I4 kind=iteration hash=abc123 link=aidd/reports/tests/<ticket>/<scope_key>.jsonl msg=short-note`
 > `- YYYY-MM-DD source=review id=review:F6 kind=handoff hash=def456 link=aidd/reports/reviewer/<ticket>/<scope_key>.json msg=blocked`
-- YYYY-MM-DD source=implement id=I1 kind=iteration hash=abc123 link=aidd/reports/tests/<ticket>/<scope_key>.jsonl msg=...
+- (empty)
 
 ---
 
@@ -310,5 +326,4 @@ Spec: aidd/docs/spec/<ABC-123>.spec.yaml (status: <draft|ready>|none)
   - `- [x] <handoff title> (id: review:F6) (link: <commit/pr|report>)`
 - После каждого [x] обновляй `AIDD:NEXT_3` (pointer list) и добавляй запись в `AIDD:PROGRESS_LOG`.
 - Если меняешь тестовый профиль/команды — обнови `AIDD:TEST_EXECUTION`.
-- Если обновили spec — запусти `/feature-dev-aidd:tasks-new` для синхронизации tasklist.
 - Логи/stacktrace не вставлять в tasklist — только ссылки на `aidd/reports/**`.

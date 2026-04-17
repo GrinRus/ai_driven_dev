@@ -80,7 +80,6 @@ TYPE_SECTIONS: Dict[str, Sequence[str]] = {
     ],
     "tasklist": [
         "AIDD:CONTEXT_PACK",
-        "AIDD:SPEC_PACK",
         "AIDD:TEST_STRATEGY",
         "AIDD:TEST_EXECUTION",
         "AIDD:ITERATIONS_FULL",

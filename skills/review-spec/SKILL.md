@@ -1,10 +1,10 @@
 ---
 name: review-spec
-description: Reviews plan and PRD, then gates readiness for implementation. Use when plan and PRD artifacts are ready for spec approval. Do not use when the request is plan authoring in `plan-new` or unresolved answer collection in `spec-interview`.
+description: Reviews plan and PRD, then gates readiness for task derivation. Use when plan and PRD artifacts are ready for downstream planning readiness. Do not use when the request is plan authoring in `plan-new` or task derivation in `tasks-new`.
 argument-hint: $1 [note...]
 lang: en
-prompt_version: 1.0.27
-source_version: 1.0.27
+prompt_version: 1.0.28
+source_version: 1.0.28
 allowed-tools:
   - Read
   - Edit
@@ -37,7 +37,7 @@ Follow `feature-dev-aidd:aidd-core`.
 8. Run subagent `feature-dev-aidd:prd-reviewer` after the plan-reviewer handoff whenever PRD artifacts remain readable; if the plan path is WARN-only, continue the PRD pass, but do not let narrative reviewers override gate/report payloads.
 9. Persist PRD review report with `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/runtime/prd_review.py --ticket <ticket> --report aidd/reports/prd/<ticket>.json --require-ready` for READY-path validation.
 10. Review-stage RLM policy: if RLM links are empty, the runtime performs bounded auto-heal (`rlm_links_build`, then finalize probe) and returns WARN attribution with evidence instead of terminal block when review can continue.
-11. Report payload (`aidd/reports/prd/<ticket>.json|.pack.json`) is the source of truth for final verdict: READY is allowed only when `recommended_status=ready`; otherwise return WARN/BLOCKED with canonical next action (`/feature-dev-aidd:spec-interview <ticket>`).
+11. Report payload (`aidd/reports/prd/<ticket>.json|.pack.json`) is the source of truth for final verdict: READY is allowed only when `recommended_status=ready`; otherwise return WARN/BLOCKED with canonical next action on upstream PRD/plan fixes, then rerun `/feature-dev-aidd:review-spec <ticket>`.
 12. If narrative text conflicts with gate/report payload, mark `WARN(review_spec_report_mismatch)` and follow gate/report payload only.
 13. `Proceed to implementation` is forbidden when `recommended_status != ready`.
 14. Runtime-path safety: execute only canonical runtime commands from this contract (`python3 ${CLAUDE_PLUGIN_ROOT}/skills/.../runtime/...`).

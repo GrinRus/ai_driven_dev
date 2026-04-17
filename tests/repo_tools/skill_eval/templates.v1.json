@@ -16,9 +16,8 @@
     {"name": "qa", "focus": "qa-stage verification, report generation and postflight", "avoid": ["review", "implement"]},
     {"name": "researcher", "focus": "research artifact refresh and canonical RLM readiness pipeline", "avoid": ["idea-new", "plan-new"]},
     {"name": "review", "focus": "review-stage findings validation and follow-up task derivation", "avoid": ["implement", "qa"]},
-    {"name": "review-spec", "focus": "plan+PRD readiness review and approval gate", "avoid": ["plan-new", "spec-interview"]},
-    {"name": "spec-interview", "focus": "collect unresolved spec answers and sync to spec.yaml", "avoid": ["review-spec", "tasks-new"]},
+    {"name": "review-spec", "focus": "plan+PRD readiness review and approval gate", "avoid": ["plan-new", "tasks-new"]},
     {"name": "status", "focus": "consolidated ticket status summary and artifact pointers", "avoid": ["aidd-observability", "aidd-flow-state"]},
-    {"name": "tasks-new", "focus": "derive/refine tasklist from PRD, plan and spec", "avoid": ["plan-new", "implement"]}
+    {"name": "tasks-new", "focus": "derive/refine tasklist from PRD and plan", "avoid": ["plan-new", "implement"]}
   ]
 }

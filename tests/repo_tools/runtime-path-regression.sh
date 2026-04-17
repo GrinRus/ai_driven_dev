@@ -39,7 +39,6 @@ for entrypoint in \
   skills/researcher/runtime/research.py \
   skills/plan-new/runtime/research_check.py \
   skills/aidd-core/runtime/prd_review.py \
-  skills/spec-interview/runtime/spec_interview.py \
   skills/tasks-new/runtime/tasks_new.py \
   skills/implement/runtime/implement_run.py \
   skills/review/runtime/review_run.py \

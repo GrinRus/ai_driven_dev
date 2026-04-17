@@ -34,7 +34,10 @@ from aidd_runtime import gates
 from aidd_runtime.feature_ids import resolve_aidd_root
 
 # Allow Markdown prefixes (headings/bullets/bold) so analyst output doesn't trip the gate.
-QUESTION_RE = re.compile(r"^\s*(?:[#>*-]+\s*)?(?:\*\*)?Вопрос\s+(\d+)\b[^:\n]*:(?:\*\*)?", re.MULTILINE)
+QUESTION_RE = re.compile(
+    r"^\s*(?:[#>*-]+\s*)?(?:\*\*)?(?:Вопрос|Question)\s+(\d+)\b[^:\n]*:(?:\*\*)?",
+    re.MULTILINE | re.IGNORECASE,
+)
 COMPACT_ANSWER_RE = re.compile(r'\bQ(\d+)\s*=\s*(?:"([^"\n]+)"|([^\s;,#`]+))')
 STATUS_RE = re.compile(r"^\s*Status:\s*([A-Za-z]+)", re.MULTILINE)
 DIALOG_HEADING = "## Диалог analyst"
@@ -49,6 +52,13 @@ ALLOWED_STATUSES = {"READY", "BLOCKED", "PENDING"}
 RESEARCH_REF_TEMPLATE = "aidd/docs/research/{ticket}.md"
 LEGACY_RESEARCH_REF_TEMPLATE = "docs/research/{ticket}.md"
 MARKDOWN_HEADING_RE = re.compile(r"^\s{0,3}#{1,6}\s+\S")
+HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
+DIALOG_METADATA_PREFIXES = (
+    "status:",
+    "ссылка:",
+    "ссылка на исследование:",
+    "researcher:",
+)
 
 
 class AnalystValidationError(RuntimeError):
@@ -116,7 +126,7 @@ def _extract_section(text: str, heading_prefix: str) -> str | None:
         return None
     end_idx = len(lines)
     for idx in range(start_idx, len(lines)):
-        if idx != start_idx and MARKDOWN_HEADING_RE.match(lines[idx]):
+        if idx != start_idx and MARKDOWN_HEADING_RE.match(lines[idx]) and not QUESTION_RE.match(lines[idx]):
             end_idx = idx
             break
     return "\n".join(lines[start_idx:end_idx]).strip()
@@ -197,6 +207,23 @@ def _collect_q_numbers(section: str) -> set[int]:
     return numbers
 
 
+def _strip_html_comments(text: str) -> str:
+    return HTML_COMMENT_RE.sub("", text or "")
+
+
+def _dialog_substantive_body(text: str) -> str:
+    lines: list[str] = []
+    for raw in _strip_html_comments(text).splitlines():
+        stripped = raw.strip()
+        if not stripped or stripped.startswith(">"):
+            continue
+        lowered = stripped.lower()
+        if any(lowered.startswith(prefix) for prefix in DIALOG_METADATA_PREFIXES):
+            continue
+        lines.append(stripped)
+    return "\n".join(lines).strip()
+
+
 def validate_prd(
     root: Path,
     ticket: str,
@@ -216,11 +243,46 @@ def validate_prd(
 
     text = prd_path.read_text(encoding="utf-8")
     dialog_section = _extract_section(text, DIALOG_HEADING)
+    if settings.require_dialog_section and dialog_section is None:
+        raise AnalystValidationError("BLOCK: PRD не содержит раздела `## Диалог analyst` → повторите /feature-dev-aidd:idea-new с уточнениями.")
+
+    min_questions = settings.min_questions
+    if min_questions_override is not None:
+        min_questions = max(min_questions_override, 0)
+
     questions_source = dialog_section or text
-    if dialog_section and not _collect_numbers(QUESTION_RE, questions_source):
-        questions_source = text
-    answers_section = _extract_section(text, ANSWERS_HEADING)
     questions = _collect_numbers(QUESTION_RE, questions_source)
+    if dialog_section is not None and not questions:
+        dialog_body = _dialog_substantive_body(dialog_section)
+        if not dialog_body:
+            raise AnalystValidationError(
+                f"BLOCK: в `## Диалог analyst` нет ни одного валидного вопроса (`Вопрос N` или transitional `Question N`). "
+                f"Placeholder-комментарии не считаются вопросом. Повторите /feature-dev-aidd:idea-new {ticket} без ручного редактирования PRD."
+            )
+        raise AnalystValidationError(
+            f"BLOCK: в `## Диалог analyst` нет ни одного валидного вопроса (`Вопрос N` или transitional `Question N`). "
+            f"Используйте канонический persisted формат `Вопрос / Зачем / Варианты / Default` и повторите /feature-dev-aidd:idea-new {ticket}."
+        )
+
+    if min_questions and len(set(questions)) < min_questions:
+        raise AnalystValidationError(
+            f"BLOCK: analyst должен задать минимум {min_questions} вопрос(ов) в формате «Вопрос N: …» "
+            f"(transitional read-path also accepts `Question N: ...`)."
+        )
+
+    if questions:
+        sorted_unique = sorted(set(questions))
+        expected = list(range(1, sorted_unique[-1] + 1))
+        if sorted_unique != expected:
+            missing = [str(num) for num in expected if num not in sorted_unique]
+            missing_repr = ", ".join(missing[:3])
+            if len(missing) > 3:
+                missing_repr += ", …"
+            raise AnalystValidationError(
+                f"BLOCK: нарушена последовательность нумерации вопросов (пропущены {missing_repr}). Перенумеруйте вопросы и ответы."
+            )
+
+    answers_section = _extract_section(text, ANSWERS_HEADING)
     answers_source = answers_section or ""
     answers_map = _collect_compact_answers(answers_source)
     if answers_source.strip() and not answers_map:
@@ -237,30 +299,6 @@ def validate_prd(
             "Используйте `Q<N>=...` или `Q<N>=\"короткий текст\"`."
         )
 
-    min_questions = settings.min_questions
-    if min_questions_override is not None:
-        min_questions = max(min_questions_override, 0)
-
-    if settings.require_dialog_section and dialog_section is None:
-        raise AnalystValidationError("BLOCK: PRD не содержит раздела `## Диалог analyst` → повторите /feature-dev-aidd:idea-new с уточнениями.")
-
-    if min_questions and len(set(questions)) < min_questions:
-        raise AnalystValidationError(
-            f"BLOCK: analyst должен задать минимум {min_questions} вопрос(ов) в формате «Вопрос N: …»."
-        )
-
-    if questions:
-        sorted_unique = sorted(set(questions))
-        expected = list(range(1, sorted_unique[-1] + 1))
-        if sorted_unique != expected:
-            missing = [str(num) for num in expected if num not in sorted_unique]
-            missing_repr = ", ".join(missing[:3])
-            if len(missing) > 3:
-                missing_repr += ", …"
-            raise AnalystValidationError(
-                f"BLOCK: нарушена последовательность нумерации вопросов (пропущены {missing_repr}). Перенумеруйте вопросы и ответы."
-            )
-
     status_match = STATUS_RE.search(text)
     status = status_match.group(1).upper() if status_match else None
     aidd_open_section = _extract_section(text, AIDD_OPEN_QUESTIONS_HEADING)
@@ -275,7 +313,7 @@ def validate_prd(
                 if len(missing_q) > 3:
                     sample = f"{sample}..."
                 raise AnalystValidationError(
-                    f"BLOCK: AIDD:OPEN_QUESTIONS содержит {sample}, но нет соответствующих «Вопрос N»."
+                    f"BLOCK: AIDD:OPEN_QUESTIONS содержит {sample}, но нет соответствующих `Вопрос N`/`Question N`."
                 )
             missing_answer = sorted(q_numbers - answer_numbers)
             if missing_answer:
@@ -309,7 +347,7 @@ def validate_prd(
             sample += ", …"
         raise AnalystValidationError(
             f"BLOCK: найдены ответы без соответствующих вопросов ({sample}). "
-            "Согласуйте пары «Вопрос N»/`AIDD:ANSWERS QN=<value>`."
+            "Согласуйте пары `Вопрос N`/`Question N` и `AIDD:ANSWERS QN=<value>`."
         )
 
     if status is None:

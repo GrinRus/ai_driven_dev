@@ -2,8 +2,8 @@
 name: plan-reviewer
 description: Review the implementation plan for executability, risk, and test strategy before the PRD review pass.
 lang: en
-prompt_version: 1.0.21
-source_version: 1.0.21
+prompt_version: 1.0.22
+source_version: 1.0.22
 tools: Read, Edit, Write, Glob, Bash(rg *), Bash(sed *)
 skills:
   - feature-dev-aidd:aidd-core
@@ -18,7 +18,7 @@ You review the plan and update the `## Plan Review` narrative. Output follows ai
 
 ## Input Artifacts
 - `aidd/docs/plan/<ticket>.md`.
-- `aidd/docs/prd/<ticket>.prd.md` plus research/spec artifacts when present.
+- `aidd/docs/prd/<ticket>.prd.md` plus research artifacts when present.
 - `aidd/reports/context/<ticket>.pack.md`.
 
 ## Automation

@@ -4,7 +4,7 @@ import os
 import tempfile
 import unittest
 from argparse import Namespace
-from contextlib import redirect_stderr
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
@@ -13,6 +13,34 @@ from aidd_runtime import stage_actions_run
 
 
 class StageActionsRunTests(unittest.TestCase):
+    def test_run_sets_docs_only_env_for_current_invocation(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="stage-actions-run-") as tmpdir:
+            root = Path(tmpdir)
+            context = launcher.LaunchContext(
+                root=root,
+                ticket="DEMO-1",
+                scope_key="iteration_id_I1",
+                work_item_key="iteration_id=I1",
+                stage="implement",
+            )
+            args = Namespace(actions=None, docs_only=True)
+            log_path = root / "reports" / "loops" / "DEMO-1" / "iteration_id_I1" / "run.log"
+            stdout = io.StringIO()
+
+            with (
+                patch.dict(os.environ, {}, clear=False),
+                patch("aidd_runtime.stage_actions_run._enforce_single_scope_guard", return_value=(True, "")),
+                patch("aidd_runtime.stage_actions_run.actions_validate.main", return_value=0),
+                redirect_stdout(stdout),
+            ):
+                os.environ.pop("AIDD_DOCS_ONLY_MODE", None)
+                rc = stage_actions_run._run(args, context=context, log_path=log_path)
+                env_value = os.environ.get("AIDD_DOCS_ONLY_MODE")
+
+            self.assertEqual(rc, 0)
+            self.assertEqual(env_value, "1")
+            self.assertIn("docs_only_mode=1", stdout.getvalue())
+
     def test_single_scope_guard_blocks_cross_iteration_in_same_stage_run_lock(self) -> None:
         with tempfile.TemporaryDirectory(prefix="stage-actions-run-") as tmpdir:
             root = Path(tmpdir)

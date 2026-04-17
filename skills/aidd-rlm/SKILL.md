@@ -17,7 +17,7 @@ user-invocable: false
 ## Scope
 - This skill is preload-only for subagents.
 - Use it to keep RLM behavior consistent across agents without duplicating long instructions.
-- Preload matrix v2 roles: `analyst`, `planner`, `plan-reviewer`, `prd-reviewer`, `researcher`, `reviewer`, `spec-interview-writer`, `tasklist-refiner`, `validator`.
+- Preload matrix v2 roles: `analyst`, `planner`, `plan-reviewer`, `prd-reviewer`, `researcher`, `reviewer`, `tasklist-refiner`, `validator`.
 - Do not preload for `implementer` or `qa`.
 
 ## Canonical command paths

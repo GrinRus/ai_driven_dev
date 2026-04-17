@@ -144,6 +144,12 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
             "commands": [],
         },
     },
+    "artifact_truth": {
+        "mode": "soft",
+        "collapse_event_noise": True,
+        "warn_on_missing_expected_reports": True,
+        "warn_on_stage_doc_drift": True,
+    },
     "loop": {
         "blocked_policy": "ralph",
         "strict_recoverable_reason_codes": ["no_tests_hard"],
@@ -295,16 +301,41 @@ def write_plan_iterations(root: pathlib.Path, ticket: str) -> pathlib.Path:
     )
 
 
-def tasklist_ready_text(ticket: str = "demo-checkout") -> str:
-    return (
+def tasklist_ready_text(ticket: str = "demo-checkout", *, include_spec: bool = False) -> str:
+    front_matter = (
         "---\n"
         f"Ticket: {ticket}\n"
         "Status: READY\n"
         "Updated: 2024-01-01\n"
         f"Plan: aidd/docs/plan/{ticket}.md\n"
-        f"Spec: aidd/docs/spec/{ticket}.spec.yaml\n"
         "---\n\n"
-        "## AIDD:CONTEXT_PACK\n"
+    )
+    if include_spec:
+        front_matter = front_matter.replace(
+            f"Plan: aidd/docs/plan/{ticket}.md\n",
+            f"Plan: aidd/docs/plan/{ticket}.md\n"
+            f"Spec: aidd/docs/spec/{ticket}.spec.yaml\n",
+            1,
+        )
+
+    spec_pack = ""
+    if include_spec:
+        spec_pack = (
+            "## AIDD:SPEC_PACK\n"
+            "Updated: 2024-01-01\n"
+            f"Spec: aidd/docs/spec/{ticket}.spec.yaml (status: ready)\n"
+            "- Goal: demo\n"
+            "- Non-goals:\n"
+            "  - none\n"
+            "- Key decisions:\n"
+            "  - default\n"
+            "- Risks:\n"
+            "  - low\n\n"
+        )
+
+    return (
+        front_matter
+        + "## AIDD:CONTEXT_PACK\n"
         "Updated: 2024-01-01\n"
         f"Ticket: {ticket}\n"
         "Stage: implement\n"
@@ -316,16 +347,7 @@ def tasklist_ready_text(ticket: str = "demo-checkout") -> str:
         "- Risk level: low — none\n\n"
         "### Blockers summary (handoff)\n"
         "- none\n\n"
-        "## AIDD:SPEC_PACK\n"
-        "Updated: 2024-01-01\n"
-        f"Spec: aidd/docs/spec/{ticket}.spec.yaml (status: ready)\n"
-        "- Goal: demo\n"
-        "- Non-goals:\n"
-        "  - none\n"
-        "- Key decisions:\n"
-        "  - default\n"
-        "- Risks:\n"
-        "  - low\n\n"
+        f"{spec_pack}"
         "## AIDD:TEST_STRATEGY\n"
         "- Unit: smoke\n"
         "- Integration: smoke\n"
@@ -444,10 +466,10 @@ def write_spec_ready(root: pathlib.Path, ticket: str = "demo-checkout") -> pathl
     return write_file(root, f"docs/spec/{ticket}.spec.yaml", spec_ready_text(ticket))
 
 
-def write_tasklist_ready(root: pathlib.Path, ticket: str = "demo-checkout", *, include_spec: bool = True) -> pathlib.Path:
+def write_tasklist_ready(root: pathlib.Path, ticket: str = "demo-checkout", *, include_spec: bool = False) -> pathlib.Path:
     if include_spec:
         write_spec_ready(root, ticket)
-    return write_file(root, f"docs/tasklist/{ticket}.md", tasklist_ready_text(ticket))
+    return write_file(root, f"docs/tasklist/{ticket}.md", tasklist_ready_text(ticket, include_spec=include_spec))
 
 
 def write_json(root: pathlib.Path, relative: str, data: Dict[str, Any]) -> pathlib.Path:

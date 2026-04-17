@@ -57,6 +57,63 @@ class TasklistCheckTests(unittest.TestCase):
             result = tasklist_check.check_tasklist(helpers._project_root(root), ticket)
             self.assertEqual(result.status, "error")
 
+    def test_tasklist_check_warns_on_missing_expected_reports_for_ready_tasklist(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            ticket = "DEMO-2A"
+            tasklist = helpers.tasklist_ready_text(ticket).replace(
+                f"Plan: aidd/docs/plan/{ticket}.md\n",
+                f"Plan: aidd/docs/plan/{ticket}.md\n"
+                "ExpectedReports:\n"
+                f"  qa: aidd/reports/qa/{ticket}.json\n"
+                f"  review_report: aidd/reports/reviewer/{ticket}/iteration_id_I1.json\n",
+                1,
+            )
+            helpers.write_file(root, f"docs/tasklist/{ticket}.md", tasklist)
+            helpers.write_plan_iterations(root, ticket)
+            result = tasklist_check.check_tasklist(helpers._project_root(root), ticket)
+            self.assertEqual(result.status, "warn", result.message)
+            self.assertTrue(
+                any("missing expected reports" in entry for entry in result.details or []),
+                result.message,
+            )
+            self.assertTrue(
+                any("tasklist is READY but expected downstream reports are still missing" in entry for entry in result.details or []),
+                result.message,
+            )
+            self.assertTrue(
+                any(issue.code == "missing_expected_report" and issue.category == "advisory_truth" for issue in result.issues or []),
+                result.issues,
+            )
+
+    def test_tasklist_check_warns_on_active_stage_vs_plan_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            ticket = "DEMO-2B"
+            helpers.write_active_stage(root, "implement")
+            helpers.write_file(root, f"docs/tasklist/{ticket}.md", helpers.tasklist_ready_text(ticket))
+            helpers.write_file(
+                root,
+                f"docs/plan/{ticket}.md",
+                "# Plan\n\n"
+                "## Plan Review\n"
+                "Status: PENDING\n\n"
+                "## AIDD:ITERATIONS\n"
+                "- iteration_id: I1\n"
+                "  - Goal: bootstrap\n"
+                "- iteration_id: I2\n"
+                "  - Goal: follow-up\n"
+                "- iteration_id: I3\n"
+                "  - Goal: follow-up\n",
+            )
+
+            result = tasklist_check.check_tasklist(helpers._project_root(root), ticket)
+            self.assertEqual(result.status, "warn", result.message)
+            self.assertTrue(
+                any("active stage implement while plan status is PENDING" in entry for entry in result.details or []),
+                result.message,
+            )
+
     def test_tasklist_check_fails_without_test_execution_profile(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -354,7 +411,7 @@ class TasklistCheckTests(unittest.TestCase):
                 result.message,
             )
 
-    def test_tasklist_check_requires_spec_for_ui_changes(self) -> None:
+    def test_tasklist_check_does_not_require_spec_for_ui_changes(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             ticket = "DEMO-11"
@@ -379,8 +436,8 @@ class TasklistCheckTests(unittest.TestCase):
                 + "\n",
             )
             result = tasklist_check.check_tasklist(helpers._project_root(root), ticket)
-            self.assertEqual(result.status, "error")
-            self.assertTrue(
+            self.assertNotEqual(result.status, "error", result.message)
+            self.assertFalse(
                 any("spec required" in entry.lower() for entry in result.details or []),
                 result.message,
             )
@@ -396,6 +453,10 @@ class TasklistCheckTests(unittest.TestCase):
             self.assertTrue(
                 any("plan not found" in entry for entry in result.details or []),
                 result.message,
+            )
+            self.assertTrue(
+                any(issue.code == "plan_not_found" and issue.category == "upstream_blocker" for issue in result.issues or []),
+                result.issues,
             )
 
     def test_tasklist_stage_treats_invalid_progress_log_as_error(self) -> None:

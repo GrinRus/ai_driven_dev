@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import datetime as dt
+import io
 import os
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stderr
 from pathlib import Path
 from unittest.mock import patch
 
@@ -114,6 +116,25 @@ class ResearchCheckTests(unittest.TestCase):
 
         self.assertIn("нет отчёта Researcher", str(excinfo.exception))
         self.assertIn("reason_code=research_report_missing", str(excinfo.exception))
+
+    def test_research_check_docs_only_softens_missing_report(self) -> None:
+        workspace, project_root = self._setup_workspace()
+        ticket = "demo-check"
+        write_active_feature(project_root, ticket)
+
+        args = ["--ticket", ticket, "--docs-only"]
+        old_cwd = Path.cwd()
+        os.chdir(workspace)
+        stderr_capture = io.StringIO()
+        try:
+            with redirect_stderr(stderr_capture):
+                exit_code = research_check.main(args)
+        finally:
+            os.chdir(old_cwd)
+
+        stderr_text = stderr_capture.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("docs-only rewrite mode bypasses research gate blocker", stderr_text)
 
     def test_research_check_missing_targets_has_reason_code(self) -> None:
         workspace, project_root = self._setup_workspace()

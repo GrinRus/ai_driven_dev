@@ -39,9 +39,9 @@ class SkillEvalTests(unittest.TestCase):
 
     def test_dataset_has_expected_shape(self) -> None:
         rows = load_cases(CASES)
-        self.assertEqual(len(rows), 190)
-        self.assertEqual(sum(1 for row in rows if row.get("kind") == "positive"), 114)
-        self.assertEqual(sum(1 for row in rows if row.get("kind") == "near_miss"), 57)
+        self.assertEqual(len(rows), 181)
+        self.assertEqual(sum(1 for row in rows if row.get("kind") == "positive"), 108)
+        self.assertEqual(sum(1 for row in rows if row.get("kind") == "near_miss"), 54)
         self.assertEqual(sum(1 for row in rows if row.get("kind") == "no_skill"), 19)
 
     def test_compute_metrics_with_fixture(self) -> None:

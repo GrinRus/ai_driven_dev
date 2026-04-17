@@ -59,6 +59,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_false",
         help="Allow continuation on tasklist-check:error only with AIDD_ALLOW_TASKLIST_ERROR_SUCCESS=1.",
     )
+    parser.add_argument(
+        "--docs-only",
+        action="store_true",
+        help="Enable docs-only rewrite mode for this invocation.",
+    )
     return parser.parse_args(argv)
 
 
@@ -68,6 +73,10 @@ def _replace_placeholders(text: str, ticket: str, slug: str, today: str, scope_k
         .replace("<short-slug>", slug)
         .replace("<YYYY-MM-DD>", today)
         .replace("<scope_key>", scope_key)
+        .replace(
+            "Stage: <idea|research|plan|review-spec|review-plan|review-prd|tasklist|implement|review|qa|status>",
+            "Stage: tasklist",
+        )
     )
 
 
@@ -110,6 +119,50 @@ def _replace_section(text: str, title: str, body_lines: list[str]) -> str:
     replacement = [lines[start], *body_lines, ""]
     updated = [*lines[:start], *replacement, *lines[end:]]
     return "\n".join(updated).rstrip("\n") + "\n"
+
+
+def _migrate_legacy_expected_reports(text: str) -> str:
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return text
+    for idx in range(1, len(lines)):
+        stripped = lines[idx].strip()
+        if stripped == "---":
+            break
+        if stripped == "Reports:":
+            indent = lines[idx][: len(lines[idx]) - len(lines[idx].lstrip())]
+            lines[idx] = f"{indent}ExpectedReports:"
+            return "\n".join(lines).rstrip("\n") + "\n"
+    return text
+
+
+def _issue_categories(
+    result: tasklist_check.TasklistCheckResult,
+    *,
+    severity: str | None = None,
+) -> set[str]:
+    categories: set[str] = set()
+    for issue in result.issues or []:
+        issue_severity = str(getattr(issue, "severity", "") or "").strip().lower()
+        if severity and issue_severity != severity:
+            continue
+        category = str(getattr(issue, "category", "") or "").strip()
+        if category:
+            categories.add(category)
+    return categories
+
+
+def _emit_tasklist_issues(result: tasklist_check.TasklistCheckResult) -> None:
+    if result.issues:
+        for issue in result.issues:
+            print(
+                "[tasks-new] issue "
+                f"severity={issue.severity} category={issue.category} code={issue.code}: {issue.message}",
+                file=sys.stderr,
+            )
+        return
+    for detail in result.details or []:
+        print(f"[tasks-new] {detail}", file=sys.stderr)
 
 
 def _materialize_contract_command(entry: dict) -> str:
@@ -214,6 +267,7 @@ def main(argv: list[str] | None = None) -> int:
         ticket=getattr(args, "ticket", None),
         slug_hint=getattr(args, "slug_hint", None),
     )
+    docs_only_mode = runtime.docs_only_mode_requested(explicit=getattr(args, "docs_only", False))
     slug = (context.slug_hint or ticket).strip() or ticket
     today = date.today().isoformat()
     scope_key = runtime.resolve_scope_key(work_item_key=None, ticket=ticket)
@@ -239,17 +293,37 @@ def main(argv: list[str] | None = None) -> int:
 
     contract_lines, contract_error = _render_test_execution_from_contract(target)
     if contract_error:
-        print(
-            "[tasks-new] BLOCK: project test execution contract missing/invalid "
-            "(reason_code=project_contract_missing). "
-            "Update aidd/config/gates.json -> qa.tests.",
-            file=sys.stderr,
-        )
-        return 2
+        if docs_only_mode:
+            print(
+                "[tasks-new] WARN: docs-only rewrite mode bypasses project test execution contract blocker "
+                "(reason_code=project_contract_missing, docs_only_mode=1).",
+                file=sys.stderr,
+            )
+            contract_lines = [
+                "- profile: none",
+                "- tasks: []",
+                "- filters: []",
+                "- when: manual",
+                "- reason: docs-only rewrite mode",
+            ]
+        else:
+            print(
+                "[tasks-new] BLOCK: project test execution contract missing/invalid "
+                "(reason_code=project_contract_missing). "
+                "Update aidd/config/gates.json -> qa.tests.",
+                file=sys.stderr,
+            )
+            return 2
     if contract_lines:
         tasklist_text = tasklist_path.read_text(encoding="utf-8")
         tasklist_text = _replace_section(tasklist_text, "AIDD:TEST_EXECUTION", contract_lines)
+        tasklist_text = _migrate_legacy_expected_reports(tasklist_text)
         tasklist_path.write_text(tasklist_text, encoding="utf-8")
+    else:
+        tasklist_text = tasklist_path.read_text(encoding="utf-8")
+        migrated = _migrate_legacy_expected_reports(tasklist_text)
+        if migrated != tasklist_text:
+            tasklist_path.write_text(migrated, encoding="utf-8")
 
     result = tasklist_check.check_tasklist(target, ticket)
     rel_path = runtime.rel_path(tasklist_path, target)
@@ -258,25 +332,43 @@ def main(argv: list[str] | None = None) -> int:
         print("[tasks-new] tasklist-check: ok")
     elif result.status == "warn":
         print("[tasks-new] tasklist-check: warn", file=sys.stderr)
-        for detail in result.details or []:
-            print(f"[tasks-new] {detail}", file=sys.stderr)
+        _emit_tasklist_issues(result)
     elif result.status == "error":
         print("[tasks-new] tasklist-check: error", file=sys.stderr)
         print(f"[tasks-new] {result.message}", file=sys.stderr)
-        for detail in result.details or []:
-            print(f"[tasks-new] {detail}", file=sys.stderr)
-        print(
-            f"[tasks-new] remediation: fix plan/spec/tasklist prerequisites and rerun /feature-dev-aidd:tasks-new {ticket}",
-            file=sys.stderr,
-        )
-        allow_error_success = os.getenv("AIDD_ALLOW_TASKLIST_ERROR_SUCCESS", "").strip() == "1"
-        if args.strict or not allow_error_success:
-            return result.exit_code()
-        print(
-            "[tasks-new] WARN: non-strict success override enabled "
-            "(AIDD_ALLOW_TASKLIST_ERROR_SUCCESS=1).",
-            file=sys.stderr,
-        )
+        _emit_tasklist_issues(result)
+        categories = _issue_categories(result, severity="error")
+        if "upstream_blocker" in categories:
+            remediation = (
+                f"fix upstream PRD/plan/readiness blockers first, then rerun /feature-dev-aidd:review-spec {ticket} "
+                f"and /feature-dev-aidd:tasks-new {ticket}"
+            )
+        elif categories == {"repairable_structure"}:
+            remediation = (
+                f"fix tasklist structural issues and rerun /feature-dev-aidd:tasks-new {ticket}; "
+                "bounded retry applies only once for repairable_structure"
+            )
+        else:
+            remediation = (
+                f"fix tasklist contract issues and rerun /feature-dev-aidd:tasks-new {ticket}; "
+                "do not create upstream artifacts manually in this stage"
+            )
+        print(f"[tasks-new] remediation: {remediation}", file=sys.stderr)
+        if docs_only_mode:
+            print(
+                "[tasks-new] WARN: docs-only rewrite mode continues despite tasklist-check:error "
+                "(invocation-local override).",
+                file=sys.stderr,
+            )
+        else:
+            allow_error_success = os.getenv("AIDD_ALLOW_TASKLIST_ERROR_SUCCESS", "").strip() == "1"
+            if args.strict or not allow_error_success:
+                return result.exit_code()
+            print(
+                "[tasks-new] WARN: non-strict success override enabled "
+                "(AIDD_ALLOW_TASKLIST_ERROR_SUCCESS=1).",
+                file=sys.stderr,
+            )
     else:
         print(f"[tasks-new] tasklist-check: {result.status}")
 
@@ -290,6 +382,8 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     runtime.maybe_sync_index(target, ticket, slug, reason="tasks-new")
+    if docs_only_mode:
+        print("[tasks-new] docs_only_mode=1 reinvoke_allowed=1 retry_scope=invocation", file=sys.stderr)
     return 0
 
 

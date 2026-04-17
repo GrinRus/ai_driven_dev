@@ -94,8 +94,6 @@ _QUESTION_REASON_CODES = {
     "answers_required",
     "missing_answers",
     "questions_pending",
-    "missing_spec_answers",
-    "spec_questions_unresolved",
 }
 _QUESTION_RETRY_REASON_CODE = "prompt_flow_blocker"
 RUNTIME_PATH_DRIFT_REASON_CODE = "runtime_path_missing_or_drift"
@@ -2525,8 +2523,12 @@ def emit_result(
     reason_value = str(reason or "").strip()
     reason_code_value = str(reason_code or "").strip().lower()
     reason_family_value = ""
+    secondary_symptom = None
     if reason_code_value == RUNTIME_PATH_DRIFT_REASON_CODE:
         reason_family_value = PROMPT_FLOW_DRIFT_REASON_FAMILY
+    if reason_code_value in {"project_contract_missing", "tests_cwd_mismatch"} and not stage_result_input:
+        secondary_symptom = "no_top_level_result"
+    docs_only_mode = runtime.docs_only_mode_requested()
     if status_value == "blocked":
         if not reason_code_value:
             reason_code_value = "stage_result_blocked" if stage_result_input else "blocked_without_reason"
@@ -2588,6 +2590,12 @@ def emit_result(
         "reason": reason_value,
         "reason_code": reason_code_value,
         "reason_family": reason_family_value or None,
+        "invocation_terminal": status_value == "blocked",
+        "reinvoke_allowed": True,
+        "retry_scope": "invocation",
+        "primary_reason": reason_code_value or None,
+        "secondary_symptom": secondary_symptom,
+        "docs_only_mode": bool(docs_only_mode),
     }
     if fmt:
         output = json.dumps(payload, ensure_ascii=False, indent=2) if fmt == "json" else "\n".join(dump_yaml(payload))

@@ -2,8 +2,8 @@
 name: validator
 description: Review plan executability against PRD and research artifacts and return the final validation gaps without editing the plan.
 lang: en
-prompt_version: 1.0.13
-source_version: 1.0.13
+prompt_version: 1.0.14
+source_version: 1.0.14
 tools: Read, Bash(rg *), Bash(sed *)
 skills:
   - feature-dev-aidd:aidd-core
@@ -18,7 +18,7 @@ You validate the plan for executability and risk. You are a read-only reviewer: 
 
 ## Input Artifacts
 - `aidd/docs/plan/<ticket>.md`.
-- `aidd/docs/prd/<ticket>.prd.md` plus research/spec artifacts when present.
+- `aidd/docs/prd/<ticket>.prd.md` plus research artifacts when present.
 - `aidd/reports/context/<ticket>.pack.md`.
 
 ## Automation

@@ -77,6 +77,22 @@ class PrdReadyCheckTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("BLOCK: PRD Status:", result.stderr)
 
+    def test_prd_ready_docs_only_softens_draft_status(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="prd-check-") as tmpdir:
+            root = Path(tmpdir)
+            write_file(root, "docs/prd/demo.prd.md", "# PRD\n\nStatus: draft\n")
+            result = subprocess.run(
+                cli_cmd("prd-check", "--ticket", "demo", "--docs-only"),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            self.assertIn("WARN:", result.stderr)
+            self.assertIn("docs_only_mode=1", result.stderr)
+
     def test_prd_ready_cache_hit_skips(self) -> None:
         with tempfile.TemporaryDirectory(prefix="prd-check-") as tmpdir:
             root = Path(tmpdir)
@@ -137,6 +153,49 @@ class PrdReadyCheckTests(unittest.TestCase):
 
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("должен быть в compact формате", result.stderr)
+
+    def test_prd_ready_docs_only_softens_non_compact_answers_format(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="prd-check-") as tmpdir:
+            root = Path(tmpdir)
+            write_file(
+                root,
+                "docs/prd/demo.prd.md",
+                "# PRD\n\nStatus: READY\n\n## AIDD:ANSWERS\n- свободный ответ вне compact формата\n",
+            )
+            result = subprocess.run(
+                cli_cmd("prd-check", "--ticket", "demo", "--docs-only"),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            self.assertIn("WARN:", result.stderr)
+            self.assertIn("answers_format_invalid", result.stderr)
+
+    def test_prd_ready_manual_reinvoke_allowed_after_blocked_run(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="prd-check-") as tmpdir:
+            root = Path(tmpdir)
+            write_file(root, "docs/prd/demo.prd.md", "# PRD\n\nStatus: draft\n")
+            first = subprocess.run(
+                cli_cmd("prd-check", "--ticket", "demo"),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            second = subprocess.run(
+                cli_cmd("prd-check", "--ticket", "demo", "--docs-only"),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+
+            self.assertNotEqual(first.returncode, 0)
+            self.assertEqual(second.returncode, 0, msg=second.stderr)
+            self.assertIn("reinvoke_allowed=1", second.stderr)
 
     def test_prd_ready_blocks_placeholder_answer_values(self) -> None:
         with tempfile.TemporaryDirectory(prefix="prd-check-") as tmpdir:

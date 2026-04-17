@@ -41,7 +41,6 @@ class InitAiddTests(unittest.TestCase):
             "docs/plan/template.md",
             "docs/tasklist/template.md",
             "docs/research/template.md",
-            "docs/spec/template.spec.yaml",
             "docs/shared/stage-lexicon.md",
             "docs/loops/template.loop-pack.md",
             "reports/prd/.gitkeep",

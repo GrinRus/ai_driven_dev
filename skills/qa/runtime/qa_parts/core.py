@@ -440,6 +440,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Gate mode without failing on blockers.",
     )
+    parser.add_argument(
+        "--docs-only",
+        action="store_true",
+        help="Enable docs-only rewrite mode for this invocation.",
+    )
     return parser.parse_args(argv)
 
 
@@ -459,6 +464,7 @@ def main(argv: list[str] | None = None) -> int:
     slug_hint = (context.slug_hint or ticket or "").strip()
     if not ticket:
         raise ValueError("feature ticket is required; pass --ticket or set docs/.active.json via /feature-dev-aidd:idea-new.")
+    docs_only_mode = runtime.docs_only_mode_requested(explicit=getattr(args, "docs_only", False))
 
     try:
         stage_sync_applied, active_stage_before = _sync_active_stage_to_qa(target, ticket)
@@ -480,13 +486,20 @@ def main(argv: list[str] | None = None) -> int:
     if loop_mode:
         stage_chain_context_ok, stage_chain_scope = _qa_stage_chain_context_available(target, ticket)
         if not stage_chain_context_ok:
-            print(
-                "[aidd] BLOCK: QA stage-chain context missing "
-                f"(reason_code=preflight_missing scope_key={stage_chain_scope or 'n/a'}). "
-                f"Next action: `/feature-dev-aidd:implement {ticket}`.",
-                file=sys.stderr,
-            )
-            return 2
+            if docs_only_mode:
+                print(
+                    "[aidd] WARN: docs-only rewrite mode bypasses QA preflight blocker "
+                    f"(reason_code=preflight_missing scope_key={stage_chain_scope or 'n/a'}, docs_only_mode=1).",
+                    file=sys.stderr,
+                )
+            else:
+                print(
+                    "[aidd] BLOCK: QA stage-chain context missing "
+                    f"(reason_code=preflight_missing scope_key={stage_chain_scope or 'n/a'}). "
+                    f"Next action: `/feature-dev-aidd:implement {ticket}`.",
+                    file=sys.stderr,
+                )
+                return 2
 
     branch = args.branch or runtime.detect_branch(target)
 
@@ -510,6 +523,13 @@ def main(argv: list[str] | None = None) -> int:
     elif tests_required_mode == "soft":
         allow_no_tests = True
     skip_tests = bool(getattr(args, "skip_tests", False) or os.getenv("CLAUDE_QA_SKIP_TESTS", "").strip() == "1")
+    if docs_only_mode:
+        allow_no_tests = True
+        skip_tests = True
+        print(
+            "[aidd] QA docs-only rewrite mode active: skipping QA tests for this invocation.",
+            file=sys.stderr,
+        )
 
     tasklist_exec = _load_tasklist_test_execution(target, ticket)
     tasklist_exec_present = _has_tasklist_execution(tasklist_exec)
@@ -733,7 +753,9 @@ def main(argv: list[str] | None = None) -> int:
         qa_args.extend(["--report", str(report_path)])
 
     allow_no_tests_env = allow_no_tests
-    if tests_required_mode == "hard":
+    if docs_only_mode:
+        allow_no_tests_env = True
+    elif tests_required_mode == "hard":
         allow_no_tests_env = False
     elif tests_required_mode == "soft":
         allow_no_tests_env = True
@@ -768,8 +790,14 @@ def main(argv: list[str] | None = None) -> int:
             report_payload = {}
         report_status = str(report_payload.get("status") or "").strip().upper()
     if report_status == "BLOCKED":
-        exit_code = 2
-        print("[aidd] BLOCK: QA report status is BLOCKED.", file=sys.stderr)
+        if docs_only_mode:
+            print(
+                "[aidd] WARN: docs-only rewrite mode ignores QA report BLOCKED status for this invocation.",
+                file=sys.stderr,
+            )
+        else:
+            exit_code = 2
+            print("[aidd] BLOCK: QA report status is BLOCKED.", file=sys.stderr)
 
     stage_result_emit_error = ""
     try:
@@ -780,10 +808,12 @@ def main(argv: list[str] | None = None) -> int:
             "--stage",
             "qa",
             "--result",
-            "blocked" if report_status == "BLOCKED" else "done",
+            "blocked" if report_status == "BLOCKED" and not docs_only_mode else "done",
             "--scope-key",
             qa_scope_key,
         ]
+        if docs_only_mode:
+            stage_result_args.append("--docs-only")
         if qa_work_item_key:
             stage_result_args.extend(["--work-item-key", qa_work_item_key])
         if report_path.exists():

@@ -52,7 +52,6 @@ FULL_DOC_PREFIXES = (
     "aidd/docs/plan/",
     "aidd/docs/tasklist/",
     "aidd/docs/research/",
-    "aidd/docs/spec/",
 )
 
 
