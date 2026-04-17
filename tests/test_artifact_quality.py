@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from aidd_runtime import artifact_quality
 from aidd_runtime import artifact_truth
@@ -94,6 +95,32 @@ class ArtifactQualityTests(unittest.TestCase):
             self.assertIn("quality_repair: hard_replace", rebuilt)
             self.assertNotIn("<stage-specific goal>", rebuilt)
             self.assertNotIn("Owner: <name/team>", rebuilt)
+
+    def test_repair_context_pack_preserves_original_when_replace_fails(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="artifact-quality-") as tmpdir:
+            root = Path(tmpdir) / "aidd"
+            (root / "reports" / "context").mkdir(parents=True, exist_ok=True)
+            (root / "docs" / "tasklist").mkdir(parents=True, exist_ok=True)
+            (root / "docs" / "plan").mkdir(parents=True, exist_ok=True)
+            (root / "docs" / "prd").mkdir(parents=True, exist_ok=True)
+            ticket = "TST-ATOMIC-1"
+            (root / "docs" / "tasklist" / f"{ticket}.md").write_text("# tasklist\n", encoding="utf-8")
+            (root / "docs" / "plan" / f"{ticket}.md").write_text("# plan\n", encoding="utf-8")
+            (root / "docs" / "prd" / f"{ticket}.prd.md").write_text("# prd\n", encoding="utf-8")
+            context_path = root / "reports" / "context" / f"{ticket}.pack.md"
+            original = (
+                "# AIDD Context Pack — <stage>\n\n"
+                "Status: draft\n"
+                "Owner: <name/team>\n"
+                "<stage-specific goal>\n"
+            )
+            context_path.write_text(original, encoding="utf-8")
+
+            with mock.patch("aidd_runtime.artifact_quality.os.replace", side_effect=OSError("replace failed")):
+                with self.assertRaises(OSError):
+                    artifact_quality.repair_context_pack_if_contaminated(root, ticket, context_path)
+
+            self.assertEqual(context_path.read_text(encoding="utf-8"), original)
 
     def test_working_set_builder_reports_quality_repair_for_contaminated_context(self) -> None:
         with tempfile.TemporaryDirectory(prefix="artifact-quality-ws-") as tmpdir:

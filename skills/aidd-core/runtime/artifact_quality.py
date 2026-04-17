@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import os
 import re
+import tempfile
 from pathlib import Path
 from typing import Iterable, List, Tuple
 
@@ -359,6 +361,22 @@ def build_clean_context_pack(root: Path, ticket: str, *, existing_text: str = ""
     return "\n".join(lines).rstrip() + "\n"
 
 
+def _atomic_write_text(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=str(path.parent))
+    tmp_path = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(content)
+        os.replace(tmp_path, path)
+    except Exception:
+        try:
+            tmp_path.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise
+
+
 def repair_context_pack_if_contaminated(root: Path, ticket: str, context_path: Path) -> Tuple[bool, List[str]]:
     if not context_path.exists():
         return False, []
@@ -370,10 +388,8 @@ def repair_context_pack_if_contaminated(root: Path, ticket: str, context_path: P
     if not markers:
         return False, []
     repaired = build_clean_context_pack(root, ticket, existing_text=existing, contamination=markers)
-    # Hard replace policy for contaminated context artifacts.
-    context_path.unlink(missing_ok=True)
-    context_path.parent.mkdir(parents=True, exist_ok=True)
-    context_path.write_text(repaired, encoding="utf-8")
+    # Hard replace policy for contaminated context artifacts with atomic swap.
+    _atomic_write_text(context_path, repaired)
     return True, markers
 
 

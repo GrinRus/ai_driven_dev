@@ -234,8 +234,11 @@ def docs_only_mode_requested(*, explicit: object | None = None) -> bool:
 
     The mode is invocation-scoped and must never persist across runs.
     """
-    if explicit is not None:
-        return _truthy_env(str(explicit))
+    # `argparse` callers usually pass `explicit=False` by default for
+    # `store_true` flags. Treat that as "not explicitly requested" so env-based
+    # docs-only mode (`AIDD_DOCS_ONLY*`, `CLAUDE_DOCS_ONLY`) still works.
+    if explicit is not None and _truthy_env(str(explicit)):
+        return True
     for key in _DOCS_ONLY_ENV_KEYS:
         if _truthy_env(os.environ.get(key)):
             return True
