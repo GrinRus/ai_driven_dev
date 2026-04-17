@@ -318,6 +318,31 @@ class AiddStageLauncherTests(unittest.TestCase):
         self.assertEqual(payload["source"], "none")
         self.assertEqual(payload["pending_question_count"], 0)
 
+    def test_extract_question_cycle_open_questions_none_keeps_question_cycle_disabled(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project_dir = Path(tmp)
+            prd_path = project_dir / "aidd" / "docs" / "prd" / "TST-001.prd.md"
+            prd_path.parent.mkdir(parents=True, exist_ok=True)
+            prd_path.write_text(
+                (
+                    "# PRD\n\n"
+                    "Question 3 (Blocker): Legacy placeholder\n\n"
+                    "## AIDD:OPEN_QUESTIONS\n"
+                    "- none\n"
+                ),
+                encoding="utf-8",
+            )
+            payload = self.launcher.extract_question_cycle(
+                log_text=json_line({"type": "result", "subtype": "success", "result": "done"}),
+                project_dir=project_dir,
+                ticket="TST-001",
+                stage_command="/feature-dev-aidd:idea-new TST-001 note",
+            )
+        self.assertEqual(payload["source"], "none")
+        self.assertEqual(payload["question_cycle_required"], 0)
+        self.assertEqual(payload["pending_question_count"], 0)
+        self.assertEqual(payload["pending_question_ids"], [])
+
     def test_extract_question_cycle_never_uses_persisted_doc_for_review_spec(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             project_dir = Path(tmp)

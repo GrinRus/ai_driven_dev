@@ -33,8 +33,10 @@ Follow `feature-dev-aidd:aidd-core`.
 7. Postflight: if answers already exist, rerun `python3 ${CLAUDE_PLUGIN_ROOT}/skills/idea-new/runtime/analyst_check.py --ticket <ticket>`; the validator syncs derived index/status state from the current PRD before returning.
 8. Ready path: return `/feature-dev-aidd:researcher <ticket>` only when `analyst_check.py` confirms idea-stage readiness.
 9. Pending path: if required questions remain or PRD fields are incomplete, return PENDING with the full current remaining-question set in the top-level response and keep the next action on `idea-new`.
-10. Question trigger contract: for retries use only the latest top-level stage return from the current run. Do not treat nested `tool_result` excerpts or stale persisted template blocks as primary question sources.
+10. Question trigger contract: for retries use only the latest top-level stage return from the current run. Treat nested `tool_result` excerpts and stale persisted template blocks as telemetry-only; do not use them as primary question sources.
 11. Context hygiene: context pack updates must remain compact; never embed raw template bodies (PRD/plan/tasklist templates) into `aidd/reports/context/*.md`.
+12. Forbidden bypass recovery: do not set, request, or rely on `AIDD_ALLOW_PLUGIN_WORKSPACE=1`; plugin-workspace bypass is non-canonical for this stage.
+13. Forbidden self-diagnosis recovery: do not read runtime source files as primary recovery path; use stage-return and canonical report payload only.
 
 ## Command contracts
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_feature.py`
@@ -55,7 +57,7 @@ Follow `feature-dev-aidd:aidd-core`.
 - Interactive chat questions still follow the shared aidd-policy format.
 - Persisted PRD artifact language is stage-local here: the analyst dialog must use the exact labels from `templates/prd.template.md`, and placeholder comments do not count as a valid question block.
 - Non-interactive callers must rely on the latest top-level stage-return as the source of truth for retry payloads; do not rely only on `AskUserQuestion` panel state or stale example payloads.
-- If `AIDD:OPEN_QUESTIONS=none` and top-level stage return does not request Q/A, do not open a synthetic question cycle.
+- If `AIDD:OPEN_QUESTIONS=none` and top-level stage return does not request Q/A, set `question_cycle_required=0` and do not open a synthetic question cycle.
 - Planning stage: `AIDD:ACTIONS_LOG: n/a`.
 
 ## Additional resources

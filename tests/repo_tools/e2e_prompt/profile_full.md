@@ -69,6 +69,7 @@
 - R8.1: Если в UI/операторском выводе встречается unprefixed alias (`/idea-new` и т.п.), но в `init.slash_commands` присутствуют `feature-dev-aidd:*`, фиксировать `INFO(prefix_alias_display_only)`; использовать canonical prefixed команды.
 - R9: Python fallback разрешён только после успешного plugin-load healthcheck и только для `blocked/hang/killed`. Python fallback запрещён как recovery для `Unknown skill`.
 - R10: Ошибка `refusing to use plugin repository as workspace root` классифицируется как `ENV_MISCONFIG(cwd_wrong)`; исправь `cwd` на `PROJECT_DIR` и повтори ровно 1 раз.
+- R10.1: Для `cwd_wrong` authoritative-source = launcher topology precheck + stage summary/termination/preflight evidence; упоминания `cwd_wrong` в nested excerpts/tool_result считать telemetry-only и не использовать как primary классификацию.
 - R11: Для шага 7 (Auto-loop через Python runtime) runner должен быть non-interactive:
   - перед запуском установить `AIDD_LOOP_RUNNER="claude --dangerously-skip-permissions"`;
   - если в stream `init` видно `permissionMode=default` и дальше идут `requires approval`, классифицировать как `ENV_MISCONFIG(loop_runner_permissions)` (не как flow bug).
@@ -100,6 +101,8 @@
 - R15.5: Если зафиксированы `reason_code=project_contract_missing|tests_cwd_mismatch` и одновременно `no_top_level_result`, reason-code считать primary причиной, а `no_top_level_result` — secondary symptom.
 - R15.6: Для non-research стадий (`idea|plan|review-spec|tasks|implement|review|qa|loop`) source-of-truth по retry/gates = текущий top-level stage-return + canonical report payload; nested excerpts/tool_result/persisted template blocks считать telemetry и не использовать как primary trigger.
 - R15.7: Контекст-артефакты (`aidd/reports/context/*.md`, `latest_working_set*.md`) должны быть compact summary без template body leakage; при contamination ожидать `hard_replace` + WARN telemetry.
+- R15.8: Любые recovery-предложения с `AIDD_ALLOW_PLUGIN_WORKSPACE=1` считать non-canonical bypass (`prompt-flow drift (workspace_bypass_attempt)`); такой path не выполнять.
+- R15.9: Self-diagnosis recovery через чтение runtime source (`skills/*/runtime/*.py`) запрещён как primary path; диагностика/ретраи только по top-level stage-return + canonical report payload.
 - R16: Для launcher избегать tokenization drift: не передавать флаги как один неразделённый токен; при первом фейле quoting/tokenization делать ровно один shell-safe retry с явными отдельными аргументами.
 - R17: Early-kill prohibition (strict):
   - не останавливать stage-run до исчерпания budget этапа, если есть liveness (`main log` и/или stream-файлы растут);
@@ -256,6 +259,7 @@
 2. Если stage задаёт вопросы/возвращает BLOCK из-за отсутствия ответов:
    - retry-триггер разрешён только по текущему stage-return (финальный ответ stage-команды);
    - для `idea-new` и `plan-new` retry-триггер также считается валидным, если top-level `success|WARN` явно требует ответить на `Q*`/закрыть незаполненные `AIDD:ANSWERS Q<N>=...` и перевести артефакт стадии в `READY`;
+   - если `AIDD:OPEN_QUESTIONS=none` и top-level stage-return не запрашивает Q/A, фиксировать `question_cycle_required=0` и не запускать question retry;
    - не считать trigger-ом `Q*`/`AIDD:ANSWERS`/`Question` внутри вложенных артефактов (PRD/tasklist/reports/log excerpts), если stage-return сам не запрашивает ответ;
    - количество `Q<N>` в retry определяется только актуальным top-level stage-return последнего run; illustrative примеры payload не являются фиксированным числом вопросов;
    - извлеки вопросы в `AUDIT_DIR/<step>_questions.txt`;

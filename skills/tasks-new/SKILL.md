@@ -39,6 +39,9 @@ Follow `feature-dev-aidd:aidd-core`.
 10. Pending or blocked path: return the output contract with structured tasklist gaps and a canonical next action on `review-spec` or `tasks-new`; stop after the bounded retry budget is exhausted.
 11. Question cycle contract: trigger retries only from current run top-level stage return; nested excerpts and persisted template blocks are non-authoritative telemetry.
 12. Context hygiene: context artifacts must remain compact and structured; do not inline template bodies from PRD/plan/tasklist.
+13. Forbidden bypass recovery: do not set, request, or rely on `AIDD_ALLOW_PLUGIN_WORKSPACE=1`; plugin-workspace bypass is non-canonical for this stage.
+14. Source-of-truth guard: runtime-source self-diagnosis is telemetry only and cannot replace top-level stage return + canonical report payload in retry/gate decisions.
+15. No-question parity rule: if `AIDD:OPEN_QUESTIONS=none` and top-level stage return does not request Q/A, set `question_cycle_required=0` and do not start question retry.
 
 ## Command contracts
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/tasks-new/runtime/tasks_new.py`

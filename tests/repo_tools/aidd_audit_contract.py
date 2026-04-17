@@ -122,16 +122,16 @@ def classify_incident(
             label="ENV_MISCONFIG(parent_terminated_or_external_terminate)",
         )
 
-    cwd_wrong_hit = any(marker in merged_text for marker in CWD_WRONG_MARKERS)
-    if cwd_wrong_hit:
-        if "reason_code=cwd_wrong" in summary_text or "env_misconfig(cwd_wrong)" in summary_text:
+    summary_cwd_wrong = any(marker in summary_text for marker in CWD_WRONG_MARKERS)
+    termination_cwd_wrong = any(marker in term_text for marker in CWD_WRONG_MARKERS)
+    preflight_cwd_wrong = any(marker in pre_text for marker in CWD_WRONG_MARKERS)
+    if summary_cwd_wrong or termination_cwd_wrong or preflight_cwd_wrong:
+        if summary_cwd_wrong:
             source = "summary"
-        elif "reason_code=cwd_wrong" in term_text or "env_misconfig(cwd_wrong)" in term_text:
+        elif termination_cwd_wrong:
             source = "termination_attribution"
-        elif "reason_code=cwd_wrong" in pre_text:
-            source = "runner_preflight"
         else:
-            source = "run_log"
+            source = "runner_preflight"
         return Classification(
             classification="ENV_MISCONFIG",
             subtype="cwd_wrong",

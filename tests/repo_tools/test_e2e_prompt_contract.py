@@ -27,6 +27,17 @@ STAGE_SKILLS_FOR_ALIAS_GUARD = [
     REPO_ROOT / "skills" / "qa" / "SKILL.md",
 ]
 
+NON_RESEARCH_STAGE_SKILLS = [
+    REPO_ROOT / "skills" / "idea-new" / "SKILL.md",
+    REPO_ROOT / "skills" / "plan-new" / "SKILL.md",
+    REPO_ROOT / "skills" / "review-spec" / "SKILL.md",
+    REPO_ROOT / "skills" / "tasks-new" / "SKILL.md",
+    REPO_ROOT / "skills" / "implement" / "SKILL.md",
+    REPO_ROOT / "skills" / "review" / "SKILL.md",
+    REPO_ROOT / "skills" / "qa" / "SKILL.md",
+    REPO_ROOT / "skills" / "aidd-loop" / "SKILL.md",
+]
+
 LEGACY_STAGE_ALIASES = [
     "/feature-dev-aidd:planner",
     "/feature-dev-aidd:tasklist-refiner",
@@ -154,6 +165,79 @@ class E2EPromptContractTests(unittest.TestCase):
                 text.lower(),
                 r"stage-level классификац|stage-return",
                 msg=f"{prompt}: missing stage-return-only extraction policy",
+            )
+
+    def test_prompts_and_stage_skills_explicitly_forbid_plugin_workspace_bypass(self) -> None:
+        for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
+            text = _read(prompt).lower()
+            self.assertIn(
+                "aidd_allow_plugin_workspace=1",
+                text,
+                msg=f"{prompt}: missing explicit bypass prohibition marker",
+            )
+            self.assertRegex(
+                text,
+                r"workspace_bypass_attempt|non-canonical bypass|не выполнять",
+                msg=f"{prompt}: bypass prohibition wording is missing",
+            )
+        for skill_path in NON_RESEARCH_STAGE_SKILLS:
+            text = _read(skill_path).lower()
+            self.assertIn(
+                "aidd_allow_plugin_workspace=1",
+                text,
+                msg=f"{skill_path}: stage skill must explicitly forbid bypass env",
+            )
+
+    def test_stage_skills_forbid_runtime_source_self_diagnosis_recovery(self) -> None:
+        for skill_path in NON_RESEARCH_STAGE_SKILLS:
+            text = _read(skill_path).lower()
+            self.assertRegex(
+                text,
+                r"runtime[- ]source",
+                msg=f"{skill_path}: missing runtime-source self-diagnosis prohibition",
+            )
+            self.assertRegex(
+                text,
+                r"primary recovery|primary path|source[- ]of[- ]truth",
+                msg=f"{skill_path}: missing source-of-truth recovery guard",
+            )
+        full_prompt = _read(AUDIT_PROMPT_FULL)
+        self.assertIn("prompt-flow drift (non-canonical stage orchestration)", full_prompt)
+        self.assertIn("runtime_cli_contract_mismatch", full_prompt)
+        self.assertIn("workspace_bypass_attempt", full_prompt)
+
+    def test_prompts_define_cwd_wrong_authoritative_source_priority(self) -> None:
+        for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
+            text = _read(prompt)
+            self.assertIn(
+                "authoritative-source = launcher topology precheck",
+                text,
+                msg=f"{prompt}: missing cwd_wrong authoritative-source rule",
+            )
+            self.assertIn(
+                "nested excerpts/tool_result",
+                text,
+                msg=f"{prompt}: missing nested excerpt telemetry-only rule for cwd_wrong",
+            )
+
+    def test_prompts_require_open_questions_none_to_skip_question_cycle(self) -> None:
+        for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
+            text = _read(prompt)
+            self.assertIn("AIDD:OPEN_QUESTIONS=none", text, msg=f"{prompt}: missing OPEN_QUESTIONS rule")
+            self.assertIn("question_cycle_required=0", text, msg=f"{prompt}: missing question_cycle_required guard")
+
+    def test_non_research_stage_skills_define_open_questions_none_parity_rule(self) -> None:
+        for skill_path in NON_RESEARCH_STAGE_SKILLS:
+            text = _read(skill_path)
+            self.assertIn(
+                "AIDD:OPEN_QUESTIONS=none",
+                text,
+                msg=f"{skill_path}: missing OPEN_QUESTIONS parity rule",
+            )
+            self.assertIn(
+                "question_cycle_required=0",
+                text,
+                msg=f"{skill_path}: missing question_cycle_required parity marker",
             )
 
     def test_prompt_policy_has_stream_liveness_contract(self) -> None:
