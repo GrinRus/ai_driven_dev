@@ -569,6 +569,44 @@ class E2EPromptContractTests(unittest.TestCase):
         self.assertNotIn("/feature-dev-aidd:planner", agent_text)
         self.assertNotIn("/feature-dev-aidd:planner", skill_text)
 
+    def test_researcher_contract_has_status_source_of_truth_and_anti_upgrade_drift(self) -> None:
+        for path in (RESEARCHER_AGENT, RESEARCHER_SKILL):
+            text = _read(path).lower()
+            self.assertRegex(
+                text,
+                r"source[- ]of[- ]truth|source of truth",
+                msg=f"{path}: missing status source-of-truth wording",
+            )
+            self.assertRegex(
+                text,
+                r"tool_result|nested excerpts?|telemetry-only",
+                msg=f"{path}: missing nested/tool_result telemetry-only rule",
+            )
+            self.assertRegex(
+                text,
+                r"manual status|manual status upgrades|do not upgrade|forbidden",
+                msg=f"{path}: missing explicit manual status-upgrade prohibition",
+            )
+            self.assertIn(
+                "ready -> reviewed",
+                text,
+                msg=f"{path}: missing ready->reviewed canonicalization wording",
+            )
+
+    def test_prompts_define_research_status_alias_and_manual_upgrade_drift_policy(self) -> None:
+        for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
+            text = _read(prompt)
+            self.assertIn(
+                "research_status_alias_normalized=ready->reviewed",
+                text,
+                msg=f"{prompt}: missing ready alias normalization telemetry",
+            )
+            self.assertIn(
+                "research_status_manual_upgrade_attempt",
+                text,
+                msg=f"{prompt}: missing manual status-upgrade drift classifier",
+            )
+
     def test_loop_stage_skills_enforce_stage_chain_only_policy(self) -> None:
         for skill_path in LOOP_STAGE_SKILLS:
             text = _read(skill_path)

@@ -102,6 +102,8 @@ class E2EQualityPromptContractTests(unittest.TestCase):
             "prompt-flow drift (non-canonical stage orchestration)",
             "workspace_bypass_attempt",
             "AIDD_ALLOW_PLUGIN_WORKSPACE=1",
+            "research_status_alias_normalized=ready->reviewed",
+            "research_status_manual_upgrade_attempt",
             "authoritative-source = launcher topology precheck",
             "question_cycle_required=0",
             "aidd_stage_launcher.py",

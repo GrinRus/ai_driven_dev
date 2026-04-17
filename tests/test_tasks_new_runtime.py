@@ -7,6 +7,7 @@ from pathlib import Path
 from tests.helpers import (
     REPO_ROOT,
     bootstrap_workspace,
+    cli_cmd,
     cli_env,
     write_active_feature,
     write_active_stage,
@@ -35,6 +36,88 @@ class TasksNewRuntimeTests(unittest.TestCase):
             capture_output=True,
             env=env,
             check=False,
+        )
+
+    def _write_research_ready_alias_baseline(self, project_root: Path, ticket: str) -> None:
+        write_file(project_root, "src/main/kotlin/App.kt", "class App {}\n")
+        write_file(project_root, f"docs/research/{ticket}.md", "# Research\n\nStatus: ready\n")
+        write_file(
+            project_root,
+            f"reports/research/{ticket}-rlm-targets.json",
+            json.dumps(
+                {
+                    "ticket": ticket,
+                    "files": ["src/main/kotlin/App.kt"],
+                    "paths": ["src/main/kotlin"],
+                    "paths_discovered": [],
+                    "generated_at": "2026-04-17T00:00:00Z",
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+        )
+        write_file(
+            project_root,
+            f"reports/research/{ticket}-rlm-manifest.json",
+            json.dumps(
+                {
+                    "ticket": ticket,
+                    "files": [
+                        {
+                            "file_id": "file-app",
+                            "path": "src/main/kotlin/App.kt",
+                            "rev_sha": "rev-app",
+                            "lang": "kt",
+                            "size": 10,
+                            "prompt_version": "v1",
+                        }
+                    ],
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+        )
+        write_file(
+            project_root,
+            f"reports/research/{ticket}-rlm.worklist.pack.json",
+            json.dumps(
+                {
+                    "schema": "aidd.report.pack.v1",
+                    "type": "rlm-worklist",
+                    "status": "ready",
+                    "entries": [],
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+        )
+        write_file(
+            project_root,
+            f"reports/research/{ticket}-rlm.nodes.jsonl",
+            '{"node_kind":"file","file_id":"file-app","id":"file-app","path":"src/main/kotlin/App.kt","rev_sha":"rev-app"}\n',
+        )
+        write_file(
+            project_root,
+            f"reports/research/{ticket}-rlm.links.jsonl",
+            '{"link_kind":"import","source":"file-app","target":"file-app","id":"link-1"}\n',
+        )
+        write_file(
+            project_root,
+            f"reports/research/{ticket}-rlm.links.stats.json",
+            json.dumps({"links_total": 1}, ensure_ascii=False, indent=2) + "\n",
+        )
+        write_file(
+            project_root,
+            f"reports/research/{ticket}-rlm.pack.json",
+            json.dumps(
+                {"schema": "aidd.report.pack.v1", "type": "rlm", "status": "ready"},
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
         )
 
     def test_tasks_new_strict_by_default(self) -> None:
@@ -92,6 +175,38 @@ class TasksNewRuntimeTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0)
             self.assertIn("tasklist-check: error", result.stderr)
             self.assertIn("AIDD_ALLOW_TASKLIST_ERROR_SUCCESS=1", result.stderr)
+
+    def test_tasks_new_no_cascade_plan_not_found_when_research_ready_alias_is_normalized(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="tasks-new-ready-alias-") as tmpdir:
+            workspace = Path(tmpdir) / "workspace"
+            workspace.mkdir(parents=True, exist_ok=True)
+            bootstrap_workspace(workspace)
+            project_root = workspace / "aidd"
+            ticket = "TASKS-READY-ALIAS-1"
+
+            write_active_feature(project_root, ticket)
+            write_active_stage(project_root, "plan")
+            self._write_research_ready_alias_baseline(project_root, ticket)
+
+            research_gate = subprocess.run(
+                cli_cmd("research-check", "--ticket", ticket, "--expected-stage", "plan"),
+                cwd=workspace,
+                text=True,
+                capture_output=True,
+                env=cli_env(),
+                check=False,
+            )
+            self.assertEqual(research_gate.returncode, 0, msg=research_gate.stderr)
+            self.assertIn("status: reviewed", research_gate.stdout)
+
+            write_active_stage(project_root, "tasklist")
+            write_plan_iterations(project_root, ticket)
+            write_tasklist_ready(project_root, ticket)
+
+            result = self._run_tasks_new(workspace, "--ticket", ticket)
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            self.assertNotIn("category=upstream_blocker", result.stderr)
+            self.assertNotIn("code=plan_not_found", result.stderr)
 
     def test_tasks_new_blocks_on_missing_project_test_contract(self) -> None:
         with tempfile.TemporaryDirectory(prefix="tasks-new-contract-missing-") as tmpdir:
