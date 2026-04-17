@@ -13,10 +13,10 @@
       "source": {
         "source": "github",
         "repo": "GrinRus/ai_driven_dev",
-        "ref": "v0.1.0"
+        "ref": "v0.1.1"
       },
       "description": "AI-driven dev workflow for Claude Code: idea, research, plan, tasks, implement, review, QA.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "strict": true
     }
   ]
