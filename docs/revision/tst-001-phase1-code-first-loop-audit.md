@@ -15,7 +15,7 @@ HEAD: `5a6e8fc226093c860ee10b7cfa8bebcd6eb1f5ae`
 ## Stage Loop Matrix
 
 | Stage | Blocked/Pending Trigger (Code Source) | Retry Policy | Stop Condition | Terminal Reason Codes / Outcomes | Loop Risk |
-|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- |
 | `idea` | PRD validator blocks on question numbering gaps, missing/extra `Q<N>` pairs, invalid compact answers, `Status != READY`, open questions, missing research link (`skills/aidd-core/runtime/analyst_guard.py:227-387`). | No implicit endless retry in runtime. External retry is Q/A closure cycle. In loop mode, question retry is auto-applied once (`skills/aidd-loop/runtime/loop_step_parts/core.py:1910-2073`). | `Status: READY` + strict Q/A bijection + no unresolved open questions. | `blocked` validator error; second blocked question cycle in loop emits `reason_code=prompt_flow_blocker`. | High |
 | `research` | Hard block if `AIDD:RESEARCH_HINTS` lacks paths/keywords (`skills/researcher/runtime/research.py:536-540`). Pending reasons are emitted when RLM not ready (`skills/researcher/runtime/research.py:675-700`). | Bounded auto-recovery/finalize once (`skills/researcher/runtime/research.py:311-372`, `637-667`). Downstream checker does one finalize probe (`skills/plan-new/runtime/research_check.py:118-158`). | `rlm_status=ready` with mandatory RLM baseline artifacts validated (`skills/plan-new/runtime/research_check.py:45-69,166`). | `research_artifacts_missing`, `research_artifacts_invalid`, `rlm_status_pending_finalize_failed`, pending with deterministic `reason_code + next_action`. | Medium |
 | `plan` | Stage contract blocks early unless `prd_check + research_check` pass (`skills/plan-new/SKILL.md:30-37`). | No unbounded retry in code. Research gate probe is bounded once via `research_check.py`. | Gate pass + planner/validator verdict no blockers. | Blocking inherited from `research_check` and `prd_check` failures (e.g. `rlm_status_pending`, artifact invalid/missing). | Medium |
@@ -29,7 +29,7 @@ HEAD: `5a6e8fc226093c860ee10b7cfa8bebcd6eb1f5ae`
 ## Loop-Risk Points by Stage (Code-Level)
 
 | Stage | Loop Risk Point | Code Anchor | Expected Hard Stop |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `idea` | `AIDD:ANSWERS` parser scans full section; inline instructional examples can be parsed as real answers. | `skills/aidd-core/runtime/analyst_guard.py:148-161`, template examples at `skills/idea-new/templates/prd.template.md:25-26`. | Stop with missing/extra answer mismatch; do not auto-loop beyond one retry in loop mode. |
 | `research` | Auto finalize probe can return `pending` repeatedly if upstream RLM remains unresolved. | `skills/researcher/runtime/research.py:311-372,637-700`. | One bounded auto finalize; then deterministic pending with `next_action`. |
 | `plan` | Research gate softening is only for expected stage `plan`; wrong stage usage can hard-block repeatedly if caller retries blindly. | `skills/plan-new/runtime/research_check.py:34-42,138-151`. | Stop after probe outcome; do not convert non-plan pending to soft pass. |
@@ -43,7 +43,7 @@ HEAD: `5a6e8fc226093c860ee10b7cfa8bebcd6eb1f5ae`
 ## Commit Regression Matrix (`merge-base..HEAD`)
 
 | Commit | Changed Loop/Retry Branches | Potential Regression / Loop Impact | Evidence |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `fee7ac5` | Removed spec interview reason-codes from loop-step question retry set (`skills/aidd-loop/runtime/loop_step_parts/core.py`). Added category-based tasks remediation (`skills/tasks-new/runtime/tasks_new.py`, `skills/aidd-flow-state/runtime/tasklist_validate.py`). | Legacy reason-codes (`missing_spec_answers`, `spec_questions_unresolved`) are no longer auto-retry candidates; if emitted by stale callers, stage may stay blocked without retry. Tasks stage behavior now strongly depends on issue categorization (`upstream_blocker` vs `repairable_structure`) for bounded retry path. | `git show fee7ac5 -- skills/aidd-loop/runtime/loop_step_parts/core.py`; `git show fee7ac5 -- skills/tasks-new/runtime/tasks_new.py`; `git show fee7ac5 -- skills/aidd-flow-state/runtime/tasklist_validate.py`. |
 | `99504ce` | Tightened analyst question parsing and dialog compatibility (`skills/aidd-core/runtime/analyst_guard.py`). | Reduced false negatives for `Question N`, but stricter dialog parsing can still block if template/examples leak into parsed answer set. | `git show 99504ce -- skills/aidd-core/runtime/analyst_guard.py`. |
 | `5a6e8fc` | `idea-new` analyst-check now syncs index on both success and validation failure (`skills/idea-new/runtime/analyst_check.py`). | Improves question-closure telemetry consistency; does not itself add retry loops, but can alter orchestration behavior that depends on index freshness. | `git show 5a6e8fc -- skills/idea-new/runtime/analyst_check.py`. |
@@ -51,7 +51,7 @@ HEAD: `5a6e8fc226093c860ee10b7cfa8bebcd6eb1f5ae`
 ### Introducing Commit Map (Per Key Risk)
 
 | Risk | Introducing Commit (blame) | Notes |
-|---|---|---|
+| --- | --- | --- |
 | Strict compact answer parser in idea gate | `bc76775c` (`analyst_guard.py:41`) | Parser reads compact `Q=` patterns across the whole answers section. |
 | Q/A bijection hard-stop (`missing_answers` / `extra_answers`) | `bc76775c` + legacy core (`analyst_guard.py:333-351`) | Core anti-loop stop condition for idea stage. |
 | Inline compact examples in PRD template | `53145731` (`prd.template.md:25-26`) | Possible parser collision risk if not filtered in guard. |
@@ -65,7 +65,7 @@ HEAD: `5a6e8fc226093c860ee10b7cfa8bebcd6eb1f5ae`
 ## Test Gap Matrix (Static)
 
 | Stage | Existing Coverage (Static) | Missing / Weak Coverage | Gap Risk |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `idea` | Strong unit coverage for Q/A parity, compact format, open-questions sync (`tests/test_analyst_dialog.py`), plus sync-index behavior (`tests/test_idea_new_analyst_check.py`). | No direct test that `analyst_guard` ignores inline instructional compact examples inside `## AIDD:ANSWERS` (template-style examples). | High |
 | `research` | `research_check` covers pending/ready/softening/finalize-fail branches (`tests/test_research_check.py`). | Limited direct tests for full `research.py` auto-finalize + pending handoff path integration (`pending_reason_code`, `next_action`) under repeated unresolved states. | Medium |
 | `plan` | Research gate behavior tested via `research_check` and workflow tests. | No dedicated plan-stage integration test for full gate chain (`prd_check + research_check + validator`) with anti-loop stop semantics. | Medium |
