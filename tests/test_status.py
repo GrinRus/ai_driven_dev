@@ -149,6 +149,6 @@ def test_status_refresh_shows_truth_sections_and_event_rollups():
         assert result.returncode == 0, result.stderr
         assert "- Document statuses:" in result.stdout
         assert "- Expected reports (planned):" in result.stdout
-        assert "- Missing expected reports:" not in result.stdout
+        assert "- Missing expected reports:" in result.stdout
         assert "- Truth checks:" in result.stdout
         assert "x2" in result.stdout

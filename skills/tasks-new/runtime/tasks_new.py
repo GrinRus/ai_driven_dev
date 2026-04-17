@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import re
 import shlex
 import sys
 from datetime import date
@@ -135,94 +134,6 @@ def _migrate_legacy_expected_reports(text: str) -> str:
             lines[idx] = f"{indent}ExpectedReports:"
             return "\n".join(lines).rstrip("\n") + "\n"
     return text
-
-
-def _canonical_expected_reports(*, ticket: str, scope_key: str, include_tests: bool) -> dict[str, str]:
-    reports: dict[str, str] = {}
-    if include_tests:
-        reports["tests"] = f"aidd/reports/tests/{ticket}/{scope_key}.jsonl"
-    reports["review_report"] = f"aidd/reports/reviewer/{ticket}/{scope_key}.json"
-    reports["reviewer_marker"] = f"aidd/reports/reviewer/{ticket}/{scope_key}.tests.json"
-    reports["qa"] = f"aidd/reports/qa/{ticket}.json"
-    return reports
-
-
-def _infer_profile_from_test_execution(lines: list[str]) -> str:
-    for raw in lines:
-        text = str(raw or "").strip()
-        if not text.lower().startswith("- profile:"):
-            continue
-        _, _, value = text.partition(":")
-        return value.strip().lower()
-    return "none"
-
-
-def _normalize_tasklist_contract_frontmatter(
-    text: str,
-    *,
-    ticket: str,
-    scope_key: str,
-    test_profile: str,
-) -> str:
-    lines = text.splitlines()
-    if not lines or lines[0].strip() != "---":
-        return text
-    end_idx = None
-    for idx in range(1, len(lines)):
-        if lines[idx].strip() == "---":
-            end_idx = idx
-            break
-    if end_idx is None:
-        return text
-
-    include_tests = str(test_profile or "").strip().lower() not in {"", "none"}
-    canonical_reports = _canonical_expected_reports(ticket=ticket, scope_key=scope_key, include_tests=include_tests)
-    front_lines = lines[1:end_idx]
-    rebuilt: list[str] = []
-    seen_expected = False
-    idx = 0
-    while idx < len(front_lines):
-        raw = front_lines[idx]
-        stripped = raw.strip()
-        if re.match(r"^#\s*Status:\s*PENDING\|READY\|WARN\|BLOCKED$", stripped, re.IGNORECASE):
-            idx += 1
-            continue
-        if re.match(r"^Owner:\s*<name/team>\s*$", stripped, re.IGNORECASE):
-            rebuilt.append("Owner: team")
-            idx += 1
-            continue
-
-        lowered = stripped.lower()
-        if lowered in {"reports:", "expectedreports:"}:
-            seen_expected = True
-            rebuilt.append("ExpectedReports:")
-            for key, path in canonical_reports.items():
-                rebuilt.append(f"  {key}: {path}")
-            idx += 1
-            while idx < len(front_lines):
-                lookahead = front_lines[idx]
-                if not lookahead.strip():
-                    idx += 1
-                    continue
-                indent = len(lookahead) - len(lookahead.lstrip(" "))
-                if indent >= 2:
-                    idx += 1
-                    continue
-                break
-            continue
-
-        rebuilt.append(raw)
-        idx += 1
-
-    if not seen_expected:
-        if rebuilt and rebuilt[-1].strip():
-            rebuilt.append("")
-        rebuilt.append("ExpectedReports:")
-        for key, path in canonical_reports.items():
-            rebuilt.append(f"  {key}: {path}")
-
-    merged = [lines[0], *rebuilt, lines[end_idx], *lines[end_idx + 1 :]]
-    return "\n".join(merged).rstrip("\n") + "\n"
 
 
 def _issue_categories(
@@ -407,24 +318,12 @@ def main(argv: list[str] | None = None) -> int:
         tasklist_text = tasklist_path.read_text(encoding="utf-8")
         tasklist_text = _replace_section(tasklist_text, "AIDD:TEST_EXECUTION", contract_lines)
         tasklist_text = _migrate_legacy_expected_reports(tasklist_text)
-        tasklist_text = _normalize_tasklist_contract_frontmatter(
-            tasklist_text,
-            ticket=ticket,
-            scope_key=scope_key,
-            test_profile=_infer_profile_from_test_execution(contract_lines),
-        )
         tasklist_path.write_text(tasklist_text, encoding="utf-8")
     else:
         tasklist_text = tasklist_path.read_text(encoding="utf-8")
         migrated = _migrate_legacy_expected_reports(tasklist_text)
-        normalized = _normalize_tasklist_contract_frontmatter(
-            migrated,
-            ticket=ticket,
-            scope_key=scope_key,
-            test_profile="none",
-        )
-        if normalized != tasklist_text:
-            tasklist_path.write_text(normalized, encoding="utf-8")
+        if migrated != tasklist_text:
+            tasklist_path.write_text(migrated, encoding="utf-8")
 
     result = tasklist_check.check_tasklist(target, ticket)
     rel_path = runtime.rel_path(tasklist_path, target)

@@ -102,7 +102,6 @@ run_cli() {
       case "$cmd" in
         actions-apply) docio_runtime="actions_apply.py" ;;
         actions-validate) docio_runtime="actions_validate.py" ;;
-        artifact-audit) observability_runtime="artifact_audit.py" ;;
         context-expand) docio_runtime="context_expand.py" ;;
         context-map-validate) docio_runtime="context_map_validate.py" ;;
         dag-export) observability_runtime="dag_export.py" ;;

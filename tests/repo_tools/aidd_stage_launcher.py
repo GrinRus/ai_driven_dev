@@ -52,11 +52,6 @@ OPTION_LINE_RE = re.compile(r"^\s*[-*]?\s*(?:\*\*)?([A-Z])\)(?:\*\*)?\s*(.+?)\s*
 QUESTION_STAGE_HINT_RE = re.compile(r"(idea[-_ ]new|plan[-_ ]new|05_idea_new|05_plan_new)", re.IGNORECASE)
 AIDD_OPEN_QUESTIONS_HEADING_RE = re.compile(r"^\s*##\s+AIDD:OPEN_QUESTIONS\s*$", re.IGNORECASE | re.MULTILINE)
 SECTION_HEADING_RE = re.compile(r"^\s*##\s+.+$", re.MULTILINE)
-CANONICAL_STAGE_CMD_RE = re.compile(r"/feature-dev-aidd:([a-z0-9_-]+)", re.IGNORECASE)
-QUESTION_TRIGGER_TOKEN_RE = re.compile(
-    r"(?:\bq[0-9]+\b|aidd:answers|aidd:open_questions|\bquestion\b|\bвопрос\b)",
-    re.IGNORECASE,
-)
 
 
 def build_paths(audit_dir: Path, step: str, run: int) -> Dict[str, Path]:
@@ -761,45 +756,6 @@ def _extract_questions_from_persisted_doc(project_dir: Path, ticket: str) -> Lis
     return []
 
 
-def _stage_key_from_command(stage_command: str) -> str:
-    text = str(stage_command or "").strip()
-    if not text:
-        return ""
-    match = CANONICAL_STAGE_CMD_RE.search(text)
-    if match:
-        return str(match.group(1) or "").strip().lower()
-    return ""
-
-
-def _persisted_fallback_allowed(stage_command: str) -> bool:
-    stage_key = _stage_key_from_command(stage_command)
-    if stage_key in {"idea-new", "plan-new"}:
-        return True
-    return bool(QUESTION_STAGE_HINT_RE.search(str(stage_command or "")))
-
-
-def _top_level_requests_question_cycle(
-    *,
-    result_event: Mapping[str, Any] | None,
-    assistant_text: str,
-    top_level_status: str,
-) -> bool:
-    chunks: List[str] = []
-    if result_event:
-        chunks.append(str(result_event.get("result") or ""))
-        denial_payload = result_event.get("permission_denials")
-        if isinstance(denial_payload, list) and denial_payload:
-            chunks.append(json.dumps(denial_payload, ensure_ascii=False))
-    if assistant_text:
-        chunks.append(assistant_text)
-    merged = "\n".join(chunks)
-    if not merged.strip():
-        return False
-    if QUESTION_TRIGGER_TOKEN_RE.search(merged):
-        return True
-    return top_level_status in {"pending", "blocked"} and bool(QUESTION_STAGE_HINT_RE.search(merged))
-
-
 def _extract_open_question_ids_from_persisted_doc(text: str) -> set[int]:
     match = AIDD_OPEN_QUESTIONS_HEADING_RE.search(text)
     if not match:
@@ -847,7 +803,6 @@ def extract_question_cycle(
     log_text: str,
     project_dir: Path,
     ticket: str,
-    stage_command: str = "",
 ) -> Dict[str, Any]:
     result_event = _last_result_event(log_text)
     top_level_status = _detect_top_level_status(log_text)
@@ -868,14 +823,9 @@ def extract_question_cycle(
     assistant_text = _last_top_level_assistant_text(log_text)
     if assistant_text:
         sources.append(("assistant_text", _extract_questions_from_text(assistant_text, source="assistant_text")))
-    if _persisted_fallback_allowed(stage_command) and _top_level_requests_question_cycle(
-        result_event=result_event,
-        assistant_text=assistant_text,
-        top_level_status=top_level_status,
-    ):
-        persisted_questions = _extract_questions_from_persisted_doc(project_dir=project_dir, ticket=ticket)
-        if persisted_questions:
-            sources.append(("persisted_doc", persisted_questions))
+    persisted_questions = _extract_questions_from_persisted_doc(project_dir=project_dir, ticket=ticket)
+    if persisted_questions:
+        sources.append(("persisted_doc", persisted_questions))
 
     selected_source = "none"
     selected_questions: List[Dict[str, Any]] = []
@@ -1302,7 +1252,6 @@ def main() -> int:
         log_text=log_text,
         project_dir=project_dir,
         ticket=str(args.ticket or ""),
-        stage_command=str(args.stage_command or ""),
     )
     write_question_sidecars(
         question_cycle,

@@ -19,8 +19,6 @@ Single entrypoint for AIDD runtime agents in a workspace. Repository maintainer 
 - `tools/` contains import stubs and repo-only tooling only.
 - Wrapper output must stay within the output budget: stdout <= 200 lines or <= 50KB, stderr <= 50 lines; send large outputs to `aidd/reports/**`.
 - Stage-chain orchestration (`preflight -> run -> postflight -> stage_result`) is mandatory for loop stages.
-- For non-research stages, question/retry extraction source-of-truth is current run top-level stage return + canonical report payload. Nested excerpts/persisted template fragments are telemetry only.
-- Context artifacts (`aidd/reports/context/*.md`, `latest_working_set*.md`) are compact summaries only: no raw template-body embedding, no duplicated working-set header blocks, and mandatory runtime self-check before write.
 
 ## Evidence read policy (summary)
 - Primary research evidence: `aidd/reports/research/<ticket>-rlm.pack.json`.

@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import os
 import sys
-from contextlib import redirect_stderr, redirect_stdout
-from io import StringIO
 from pathlib import Path
 
 _PLUGIN_ROOT = Path(__file__).resolve().parents[3]
@@ -42,33 +40,6 @@ def _resolve_review_report_path(context: launcher.LaunchContext) -> Path:
     return runtime.resolve_path_for_target(Path(report_rel), context.root)
 
 
-def _emit_missing_report_stage_result(context: launcher.LaunchContext, *, report_rel: str) -> None:
-    args = [
-        "--ticket",
-        context.ticket,
-        "--stage",
-        "review",
-        "--result",
-        "blocked",
-        "--scope-key",
-        context.scope_key,
-        "--reason-code",
-        "review_report_missing",
-        "--reason",
-        f"canonical review report missing: {report_rel}",
-        "--producer",
-        "review_run",
-        "--error",
-        "error_during_execution",
-    ]
-    if context.work_item_key:
-        args.extend(["--work-item-key", context.work_item_key])
-    from aidd_runtime import stage_result as _stage_result
-
-    with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
-        _stage_result.main(args)
-
-
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     context = launcher.resolve_context(
@@ -88,14 +59,6 @@ def main(argv: list[str] | None = None) -> int:
             "[aidd] ERROR: diagnostics=canonical_review_report_required",
             file=sys.stderr,
         )
-        try:
-            _emit_missing_report_stage_result(context, report_rel=report_rel)
-        except Exception as exc:  # pragma: no cover - defensive
-            print(
-                "[aidd] ERROR: reason_code=stage_result_emit_failed "
-                f"details={str(exc).strip() or exc.__class__.__name__}",
-                file=sys.stderr,
-            )
         return 2
     if not report_path.exists() and docs_only_mode:
         report_rel = runtime.rel_path(report_path, context.root)

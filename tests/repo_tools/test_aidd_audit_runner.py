@@ -233,52 +233,6 @@ class AiddAuditRunnerTests(unittest.TestCase):
         self.assertIn("no_top_level_result", payload.get("secondary_telemetry") or [])
         self.assertNotIn("no_top_level_result", payload.get("secondary_symptoms") or [])
 
-    def test_cwd_wrong_marker_inside_nested_tool_result_is_not_authoritative(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            summary_path = Path(tmp) / "05_tasks_new_run1.summary.txt"
-            log_path = Path(tmp) / "05_tasks_new_run1.log"
-            summary_path.write_text(
-                "\n".join(
-                    [
-                        "step=05_tasks_new",
-                        "exit_code=143",
-                        "result_count=0",
-                    ]
-                )
-                + "\n",
-                encoding="utf-8",
-            )
-            log_path.write_text(
-                "\n".join(
-                    [
-                        '{"type":"system","subtype":"init"}',
-                        '{"type":"user","message":{"role":"user","content":[{"type":"tool_result","is_error":true,"content":"[aidd] ERROR: refusing to use plugin repository as workspace root for runtime artifacts"}]}}',
-                    ]
-                )
-                + "\n",
-                encoding="utf-8",
-            )
-            payload = self.runner.analyze_run(
-                summary_path=summary_path,
-                run_log_path=log_path,
-            )
-        self.assertEqual(payload.get("classification"), "ENV_MISCONFIG")
-        self.assertEqual(payload.get("classification_subtype"), "parent_terminated_or_external_terminate")
-        self.assertNotEqual(payload.get("classification_subtype"), "cwd_wrong")
-
-    def test_incident_fixture_20260409_tasks_new_keeps_cwd_wrong_primary(self) -> None:
-        payload = self.runner.analyze_run(
-            summary_path=FIXTURES / "05_tasks_new_incident_20260409_run1.summary.txt",
-            run_log_path=FIXTURES / "05_tasks_new_incident_20260409_run1.log",
-            termination_path=FIXTURES / "05_tasks_new_incident_20260409_termination_attribution.txt",
-        )
-        self.assertEqual(payload.get("classification"), "ENV_MISCONFIG")
-        self.assertEqual(payload.get("classification_subtype"), "cwd_wrong")
-        self.assertEqual(payload.get("classification_source"), "termination_attribution")
-        self.assertEqual(payload.get("result_count_interpretation"), "no_top_level_result_confirmed")
-        self.assertIn("no_top_level_result", payload.get("secondary_telemetry") or [])
-        self.assertEqual(payload.get("downstream_skip_hint"), "NOT VERIFIED (upstream_tasks_new_failed)")
-
     def test_topology_preflight_violation_overrides_unclassified_run(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             summary_path = Path(tmp) / "05_tasks_new_run1.summary.txt"

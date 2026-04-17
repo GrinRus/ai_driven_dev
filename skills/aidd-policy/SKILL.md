@@ -38,16 +38,6 @@ Default: ...
 - Prefer `rlm_slice.py` and section slices for focused evidence.
 - Full-file reads are allowed only when slices are insufficient.
 - Keep `AIDD:READ_LOG` compact and point to `aidd/reports/**`.
-- For non-research stages (`idea|plan|review-spec|tasks|implement|review|qa|loop`), retry/question triggers must come from current run top-level stage return plus canonical report payload.
-- Nested excerpts (`tool_result`, pasted docs, template snippets, historical artifacts) are telemetry-only and must not be used as primary retry trigger.
-
-## Context generation policy
-- Context artifacts (`aidd/reports/context/*.md`, `latest_working_set*.md`) must be compact structured summaries; do not embed raw template markdown bodies.
-- Generate context summaries from structured fields and canonical artifacts (`aidd/docs/*.md`, `aidd/docs/index/*.json`, `aidd/reports/*pack.json`), not from free-form template text blocks.
-- Before writing markdown context artifacts, run self-check:
-  - no template leakage markers (`PRD template header`, `Status: draft`, `Owner: <...>`, placeholder `<...>` tokens);
-  - no duplicated top-level working-set blocks;
-  - size/section limits respected by runtime budget.
 
 ## Loop safety
 - Loop stages run through canonical stage-chain (`preflight -> run -> postflight -> stage_result`).

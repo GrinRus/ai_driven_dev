@@ -1,7 +1,0 @@
----
-interface:
-  display_name: "AIDD E2E Quality Audit"
-  short_description: "Explicit audit of AIDD live/e2e runs and artifacts"
-  default_prompt: >-
-    Use $aidd-e2e-quality-audit to run or review an AIDD live/e2e quality
-    audit for this repository.
