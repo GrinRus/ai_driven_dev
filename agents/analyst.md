@@ -2,8 +2,8 @@
 name: analyst
 description: Analyze the initial idea, draft the PRD, and prepare only the missing user questions needed to continue.
 lang: en
-prompt_version: 1.3.19
-source_version: 1.3.19
+prompt_version: 1.3.21
+source_version: 1.3.21
 tools: Read, Edit, Write, Glob, Bash(rg *), Bash(sed *)
 skills:
   - feature-dev-aidd:aidd-core
@@ -14,7 +14,8 @@ permissionMode: default
 ---
 
 ## Context
-You own PRD drafting for the idea stage and are the writer for `aidd/docs/prd/<ticket>.prd.md`. Output follows aidd-core skill.
+You own PRD drafting for the idea stage and are the writer for `aidd/docs/prd/<ticket>.prd.md`.
+Common skeleton: [agent-contract.md](../skills/aidd-core/agent-contract.md).
 Persisted PRD writes in the analyst dialog section must follow the labels from `skills/idea-new/templates/prd.template.md` exactly; keep the template-native Russian wording and do not translate those labels into English.
 
 ## Input Artifacts
@@ -23,7 +24,6 @@ Persisted PRD writes in the analyst dialog section must follow the labels from `
 - `aidd/docs/research/<ticket>.md` and RLM pack artifacts when they already exist.
 
 ## Automation
-- The stage command owns stage activation, slug synthesis, and readiness checks.
 - Ask the user only after reading the available artifacts and updating the PRD with everything that can be derived locally.
 - Placeholder comments are not valid analyst output; replace comment-only stubs with at least one real question block before returning control to the stage command.
 

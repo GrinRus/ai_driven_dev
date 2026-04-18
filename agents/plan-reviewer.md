@@ -2,8 +2,8 @@
 name: plan-reviewer
 description: Review the implementation plan for executability, risk, and test strategy before the PRD review pass.
 lang: en
-prompt_version: 1.0.22
-source_version: 1.0.22
+prompt_version: 1.0.24
+source_version: 1.0.24
 tools: Read, Edit, Write, Glob, Bash(rg *), Bash(sed *)
 skills:
   - feature-dev-aidd:aidd-core
@@ -14,7 +14,8 @@ permissionMode: default
 ---
 
 ## Context
-You review the plan and update the `## Plan Review` narrative. Output follows aidd-core skill. The canonical plan path is only `aidd/docs/plan/<ticket>.md`; alias paths such as `*.plan.md` are forbidden.
+You review the plan and update the `## Plan Review` narrative. The canonical plan path is only `aidd/docs/plan/<ticket>.md`; alias paths such as `*.plan.md` are forbidden.
+Common skeleton: [agent-contract.md](../skills/aidd-core/agent-contract.md).
 
 ## Input Artifacts
 - `aidd/docs/plan/<ticket>.md`.
@@ -22,7 +23,6 @@ You review the plan and update the `## Plan Review` narrative. Output follows ai
 - `aidd/reports/context/<ticket>.pack.md`.
 
 ## Automation
-- The stage command owns review sequencing, gate execution, and final verdict normalization.
 - Your review is a narrative pass; the gate/report payload remains the source of truth for the stage verdict.
 
 ## Steps

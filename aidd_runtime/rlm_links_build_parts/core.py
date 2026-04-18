@@ -5,24 +5,14 @@ import argparse
 import datetime as dt
 import hashlib
 import json
-import os
 import re
 import subprocess
-import sys
 from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Optional, Tuple
 
-_root_candidates: list[Path] = []
-_env_root = (os.environ.get("CLAUDE_PLUGIN_ROOT") or "").strip()
-if _env_root:
-    _root_candidates.append(Path(_env_root).resolve())
-_root_candidates.extend(Path(__file__).resolve().parents)
-for _root in _root_candidates:
-    if (_root / "aidd_runtime").is_dir():
-        os.environ.setdefault("CLAUDE_PLUGIN_ROOT", str(_root))
-        if str(_root) not in sys.path:
-            sys.path.insert(0, str(_root))
-        break
+from aidd_runtime._bootstrap import ensure_repo_root
+
+ensure_repo_root(__file__)
 
 from aidd_runtime import rlm_targets, runtime
 from aidd_runtime.rlm_links_empty_reason import resolve_empty_reason

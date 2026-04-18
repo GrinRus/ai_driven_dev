@@ -7,28 +7,15 @@ import argparse
 import json
 import os
 import re
-import sys
 from pathlib import Path
 from typing import Dict, Iterable, List, Set
 
+try:
+    from ._bootstrap import ensure_repo_root, resolve_repo_root
+except ImportError:  # pragma: no cover - direct script execution
+    from _bootstrap import ensure_repo_root, resolve_repo_root
 
-def _repo_root() -> Path:
-    try:
-        from aidd_runtime import repo_paths as _repo_paths
-
-        return _repo_paths.repo_root(__file__)
-    except Exception:
-        here = Path(__file__).resolve()
-        for candidate in (here.parent, *here.parents):
-            if (candidate / ".claude-plugin").is_dir() and (candidate / "skills").is_dir():
-                return candidate
-        return here.parents[2]
-
-
-if __package__ in {None, ""}:
-    _ROOT_FOR_SYS_PATH = _repo_root()
-    if str(_ROOT_FOR_SYS_PATH) not in sys.path:
-        sys.path.insert(0, str(_ROOT_FOR_SYS_PATH))
+ensure_repo_root(__file__)
 
 from aidd_runtime import runtime
 from aidd_runtime.io_utils import utc_timestamp
@@ -434,7 +421,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.repo_root:
         repo_root = Path(args.repo_root).resolve()
     else:
-        repo_root = _repo_root()
+        repo_root = resolve_repo_root(__file__)
     if "CLAUDE_PLUGIN_ROOT" not in os.environ:
         os.environ["CLAUDE_PLUGIN_ROOT"] = str(repo_root)
     workflow_root: Path | None = None

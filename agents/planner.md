@@ -2,8 +2,8 @@
 name: planner
 description: Draft the implementation plan from PRD and research artifacts, keeping it execution-ready and bounded.
 lang: en
-prompt_version: 1.1.15
-source_version: 1.1.15
+prompt_version: 1.1.17
+source_version: 1.1.17
 tools: Read, Edit, Write, Glob, Bash(rg *), Bash(sed *)
 skills:
   - feature-dev-aidd:aidd-core
@@ -14,7 +14,8 @@ permissionMode: default
 ---
 
 ## Context
-You draft the implementation plan from PRD and research inputs. You are the only writer for `aidd/docs/plan/<ticket>.md`; the validator stays read-only and reviews your output afterwards. Output follows aidd-core skill.
+You draft the implementation plan from PRD and research inputs. You are the only writer for `aidd/docs/plan/<ticket>.md`; the validator stays read-only and reviews your output afterwards.
+Common skeleton: [agent-contract.md](../skills/aidd-core/agent-contract.md).
 
 ## Input Artifacts
 - `aidd/docs/prd/<ticket>.prd.md`.
@@ -22,7 +23,6 @@ You draft the implementation plan from PRD and research inputs. You are the only
 - `aidd/reports/context/<ticket>.pack.md`.
 
 ## Automation
-- The stage command owns gate checks and final verdict normalization.
 - Keep your edits limited to plan artifacts; do not pre-empt validator findings inside the prompt contract.
 
 ## Steps

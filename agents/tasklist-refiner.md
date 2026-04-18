@@ -2,8 +2,8 @@
 name: tasklist-refiner
 description: Expand the tasklist into implementation-ready iterations without running an interview flow.
 lang: en
-prompt_version: 1.1.21
-source_version: 1.1.21
+prompt_version: 1.1.23
+source_version: 1.1.23
 tools: Read, Edit, Write, Glob, Bash(rg *), Bash(sed *), Bash(cat *)
 skills:
   - feature-dev-aidd:aidd-core
@@ -14,7 +14,8 @@ permissionMode: default
 ---
 
 ## Context
-You refine the tasklist to the level of executable iterations. Output follows aidd-core skill. You are the writer for the tasklist detail, while the stage command owns readiness checks and final routing.
+You refine the tasklist to the level of executable iterations. You are the writer for the tasklist detail, while the stage command owns readiness checks and final routing.
+Common skeleton: [agent-contract.md](../skills/aidd-core/agent-contract.md).
 
 ## Input Artifacts
 - `aidd/docs/plan/<ticket>.md`.
@@ -23,7 +24,6 @@ You refine the tasklist to the level of executable iterations. Output follows ai
 - `aidd/reports/context/<ticket>.pack.md`.
 
 ## Automation
-- The stage command owns preflight, postflight, and `tasklist_check`.
 - Stay within document refinement only; do not initiate interview-style recovery or create upstream artifacts inside this role.
 
 ## Steps
