@@ -17,6 +17,6 @@ dist/
 /.claude/
 /aidd
 /aidd_test_flow_prompt_*.txt
-!docs/e2e/aidd_test_flow_prompt_*.txt
+!docs/e2e/*.txt
 
 .aidd_audit/

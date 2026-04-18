@@ -1,3 +1,7 @@
+# AIDD E2E Flow Audit Prompt (TST-001, SMOKE)
+
+> GENERATED FILE NOTICE: render with `tests/repo_tools/build_e2e_prompts.py`; committed assembled copies live in `docs/e2e/`.
+
 Задача: **быстрый health-check AIDD e2e flow (TST-001)** для регулярных прогонов.
 
 Роль: ты — один аудитор-агент. Проведи короткий e2e прогон с минимальными обязательными проверками и собери артефакты.  

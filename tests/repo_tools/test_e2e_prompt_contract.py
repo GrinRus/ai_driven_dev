@@ -11,6 +11,7 @@ from tests.repo_tools.prompt_contract_support import assert_prompt_contract, loa
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+COMMITTED_PROMPT_DIR = REPO_ROOT / "docs" / "e2e"
 AUDIT_PROMPT_FULL = "aidd_test_flow_prompt_ralph_script_full.txt"
 AUDIT_PROMPT_SMOKE = "aidd_test_flow_prompt_ralph_script.txt"
 PROMPT_BUILDER = REPO_ROOT / "tests" / "repo_tools" / "build_e2e_prompts.py"
@@ -135,8 +136,13 @@ class E2EPromptContractTests(unittest.TestCase):
             assert_prompt_contract(self, text=text, contract=flow["ALL"], label=f"TST-001 {profile}")
             assert_prompt_contract(self, text=text, contract=flow[profile], label=f"TST-001 {profile}")
 
-    def test_committed_e2e_prompt_outputs_are_not_tracked(self) -> None:
-        self.assertFalse((REPO_ROOT / "docs" / "e2e").exists())
+    def test_committed_e2e_prompt_outputs_are_tracked_and_synced(self) -> None:
+        self.assertTrue(COMMITTED_PROMPT_DIR.is_dir(), msg=f"missing committed prompt dir: {COMMITTED_PROMPT_DIR}")
+        for output_name in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
+            committed = COMMITTED_PROMPT_DIR / output_name
+            rendered = self.prompt_dir / output_name
+            self.assertTrue(committed.exists(), msg=f"missing committed prompt output: {committed}")
+            self.assertEqual(read_text(committed), read_text(rendered), msg=f"committed prompt is stale: {committed}")
 
     def test_review_surfaces_enforce_canonical_plan_path_without_alias(self) -> None:
         review_skill = read_text(REPO_ROOT / "skills" / "review-spec" / "SKILL.md")

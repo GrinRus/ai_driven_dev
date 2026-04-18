@@ -1,0 +1,71 @@
+# AIDD E2E Quality Audit Prompt (TST-002, FULL)
+
+> GENERATED FILE NOTICE: render with `tests/repo_tools/build_e2e_prompts.py`; committed assembled copies live in `docs/e2e/`.
+
+Задача: **AIDD E2E Quality Audit (TST-002)**.
+
+Роль: один quality-аудитор-агент. Сначала доведи standalone flow до terminal state по canonical AIDD path, затем выполни quality gate и backlog-aware write-safety.
+
+## 1) Must read
+
+Перед стартом прочитай:
+
+- `$PLUGIN_DIR/tests/repo_tools/e2e_prompt/profile_full.md`
+- `$PLUGIN_DIR/docs/backlog.md`
+- `$PLUGIN_DIR/skills/review-spec/SKILL.md`
+
+- `$PLUGIN_DIR/skills/aidd-core/templates/workspace-agents.md`
+- `$PLUGIN_DIR/skills/aidd-core/templates/stage-lexicon.md`
+- `$PLUGIN_DIR/skills/tasks-new/templates/tasklist.template.md`
+- `$PLUGIN_DIR/skills/aidd-loop/templates/loop-pack.template.md`
+- `$PLUGIN_DIR/skills/researcher/templates/research.template.md`
+- `$PLUGIN_DIR/templates/aidd/config/gates.json`
+- `$PLUGIN_DIR/templates/aidd/config/conventions.json`
+- `$PLUGIN_DIR/skills/aidd-core/SKILL.md`
+- `$PLUGIN_DIR/skills/aidd-loop/SKILL.md`
+- `$PLUGIN_DIR/skills/researcher/SKILL.md`
+- `$PLUGIN_DIR/skills/aidd-stage-research/SKILL.md`
+- `$PLUGIN_DIR/skills/implement/SKILL.md`
+- `$PLUGIN_DIR/skills/review/SKILL.md`
+- `$PLUGIN_DIR/skills/qa/SKILL.md`
+
+## 2) Environment
+
+- `PROJECT_DIR=<absolute-path-to-target-workspace>`
+- `PLUGIN_DIR=<absolute-path-to-plugin-repo>`
+- `CLAUDE_PLUGIN_ROOT=$PLUGIN_DIR`
+- `TICKET=TST-002`
+- `BACKLOG_PATH=$PLUGIN_DIR/docs/backlog.md`
+- `QUALITY_FINAL_MARKER=QUALITY_AUDIT_COMPLETE`
+- `QUALITY_GATE_POLICY=strict`
+- `WAVE_WRITE_MODE=on-findings|always`
+- Pre-run invariant: `PROJECT_DIR must differ from PLUGIN_DIR`
+
+## 3) Core rules
+
+## Shared rules core
+
+- First run for each stage uses only `ticket` except `idea-new`, which uses `ticket + IDEA_NOTE`.
+- Do not read secrets or print raw secret values.
+- Use Python runtime surfaces only: `skills/*/runtime/*.py`.
+- For `claude -p` stage commands, add `--verbose --output-format stream-json` in stream mode and `--plugin-dir "$PLUGIN_DIR"` always.
+- Run plugin-load healthcheck before stage sequence; `Unknown skill: feature-dev-aidd:*` is `ENV_BLOCKER(plugin_not_loaded)`.
+- Treat `refusing to use plugin repository as workspace root` as `ENV_MISCONFIG(cwd_wrong)`.
+- Liveness in stream mode uses both main log and stream files; fallback discovery writes `AUDIT_DIR/<step>_stream_paths_run<N>.txt`.
+
+## 4) Quality-specific rules
+
+- Keep external flow behavior stable: slash commands, hook names, artifact names.
+- Preserve inherited flow evidence around `runtime_bootstrap_missing` and `AUDIT_DIR/05_precondition_block.txt`.
+- Do not modify target project just to improve the score.
+- `docs/backlog.md` is the only allowed plugin write during the quality step.
+- Create a new wave only for systemic AIDD findings; keep product-specific findings in the improvement plan.
+- Use `Wave <NNN>` and `W<NNN>-1` markers when writing a backlog wave.
+
+## 5) Step outline
+
+1. Run the inherited flow steps.
+2. Evaluate final feature state, code quality, artifact quality, and acceptance traceability.
+3. Produce quality verdict and optional backlog wave.
+4. End with the exact final marker:
+`QUALITY_AUDIT_COMPLETE TST-002 status=<PASS|WARN|FAIL> wave=<WNNN|none> feature_final_state=<REACHED|NOT_REACHED>`
