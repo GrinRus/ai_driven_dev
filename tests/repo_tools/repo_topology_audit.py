@@ -683,7 +683,7 @@ def _build_revision_payload(root: Path, *, generated_at: Optional[str] = None) -
         "summary": "No immediate destructive cleanup; all entries require validation before merge.",
         "actions": actions,
         "validation_commands": [
-            "python3 tests/repo_tools/repo_topology_audit.py --repo-root . --output-json docs/archive/generated/repo-revision.graph.json --output-md docs/archive/generated/repo-revision.md --output-cleanup docs/archive/generated/repo-cleanup-plan.json",
+            "python3 tests/repo_tools/repo_topology_audit.py --repo-root . --output-json /tmp/repo-revision.graph.json --output-md /tmp/repo-revision.md --output-cleanup /tmp/repo-cleanup-plan.json",
             "tests/repo_tools/ci-lint.sh",
             "tests/repo_tools/smoke-workflow.sh",
         ],
@@ -1008,17 +1008,17 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     parser.add_argument("--repo-root", default=".", help="Repository root path.")
     parser.add_argument(
         "--output-json",
-        default="docs/archive/generated/repo-revision.graph.json",
+        default="/tmp/repo-revision.graph.json",
         help="Output JSON graph path.",
     )
     parser.add_argument(
         "--output-md",
-        default="docs/archive/generated/repo-revision.md",
+        default="/tmp/repo-revision.md",
         help="Output markdown report path.",
     )
     parser.add_argument(
         "--output-cleanup",
-        default="docs/archive/generated/repo-cleanup-plan.json",
+        default="/tmp/repo-cleanup-plan.json",
         help="Output cleanup-plan JSON path.",
     )
     return parser.parse_args(argv)

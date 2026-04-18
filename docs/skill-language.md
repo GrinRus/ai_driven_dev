@@ -1,9 +1,9 @@
-# Skill Language Policy
+# Skill Language and Authoring Policy
 
 > INTERNAL/DEV-ONLY: maintainer lint/prompt policy source of truth.
 
 Owner: feature-dev-aidd
-Last reviewed: 2026-04-12
+Last reviewed: 2026-04-18
 Status: active
 
 This document defines the canonical prompt-language and structure policy used by `tests/repo_tools/lint-prompts.py`.
@@ -63,5 +63,6 @@ This document defines the canonical prompt-language and structure policy used by
 
 ## Baseline Source
 - Frontmatter parity baseline is stored in:
-  - `aidd/reports/migrations/commands_to_skills_frontmatter.json`
-  - fallback: `docs/migrations/commands_to_skills_frontmatter.json`
+  - `aidd/reports/migrations/stage_skills_frontmatter.json`
+  - fallback: `docs/migrations/stage_skills_frontmatter.json`
+  - legacy compatibility fallback: `commands_to_skills_frontmatter.json` names are accepted by lint, but are no longer canonical

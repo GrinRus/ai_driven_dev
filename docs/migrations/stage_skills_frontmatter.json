@@ -1,9 +1,8 @@
 {
-  "schema": "aidd.commands_to_skills_frontmatter.v1",
+  "schema": "aidd.stage_skills_frontmatter.v1",
   "rows": [
     {
       "stage": "aidd-init",
-      "command_path": "commands/aidd-init.md",
       "skill_path": "skills/aidd-init/SKILL.md",
       "frontmatter": {
         "description": "Use when you need to initialize AIDD workspace scaffolding in the current project.",
@@ -22,7 +21,6 @@
     },
     {
       "stage": "idea-new",
-      "command_path": "commands/idea-new.md",
       "skill_path": "skills/idea-new/SKILL.md",
       "frontmatter": {
         "allowed-tools": [
@@ -47,7 +45,6 @@
     },
     {
       "stage": "researcher",
-      "command_path": "commands/researcher.md",
       "skill_path": "skills/researcher/SKILL.md",
       "frontmatter": {
         "allowed-tools": [
@@ -72,7 +69,6 @@
     },
     {
       "stage": "plan-new",
-      "command_path": "commands/plan-new.md",
       "skill_path": "skills/plan-new/SKILL.md",
       "frontmatter": {
         "allowed-tools": [
@@ -98,7 +94,6 @@
     },
     {
       "stage": "review-spec",
-      "command_path": "commands/review-spec.md",
       "skill_path": "skills/review-spec/SKILL.md",
       "frontmatter": {
         "allowed-tools": [
@@ -126,7 +121,6 @@
     },
     {
       "stage": "tasks-new",
-      "command_path": "commands/tasks-new.md",
       "skill_path": "skills/tasks-new/SKILL.md",
       "frontmatter": {
         "allowed-tools": [
@@ -154,7 +148,6 @@
     },
     {
       "stage": "implement",
-      "command_path": "commands/implement.md",
       "skill_path": "skills/implement/SKILL.md",
       "frontmatter": {
         "description": "Use when implementing the next scoped work item in loop mode with wrapper-driven execution.",
@@ -204,7 +197,6 @@
     },
     {
       "stage": "review",
-      "command_path": "commands/review.md",
       "skill_path": "skills/review/SKILL.md",
       "frontmatter": {
         "description": "Use when reviewing scope changes, producing findings, and deriving follow-up tasks.",
@@ -240,7 +232,6 @@
     },
     {
       "stage": "qa",
-      "command_path": "commands/qa.md",
       "skill_path": "skills/qa/SKILL.md",
       "frontmatter": {
         "allowed-tools": [
@@ -278,7 +269,6 @@
     },
     {
       "stage": "status",
-      "command_path": "commands/status.md",
       "skill_path": "skills/status/SKILL.md",
       "frontmatter": {
         "allowed-tools": [

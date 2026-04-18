@@ -558,7 +558,6 @@ class PromptLintTests(unittest.TestCase):
             rows.append(
                 {
                     "stage": stage,
-                    "command_path": f"commands/{stage}.md",
                     "skill_path": f"skills/{stage}/SKILL.md",
                     "frontmatter": {
                         "name": stage,
@@ -575,12 +574,12 @@ class PromptLintTests(unittest.TestCase):
                 }
             )
         payload = {
-            "schema": "aidd.commands_to_skills_frontmatter.v1",
+            "schema": "aidd.stage_skills_frontmatter.v1",
             "rows": rows,
         }
         out_dir = root / "docs" / "migrations"
         out_dir.mkdir(parents=True, exist_ok=True)
-        (out_dir / "commands_to_skills_frontmatter.json").write_text(
+        (out_dir / "stage_skills_frontmatter.json").write_text(
             json.dumps(payload, indent=2) + "\n", encoding="utf-8"
         )
 
