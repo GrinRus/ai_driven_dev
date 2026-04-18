@@ -12,15 +12,7 @@ log()  { printf '[info] %s\n' "$*"; }
 warn() { printf '[warn] %s\n' "$*" >&2; }
 err()  { printf '[error] %s\n' "$*" >&2; }
 
-resolve_prompt_root() {
-  if [[ -d "${ROOT_DIR}/agents" || -d "${ROOT_DIR}/commands" ]]; then
-    printf '%s' "${ROOT_DIR}"
-    return
-  fi
-  printf '%s' "${ROOT_DIR}"
-}
-
-PROMPT_ROOT="$(resolve_prompt_root)"
+PROMPT_ROOT="${ROOT_DIR}"
 
 run_prompt_lint() {
   if ! command -v python3 >/dev/null 2>&1; then

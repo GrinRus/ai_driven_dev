@@ -67,11 +67,15 @@ class E2EQualityPromptContractTests(unittest.TestCase):
     def test_quality_prompt_contract_is_data_driven(self) -> None:
         text = read_text(self.prompt_dir / QUALITY_PROMPT)
         assert_prompt_contract(self, text=text, contract=self.contracts["quality"]["FULL"], label="TST-002 FULL")
+        self.assertNotIn("docs/e2e", text)
 
     def test_ci_lint_uses_render_guard_not_committed_outputs(self) -> None:
         ci_lint = read_text(CI_LINT_SCRIPT)
         self.assertIn("build_e2e_prompts.py --check", ci_lint)
         self.assertNotIn("docs/e2e", ci_lint)
+
+    def test_committed_e2e_prompt_outputs_are_not_tracked(self) -> None:
+        self.assertFalse((REPO_ROOT / "docs" / "e2e").exists())
 
     def test_quality_prompt_keeps_flow_shared_invariants(self) -> None:
         flow_text = read_text(self.prompt_dir / FLOW_PROMPT_FULL)

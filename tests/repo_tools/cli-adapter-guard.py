@@ -25,6 +25,7 @@ DESCRIPTION_PLACEHOLDER_RE = re.compile(r"\b(tbd|todo|n/a|coming soon)\b", flags
 ARGPARSE_RE = re.compile(r"\bargparse\b|\badd_argument\s*\(")
 DEF_MAIN_RE = re.compile(r"(?m)^\s*def\s+main\s*\(")
 EXPORT_MODULE_RE = re.compile(r"""export_module\(\s*['"]([^'"]+)['"]""")
+BOOTSTRAP_WRAPPER_RE = re.compile(r"""bootstrap_wrapper\(\s*['"]([^'"]+)['"]""")
 COMBINED_SECTION_RE = re.compile(
     r"(?im)^\s*(?:examples?|пример(?:ы)?|outputs?|artifacts?|результат(?:ы)?|"
     r"exit\s*codes?|return\s*codes?|коды?\s+выхода|options?|optional arguments|positional arguments)\s*:"
@@ -60,11 +61,13 @@ def _iter_runtime_paths(repo_root: Path) -> list[Path]:
 def _is_cli_entrypoint(text: str) -> bool:
     if DEF_MAIN_RE.search(text):
         return True
-    return "exec(compile(" in text and "_CORE_PATH" in text
+    if "exec(compile(" in text and "_CORE_PATH" in text:
+        return True
+    return "bootstrap_wrapper(" in text
 
 
 def _resolve_wrapper_target(repo_root: Path, text: str) -> Path | None:
-    match = EXPORT_MODULE_RE.search(text)
+    match = EXPORT_MODULE_RE.search(text) or BOOTSTRAP_WRAPPER_RE.search(text)
     if not match:
         return None
     module_name = match.group(1).strip()

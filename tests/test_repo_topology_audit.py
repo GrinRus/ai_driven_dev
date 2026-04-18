@@ -198,6 +198,10 @@ skills:
             root / "tests" / "repo_tools" / "e2e_prompt" / "quality_profile_full.md",
             "".join(f"quality line {idx}\n" for idx in range(430)),
         )
+        _write(
+            root / "tests" / "repo_tools" / "e2e_prompt" / "includes" / "orphan.md",
+            "orphan include\n",
+        )
 
     def test_command_to_subagent_links_and_no_subagent_case(self) -> None:
         with tempfile.TemporaryDirectory(prefix="repo-topology-subagent-") as tmp:
@@ -238,6 +242,11 @@ skills:
             self.assertNotIn("docs/memory-v2-rfc.md", by_path)
             self.assertIn("docs/legacy-draft.md", by_path)
             self.assertEqual(by_path["docs/legacy-draft.md"].get("kind"), "draft_doc_missing_runtime_paths")
+            self.assertIn("tests/repo_tools/e2e_prompt/includes/orphan.md", by_path)
+            self.assertEqual(
+                by_path["tests/repo_tools/e2e_prompt/includes/orphan.md"].get("kind"),
+                "orphan_prompt_include",
+            )
 
     def test_parts_modules_not_marked_as_unused_candidates(self) -> None:
         with tempfile.TemporaryDirectory(prefix="repo-topology-parts-") as tmp:
@@ -323,6 +332,35 @@ skills:
                 self.assertIn(output_json.as_posix(), log)
                 self.assertIn(output_md.as_posix(), log)
                 self.assertIn(output_cleanup.as_posix(), log)
+
+    def test_main_accepts_root_alias(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="repo-topology-root-alias-repo-") as repo_tmp:
+            with tempfile.TemporaryDirectory(prefix="repo-topology-root-alias-out-") as out_tmp:
+                root = Path(repo_tmp)
+                out_root = Path(out_tmp)
+                self._build_fixture_repo(root)
+
+                output_json = out_root / "repo-revision.graph.json"
+                output_md = out_root / "repo-revision.md"
+                output_cleanup = out_root / "repo-cleanup-plan.json"
+                args = [
+                    "--root",
+                    str(root),
+                    "--output-json",
+                    str(output_json),
+                    "--output-md",
+                    str(output_md),
+                    "--output-cleanup",
+                    str(output_cleanup),
+                ]
+
+                stdout = io.StringIO()
+                with redirect_stdout(stdout):
+                    code = self.audit.main(args)
+                self.assertEqual(code, 0)
+                self.assertTrue(output_json.exists())
+                self.assertTrue(output_md.exists())
+                self.assertTrue(output_cleanup.exists())
 
 
 if __name__ == "__main__":

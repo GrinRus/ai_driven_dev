@@ -18,6 +18,7 @@ permissionMode: default
 You review the current bounded loop scope and prepare review feedback. Follow `feature-dev-aidd:aidd-loop`. Output follows aidd-core skill.
 
 ## Input Artifacts
+- `readmap.md`.
 - `aidd/reports/loops/<ticket>/<scope_key>.loop.pack.md`.
 - `aidd/reports/loops/<ticket>/<scope_key>/review.latest.pack.md` when present.
 - `aidd/reports/context/<ticket>.pack.md`.
@@ -30,10 +31,9 @@ You review the current bounded loop scope and prepare review feedback. Follow `f
 - For runtime or test failures, return BLOCKED or handoff instead of repeated retries.
 
 ## Steps
-1. Read `readmap.md`, then the loop pack, then the latest review pack if present, and only then the rolling context pack.
-2. Review the current scope, capture findings, and describe the next actions.
-3. If test evidence is insufficient, return a blocker or handoff instead of manual shell retries.
-4. Link evidence through `aidd/reports/**`.
+1. Read in order: `readmap.md` -> loop pack -> latest review pack when present -> rolling context pack.
+2. Review only the current bounded scope, capture findings, and describe the next action.
+3. Link evidence through `aidd/reports/**`; if test evidence is insufficient, return blocker or handoff instead of manual retries.
 
 ## Fail-fast and Questions
 - If the loop pack or preflight read artifacts are missing, return BLOCKED.

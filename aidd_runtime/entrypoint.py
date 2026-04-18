@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import inspect
+import sys
 from types import ModuleType
 from typing import Any
 
@@ -39,3 +40,19 @@ def run_main(module_name: str, argv: list[str] | None = None) -> int:
     if isinstance(result, int):
         return result
     return 0
+
+
+def bootstrap_wrapper(module_name: str, namespace: dict[str, Any]) -> Any:
+    """Populate the wrapper namespace and return a callable that runs the target main()."""
+
+    export_module(module_name, namespace)
+    wrapper_name = str(namespace.get("__name__", "") or "")
+    if wrapper_name and wrapper_name != "__main__":
+        # Keep legacy patch/import behavior for thin wrapper modules: callers that patch
+        # `aidd_runtime.<wrapper>` should hit the exported runtime module, not the loader shim.
+        sys.modules[wrapper_name] = importlib.import_module(module_name)
+
+    def _main(argv: list[str] | None = None) -> int:
+        return run_main(module_name, argv)
+
+    return _main

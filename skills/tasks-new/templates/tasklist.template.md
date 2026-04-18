@@ -18,7 +18,7 @@ ExpectedReports:
 # Tasklist: <ABC-123> — <short-slug>
 
 > Единственный источник правды для implement/review/qa.
-> Всегда начинайте чтение с `## AIDD:CONTEXT_PACK`, затем `## AIDD:TEST_EXECUTION`, затем `## AIDD:ITERATIONS_FULL`, затем `## AIDD:NEXT_3`.
+> Порядок чтения: `AIDD:CONTEXT_PACK` -> `AIDD:TEST_EXECUTION` -> `AIDD:ITERATIONS_FULL` -> `AIDD:NEXT_3`.
 
 ## AIDD:CONTEXT_PACK
 Updated: <YYYY-MM-DD>
@@ -120,63 +120,13 @@ Status: PENDING
 
 ---
 
-## AIDD:OUT_OF_SCOPE_BACKLOG
-- [ ] <идея/задача> (source: implement|review|qa|research|manual)
-
----
-
 ## AIDD:HANDOFF_INBOX
 > Канонический формат handoff item:
 > `- [ ] <title> (id: review:F6) (Priority: high) (Blocking: true)`
-> Example:
-> - [ ] Harden validator retry path (id: review:F6) (Priority: high) (Blocking: true)
->   - source: review
->   - Report: aidd/reports/reviewer/<ABC-123>/<scope_key>.json
->   - Status: open
->   - scope: iteration_id|n/a
->   - DoD: <как проверить, что исправлено>
->   - Boundaries:
->     - must-touch: ["path1", "path2"]
->     - must-not-touch: ["pathX"]
->   - Tests:
->     - profile: fast|targeted|full|none
->     - tasks: ["..."]
->     - filters: ["..."]
->   - Notes: <tradeoffs/риски/почему важно>
+> Минимум полей под item: `source`, `Report`, `Status`, `scope`, `DoD`, `Boundaries`, `Tests`, `Notes`.
 
 <!-- handoff:manual start -->
 <!-- handoff:manual end -->
-
-> Примеры (не активные):
-> - [ ] Critical null check in webhook handler (id: review:null-check) (Priority: high) (Blocking: true)
->   - source: review
->   - Review report: aidd/reports/reviewer/<ticket>/<scope_key>.json
->   - Reviewer marker: aidd/reports/reviewer/<ticket>/<scope_key>.tests.json
->   - Status: open
->   - scope: I2
->   - DoD: webhook rejects empty payload with 4xx + unit test updated
->   - Boundaries:
->     - must-touch: ["src/webhooks/", "tests/webhooks/"]
->     - must-not-touch: ["infra/"]
->   - Tests:
->     - profile: targeted
->     - tasks: ["pytest tests/webhooks/test_handler.py"]
->     - filters: []
->   - Notes: prevents silent 500 on missing payload
-> - [ ] AC-3 export fails on empty data (id: qa:export-empty) (Priority: high) (Blocking: true)
->   - source: qa
->   - Report: aidd/reports/qa/<ticket>.json
->   - Status: open
->   - scope: n/a
->   - DoD: export returns empty CSV with headers + QA traceability updated
->   - Boundaries:
->     - must-touch: ["src/export/"]
->     - must-not-touch: ["db/schema-changes/"]
->   - Tests:
->     - profile: fast
->     - tasks: []
->     - filters: []
->   - Notes: blocks release for AC-3
 
 ---
 
@@ -212,17 +162,6 @@ Status: PENDING
 - [ ] QA report сохранён (aidd/reports/qa/<ticket>.json)
 - [ ] Known issues задокументированы
 
-### AIDD:CHECKLIST_RELEASE
-- [ ] Release notes / changelog (если нужно)
-- [ ] Deploy на стенд (env + версия + время)
-- [ ] Smoke / e2e (если есть)
-- [ ] Мониторинг/алерты/дашборды проверены
-
-### AIDD:CHECKLIST_POST_RELEASE
-- [ ] Rollback plan проверен (если релевантно)
-- [ ] Метрики успеха/guardrails собраны
-- [ ] Техдолг/следующие шаги заведены
-
 ---
 
 ## AIDD:PROGRESS_LOG
@@ -236,9 +175,7 @@ Status: PENDING
 
 ## AIDD:HOW_TO_UPDATE
 - Правило итерации: **1 чекбокс** (или 2 тесно связанных) — затем Stop.
-- Отмечайте чекбоксы так:
-  - `- [x] I1: <title> (iteration_id: I1) (link: <commit/pr|report>)`
-  - `- [x] <handoff title> (id: review:F6) (link: <commit/pr|report>)`
-- После каждого [x] обновляй `AIDD:NEXT_3` (pointer list) и добавляй запись в `AIDD:PROGRESS_LOG`.
+- Формат закрытия: `- [x] I1: <title> (iteration_id: I1) (link: <commit/pr|report>)` или `- [x] <handoff title> (id: review:F6) (link: <commit/pr|report>)`.
+- После каждого `[x]` обновляй `AIDD:NEXT_3` и `AIDD:PROGRESS_LOG`.
 - Если меняешь тестовый профиль/команды — обнови `AIDD:TEST_EXECUTION`.
 - Логи/stacktrace не вставлять в tasklist — только ссылки на `aidd/reports/**`.

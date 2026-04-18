@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from pathlib import Path
-import runpy
 import sys
+from pathlib import Path
 
-_bootstrap = runpy.run_path(str(Path(__file__).with_name("_bootstrap.py")))
-ensure_repo_root = _bootstrap["ensure_repo_root"]
-ensure_repo_root(__file__)
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 from aidd_runtime import analyst_check as _impl
 

@@ -50,8 +50,8 @@ Follow `feature-dev-aidd:aidd-core` and `feature-dev-aidd:aidd-loop`.
 ## Steps
 1. Resolve active `<ticket>/<scope_key>` and read in order: `readmap.md` -> loop pack -> latest review pack when present -> rolling context pack.
 2. Execute only via canonical stage-chain orchestration. Internal preflight and postflight are orchestration details, not operator commands.
-3. Manual write/create of `stage.implement.result.json` is forbidden. `[AIDD_LOOP_POLICY:MANUAL_STAGE_RESULT_FORBIDDEN]`
-4. Run subagent `feature-dev-aidd:implementer` for the current bounded work item only.
+3. Run subagent `feature-dev-aidd:implementer` for the current bounded work item only.
+4. Manual write/create of `stage.implement.result.json` is forbidden. `[AIDD_LOOP_POLICY:MANUAL_STAGE_RESULT_FORBIDDEN]`
 5. Fill actions.json: create `aidd/reports/actions/<ticket>/<scope_key>/implement.actions.json`, then validate it via `python3 ${CLAUDE_PLUGIN_ROOT}/skills/implement/runtime/implement_run.py`.
 6. Canonical stage-chain: internal preflight -> stage runtime -> actions_apply.py/postflight -> `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py`; the only valid stage result path is `aidd/reports/loops/<ticket>/<scope_key>/stage.implement.result.json`. `[AIDD_LOOP_POLICY:CANONICAL_STAGE_RESULT_PATH]`
 7. Non-canonical stage-result path under `skills/aidd-loop/runtime/` is forbidden. `[AIDD_LOOP_POLICY:NON_CANONICAL_STAGE_RESULT_FORBIDDEN]`
@@ -64,14 +64,14 @@ Follow `feature-dev-aidd:aidd-core` and `feature-dev-aidd:aidd-loop`.
 - Inputs: ticket, scope/work-item context, and validated actions payload.
 - Outputs: stage validation artifacts and status payload for downstream postflight.
 - Failure mode: non-zero exit for invalid actions schema or missing stage prerequisites.
-- Next action: fix actions/preconditions and rerun runtime validation before postflight.
+- Next action: fix actions/preconditions and rerun the same runtime before postflight.
 
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-docio/runtime/actions_apply.py`
 - When to run: mandatory final step in stage-chain postflight after actions validation.
 - Inputs: `--actions <path>` and optional `--apply-log <path>`.
 - Outputs: applied actions, progress/status artifacts, and apply logs.
 - Failure mode: DocOps apply failure, boundary guard failure, or status-summary failure.
-- Next action: inspect action/apply logs, fix root cause, rerun the stage-chain, and verify canonical stage result exists (`aidd/reports/loops/<ticket>/<scope_key>/stage.implement.result.json`).
+- Next action: inspect action/apply logs, fix root cause, rerun the stage-chain, and verify the canonical stage result exists.
 
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py`
 - When to run: stage-chain postflight stage-result emission only (not operator/manual recovery command).
@@ -79,9 +79,6 @@ Follow `feature-dev-aidd:aidd-core` and `feature-dev-aidd:aidd-loop`.
 - Outputs: canonical `aidd.stage_result.v1` at `aidd/reports/loops/<ticket>/<scope_key>/stage.implement.result.json`.
 - Failure mode: non-zero exit on missing required args or invalid stage-result contract fields.
 - Next action: fix postflight payload generation and rerun the stage-chain; do not switch to non-canonical loop runtime paths.
-
-## Notes
-- Implement stage does not run ad-hoc test loops; format-only is allowed and test orchestration stays with hook policy.
 
 ## Additional resources
 - Contract schema: [CONTRACT.yaml](CONTRACT.yaml) (when: preflight/postflight or actions contract is unclear; why: validate required fields and artifact expectations before rerun).

@@ -14,45 +14,28 @@ _Local evidence note: references like `aidd/reports/**` point to workspace-local
 - Audit replay classification for deterministic RCA decisions.
 - Seed implement convergence guard for single-scope runs (`I1` must not cascade to `I2` in one seed run).
 
-## Preflight Checklist
+## Preflight
 1. Verify plugin root exists and has `/.claude-plugin` and `/skills`.
-2. Verify run cwd is project workspace root.
-   - Shell-safe invariant check:
-     ```bash
-     [ "$(cd "$PROJECT_DIR" && pwd -P)" != "$(cd "$PLUGIN_DIR" && pwd -P)" ] || {
-       echo "ENV_MISCONFIG(cwd_wrong): PROJECT_DIR must differ from PLUGIN_DIR"
-       exit 12
-     }
-     ```
+2. Verify cwd is workspace root, not plugin root.
+   ```bash
+   [ "$(cd "$PROJECT_DIR" && pwd -P)" != "$(cd "$PLUGIN_DIR" && pwd -P)" ] || {
+     echo "ENV_MISCONFIG(cwd_wrong): PROJECT_DIR must differ from PLUGIN_DIR"
+     exit 12
+   }
+   ```
 3. Verify free disk bytes are above `AIDD_AUDIT_MIN_FREE_BYTES` (default `1073741824`).
-4. Snapshot runner env:
-   - `CLAUDE_PLUGIN_ROOT`
-   - `AIDD_PLUGIN_DIR`
-   - `PYTHONPATH`
-5. Runtime bootstrap probe must use isolated Python mode (`python3 -S ... --help`) so site-packages cannot mask missing `aidd_runtime` bootstrap wiring.
+4. Snapshot `CLAUDE_PLUGIN_ROOT`, `AIDD_PLUGIN_DIR`, and `PYTHONPATH`.
+5. Probe bootstrap wiring with isolated Python mode (`python3 -S ... --help`).
 
 If disk is below threshold, stop with `ENV_MISCONFIG(no_space_left_on_device)`.
 
-## Classification Decision Tree
-1. `ENV_BLOCKER`
-   - `Unknown skill: feature-dev-aidd:*`
-   - plugin/slash command init evidence missing for slash-based runs.
-2. `ENV_MISCONFIG`
-   - `no_space_left_on_device` from preflight or launcher error.
-   - `CLAUDE_PLUGIN_ROOT (or AIDD_PLUGIN_DIR) is required`.
-   - `exit_code=143` with `killed_flag=0` or missing watchdog marker.
-3. `PROMPT_EXEC_ISSUE`
-   - `exit_code=143` with `killed_flag=1` and `watchdog_marker=1`.
-   - `reason_code=seed_scope_cascade_detected`.
-   - `reason_code=tests_env_dependency_missing`.
-   - launcher tokenization/command-not-found (`127`).
-   - repeated deterministic command failure without new evidence (`reason_code=repeated_command_failure_no_new_evidence`).
-4. `CONTRACT_MISMATCH`
-   - `stage_result_missing_or_invalid` + `invalid-schema`.
-5. `PROMPT_EXEC_ISSUE(scope_drift_recoverable)`
-   - `stage_result_missing_or_invalid` + diagnostics marker `scope_fallback_stale_ignored|scope_shape_invalid`.
-6. `FLOW_BUG`
-   - only after all higher-priority classes are not matched.
+## Classification Order
+1. `ENV_BLOCKER`: missing plugin/slash-command init or `Unknown skill: feature-dev-aidd:*`.
+2. `ENV_MISCONFIG`: `no_space_left_on_device`, missing plugin env, `ENV_MISCONFIG(cwd_wrong)`, or `exit_code=143` without watchdog attribution.
+3. `PROMPT_EXEC_ISSUE`: watchdog kill, `seed_scope_cascade_detected`, `tests_env_dependency_missing`, launcher tokenization/`127`, or repeated deterministic failure without new evidence.
+4. `CONTRACT_MISMATCH`: invalid or missing stage-result schema.
+5. `PROMPT_EXEC_ISSUE(scope_drift_recoverable)`: stage-result failure plus `scope_fallback_stale_ignored|scope_shape_invalid`.
+6. `FLOW_BUG`: only after higher-priority classes are excluded.
 
 ## Soft-Default Policy (Wave 141)
 - Default profile for audit replay and CI verdicts: `classification_profile=soft_default`.
@@ -77,7 +60,7 @@ If disk is below threshold, stop with `ENV_MISCONFIG(no_space_left_on_device)`.
 - Only classify `no_top_level_result` if top-level status is absent.
 
 ## Replay Workflow
-1. Run classifier:
+Run:
 ```bash
 python3 tests/repo_tools/aidd_audit_runner.py classify \
   --summary <step_summary.txt> \
@@ -88,42 +71,20 @@ python3 tests/repo_tools/aidd_audit_runner.py classify \
   --project-dir <project_dir> \
   --plugin-dir <plugin_dir>
 ```
-1. Validate expected outputs:
-   - `06_implement -> ENV_MISCONFIG(no_space_left_on_device)`
-   - `06_review -> NOT_VERIFIED(killed)+PROMPT_EXEC_ISSUE(watchdog_terminated)`
-   - `07_loop_run#1 -> ENV_MISCONFIG(loop_runner_env_missing)`
-   - `07_loop_run#2 -> BLOCKED(recoverable ralph path observed)`
-   - `08_qa -> NOT_VERIFIED(killed)+PROMPT_EXEC_ISSUE(watchdog_terminated)`
 
-## Canonical Launcher & Stream Sources
-1. Canonical launcher path:
-   ```bash
-   python3 tests/repo_tools/aidd_stage_launcher.py \
-     --project-dir <project_dir> \
-     --plugin-dir <plugin_dir> \
-     --audit-dir <audit_dir> \
-     --step <step_key> \
-     --run <n> \
-     --ticket <ticket> \
-     --budget-seconds <seconds> \
-     --stage-command "<slash command>"
-   ```
-2. Budget watchdog attribution invariants:
-   - watchdog kill writes `*_termination_attribution.txt` with:
-     - `killed_flag=1`
-     - `watchdog_marker=1`
-     - `stage_elapsed_seconds`
-     - `signal`
-   - `rollup` classification must read sibling termination artifact, not summary-only.
-3. Stream path extraction hierarchy:
-   - `source=init_json`: only from `type=system, subtype=init` JSON payload.
-   - `source=loop_stream_header`: only from control lines `==> streaming enabled ... stream=... log=...`.
-   - `source=fallback_scan`: only from `aidd/reports/loops/<ticket>/`.
-4. Prohibited extraction:
-   - `tool_result` content, artifact excerpts, and generic prose lines are never valid stream-path sources.
-5. Fallback freshness window:
-   - Include fallback stream files only when `mtime >= run_start_epoch - 5s`.
-   - Older files are treated as stale and excluded from liveness set.
+Expected headline outcomes:
+- `06_implement -> ENV_MISCONFIG(no_space_left_on_device)`
+- `06_review -> NOT_VERIFIED(killed)+PROMPT_EXEC_ISSUE(watchdog_terminated)`
+- `07_loop_run#1 -> ENV_MISCONFIG(loop_runner_env_missing)`
+- `07_loop_run#2 -> BLOCKED(recoverable ralph path observed)`
+- `08_qa -> NOT_VERIFIED(killed)+PROMPT_EXEC_ISSUE(watchdog_terminated)`
+
+## Canonical Launcher And Stream Sources
+- Canonical launcher: `python3 tests/repo_tools/aidd_stage_launcher.py --project-dir <project_dir> --plugin-dir <plugin_dir> --audit-dir <audit_dir> --step <step_key> --run <n> --ticket <ticket> --budget-seconds <seconds> --stage-command "<slash command>"`.
+- Watchdog attribution must come from sibling `*_termination_attribution.txt`, not summary-only parsing.
+- Stream-path extraction order: `init_json` -> `loop_stream_header` -> fallback scan under `aidd/reports/loops/<ticket>/`.
+- `tool_result` content, artifact excerpts, and generic prose lines are never valid stream-path sources.
+- Fallback stream files are valid only when `mtime >= run_start_epoch - 5s`.
 
 ## Rerun Readiness Definition
 1. Runtime: direct Python loop entrypoints resolve plugin root without manual env export.
