@@ -496,6 +496,17 @@ class TasklistCheckTests(unittest.TestCase):
         self.assertEqual(unsupported, [], f"unsupported stages in template: {unsupported}")
         self.assertNotIn("release", stage_tokens)
 
+    def test_tasklist_template_does_not_ship_open_handoff_placeholders(self) -> None:
+        template_path = REPO_ROOT / "skills" / "tasks-new" / "templates" / "tasklist.template.md"
+        template_text = template_path.read_text(encoding="utf-8")
+        next3_section = template_text.split("## AIDD:NEXT_3", 1)[1].split("##", 1)[0]
+        handoff_section = template_text.split("## AIDD:HANDOFF_INBOX", 1)[1].split("##", 1)[0]
+
+        self.assertNotIn("(ref: id=review:F6)", next3_section)
+        self.assertNotRegex(handoff_section, r"(?m)^- \[ \].*\(id: review:F6\)")
+        self.assertIn("<!-- handoff:manual start -->", handoff_section)
+        self.assertIn("<!-- handoff:manual end -->", handoff_section)
+
 
 if __name__ == "__main__":
     unittest.main()
