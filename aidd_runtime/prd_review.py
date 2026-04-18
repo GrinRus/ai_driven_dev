@@ -378,7 +378,7 @@ def _looks_like_placeholder_example(line: str) -> bool:
     if EXAMPLE_PLACEHOLDER_RE.search(line):
         return True
     if ("например" in lowered or "example" in lowered) and not (
-        PLACEHOLDER_STANDALONE_RE.match(line)
+        _matches_placeholder_standalone(line)
         or PLACEHOLDER_FIELD_RE.match(line)
         or PLACEHOLDER_ARROW_RE.match(line)
     ):
