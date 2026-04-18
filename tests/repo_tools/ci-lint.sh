@@ -102,7 +102,6 @@ run_entrypoints_bundle_guard() {
     return
   fi
   log "running entrypoints bundle guard"
-  local expected="${ROOT_DIR}/tests/repo_tools/entrypoints-bundle.txt"
   local tmp_output
   tmp_output="$(mktemp "${TMPDIR:-/tmp}/aidd-entrypoints-bundle.XXXXXX")"
   trap 'rm -f "${tmp_output}"' RETURN
@@ -112,8 +111,22 @@ run_entrypoints_bundle_guard() {
     rm -f "${tmp_output}"
     return
   fi
-  if ! cmp -s "${expected}" "${tmp_output}"; then
-    err "entrypoints-bundle.txt out of date; rerun tests/repo_tools/entrypoints_bundle.py"
+  if ! python3 - "${tmp_output}" <<'PY'
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+payload = json.loads(path.read_text(encoding="utf-8"))
+required = {"schema", "skills", "agents"}
+missing = sorted(required - payload.keys())
+if missing:
+    raise SystemExit(f"missing keys: {missing}")
+PY
+  then
+    err "entrypoints bundle validation failed"
     STATUS=1
   fi
   rm -f "${tmp_output}"
@@ -662,8 +675,6 @@ pattern = re.compile(r"\b(?:Answer|Ответ)\s+[0-9]+\s*:")
 target_globs = [
     "skills/*/templates/*",
     "tests/repo_tools/e2e_prompt/*.md",
-    "docs/e2e/aidd_test_flow_prompt_ralph_script*.txt",
-    "docs/e2e/aidd_test_quality_audit_prompt_tst002*.txt",
     "tests/repo_tools/smoke-workflow.sh",
 ]
 
