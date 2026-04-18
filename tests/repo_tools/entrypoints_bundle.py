@@ -137,7 +137,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--output",
         default=None,
-        help="Output path (default: tests/repo_tools/entrypoints-bundle.txt)",
+        help="Optional output path. When omitted, JSON is printed to stdout.",
     )
     return parser.parse_args(argv)
 
@@ -146,8 +146,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     root = args.root.resolve()
     bundle = build_bundle(root)
-    output = Path(args.output) if args.output else root / "tests" / "repo_tools" / "entrypoints-bundle.txt"
-    output.write_text(json.dumps(bundle, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    rendered = json.dumps(bundle, indent=2, sort_keys=True) + "\n"
+    if args.output:
+        output = Path(args.output)
+        output.write_text(rendered, encoding="utf-8")
+    else:
+        print(rendered, end="")
     return 0
 
 

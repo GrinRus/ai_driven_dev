@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -9,8 +10,8 @@ from tests.repo_tools.prompt_contract_support import assert_prompt_contract, loa
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-QUALITY_PROMPT = REPO_ROOT / "docs" / "e2e" / "aidd_test_quality_audit_prompt_tst002_full.txt"
-FLOW_PROMPT_FULL = REPO_ROOT / "docs" / "e2e" / "aidd_test_flow_prompt_ralph_script_full.txt"
+QUALITY_PROMPT = "aidd_test_quality_audit_prompt_tst002_full.txt"
+FLOW_PROMPT_FULL = "aidd_test_flow_prompt_ralph_script_full.txt"
 PROMPT_BUILDER = REPO_ROOT / "tests" / "repo_tools" / "build_e2e_prompts.py"
 PROMPT_FRAGMENTS_DIR = REPO_ROOT / "tests" / "repo_tools" / "e2e_prompt"
 PROMPT_SPECS = PROMPT_FRAGMENTS_DIR / "prompt_specs.json"
@@ -21,6 +22,25 @@ class E2EQualityPromptContractTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.contracts = load_prompt_contracts()
+        cls._prompt_dir_ctx = tempfile.TemporaryDirectory()
+        cls.prompt_dir = Path(cls._prompt_dir_ctx.name)
+        result = subprocess.run(
+            [sys.executable, str(PROMPT_BUILDER), "--output-dir", str(cls.prompt_dir)],
+            cwd=str(REPO_ROOT),
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            raise AssertionError(
+                "quality prompt builder failed\n"
+                f"stdout:\n{result.stdout}\n"
+                f"stderr:\n{result.stderr}"
+            )
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls._prompt_dir_ctx.cleanup()
 
     def test_quality_prompt_builder_fragments_exist(self) -> None:
         self.assertTrue(PROMPT_BUILDER.exists(), msg=f"missing prompt builder: {PROMPT_BUILDER}")
@@ -45,36 +65,30 @@ class E2EQualityPromptContractTests(unittest.TestCase):
         )
 
     def test_quality_prompt_contract_is_data_driven(self) -> None:
-        text = read_text(QUALITY_PROMPT)
+        text = read_text(self.prompt_dir / QUALITY_PROMPT)
         assert_prompt_contract(self, text=text, contract=self.contracts["quality"]["FULL"], label="TST-002 FULL")
 
-    def test_legacy_qna_guard_scans_quality_prompt_output_path(self) -> None:
+    def test_ci_lint_uses_render_guard_not_committed_outputs(self) -> None:
         ci_lint = read_text(CI_LINT_SCRIPT)
-        self.assertIn('"docs/e2e/aidd_test_quality_audit_prompt_tst002*.txt"', ci_lint)
-        matched = sorted(REPO_ROOT.glob("docs/e2e/aidd_test_quality_audit_prompt_tst002*.txt"))
-        self.assertTrue(matched, msg="quality prompt glob should resolve at least one file from repo root")
-        self.assertIn(
-            QUALITY_PROMPT,
-            matched,
-            msg=f"quality prompt path {QUALITY_PROMPT} must be covered by legacy Qn scan glob",
-        )
+        self.assertIn("build_e2e_prompts.py --check", ci_lint)
+        self.assertNotIn("docs/e2e", ci_lint)
 
     def test_quality_prompt_keeps_flow_shared_invariants(self) -> None:
-        flow_text = read_text(FLOW_PROMPT_FULL)
-        quality_text = read_text(QUALITY_PROMPT)
+        flow_text = read_text(self.prompt_dir / FLOW_PROMPT_FULL)
+        quality_text = read_text(self.prompt_dir / QUALITY_PROMPT)
         for needle in self.contracts["quality"]["FLOW_FULL_SHARED"]["contains"]:
             self.assertIn(needle, flow_text, msg=f"flow prompt lost shared invariant: {needle}")
             self.assertIn(needle, quality_text, msg=f"quality prompt missing shared invariant: {needle}")
 
     def test_quality_prompt_has_machine_friendly_final_marker(self) -> None:
-        text = read_text(QUALITY_PROMPT)
+        text = read_text(self.prompt_dir / QUALITY_PROMPT)
         self.assertRegex(
             text.strip().splitlines()[-1],
             r"^`QUALITY_AUDIT_COMPLETE TST-002 status=<PASS\|WARN\|FAIL> wave=<WNNN\|none> feature_final_state=<REACHED\|NOT_REACHED>`$",
         )
 
     def test_quality_prompt_intentionally_contains_wave_markers(self) -> None:
-        text = read_text(QUALITY_PROMPT)
+        text = read_text(self.prompt_dir / QUALITY_PROMPT)
         self.assertIn("Wave <NNN>", text)
         self.assertIn("W<NNN>-1", text)
 

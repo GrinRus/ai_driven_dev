@@ -6,21 +6,15 @@ Owner: feature-dev-aidd
 Last reviewed: 2026-04-18
 Status: active
 
-This document defines the canonical prompt-language and structure policy used by `tests/repo_tools/lint-prompts.py`.
+This document defines the lint-enforced prompt policy used by `tests/repo_tools/lint-prompts.py`.
+General authoring guidance lives in `docs/agent-skill-best-practices.md`; this file keeps only repository-specific rules that must stay machine-checkable.
 
 ## Scope
 - Applies to every `skills/*/SKILL.md` file.
 - Applies to every `agents/*.md` prompt file.
 - Applies to stage-command skill frontmatter parity checks via migration baseline.
 
-## Sources of Truth
-- `https://docs.claude.com/en/docs/agents-and-tools/agent-skills/overview`
-- `https://docs.claude.com/en/docs/agents-and-tools/agent-skills/best-practices`
-- `https://docs.claude.com/en/docs/agents-and-tools/agent-skills/skill-format`
-- `https://docs.claude.com/en/docs/agents-and-tools/agent-skills/subagents`
-- `https://resources.anthropic.com/hubfs/The-Complete-Guide-to-Building-Skill-for-Claude.pdf?hsLang=en`
-
-## Rules
+## Lint-enforced rules
 - Prompt corpus is EN-only: both `skills/*/SKILL.md` and `agents/*.md` must remain free of Cyrillic text.
 - Every skill frontmatter must include `name`, and `name` must match the skill directory.
 - Every skill frontmatter must include `description`, `lang`, `model`, and `user-invocable`.
@@ -31,9 +25,6 @@ This document defines the canonical prompt-language and structure policy used by
 - `Use when` must appear before `Do not use when`, and both clauses must be non-trivial.
 - Anti-trigger clause must reference neighboring skill names or explicit outside-AIDD scope.
 - Trigger boundaries must be aligned with `docs/skill-trigger-taxonomy.md`.
-- Skill routing quality policy lives in `tests/repo_tools/skill_eval/policy.v1.json` and is evaluated by:
-  - `tests/repo_tools/skill_eval_run.py` (benchmark run),
-  - `tests/repo_tools/skill_eval_compare.py` (baseline vs candidate + advisory/hard gate checks).
 - Shared skills and stage skills must include:
   - `## Command contracts` with interface cards (`When to run`, `Inputs`, `Outputs`, `Failure mode`, `Next action`),
   - `## Additional resources` with progressive-disclosure markers (`when:` and `why:` per item).
@@ -61,8 +52,12 @@ This document defines the canonical prompt-language and structure policy used by
   - warning: skill files above 220 lines,
   - error: skill files above 300 lines.
 
+## Related checks
+- Skill routing quality policy lives in `tests/repo_tools/skill_eval/policy.v1.json`.
+- Benchmark runner: `tests/repo_tools/skill_eval_run.py`.
+- Baseline comparator: `tests/repo_tools/skill_eval_compare.py`.
+
 ## Baseline Source
 - Frontmatter parity baseline is stored in:
   - `aidd/reports/migrations/stage_skills_frontmatter.json`
   - fallback: `docs/migrations/stage_skills_frontmatter.json`
-  - legacy compatibility fallback: `commands_to_skills_frontmatter.json` names are accepted by lint, but are no longer canonical

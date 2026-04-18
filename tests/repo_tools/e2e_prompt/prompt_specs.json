@@ -9,8 +9,8 @@
       "SMOKE": "tests/repo_tools/e2e_prompt/profile_smoke.md"
     },
     "outputs": {
-      "FULL": "docs/e2e/aidd_test_flow_prompt_ralph_script_full.txt",
-      "SMOKE": "docs/e2e/aidd_test_flow_prompt_ralph_script.txt"
+      "FULL": "aidd_test_flow_prompt_ralph_script_full.txt",
+      "SMOKE": "aidd_test_flow_prompt_ralph_script.txt"
     }
   },
   "TST-002": {
@@ -18,7 +18,7 @@
     "base_path": "tests/repo_tools/e2e_prompt/base_contract.md",
     "must_read_path": "tests/repo_tools/e2e_prompt/must_read_manifest.md",
     "must_read_extra": [
-      "$PLUGIN_DIR/docs/e2e/aidd_test_flow_prompt_ralph_script_full.txt",
+      "$PLUGIN_DIR/tests/repo_tools/e2e_prompt/profile_full.md",
       "$PLUGIN_DIR/docs/backlog.md",
       "$PLUGIN_DIR/skills/review-spec/SKILL.md"
     ],
@@ -26,7 +26,7 @@
       "FULL": "tests/repo_tools/e2e_prompt/quality_profile_full.md"
     },
     "outputs": {
-      "FULL": "docs/e2e/aidd_test_quality_audit_prompt_tst002_full.txt"
+      "FULL": "aidd_test_quality_audit_prompt_tst002_full.txt"
     }
   }
 }

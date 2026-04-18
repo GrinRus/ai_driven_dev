@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import runpy
+
 import argparse
 import datetime as dt
 import io
@@ -12,10 +14,13 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from typing import Iterable, Optional
 
-_PLUGIN_ROOT = Path(__file__).resolve().parents[3]
-os.environ.setdefault("CLAUDE_PLUGIN_ROOT", str(_PLUGIN_ROOT))
-if str(_PLUGIN_ROOT) not in sys.path:
-    sys.path.insert(0, str(_PLUGIN_ROOT))
+_PLUGIN_ROOT = runpy.run_path(
+    next(
+        parent / "aidd_runtime" / "plugin_bootstrap.py"
+        for parent in Path(__file__).resolve().parents
+        if (parent / "aidd_runtime" / "plugin_bootstrap.py").is_file()
+    )
+)["ensure_plugin_root_on_path"](__file__)
 
 from aidd_runtime import research_hints as prd_hints
 from aidd_runtime import rlm_finalize, rlm_manifest, rlm_nodes_build, rlm_targets, runtime, tasks_derive

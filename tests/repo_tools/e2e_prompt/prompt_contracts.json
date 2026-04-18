@@ -180,9 +180,9 @@
       "contains": [
         "# AIDD E2E Quality Audit Prompt (TST-002, FULL)",
         "AIDD E2E Quality Audit (TST-002)",
-        "$PLUGIN_DIR/docs/e2e/aidd_test_flow_prompt_ralph_script_full.txt",
+        "$PLUGIN_DIR/tests/repo_tools/e2e_prompt/profile_full.md",
         "standalone-expanded",
-        "BASE_PROMPT=$PLUGIN_DIR/docs/e2e/aidd_test_flow_prompt_ralph_script_full.txt",
+        "BASE_PROMPT=$PLUGIN_DIR/tests/repo_tools/e2e_prompt/profile_full.md",
         "BACKLOG_PATH=$PLUGIN_DIR/docs/backlog.md",
         "QUALITY_PROFILE=full|smoke",
         "CLASSIFICATION_PROFILE=soft_default|strict",

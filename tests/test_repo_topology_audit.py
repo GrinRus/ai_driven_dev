@@ -176,6 +176,28 @@ skills:
             root / "tests" / "test_runtime_ref.py",
             "RUNTIME = 'skills/review/runtime/review_run.py'\n",
         )
+        _write(
+            root / "archive" / "experimental" / "repo_tools" / "orphaned_tool.py",
+            "print('archived tool')\n",
+        )
+        oversized_lines = "".join(f"LINE_{idx} = {idx}\n" for idx in range(920))
+        _write(
+            root / "skills" / "aidd-core" / "runtime" / "oversized_runtime.py",
+            oversized_lines,
+        )
+        _write(root / "AGENTS.md", "".join(f"policy line {idx}\n" for idx in range(230)))
+        _write(
+            root / "tests" / "repo_tools" / "ci-lint.sh",
+            "#!/usr/bin/env bash\n" + "".join(f"echo line-{idx}\n" for idx in range(710)),
+        )
+        _write(
+            root / "tests" / "repo_tools" / "e2e_prompt" / "profile_full.md",
+            "".join(f"profile line {idx}\n" for idx in range(410)),
+        )
+        _write(
+            root / "tests" / "repo_tools" / "e2e_prompt" / "quality_profile_full.md",
+            "".join(f"quality line {idx}\n" for idx in range(430)),
+        )
 
     def test_command_to_subagent_links_and_no_subagent_case(self) -> None:
         with tempfile.TemporaryDirectory(prefix="repo-topology-subagent-") as tmp:
@@ -246,6 +268,44 @@ skills:
             self.assertNotIn("Обязательные находки:", report)
             self.assertIn("docs/legacy-draft.md", report)
             self.assertNotIn("docs/memory-v2-rfc.md", report)
+
+    def test_size_and_archive_heuristics_surface_cleanup_candidates(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="repo-topology-heuristics-") as tmp:
+            root = Path(tmp)
+            self._build_fixture_repo(root)
+            payload = self.audit.build_revision_payload(root, generated_at="2026-02-24T00:00:00Z")
+            candidates = payload.get("unused", {}).get("candidates", [])
+            by_path = {item.get("path"): item for item in candidates}
+
+            self.assertIn("archive/experimental/repo_tools/orphaned_tool.py", by_path)
+            self.assertEqual(
+                by_path["archive/experimental/repo_tools/orphaned_tool.py"].get("kind"),
+                "archived_experimental_repo_tool",
+            )
+
+            self.assertIn("skills/aidd-core/runtime/oversized_runtime.py", by_path)
+            self.assertEqual(
+                by_path["skills/aidd-core/runtime/oversized_runtime.py"].get("kind"),
+                "oversized_runtime_module",
+            )
+
+            self.assertIn("tests/repo_tools/e2e_prompt/profile_full.md", by_path)
+            self.assertEqual(
+                by_path["tests/repo_tools/e2e_prompt/profile_full.md"].get("kind"),
+                "oversized_prompt_source",
+            )
+
+            self.assertIn("AGENTS.md", by_path)
+            self.assertEqual(
+                by_path["AGENTS.md"].get("kind"),
+                "oversized_maintainer_doc",
+            )
+
+            self.assertIn("tests/repo_tools/ci-lint.sh", by_path)
+            self.assertEqual(
+                by_path["tests/repo_tools/ci-lint.sh"].get("kind"),
+                "oversized_repo_tool",
+            )
 
     def test_main_allows_output_paths_outside_repo_root(self) -> None:
         with tempfile.TemporaryDirectory(prefix="repo-topology-main-repo-") as repo_tmp:

@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import argparse
-import difflib
 import json
 import re
 from dataclasses import dataclass
@@ -23,7 +22,7 @@ class PromptSpec:
     must_read_path: Path
     must_read_extra: tuple[str, ...]
     profiles: dict[str, Path]
-    outputs: dict[str, Path]
+    outputs: dict[str, str]
 
 
 def _read(path: Path) -> str:
@@ -62,7 +61,7 @@ def _load_prompt_specs() -> dict[str, PromptSpec]:
             must_read_path=ROOT / str(raw["must_read_path"]),
             must_read_extra=tuple(str(item) for item in raw.get("must_read_extra", [])),
             profiles={name: ROOT / str(path) for name, path in raw["profiles"].items()},
-            outputs={name: ROOT / str(path) for name, path in raw["outputs"].items()},
+            outputs={name: Path(str(path)).name for name, path in raw["outputs"].items()},
         )
         for prompt_code, raw in payload.items()
     }
@@ -91,8 +90,8 @@ def _render(
     return _normalize(rendered)
 
 
-def build() -> dict[Path, str]:
-    rendered: dict[Path, str] = {}
+def build() -> dict[str, str]:
+    rendered: dict[str, str] = {}
     for spec in _load_prompt_specs().values():
         base_template = _read_with_includes(spec.base_path)
         must_read = _render_must_read(_read_with_includes(spec.must_read_path), spec.must_read_extra)
@@ -118,37 +117,30 @@ def build() -> dict[Path, str]:
     return rendered
 
 
-def write_outputs(rendered: dict[Path, str]) -> None:
-    for output_path, text in rendered.items():
+def write_outputs(rendered: dict[str, str], output_dir: Path) -> None:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    for output_name, text in rendered.items():
+        output_path = output_dir / output_name
         output_path.write_text(text, encoding="utf-8")
         print(f"[e2e-prompt-build] wrote {output_path}")
 
 
-def check_outputs(rendered: dict[Path, str]) -> int:
-    failed = False
-    for output_path, expected in rendered.items():
-        actual = _read(output_path) if output_path.exists() else ""
-        if actual != expected:
-            failed = True
-            print(f"[e2e-prompt-build] OUT-OF-DATE: {output_path}")
-            diff = difflib.unified_diff(
-                actual.splitlines(),
-                expected.splitlines(),
-                fromfile=f"{output_path} (actual)",
-                tofile=f"{output_path} (expected)",
-                lineterm="",
-            )
-            for line in list(diff)[:200]:
-                print(line)
-    if failed:
+def check_outputs(rendered: dict[str, str]) -> int:
+    output_names = sorted(rendered)
+    if len(output_names) != len(set(output_names)):
+        print("[e2e-prompt-build] duplicate output names detected")
         return 1
-    print("[e2e-prompt-build] outputs are up to date")
+    if not output_names:
+        print("[e2e-prompt-build] no prompts rendered")
+        return 1
+    print(f"[e2e-prompt-build] render check passed for {len(output_names)} prompts")
     return 0
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build AIDD E2E prompt files from shared contract fragments")
-    parser.add_argument("--check", action="store_true", help="Fail if generated outputs differ")
+    parser.add_argument("--check", action="store_true", help="Validate that prompts render successfully")
+    parser.add_argument("--output-dir", type=Path, help="Directory to write rendered prompts into")
     return parser.parse_args()
 
 
@@ -157,7 +149,10 @@ def main() -> int:
     rendered = build()
     if args.check:
         return check_outputs(rendered)
-    write_outputs(rendered)
+    if args.output_dir is None:
+        print("[e2e-prompt-build] --output-dir is required when writing rendered prompts")
+        return 2
+    write_outputs(rendered, args.output_dir.resolve())
     return 0
 
 

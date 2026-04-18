@@ -61,10 +61,6 @@ def resolve_prompt_path(root: Path, name: str, kind: str) -> Path | None:
     if stage_skill.exists():
         return stage_skill
 
-    legacy_command = root / "commands" / f"{name}.md"
-    if legacy_command.exists():
-        return legacy_command
-
     return None
 
 
@@ -83,11 +79,7 @@ def process_prompt(
             if kind == "agent"
             else resolve_prompt_base(root, kind) / name / "SKILL.md"
         )
-        fallback = root / "commands" / f"{name}.md" if kind == "command" else expected
-        print(
-            f"[prompt-version] prompt missing: {expected} (fallback: {fallback})",
-            file=sys.stderr,
-        )
+        print(f"[prompt-version] prompt missing: {expected}", file=sys.stderr)
         return 1
 
     prompt_text = prompt_path.read_text(encoding="utf-8")

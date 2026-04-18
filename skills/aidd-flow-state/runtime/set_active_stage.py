@@ -1,15 +1,18 @@
 from __future__ import annotations
 
+import runpy
+
 import argparse
-import os
-import sys
 from pathlib import Path
 
 # Allow direct execution from plugin cache without external PYTHONPATH wiring.
-_PLUGIN_ROOT = Path(__file__).resolve().parents[3]
-os.environ.setdefault("CLAUDE_PLUGIN_ROOT", str(_PLUGIN_ROOT))
-if str(_PLUGIN_ROOT) not in sys.path:
-    sys.path.insert(0, str(_PLUGIN_ROOT))
+_PLUGIN_ROOT = runpy.run_path(
+    next(
+        parent / "aidd_runtime" / "plugin_bootstrap.py"
+        for parent in Path(__file__).resolve().parents
+        if (parent / "aidd_runtime" / "plugin_bootstrap.py").is_file()
+    )
+)["ensure_plugin_root_on_path"](__file__)
 
 from aidd_runtime import runtime, stage_lexicon
 from aidd_runtime.feature_ids import resolve_aidd_root, write_active_state

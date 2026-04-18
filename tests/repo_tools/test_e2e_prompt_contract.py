@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -10,8 +11,8 @@ from tests.repo_tools.prompt_contract_support import assert_prompt_contract, loa
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-AUDIT_PROMPT_FULL = REPO_ROOT / "docs" / "e2e" / "aidd_test_flow_prompt_ralph_script_full.txt"
-AUDIT_PROMPT_SMOKE = REPO_ROOT / "docs" / "e2e" / "aidd_test_flow_prompt_ralph_script.txt"
+AUDIT_PROMPT_FULL = "aidd_test_flow_prompt_ralph_script_full.txt"
+AUDIT_PROMPT_SMOKE = "aidd_test_flow_prompt_ralph_script.txt"
 PROMPT_BUILDER = REPO_ROOT / "tests" / "repo_tools" / "build_e2e_prompts.py"
 PROMPT_FRAGMENTS_DIR = REPO_ROOT / "tests" / "repo_tools" / "e2e_prompt"
 PROMPT_SPECS = PROMPT_FRAGMENTS_DIR / "prompt_specs.json"
@@ -74,6 +75,25 @@ class E2EPromptContractTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.contracts = load_prompt_contracts()
+        cls._prompt_dir_ctx = tempfile.TemporaryDirectory()
+        cls.prompt_dir = Path(cls._prompt_dir_ctx.name)
+        result = subprocess.run(
+            [sys.executable, str(PROMPT_BUILDER), "--output-dir", str(cls.prompt_dir)],
+            cwd=str(REPO_ROOT),
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            raise AssertionError(
+                "prompt builder failed\n"
+                f"stdout:\n{result.stdout}\n"
+                f"stderr:\n{result.stderr}"
+            )
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls._prompt_dir_ctx.cleanup()
 
     def test_prompt_builder_and_fragments_exist(self) -> None:
         self.assertTrue(PROMPT_BUILDER.exists(), msg=f"missing prompt builder: {PROMPT_BUILDER}")
@@ -100,8 +120,8 @@ class E2EPromptContractTests(unittest.TestCase):
     def test_flow_prompt_contracts_are_data_driven(self) -> None:
         flow = self.contracts["flow"]
         texts = {
-            "FULL": read_text(AUDIT_PROMPT_FULL),
-            "SMOKE": read_text(AUDIT_PROMPT_SMOKE),
+            "FULL": read_text(self.prompt_dir / AUDIT_PROMPT_FULL),
+            "SMOKE": read_text(self.prompt_dir / AUDIT_PROMPT_SMOKE),
         }
         for profile, text in texts.items():
             assert_prompt_contract(self, text=text, contract=flow["ALL"], label=f"TST-001 {profile}")
@@ -128,7 +148,7 @@ class E2EPromptContractTests(unittest.TestCase):
         self.assertIn("non-canonical root artifact created at workspace root", text)
 
     def test_full_prompt_loop_step_command_uses_supported_flags_only(self) -> None:
-        text = read_text(AUDIT_PROMPT_FULL)
+        text = read_text(self.prompt_dir / AUDIT_PROMPT_FULL)
         match = re.search(r"python3 \$PLUGIN_DIR/skills/aidd-loop/runtime/loop_step\.py[^\n`]*", text)
         self.assertIsNotNone(match, msg="missing loop_step.py command in full prompt step 7")
         command = str(match.group(0))
