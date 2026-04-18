@@ -1,22 +1,25 @@
 from __future__ import annotations
 
-import os
-import sys
+import runpy
+
 from pathlib import Path
 
-_PLUGIN_ROOT = Path(__file__).resolve().parents[3]
-os.environ.setdefault("CLAUDE_PLUGIN_ROOT", str(_PLUGIN_ROOT))
-if str(_PLUGIN_ROOT) not in sys.path:
-    sys.path.insert(0, str(_PLUGIN_ROOT))
+_PLUGIN_ROOT = runpy.run_path(
+    next(
+        parent / "aidd_runtime" / "plugin_bootstrap.py"
+        for parent in Path(__file__).resolve().parents
+        if (parent / "aidd_runtime" / "plugin_bootstrap.py").is_file()
+    )
+)["ensure_plugin_root_on_path"](__file__)
 
-from aidd_runtime import stage_actions_run
+from aidd_runtime import stage_actions_entrypoint
 
 DEFAULT_STAGE = "qa"
 DESCRIPTION = "Validate QA actions payload with the Python-only stage run contract."
 
 
 def parse_args(argv: list[str] | None = None):
-    return stage_actions_run.parse_args(
+    return stage_actions_entrypoint.parse_args(
         argv,
         default_stage=DEFAULT_STAGE,
         description=DESCRIPTION,
@@ -24,7 +27,7 @@ def parse_args(argv: list[str] | None = None):
 
 
 def main(argv: list[str] | None = None) -> int:
-    return stage_actions_run.main(
+    return stage_actions_entrypoint.main(
         argv,
         default_stage=DEFAULT_STAGE,
         description=DESCRIPTION,

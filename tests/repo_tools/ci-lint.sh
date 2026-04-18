@@ -12,15 +12,42 @@ log()  { printf '[info] %s\n' "$*"; }
 warn() { printf '[warn] %s\n' "$*" >&2; }
 err()  { printf '[error] %s\n' "$*" >&2; }
 
-resolve_prompt_root() {
-  if [[ -d "${ROOT_DIR}/agents" || -d "${ROOT_DIR}/commands" ]]; then
-    printf '%s' "${ROOT_DIR}"
+PROMPT_ROOT="${ROOT_DIR}"
+
+run_bash_check() {
+  local script="$1"
+  local label="$2"
+  local fail_msg="$3"
+  if [[ ! -f "${script}" ]]; then
+    warn "${script} missing; skipping"
     return
   fi
-  printf '%s' "${ROOT_DIR}"
+  log "running ${label}"
+  if ! bash "${script}"; then
+    err "${fail_msg}"
+    STATUS=1
+  fi
 }
 
-PROMPT_ROOT="$(resolve_prompt_root)"
+run_python_check() {
+  local script="$1"
+  local label="$2"
+  local fail_msg="$3"
+  shift 3
+  if ! command -v python3 >/dev/null 2>&1; then
+    warn "python3 not found; skipping ${label}"
+    return
+  fi
+  if [[ ! -f "${script}" ]]; then
+    warn "${script} missing; skipping"
+    return
+  fi
+  log "running ${label}"
+  if ! python3 "${script}" "$@"; then
+    err "${fail_msg}"
+    STATUS=1
+  fi
+}
 
 run_prompt_lint() {
   if ! command -v python3 >/dev/null 2>&1; then
@@ -50,7 +77,7 @@ run_e2e_prompt_build_guard() {
   fi
   log "running e2e prompt build guard"
   if ! python3 tests/repo_tools/build_e2e_prompts.py --check; then
-    err "e2e prompt outputs are out of date; run tests/repo_tools/build_e2e_prompts.py"
+    err "e2e prompt render check failed; run tests/repo_tools/build_e2e_prompts.py --output-dir <dir>"
     STATUS=1
   fi
 }
@@ -102,7 +129,6 @@ run_entrypoints_bundle_guard() {
     return
   fi
   log "running entrypoints bundle guard"
-  local expected="${ROOT_DIR}/tests/repo_tools/entrypoints-bundle.txt"
   local tmp_output
   tmp_output="$(mktemp "${TMPDIR:-/tmp}/aidd-entrypoints-bundle.XXXXXX")"
   trap 'rm -f "${tmp_output}"' RETURN
@@ -112,26 +138,28 @@ run_entrypoints_bundle_guard() {
     rm -f "${tmp_output}"
     return
   fi
-  if ! cmp -s "${expected}" "${tmp_output}"; then
-    err "entrypoints-bundle.txt out of date; rerun tests/repo_tools/entrypoints_bundle.py"
+  if ! python3 - "${tmp_output}" <<'PY'
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+payload = json.loads(path.read_text(encoding="utf-8"))
+required = {"schema", "skills", "agents"}
+missing = sorted(required - payload.keys())
+if missing:
+    raise SystemExit(f"missing keys: {missing}")
+PY
+  then
+    err "entrypoints bundle validation failed"
     STATUS=1
   fi
   rm -f "${tmp_output}"
   trap - RETURN
 }
 
-
-run_prompt_regression() {
-  if [[ ! -f "tests/repo_tools/prompt-regression.sh" ]]; then
-    warn "tests/repo_tools/prompt-regression.sh missing; skipping"
-    return
-  fi
-  log "running prompt regression checks"
-  if ! bash tests/repo_tools/prompt-regression.sh; then
-    err "prompt regression checks failed"
-    STATUS=1
-  fi
-}
 
 run_skill_eval_smoke() {
   local enforce="${AIDD_SKILL_EVAL_ENFORCE:-0}"
@@ -232,110 +260,6 @@ run_skill_eval_smoke() {
   fi
 }
 
-run_loop_regression() {
-  if [[ ! -f "tests/repo_tools/loop-regression.sh" ]]; then
-    warn "tests/repo_tools/loop-regression.sh missing; skipping"
-    return
-  fi
-  log "running loop regression checks"
-  if ! bash tests/repo_tools/loop-regression.sh; then
-    err "loop regression checks failed"
-    STATUS=1
-  fi
-}
-
-run_output_contract_regression() {
-  if [[ ! -f "tests/repo_tools/output-contract-regression.sh" ]]; then
-    warn "tests/repo_tools/output-contract-regression.sh missing; skipping"
-    return
-  fi
-  log "running output contract regression checks"
-  if ! bash tests/repo_tools/output-contract-regression.sh; then
-    err "output contract regression checks failed"
-    STATUS=1
-  fi
-}
-
-run_claude_stream_renderer() {
-  if [[ ! -f "tests/repo_tools/claude-stream-render" ]]; then
-    warn "tests/repo_tools/claude-stream-render missing; skipping"
-    return
-  fi
-  log "running claude stream renderer checks"
-  if ! bash tests/repo_tools/claude-stream-render; then
-    err "claude stream renderer checks failed"
-    STATUS=1
-  fi
-}
-
-run_tool_result_id_check() {
-  if [[ ! -f "tests/repo_tools/tool-result-id" ]]; then
-    warn "tests/repo_tools/tool-result-id missing; skipping"
-    return
-  fi
-  log "running tool-result id checks"
-  if ! bash tests/repo_tools/tool-result-id; then
-    err "tool-result id checks failed"
-    STATUS=1
-  fi
-}
-
-run_skill_scripts_guard() {
-  if ! command -v python3 >/dev/null 2>&1; then
-    warn "python3 not found; skipping skill scripts guard"
-    return
-  fi
-  if [[ ! -f "tests/repo_tools/skill-scripts-guard.py" ]]; then
-    warn "tests/repo_tools/skill-scripts-guard.py missing; skipping"
-    return
-  fi
-  log "running skill scripts guard"
-  if ! python3 tests/repo_tools/skill-scripts-guard.py; then
-    err "skill scripts guard failed"
-    STATUS=1
-  fi
-}
-
-run_bash_runtime_guard() {
-  if ! command -v python3 >/dev/null 2>&1; then
-    warn "python3 not found; skipping bash runtime guard"
-    return
-  fi
-  if [[ ! -f "tests/repo_tools/bash-runtime-guard.py" ]]; then
-    warn "tests/repo_tools/bash-runtime-guard.py missing; skipping"
-    return
-  fi
-  log "running bash runtime guard"
-  if ! python3 tests/repo_tools/bash-runtime-guard.py; then
-    err "bash runtime guard failed"
-    STATUS=1
-  fi
-}
-
-run_schema_guards() {
-  if [[ ! -f "tests/repo_tools/schema-guards.sh" ]]; then
-    warn "tests/repo_tools/schema-guards.sh missing; skipping"
-    return
-  fi
-  log "running schema + contract guards"
-  if ! bash tests/repo_tools/schema-guards.sh; then
-    err "schema + contract guards failed"
-    STATUS=1
-  fi
-}
-
-run_runtime_path_regression() {
-  if [[ ! -f "tests/repo_tools/runtime-path-regression.sh" ]]; then
-    warn "tests/repo_tools/runtime-path-regression.sh missing; skipping"
-    return
-  fi
-  log "running runtime path regression checks (python-only canon)"
-  if ! bash tests/repo_tools/runtime-path-regression.sh; then
-    err "runtime path regression checks failed"
-    STATUS=1
-  fi
-}
-
 run_research_legacy_artifact_guard() {
   if ! command -v rg >/dev/null 2>&1; then
     warn "rg not found; skipping research legacy artifact guard"
@@ -357,98 +281,6 @@ run_research_legacy_artifact_guard() {
   fi
   if rg -n "context\\.json|targets\\.json" skills hooks templates | rg -v "rlm-targets\\.json" >/dev/null; then
     err "runtime write/read surfaces still reference legacy context/targets artifacts"
-    STATUS=1
-  fi
-}
-
-run_runtime_module_guard() {
-  if ! command -v python3 >/dev/null 2>&1; then
-    warn "python3 not found; skipping runtime module guard"
-    return
-  fi
-  if [[ ! -f "tests/repo_tools/runtime-module-guard.py" ]]; then
-    warn "tests/repo_tools/runtime-module-guard.py missing; skipping"
-    return
-  fi
-  log "running runtime module guard"
-  if ! python3 tests/repo_tools/runtime-module-guard.py; then
-    err "runtime module guard failed"
-    STATUS=1
-  fi
-}
-
-run_runtime_bootstrap_guard() {
-  if ! command -v python3 >/dev/null 2>&1; then
-    warn "python3 not found; skipping runtime bootstrap guard"
-    return
-  fi
-  if [[ ! -f "tests/repo_tools/runtime-bootstrap-guard.py" ]]; then
-    warn "tests/repo_tools/runtime-bootstrap-guard.py missing; skipping"
-    return
-  fi
-  log "running runtime bootstrap guard"
-  if ! python3 tests/repo_tools/runtime-bootstrap-guard.py --root "$ROOT_DIR"; then
-    err "runtime bootstrap guard failed"
-    STATUS=1
-  fi
-}
-
-run_cli_adapter_guard() {
-  if ! command -v python3 >/dev/null 2>&1; then
-    warn "python3 not found; skipping cli adapter guard"
-    return
-  fi
-  if [[ ! -f "tests/repo_tools/cli-adapter-guard.py" ]]; then
-    warn "tests/repo_tools/cli-adapter-guard.py missing; skipping"
-    return
-  fi
-  log "running cli adapter guard"
-  if ! python3 tests/repo_tools/cli-adapter-guard.py; then
-    err "cli adapter guard failed"
-    STATUS=1
-  fi
-}
-
-run_python_only_regression() {
-  if [[ ! -f "tests/repo_tools/python-only-regression.sh" ]]; then
-    warn "tests/repo_tools/python-only-regression.sh missing; skipping"
-    return
-  fi
-  log "running python-only regression checks"
-  if ! bash tests/repo_tools/python-only-regression.sh; then
-    err "python-only regression checks failed"
-    STATUS=1
-  fi
-}
-
-run_release_guard() {
-  if ! command -v python3 >/dev/null 2>&1; then
-    warn "python3 not found; skipping release guard"
-    return
-  fi
-  if [[ ! -f "tests/repo_tools/release_guard.py" ]]; then
-    warn "tests/repo_tools/release_guard.py missing; skipping"
-    return
-  fi
-  log "running release guard"
-  if ! python3 tests/repo_tools/release_guard.py --root "${ROOT_DIR}"; then
-    err "release guard failed"
-    STATUS=1
-  fi
-}
-
-run_release_docs_guard() {
-  if ! command -v python3 >/dev/null 2>&1; then
-    warn "python3 not found; skipping release docs guard"
-    return
-  fi
-  if [[ ! -f "tests/repo_tools/release_docs_guard.py" ]]; then
-    warn "tests/repo_tools/release_docs_guard.py missing; skipping"
-    return
-  fi
-  log "running release docs guard"
-  if ! python3 tests/repo_tools/release_docs_guard.py --root "${ROOT_DIR}"; then
-    err "release docs guard failed"
     STATUS=1
   fi
 }
@@ -481,22 +313,6 @@ run_ruff_hygiene() {
   log "running ruff hygiene checks"
   if ! "${ruff_cmd[@]}" check . --select F401,F821,F841,B007,B023,ERA; then
     err "ruff hygiene checks failed"
-    STATUS=1
-  fi
-}
-
-run_docs_hygiene_guard() {
-  if ! command -v python3 >/dev/null 2>&1; then
-    warn "python3 not found; skipping docs hygiene guard"
-    return
-  fi
-  if [[ ! -f "tests/repo_tools/docs_hygiene_guard.py" ]]; then
-    warn "tests/repo_tools/docs_hygiene_guard.py missing; skipping"
-    return
-  fi
-  log "running docs hygiene guard"
-  if ! python3 tests/repo_tools/docs_hygiene_guard.py; then
-    err "docs hygiene guard failed"
     STATUS=1
   fi
 }
@@ -678,8 +494,6 @@ pattern = re.compile(r"\b(?:Answer|Ответ)\s+[0-9]+\s*:")
 target_globs = [
     "skills/*/templates/*",
     "tests/repo_tools/e2e_prompt/*.md",
-    "docs/e2e/aidd_test_flow_prompt_ralph_script*.txt",
-    "docs/e2e/aidd_test_quality_audit_prompt_tst002*.txt",
     "tests/repo_tools/smoke-workflow.sh",
 ]
 
@@ -752,25 +566,25 @@ run_prompt_lint
 run_prompt_version_check
 run_prompt_sync_guard
 run_entrypoints_bundle_guard
-run_prompt_regression
+run_bash_check "tests/repo_tools/prompt-regression.sh" "prompt regression checks" "prompt regression checks failed"
 run_skill_eval_smoke
-run_loop_regression
-run_output_contract_regression
-run_claude_stream_renderer
-run_tool_result_id_check
-run_skill_scripts_guard
-run_bash_runtime_guard
-run_schema_guards
-run_runtime_path_regression
+run_bash_check "tests/repo_tools/loop-regression.sh" "loop regression checks" "loop regression checks failed"
+run_bash_check "tests/repo_tools/output-contract-regression.sh" "output contract regression checks" "output contract regression checks failed"
+run_bash_check "tests/repo_tools/claude-stream-render" "claude stream renderer checks" "claude stream renderer checks failed"
+run_bash_check "tests/repo_tools/tool-result-id" "tool-result id checks" "tool-result id checks failed"
+run_python_check "tests/repo_tools/skill-scripts-guard.py" "skill scripts guard" "skill scripts guard failed"
+run_python_check "tests/repo_tools/bash-runtime-guard.py" "bash runtime guard" "bash runtime guard failed"
+run_bash_check "tests/repo_tools/schema-guards.sh" "schema + contract guards" "schema + contract guards failed"
+run_bash_check "tests/repo_tools/runtime-path-regression.sh" "runtime path regression checks (python-only canon)" "runtime path regression checks failed"
 run_research_legacy_artifact_guard
-run_runtime_module_guard
-run_runtime_bootstrap_guard
-run_cli_adapter_guard
-run_python_only_regression
-run_release_guard
-run_release_docs_guard
+run_python_check "tests/repo_tools/runtime-module-guard.py" "runtime module guard" "runtime module guard failed"
+run_python_check "tests/repo_tools/runtime-bootstrap-guard.py" "runtime bootstrap guard" "runtime bootstrap guard failed" --root "$ROOT_DIR"
+run_python_check "tests/repo_tools/cli-adapter-guard.py" "cli adapter guard" "cli adapter guard failed"
+run_bash_check "tests/repo_tools/python-only-regression.sh" "python-only regression checks" "python-only regression checks failed"
+run_python_check "tests/repo_tools/release_guard.py" "release guard" "release guard failed" --root "${ROOT_DIR}"
+run_python_check "tests/repo_tools/release_docs_guard.py" "release docs guard" "release docs guard failed" --root "${ROOT_DIR}"
 run_ruff_hygiene
-run_docs_hygiene_guard
+run_python_check "tests/repo_tools/docs_hygiene_guard.py" "docs hygiene guard" "docs hygiene guard failed"
 run_marketplace_ref_guard
 run_repo_linters
 

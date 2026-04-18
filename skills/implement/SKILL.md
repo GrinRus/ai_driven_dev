@@ -3,8 +3,8 @@ name: implement
 description: Executes implement-stage loop workflow for the next scoped work item through stage-chain orchestration. Use when implement stage enters loop mode. Do not use when the request is focused on findings validation in `review` or verification/reporting in `qa`.
 argument-hint: $1 [note...] [test=fast|targeted|full|none] [tests=<filters>] [tasks=<task1,task2>]
 lang: en
-prompt_version: 1.1.51
-source_version: 1.1.51
+prompt_version: 1.1.52
+source_version: 1.1.52
 allowed-tools:
   - Read
   - Edit
@@ -48,17 +48,17 @@ user-invocable: true
 Follow `feature-dev-aidd:aidd-core` and `feature-dev-aidd:aidd-loop`.
 
 ## Steps
-1. Inputs: resolve active `<ticket>/<scope_key>` and confirm loop artifacts are present for implement stage.
-2. Stage-chain policy: execute only via canonical stage-chain orchestration; internal preflight/postflight are orchestration details and not operator commands.
-3. Manual write/create of `stage.implement.result.json` is forbidden; stage-result files are produced only by stage-chain postflight. `[AIDD_LOOP_POLICY:MANUAL_STAGE_RESULT_FORBIDDEN]`
-4. Runtime-path safety: use only runtime commands from this skill contracts. If stdout/stderr contains `can't open file .../skills/.../runtime/...`, stop with immediate BLOCKED `runtime_path_missing_or_drift`; do not invent alternate filenames or guessed retries.
-5. Retry safety: do not rerun the same failing shell command without new evidence/artifacts. For cwd/build mismatches, stop with blocker and handoff.
-6. Read order after stage-chain preflight artifacts: `readmap.md` -> loop pack -> review pack (if exists) -> rolling context pack; do not perform broad repo scan before these artifacts.
+1. Resolve active `<ticket>/<scope_key>` and verify loop/readmap artifacts before touching repo state.
+2. Stage-chain only: internal preflight/postflight are orchestration details, not operator commands.
+3. Manual write/create of `stage.implement.result.json` is forbidden; stage-result files are emitted only by stage-chain postflight. `[AIDD_LOOP_POLICY:MANUAL_STAGE_RESULT_FORBIDDEN]`
+4. Runtime-path safety: use only commands declared below. If stdout/stderr shows `can't open file .../skills/.../runtime/...`, stop immediately with BLOCKED `runtime_path_missing_or_drift`; do not guess alternate paths.
+5. Retry safety: no blind reruns of the same failing shell command. For cwd/build mismatches, stop with blocker and handoff.
+6. Read order after stage-chain preflight artifacts: `readmap.md` -> loop pack -> review pack (if exists) -> rolling context pack.
 7. Run subagent `feature-dev-aidd:implementer`.
-8. Orchestration: use the existing rolling context pack (do not regenerate it), Fill actions.json at `aidd/reports/actions/<ticket>/<scope_key>/implement.actions.json`, keep action types in `{tasklist_ops.set_iteration_done, tasklist_ops.append_progress_log, tasklist_ops.next3_recompute, context_pack_ops.context_pack_update}`, and validate via `python3 ${CLAUDE_PLUGIN_ROOT}/skills/implement/runtime/implement_run.py`.
-9. Canonical stage-chain: internal preflight -> stage runtime -> actions_apply.py/postflight -> `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py`; it must produce `aidd/reports/loops/<ticket>/<scope_key>/stage.implement.result.json`. `[AIDD_LOOP_POLICY:CANONICAL_STAGE_RESULT_PATH]`
-10. Non-canonical stage-result path under `skills/aidd-loop/runtime/` is forbidden (treat as prompt-flow drift). `[AIDD_LOOP_POLICY:NON_CANONICAL_STAGE_RESULT_FORBIDDEN]`
-11. Output: return one terminal stage payload after evidence-first evaluation, with updated artifacts and explicit handoff or next action.
+8. Use the existing rolling context pack, Fill actions.json at `aidd/reports/actions/<ticket>/<scope_key>/implement.actions.json`, keep action types in `{tasklist_ops.set_iteration_done, tasklist_ops.append_progress_log, tasklist_ops.next3_recompute, context_pack_ops.context_pack_update}`, and validate via `python3 ${CLAUDE_PLUGIN_ROOT}/skills/implement/runtime/implement_run.py`.
+9. Canonical stage-chain: internal preflight -> stage runtime -> actions_apply.py/postflight -> `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py`; expected output is `aidd/reports/loops/<ticket>/<scope_key>/stage.implement.result.json`. `[AIDD_LOOP_POLICY:CANONICAL_STAGE_RESULT_PATH]`
+10. Non-canonical stage-result path under `skills/aidd-loop/runtime/` is forbidden and counts as prompt-flow drift. `[AIDD_LOOP_POLICY:NON_CANONICAL_STAGE_RESULT_FORBIDDEN]`
+11. Return one terminal stage payload with updated artifacts and explicit next action or handoff.
 
 ## Command contracts
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/implement/runtime/implement_run.py`
@@ -81,9 +81,6 @@ Follow `feature-dev-aidd:aidd-core` and `feature-dev-aidd:aidd-loop`.
 - Outputs: canonical `aidd.stage_result.v1` at `aidd/reports/loops/<ticket>/<scope_key>/stage.implement.result.json`.
 - Failure mode: non-zero exit on missing required args or invalid stage-result contract fields.
 - Next action: fix postflight payload generation and rerun the stage-chain; do not switch to non-canonical loop runtime paths.
-
-## Notes
-- Implement stage does not run ad-hoc test loops; format-only is allowed and test orchestration stays with hook policy.
 
 ## Additional resources
 - Contract schema: [CONTRACT.yaml](CONTRACT.yaml) (when: preflight/postflight or actions contract is unclear; why: validate required fields and artifact expectations before rerun).

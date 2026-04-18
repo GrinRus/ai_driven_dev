@@ -42,52 +42,10 @@ EN_TEMPLATE_AGENT = dedent(
 ).strip() + "\n"
 
 
-def write_prompt(root: Path, name: str, version: str = "1.0.0", kind: str = "agent") -> None:
-    prompt_dir = root / ("agents" if kind == "agent" else "commands")
+def write_prompt(root: Path, name: str, version: str = "1.0.0") -> None:
+    prompt_dir = root / "agents"
     prompt_dir.mkdir(parents=True, exist_ok=True)
-    if kind == "agent":
-        prompt_text = EN_TEMPLATE_AGENT.format(name=name, version=version)
-    else:
-        prompt_text = dedent(
-            f"""
-            ---
-            description: "{name}"
-            argument-hint: "<TICKET>"
-            lang: en
-            prompt_version: {version}
-            source_version: {version}
-            allowed-tools: Read
-            model: inherit
-            ---
-
-            ## Context
-            text
-
-            ## Input Artifacts
-            - item
-
-            ## When to Run
-            text
-
-            ## Automatic Hooks and Variables
-            text
-
-            ## Files Updated
-            text
-
-            ## Steps
-            1. step
-
-            ## Fail-fast and Questions
-            text
-
-            ## Expected Output
-            text
-
-            ## CLI Examples
-            - `/cmd`
-            """
-        ).strip() + "\n"
+    prompt_text = EN_TEMPLATE_AGENT.format(name=name, version=version)
     (prompt_dir / f"{name}.md").write_text(prompt_text, encoding="utf-8")
 
 
@@ -154,14 +112,14 @@ class PromptVersioningTests(unittest.TestCase):
     def test_bump_updates_en_command(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            write_prompt(root, "plan-new", kind="command")
+            write_stage_skill(root, "plan-new")
             result = self.run_prompt_version(root, "plan-new", "command", "patch")
             self.assertEqual(result.returncode, 0, msg=result.stderr)
-            prompt_text = (root / "commands" / "plan-new.md").read_text(encoding="utf-8")
+            prompt_text = (root / "skills" / "plan-new" / "SKILL.md").read_text(encoding="utf-8")
             self.assertIn("prompt_version: 1.0.1", prompt_text)
             self.assertIn("source_version: 1.0.1", prompt_text)
 
-    def test_bump_updates_stage_skill_command_fallback(self) -> None:
+    def test_bump_updates_stage_skill_command(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             write_stage_skill(root, "review", version="1.0.44")
@@ -171,20 +129,13 @@ class PromptVersioningTests(unittest.TestCase):
             self.assertIn("prompt_version: 1.0.45", prompt_text)
             self.assertIn("source_version: 1.0.45", prompt_text)
 
-    def test_bump_prefers_stage_skill_over_legacy_command_prompt(self) -> None:
+    def test_bump_fails_when_stage_skill_is_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            write_prompt(root, "qa", version="1.0.0", kind="command")
-            write_stage_skill(root, "qa", version="2.0.0")
             result = self.run_prompt_version(root, "qa", "command", "patch")
-            self.assertEqual(result.returncode, 0, msg=result.stderr)
-
-            stage_skill_text = (root / "skills" / "qa" / "SKILL.md").read_text(encoding="utf-8")
-            legacy_command_text = (root / "commands" / "qa.md").read_text(encoding="utf-8")
-            self.assertIn("prompt_version: 2.0.1", stage_skill_text)
-            self.assertIn("source_version: 2.0.1", stage_skill_text)
-            self.assertIn("prompt_version: 1.0.0", legacy_command_text)
-            self.assertIn("source_version: 1.0.0", legacy_command_text)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("skills/qa/SKILL.md", result.stderr)
+            self.assertNotIn("fallback", result.stderr)
 
 
 if __name__ == "__main__":  # pragma: no cover

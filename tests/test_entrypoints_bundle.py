@@ -28,6 +28,12 @@ class EntrypointsBundleTests(unittest.TestCase):
         self.assertEqual(Path(args.root).resolve(), REPO_ROOT)
         self.assertTrue((Path(args.root) / ".claude-plugin" / "plugin.json").exists())
 
+    def test_build_bundle_returns_required_top_level_keys(self) -> None:
+        bundle = self.module.build_bundle(REPO_ROOT)
+        self.assertEqual(bundle["schema"], "aidd.entrypoints.bundle.v1")
+        self.assertTrue(bundle["skills"])
+        self.assertTrue(bundle["agents"])
+
 
 if __name__ == "__main__":
     unittest.main()
