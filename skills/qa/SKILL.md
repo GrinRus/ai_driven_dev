@@ -3,8 +3,8 @@ name: qa
 description: Runs QA-stage validation, report generation, and postflight actions for the current scope. Use when QA stage is ready for loop verification. Do not use when the request belongs to `review` findings synthesis or `implement` execution loops.
 argument-hint: $1 [note...]
 lang: en
-prompt_version: 1.0.43
-source_version: 1.0.43
+prompt_version: 1.0.45
+source_version: 1.0.45
 allowed-tools:
   - Read
   - Edit
@@ -36,17 +36,17 @@ user-invocable: true
 
 Follow `feature-dev-aidd:aidd-core` and `feature-dev-aidd:aidd-loop`.
 
+Shared loop-stage contract: [../aidd-loop/stage-skill-contract.md](../aidd-loop/stage-skill-contract.md).
+
 ## Steps
 1. Resolve active `<ticket>/<scope_key>` and read in order: `readmap.md` -> loop pack -> latest review pack when present -> rolling context pack.
-2. Execute only via canonical stage-chain orchestration. Internal preflight and postflight are orchestration details, not operator commands.
-3. Run subagent `feature-dev-aidd:qa` for the current bounded scope only.
-4. Manual write/create of `stage.qa.result.json` is forbidden. `[AIDD_LOOP_POLICY:MANUAL_STAGE_RESULT_FORBIDDEN]`
-5. Fill actions.json: run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/qa/runtime/qa.py`, derive follow-up tasks if needed, then validate `aidd/reports/actions/<ticket>/<scope_key>/qa.actions.json` via `python3 ${CLAUDE_PLUGIN_ROOT}/skills/qa/runtime/qa_run.py`.
-6. Canonical stage-chain: internal preflight -> stage runtime -> actions_apply.py/postflight -> `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py`; the only valid stage result path is `aidd/reports/loops/<ticket>/<scope_key>/stage.qa.result.json`. `[AIDD_LOOP_POLICY:CANONICAL_STAGE_RESULT_PATH]`
-7. Non-canonical stage-result path under `skills/aidd-loop/runtime/` is forbidden. `[AIDD_LOOP_POLICY:NON_CANONICAL_STAGE_RESULT_FORBIDDEN]`
-8. If preflight context is missing, stop with canonical handoff `/feature-dev-aidd:implement <ticket>`. If actions payload is invalid, stop with canonical handoff `/feature-dev-aidd:tasks-new <ticket>`.
-9. If stdout/stderr contains `can't open file .../skills/.../runtime/...`, stop with BLOCKED `runtime_path_missing_or_drift`. Do not invent manual recovery loops or ad-hoc test commands from arbitrary cwd.
-10. Return one terminal QA payload with report paths and the next canonical action.
+2. Apply the shared loop-stage contract: canonical stage-chain only, internal preflight/postflight stay orchestration-only details, and manual write/create of `stage.qa.result.json` is forbidden. `[AIDD_LOOP_POLICY:MANUAL_STAGE_RESULT_FORBIDDEN]`
+3. Run subagent `feature-dev-aidd:qa` for the current bounded scope, run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/qa/runtime/qa.py`, derive follow-up tasks when needed, Fill actions.json at `aidd/reports/actions/<ticket>/<scope_key>/qa.actions.json`, and validate it via `python3 ${CLAUDE_PLUGIN_ROOT}/skills/qa/runtime/qa_run.py`.
+4. Canonical stage-chain is `internal preflight -> stage runtime -> actions_apply.py/postflight -> python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py`; the only valid stage result path is `aidd/reports/loops/<ticket>/<scope_key>/stage.qa.result.json`. `[AIDD_LOOP_POLICY:CANONICAL_STAGE_RESULT_PATH]`
+5. Non-canonical stage-result paths under `skills/aidd-loop/runtime/` are forbidden. `[AIDD_LOOP_POLICY:NON_CANONICAL_STAGE_RESULT_FORBIDDEN]`
+6. If preflight context is missing, stop with canonical handoff `/feature-dev-aidd:implement <ticket>`. If actions payload is invalid, stop with canonical handoff `/feature-dev-aidd:tasks-new <ticket>`.
+7. If stdout/stderr contains `can't open file .../skills/.../runtime/...`, stop with BLOCKED `runtime_path_missing_or_drift`; do not invent manual recovery loops or ad-hoc test commands from arbitrary cwd.
+8. Return one terminal QA payload with report paths and the next canonical action.
 
 ## Command contracts
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/qa/runtime/qa_run.py`
@@ -54,14 +54,14 @@ Follow `feature-dev-aidd:aidd-core` and `feature-dev-aidd:aidd-loop`.
 - Inputs: ticket, scope/work-item context, QA findings, and actions payload.
 - Outputs: validated QA report artifacts and stage status payload.
 - Failure mode: non-zero exit when report/actions schema or required stage inputs are invalid.
-- Next action: fix QA findings/actions contract issues and rerun the same runtime.
+- Next action: fix QA findings/actions contract issues and rerun runtime validation.
 
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-docio/runtime/actions_apply.py`
 - When to run: mandatory final step in stage-chain postflight after QA actions are validated.
 - Inputs: `--actions <path>` and optional `--apply-log <path>`.
 - Outputs: applied actions plus progress/stage-result/status-summary artifacts.
 - Failure mode: apply failure, progress update failure, or status summary failure.
-- Next action: inspect logs, fix blocking contract issues, rerun the stage-chain, and verify the canonical stage result exists.
+- Next action: inspect logs, fix blocking contract issues, rerun the stage-chain.
 
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py`
 - When to run: stage-chain postflight stage-result emission only (not operator/manual recovery command).
@@ -71,4 +71,6 @@ Follow `feature-dev-aidd:aidd-core` and `feature-dev-aidd:aidd-loop`.
 - Next action: fix postflight payload generation and rerun the stage-chain; do not switch to non-canonical loop runtime paths.
 
 ## Additional resources
+- Shared loop-stage contract: [../aidd-loop/stage-skill-contract.md](../aidd-loop/stage-skill-contract.md) (when: shared stage-chain/read-order/fail-fast rules are needed; why: keep common loop-stage policy in one canonical file).
+- Shared loop reference: [../aidd-loop/reference.md](../aidd-loop/reference.md) (when: shared stage-chain paths or loop invariants are unclear; why: reuse one canonical loop reference instead of duplicating command lore).
 - Contract schema: [CONTRACT.yaml](CONTRACT.yaml) (when: QA action/report requirements are unclear; why: verify mandatory fields before runtime validation and postflight).

@@ -3,8 +3,8 @@ name: review
 description: Runs review-stage validation for scope changes, findings, and follow-up task derivation. Use when review stage needs verdict and handoff tasks. Do not use when the request is direct implementation execution in `implement` or QA validation in `qa`.
 argument-hint: $1 [note...]
 lang: en
-prompt_version: 1.0.48
-source_version: 1.0.48
+prompt_version: 1.0.50
+source_version: 1.0.50
 allowed-tools:
   - Read
   - Edit
@@ -33,16 +33,16 @@ user-invocable: true
 
 Follow `feature-dev-aidd:aidd-core` and `feature-dev-aidd:aidd-loop`.
 
+Shared loop-stage contract: [../aidd-loop/stage-skill-contract.md](../aidd-loop/stage-skill-contract.md).
+
 ## Steps
 1. Resolve active `<ticket>/<scope_key>` and read in order: `readmap.md` -> loop pack -> latest review pack when present -> rolling context pack.
-2. Execute only via canonical stage-chain orchestration. Internal preflight and postflight are orchestration details, not operator commands.
-3. Run subagent `feature-dev-aidd:reviewer` for the current bounded scope only.
-4. Manual write/create of `stage.review.result.json` is forbidden. `[AIDD_LOOP_POLICY:MANUAL_STAGE_RESULT_FORBIDDEN]`
-5. Fill actions.json: produce review artifacts with `review_report.py`, `review_pack.py`, `reviewer_tests.py`, and `tasks_derive.py`, then validate `aidd/reports/actions/<ticket>/<scope_key>/review.actions.json` via `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review/runtime/review_run.py`.
-6. Canonical stage-chain: internal preflight -> stage runtime -> actions_apply.py/postflight -> `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py`; the only valid stage result path is `aidd/reports/loops/<ticket>/<scope_key>/stage.review.result.json`. `[AIDD_LOOP_POLICY:CANONICAL_STAGE_RESULT_PATH]`
-7. Non-canonical stage-result path under `skills/aidd-loop/runtime/` is forbidden. `[AIDD_LOOP_POLICY:NON_CANONICAL_STAGE_RESULT_FORBIDDEN]`
-8. Do not run raw build/test commands from review orchestration. If stdout/stderr contains `can't open file .../skills/.../runtime/...`, stop with BLOCKED `runtime_path_missing_or_drift`.
-9. Return one terminal payload with findings summary, evidence links, and the next canonical handoff.
+2. Apply the shared loop-stage contract: canonical stage-chain only, internal preflight/postflight stay orchestration-only details, and manual write/create of `stage.review.result.json` is forbidden. `[AIDD_LOOP_POLICY:MANUAL_STAGE_RESULT_FORBIDDEN]`
+3. Run subagent `feature-dev-aidd:reviewer` for the current bounded scope, produce review artifacts with `review_report.py`, `review_pack.py`, `reviewer_tests.py`, and `tasks_derive.py`, Fill actions.json at `aidd/reports/actions/<ticket>/<scope_key>/review.actions.json`, then validate it via `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review/runtime/review_run.py`.
+4. Canonical stage-chain is `internal preflight -> stage runtime -> actions_apply.py/postflight -> python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py`; the only valid stage result path is `aidd/reports/loops/<ticket>/<scope_key>/stage.review.result.json`. `[AIDD_LOOP_POLICY:CANONICAL_STAGE_RESULT_PATH]`
+5. Non-canonical stage-result paths under `skills/aidd-loop/runtime/` are forbidden. `[AIDD_LOOP_POLICY:NON_CANONICAL_STAGE_RESULT_FORBIDDEN]`
+6. Do not run raw build/test commands from review orchestration. If stdout/stderr contains `can't open file .../skills/.../runtime/...`, stop with BLOCKED `runtime_path_missing_or_drift`.
+7. Return one terminal payload with findings summary, evidence links, and the next canonical handoff.
 
 ## Command contracts
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review/runtime/review_run.py`
@@ -50,7 +50,7 @@ Follow `feature-dev-aidd:aidd-core` and `feature-dev-aidd:aidd-loop`.
 - Inputs: ticket, scope/work-item context, and reviewer findings/actions payload.
 - Outputs: validated review artifacts and stage status payload.
 - Failure mode: non-zero exit on invalid review contracts or missing prerequisites.
-- Next action: fix findings/actions inputs and rerun the same runtime.
+- Next action: fix findings/actions inputs and rerun runtime validation.
 
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review/runtime/reviewer_tests.py`
 - When to run: when reviewer must set/clear test requirement marker for the current scope.
@@ -64,7 +64,7 @@ Follow `feature-dev-aidd:aidd-core` and `feature-dev-aidd:aidd-loop`.
 - Inputs: `--actions <path>` and optional `--apply-log <path>`.
 - Outputs: applied actions plus progress/stage-result/status-summary artifacts.
 - Failure mode: apply failure, boundary guard failure, or summary generation failure.
-- Next action: inspect logs, fix the blocking artifact/contract, rerun the stage-chain, and verify the canonical stage result exists.
+- Next action: inspect logs, fix blocking artifact/contract, rerun the stage-chain, and verify canonical stage result exists (`aidd/reports/loops/<ticket>/<scope_key>/stage.review.result.json`).
 
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py`
 - When to run: stage-chain postflight stage-result emission only (not operator/manual recovery command).
@@ -74,4 +74,6 @@ Follow `feature-dev-aidd:aidd-core` and `feature-dev-aidd:aidd-loop`.
 - Next action: fix postflight payload generation and rerun the stage-chain; do not switch to non-canonical loop runtime paths.
 
 ## Additional resources
+- Shared loop-stage contract: [../aidd-loop/stage-skill-contract.md](../aidd-loop/stage-skill-contract.md) (when: shared stage-chain/read-order/fail-fast rules are needed; why: keep common loop-stage policy in one canonical file).
+- Shared loop reference: [../aidd-loop/reference.md](../aidd-loop/reference.md) (when: shared stage-chain paths or loop invariants are unclear; why: reuse one canonical loop reference instead of duplicating command lore).
 - Contract schema: [CONTRACT.yaml](CONTRACT.yaml) (when: review artifacts or actions contract is ambiguous; why: verify required structure before rerunning runtime/postflight).

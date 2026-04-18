@@ -17,11 +17,7 @@
     "prompt_title": "AIDD E2E Quality Audit Prompt",
     "base_path": "tests/repo_tools/e2e_prompt/base_contract.md",
     "must_read_path": "tests/repo_tools/e2e_prompt/must_read_manifest.md",
-    "must_read_extra": [
-      "$PLUGIN_DIR/tests/repo_tools/e2e_prompt/profile_full.md",
-      "$PLUGIN_DIR/docs/backlog.md",
-      "$PLUGIN_DIR/skills/review-spec/SKILL.md"
-    ],
+    "must_read_extra": [],
     "profiles": {
       "FULL": "tests/repo_tools/e2e_prompt/quality_profile_full.md"
     },

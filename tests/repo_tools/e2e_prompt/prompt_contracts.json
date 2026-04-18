@@ -39,6 +39,9 @@
     "FULL": {
       "contains": [
         "# AIDD E2E Quality Audit Prompt (TST-002, FULL)",
+        "PROMPT_RENDER_DIR=$PROJECT_DIR/.aidd_audit/$TICKET/rendered-prompts",
+        "$PROMPT_RENDER_DIR/aidd_test_flow_prompt_ralph_script_full.txt",
+        "BASE_PROMPT=$PROMPT_RENDER_DIR/aidd_test_flow_prompt_ralph_script_full.txt",
         "QUALITY_FINAL_MARKER=QUALITY_AUDIT_COMPLETE",
         "Wave <NNN>",
         "W<NNN>-1"
