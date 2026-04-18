@@ -111,27 +111,20 @@ Status: PENDING
 ## AIDD:NEXT_3
 - [ ] I1: <current step> (ref: iteration_id=I1)
 - [ ] I2: <next step> (ref: iteration_id=I2)
-- [ ] review:F6: <handoff placeholder> (ref: id=review:F6)
 
 ---
 
 ## AIDD:HANDOFF_INBOX
 > Canonical handoff format:
 > `- [ ] <title> (id: review:F6) (Priority: high) (Blocking: true)`
-- [ ] <title> (id: review:F6) (Priority: high) (Blocking: true)
-  - source: review
-  - Report: aidd/reports/<owner>/<ticket>/<scope_key>.json
-  - Status: open
-  - scope: iteration_id|n/a
-  - DoD: <verification target>
-  - Boundaries:
-    - must-touch: ["path1"]
-    - must-not-touch: ["pathX"]
-  - Tests:
-    - profile: none
-    - tasks: []
-    - filters: []
-  - Notes: <tradeoffs/risks>
+> Short example for a closed handoff:
+> `- [x] <title> (id: review:F6) (Priority: high) (Blocking: true)`
+> - source: review
+> - Report: aidd/reports/<owner>/<ticket>/<scope_key>.json
+> - Status: done
+> - scope: iteration_id|n/a
+> - DoD: <verification target>
+> - Notes: <tradeoffs/risks>
 
 <!-- handoff:manual start -->
 <!-- handoff:manual end -->
