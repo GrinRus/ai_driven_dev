@@ -46,7 +46,7 @@ class E2EQualityPromptContractTests(unittest.TestCase):
         self.assertTrue(PROMPT_BUILDER.exists(), msg=f"missing prompt builder: {PROMPT_BUILDER}")
         self.assertTrue(PROMPT_SPECS.exists(), msg=f"missing prompt specs: {PROMPT_SPECS}")
         self.assertTrue((PROMPT_FRAGMENTS_DIR / "prompt_contracts.json").exists())
-        for rel in ("base_contract.md", "quality_profile_full.md", "must_read_manifest.md"):
+        for rel in ("base_contract.md", "quality_profile_full.md", "must_read_manifest.md", "includes/quality_overlay.md"):
             path = PROMPT_FRAGMENTS_DIR / rel
             self.assertTrue(path.exists(), msg=f"missing quality prompt source: {path}")
 

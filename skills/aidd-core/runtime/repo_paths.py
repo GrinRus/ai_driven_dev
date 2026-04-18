@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from pathlib import Path
+import runpy
 
+_bootstrap = runpy.run_path(str(Path(__file__).with_name("_bootstrap.py")))
+export_module = _bootstrap["export_module"]
+run_main = _bootstrap["run_main"]
 
-def repo_root(start_file: str | Path) -> Path:
-    here = Path(start_file).resolve()
-    for candidate in (here.parent, *here.parents):
-        if (candidate / ".claude-plugin").is_dir() and (candidate / "skills").is_dir():
-            return candidate
-    return here.parents[2]
+export_module("aidd_runtime.repo_paths", globals())
+
+if __name__ == "__main__":  # pragma: no cover
+    raise SystemExit(run_main("aidd_runtime.repo_paths"))

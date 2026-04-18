@@ -37,18 +37,16 @@ user-invocable: true
 Follow `feature-dev-aidd:aidd-core` and `feature-dev-aidd:aidd-loop`.
 
 ## Steps
-1. Resolve active `<ticket>/<scope_key>` and validate QA prerequisites from loop/readmap artifacts.
-2. Stage-chain only: internal preflight/postflight stay internal; manual write/create of `stage.qa.result.json` is forbidden. `[AIDD_LOOP_POLICY:MANUAL_STAGE_RESULT_FORBIDDEN]`
-3. Runtime-path safety: use only commands declared below. If stdout/stderr shows `can't open file .../skills/.../runtime/...`, stop immediately with BLOCKED `runtime_path_missing_or_drift`; do not guess alternate paths.
-4. Retry safety: no blind reruns of the same failing shell command. For cwd/build mismatches, stop with blocker and handoff.
-5. Fail fast when preflight/stage-chain context is missing (`reason_code=preflight_missing`) or workflow paths resolve outside the workspace; return terminal BLOCKED with canonical next action `/feature-dev-aidd:implement <ticket>`.
-6. If `actions-apply` reports `reason_code=contract_mismatch_actions_shape`, do not hand-edit payloads or improvise recovery; return terminal BLOCKED with canonical handoff.
-7. Read order after stage-chain preflight artifacts: `readmap.md` -> loop pack -> review pack (if exists) -> rolling context pack.
-8. Run subagent `feature-dev-aidd:qa`.
-9. Run QA via `python3 ${CLAUDE_PLUGIN_ROOT}/skills/qa/runtime/qa.py`, derive tasks if needed, Fill actions.json at `aidd/reports/actions/<ticket>/<scope_key>/qa.actions.json` as `aidd.actions.v1`, and validate via `python3 ${CLAUDE_PLUGIN_ROOT}/skills/qa/runtime/qa_run.py`. Do not use raw ad-hoc test commands from arbitrary cwd as recovery.
-10. Canonical stage-chain: internal preflight -> stage runtime -> actions_apply.py/postflight -> `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py`; expected output is `aidd/reports/loops/<ticket>/<scope_key>/stage.qa.result.json`. `[AIDD_LOOP_POLICY:CANONICAL_STAGE_RESULT_PATH]`
-11. Non-canonical stage-result path under `skills/aidd-loop/runtime/` is forbidden and counts as prompt-flow drift. `[AIDD_LOOP_POLICY:NON_CANONICAL_STAGE_RESULT_FORBIDDEN]`
-12. Return one terminal QA payload with report paths and explicit canonical next action (`/feature-dev-aidd:status <ticket>` or `/feature-dev-aidd:tasks-new <ticket>` when follow-up tasks are required).
+1. Resolve active `<ticket>/<scope_key>` and read in order: `readmap.md` -> loop pack -> latest review pack when present -> rolling context pack.
+2. Execute only via canonical stage-chain orchestration. Internal preflight and postflight are orchestration details, not operator commands.
+3. Manual write/create of `stage.qa.result.json` is forbidden. `[AIDD_LOOP_POLICY:MANUAL_STAGE_RESULT_FORBIDDEN]`
+4. Run subagent `feature-dev-aidd:qa` for the current bounded scope only.
+5. Fill actions.json: run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/qa/runtime/qa.py`, derive follow-up tasks if needed, then validate `aidd/reports/actions/<ticket>/<scope_key>/qa.actions.json` via `python3 ${CLAUDE_PLUGIN_ROOT}/skills/qa/runtime/qa_run.py`.
+6. Canonical stage-chain: internal preflight -> stage runtime -> actions_apply.py/postflight -> `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py`; the only valid stage result path is `aidd/reports/loops/<ticket>/<scope_key>/stage.qa.result.json`. `[AIDD_LOOP_POLICY:CANONICAL_STAGE_RESULT_PATH]`
+7. Non-canonical stage-result path under `skills/aidd-loop/runtime/` is forbidden. `[AIDD_LOOP_POLICY:NON_CANONICAL_STAGE_RESULT_FORBIDDEN]`
+8. If preflight context is missing, stop with canonical handoff `/feature-dev-aidd:implement <ticket>`. If actions payload is invalid, stop with canonical handoff `/feature-dev-aidd:tasks-new <ticket>`.
+9. If stdout/stderr contains `can't open file .../skills/.../runtime/...`, stop with BLOCKED `runtime_path_missing_or_drift`. Do not invent manual recovery loops or ad-hoc test commands from arbitrary cwd.
+10. Return one terminal QA payload with report paths and the next canonical action.
 
 ## Command contracts
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/qa/runtime/qa_run.py`
@@ -71,6 +69,9 @@ Follow `feature-dev-aidd:aidd-core` and `feature-dev-aidd:aidd-loop`.
 - Outputs: canonical `aidd.stage_result.v1` at `aidd/reports/loops/<ticket>/<scope_key>/stage.qa.result.json`.
 - Failure mode: non-zero exit on missing required args or invalid stage-result contract fields.
 - Next action: fix postflight payload generation and rerun the stage-chain; do not switch to non-canonical loop runtime paths.
+
+## Notes
+- QA stage runs full tests per policy.
 
 ## Additional resources
 - Contract schema: [CONTRACT.yaml](CONTRACT.yaml) (when: QA action/report requirements are unclear; why: verify mandatory fields before runtime validation and postflight).

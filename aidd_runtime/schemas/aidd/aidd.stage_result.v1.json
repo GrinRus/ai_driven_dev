@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "aidd.stage_result.v1",
+  "schema": "aidd.schema.v1",
+  "schema_version": "aidd.stage_result.v1",
+  "title": "AIDD Canonical Stage Result v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "ticket",
+    "stage",
+    "result",
+    "updated_at"
+  ],
+  "properties": {
+    "schema": {
+      "const": "aidd.stage_result.v1"
+    },
+    "schema_version": {
+      "type": "string"
+    },
+    "ticket": {
+      "type": "string"
+    },
+    "stage": {
+      "type": "string"
+    },
+    "scope_key": {
+      "type": "string"
+    },
+    "work_item_key": {
+      "type": "string"
+    },
+    "result": {
+      "type": "string",
+      "enum": [
+        "blocked",
+        "continue",
+        "done"
+      ]
+    },
+    "requested_result": {
+      "type": "string"
+    },
+    "reason_code": {
+      "type": "string"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "verdict": {
+      "type": "string"
+    },
+    "details": {
+      "type": "object"
+    },
+    "updated_at": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}

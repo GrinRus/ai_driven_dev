@@ -27,54 +27,25 @@ Stage: <idea|research|plan|review-spec|review-plan|review-prd|tasklist|implement
 Status: PENDING
 
 ### TL;DR
-- Goal: <1–2 строки — что делаем>
-- Current focus (1 checkbox): <точное имя из AIDD:NEXT_3>
-- Done since last pack: <1–3 пункта, кратко>
-- Risk level: <low|medium|high> — <почему 1 строка>
+- Goal: <1 line>
+- Current focus: <one item from AIDD:NEXT_3>
+- Risks: <low|medium|high> — <why>
 
-### Scope & boundaries
-- Allowed paths (patch boundaries):
+### Boundaries
+- Allowed paths:
   - <path1/>
-  - <path2/>
-- Forbidden / out-of-scope:
-  - <pathX/> — <почему>
-- Integrations / dependencies:
-  - <api/service/db/topic> — <что важно>
+- Forbidden paths:
+  - <pathX/> — <why>
 
-### Decisions & defaults (living)
-- Feature flag: <none|flag_name + default>
-- Contract/API: <1 строка или ссылка на PRD/plan section>
-- Data model changes: <none|schema changes needed: ...>
-- Observability: <logs/metrics/tracing expectations>
-
-### Test policy (iteration budget)
-- Cadence: <on_stop|checkpoint|manual>
-- Profile: <fast|targeted|full|none>
-- Tasks: <пример: :module:test или npm test ...> (если targeted/full)
-- Filters: <если применимо>
-- Budget minutes: <N>
-- Known flaky / failing: <none|link to aidd/reports/tests/...>
-
-### Commands quickstart (copy/paste)
-- Format: <hook does it|cmd>
-- Tests (manual): <cmd for targeted/full>
-- Run/Dev: <cmd / url / emulator / device steps> (optional)
-
-### Open questions / blockers
-- Q1: <...>
-- Q2: <...>
-
-### Blockers summary (handoff)
-- <handoff-id> — <1 строка, почему блокирует>
+### Defaults
+- Feature flag: <none|flag>
+- Contract/API: <short note or ref>
+- Observability: <short note>
 
 ### References
-- PRD: aidd/docs/prd/<ABC-123>.prd.md (ищи #AIDD:ACCEPTANCE, #AIDD:ROLL_OUT)
-- Research: aidd/docs/research/<ABC-123>.md (ищи #AIDD:INTEGRATION_POINTS)
-- Plan: aidd/docs/plan/<ABC-123>.md (ищи #AIDD:FILES_TOUCHED, #AIDD:ITERATIONS)
-- Expected reports (planned outputs):
-  - review_report: aidd/reports/reviewer/<ABC-123>/<scope_key>.json
-  - reviewer_marker: aidd/reports/reviewer/<ABC-123>/<scope_key>.tests.json
-  - qa: aidd/reports/qa/<ABC-123>.json
+- PRD: `aidd/docs/prd/<ABC-123>.prd.md`
+- Research: `aidd/docs/research/<ABC-123>.md`
+- Plan: `aidd/docs/plan/<ABC-123>.md`
 
 ## AIDD:TEST_STRATEGY
 - Unit: <scope>
@@ -86,7 +57,6 @@ Status: PENDING
 ---
 
 ## AIDD:TEST_EXECUTION
-> Конкретные команды/фильтры запуска (execution‑уровень).
 - profile: <fast|targeted|full|none>
 - tasks: <команды/таски>
 - filters: <фильтры>
@@ -96,128 +66,73 @@ Status: PENDING
 ---
 
 ## AIDD:ITERATIONS_FULL
-> Полный список итераций реализации (от 1 до N). Должен быть **детальнее плана** и не оставлять пробелов.
-> Канонический формат итерации: `- [ ] I7: <title> (iteration_id: I7)`
 - [ ] I1: <краткое название> (iteration_id: I1)
   - parent_iteration_id: none
   - Goal: <что именно делаем>
-  - Outputs: tasklist updated for implement handoff
-  - DoD: iteration description is implementation-ready
-  - Boundaries: docs/tasklist/<ABC-123>.md
+  - Outputs: <artifacts>
+  - DoD: <done criteria>
+  - Boundaries: <paths/modules>
   - Priority: medium
   - Blocking: false
   - deps: []
   - locks: []
   - Expected paths:
-    - docs/tasklist/<ABC-123>.md
-  - Size budget:
-    - max_files: 3
-    - max_loc: 120
+    - <path>
   - Commands:
-    - <doc/ref or command>
-  - Exit criteria:
-    - current iteration is scoped to one bounded implement step
-    - validator findings are triaged for the iteration
+    - <command or doc ref>
   - Steps:
-    - refine scope from plan/PRD
-    - confirm boundaries and DoD
-    - validate tasklist structure
+    - <step 1>
+    - <step 2>
   - Tests:
     - profile: none
     - tasks: []
     - filters: []
-  - Acceptance mapping: PRD:pending
-  - Risks & mitigations: low -> none
-  - Dependencies: none
-- [ ] I2: <...> (iteration_id: I2)
+  - Acceptance mapping: <PRD refs>
+  - Risks & mitigations: <risk -> mitigation>
+- [ ] I2: <next bounded iteration> (iteration_id: I2)
   - parent_iteration_id: I1
-  - Goal: <...>
-  - Outputs: tasklist updated for implement handoff
-  - DoD: iteration description is implementation-ready
-  - Boundaries: docs/tasklist/<ABC-123>.md
+  - Goal: <goal>
+  - Outputs: <artifacts>
+  - DoD: <done criteria>
+  - Boundaries: <paths/modules>
   - Priority: medium
   - Blocking: false
   - deps: []
   - locks: []
   - Expected paths:
-    - docs/tasklist/<ABC-123>.md
-  - Size budget:
-    - max_files: 3
-    - max_loc: 120
+    - <path>
   - Commands:
-    - <doc/ref or command>
-  - Exit criteria:
-    - current iteration is scoped to one bounded implement step
+    - <command or doc ref>
   - Steps:
-    - refine scope from plan/PRD
-    - confirm boundaries and DoD
-    - validate tasklist structure
+    - <step 1>
   - Tests:
     - profile: none
     - tasks: []
     - filters: []
-  - Acceptance mapping: PRD:pending
-  - Risks & mitigations: low -> none
-  - Dependencies: none
-- [ ] I3: <...> (iteration_id: I3)
-  - parent_iteration_id: I2
-  - Goal: <...>
-  - Outputs: tasklist updated for implement handoff
-  - DoD: iteration description is implementation-ready
-  - Boundaries: docs/tasklist/<ABC-123>.md
-  - Priority: medium
-  - Blocking: false
-  - deps: []
-  - locks: []
-  - Expected paths:
-    - docs/tasklist/<ABC-123>.md
-  - Size budget:
-    - max_files: 3
-    - max_loc: 120
-  - Commands:
-    - <doc/ref or command>
-  - Exit criteria:
-    - current iteration is scoped to one bounded implement step
-  - Steps:
-    - refine scope from plan/PRD
-    - confirm boundaries and DoD
-    - validate tasklist structure
-  - Tests:
-    - profile: none
-    - tasks: []
-    - filters: []
-  - Acceptance mapping: PRD:pending
-  - Risks & mitigations: low -> none
-  - Dependencies: none
-<!-- Добавьте I4..N по мере необходимости (формат как выше). -->
+  - Acceptance mapping: <PRD refs>
+  - Risks & mitigations: <risk -> mitigation>
 
 ---
 
 ## AIDD:NEXT_3
-> 3 ближайших implement‑чекбокса. Pointer list: 1–2 строки и `ref:` на детализацию.
 - [ ] I1: <кратко о текущем шаге> (ref: iteration_id=I1)
 - [ ] I2: <следующий шаг> (ref: iteration_id=I2)
-- [ ] I3: <третий шаг> (ref: iteration_id=I3)
 
 ---
 
 ## AIDD:OUT_OF_SCOPE_BACKLOG
-> Побочные идеи/задачи, которые НЕ входят в текущий work_item (без расширения scope).
 - [ ] <идея/задача> (source: implement|review|qa|research|manual)
 
 ---
 
 ## AIDD:HANDOFF_INBOX
-> Сюда падают задачи из Research/Review/QA (с source: aidd/reports/...).
-> Формат задачи (обязательно):
-> Канонический формат: `- [ ] <title> (id: review:F6) (Priority: high) (Blocking: true)`
-> Source blocks вставляются задачей derive (`<!-- handoff:<source> start --> ... <!-- end -->`).
-> Ручные задачи храните в `handoff:manual` — derive/normalize их не трогают.
-> Пример задачи (не активная):
-> - [ ] <title> (id: review:F6) (Priority: high) (Blocking: true)
->   - source: review|qa|research|manual
->   - Report: <aidd/reports/...>
->   - Status: open|done|blocked
+> Канонический формат handoff item:
+> `- [ ] <title> (id: review:F6) (Priority: high) (Blocking: true)`
+> Example:
+> - [ ] Harden validator retry path (id: review:F6) (Priority: high) (Blocking: true)
+>   - source: review
+>   - Report: aidd/reports/reviewer/<ABC-123>/<scope_key>.json
+>   - Status: open
 >   - scope: iteration_id|n/a
 >   - DoD: <как проверить, что исправлено>
 >   - Boundaries:

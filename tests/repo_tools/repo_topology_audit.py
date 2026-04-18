@@ -55,11 +55,6 @@ REACHABILITY_EDGE_TYPES = {
     "runtime_import",
     "runtime_dynamic_load",
 }
-OVERSIZED_RUNTIME_WARN_LINES = 600
-OVERSIZED_RUNTIME_ERROR_LINES = 900
-OVERSIZED_PROMPT_SOURCE_LINES = 400
-OVERSIZED_MAINTAINER_DOC_LINES = 220
-OVERSIZED_REPO_TOOL_LINES = 700
 
 
 def _utc_timestamp() -> str:
@@ -306,7 +301,11 @@ def _skill_name_to_node_id(skill_name: str, skill_infos: Mapping[str, Dict[str, 
 
 def _build_revision_payload(root: Path, *, generated_at: Optional[str] = None) -> Dict[str, Any]:
     plugin = _load_plugin_registry(root)
-    runtime_files = sorted(path.relative_to(root).as_posix() for path in root.glob("skills/*/runtime/**/*.py"))
+    runtime_files = sorted(
+        path.relative_to(root).as_posix()
+        for path in root.glob("skills/*/runtime/**/*.py")
+        if not path.name.startswith("_")
+    )
     runtime_set = set(runtime_files)
 
     nodes: Dict[str, Dict[str, Any]] = {}
@@ -540,18 +539,7 @@ def _build_revision_payload(root: Path, *, generated_at: Optional[str] = None) -
             }
         )
 
-    # Path mention index for conservative safe detection.
-    all_repo_files = sorted(path.relative_to(root).as_posix() for path in _iter_files(root))
-    mention_index: Dict[str, Set[str]] = {rel: set() for rel in all_repo_files}
-    for target_rel in all_repo_files:
-        for source_rel, text in file_text_cache.items():
-            if source_rel == target_rel:
-                continue
-            if target_rel in text:
-                mention_index.setdefault(target_rel, set()).add(source_rel)
-
-    # Unused triage: safe (conservative) + candidates.
-    safe_items: List[Dict[str, Any]] = []
+    # Keep topology audit focused on reachability and dangling references only.
     protected_paths: Set[str] = set(plugin["agents"])
     for entry in plugin["skills"]:
         rel = _normalize_rel(entry)
@@ -565,31 +553,6 @@ def _build_revision_payload(root: Path, *, generated_at: Optional[str] = None) -
     protected_paths.update(path.relative_to(root).as_posix() for path in root.glob("skills/*/templates/*") if path.is_file())
     protected_paths.update(path.relative_to(root).as_posix() for path in root.glob("skills/*/CONTRACT.yaml"))
     protected_paths.update(path.relative_to(root).as_posix() for path in root.glob("skills/aidd-core/runtime/schemas/**/*") if path.is_file())
-
-    for rel in sorted(all_repo_files):
-        if not (rel.startswith("docs/") or rel.startswith("dev/") or rel in ROOT_DOC_FILES):
-            continue
-        if rel in protected_paths:
-            continue
-        if rel.startswith("tests/"):
-            continue
-        incoming = incoming_by_path.get(rel, [])
-        mentions = sorted(mention_index.get(rel, set()))
-        if incoming or mentions:
-            continue
-        safe_items.append(
-            {
-                "path": rel,
-                "reason": "no inbound references in graph or textual mentions",
-                "confidence": "high",
-                "risk": "low",
-                "proposed_action": "delete",
-                "required_checks": [
-                    "tests/repo_tools/ci-lint.sh",
-                    "tests/repo_tools/smoke-workflow.sh",
-                ],
-            }
-        )
 
     candidates: List[Dict[str, Any]] = []
 
@@ -612,11 +575,6 @@ def _build_revision_payload(root: Path, *, generated_at: Optional[str] = None) -
                 "reason": "agent is present in plugin registry but unreachable from user-invocable stage chain",
                 "confidence": "high",
                 "risk": "medium",
-                "proposed_action": "archive",
-                "required_checks": [
-                    "python3 tests/repo_tools/lint-prompts.py --root .",
-                    "tests/repo_tools/ci-lint.sh",
-                ],
             }
         )
 
@@ -639,150 +597,7 @@ def _build_revision_payload(root: Path, *, generated_at: Optional[str] = None) -
                 "reason": "draft document contains runtime paths that do not exist in repository",
                 "confidence": "high",
                 "risk": "low",
-                "proposed_action": "archive",
-                "required_checks": [
-                    "confirm roadmap ownership and whether doc must remain discoverable",
-                    "tests/repo_tools/ci-lint.sh",
-                ],
                 "missing_runtime_paths": missing,
-            }
-        )
-
-    runtime_line_counts = {
-        rel: len(file_text_cache.get(rel, "").splitlines())
-        for rel in runtime_files
-        if rel.endswith(".py")
-    }
-    oversized_runtime_count = sum(1 for lines in runtime_line_counts.values() if lines > OVERSIZED_RUNTIME_WARN_LINES)
-    oversized_runtime_error_count = sum(1 for lines in runtime_line_counts.values() if lines > OVERSIZED_RUNTIME_ERROR_LINES)
-    for rel, line_count in sorted(runtime_line_counts.items(), key=lambda item: (-item[1], item[0])):
-        if line_count <= OVERSIZED_RUNTIME_ERROR_LINES:
-            continue
-        candidates.append(
-            {
-                "path": rel,
-                "kind": "oversized_runtime_module",
-                "reason": f"runtime module is {line_count} lines; orchestration surface is likely too large for safe maintenance",
-                "confidence": "high",
-                "risk": "medium",
-                "proposed_action": "split",
-                "required_checks": [
-                    "tests/repo_tools/runtime-module-guard.py",
-                    "tests/repo_tools/ci-lint.sh",
-                    "tests/repo_tools/smoke-workflow.sh",
-                ],
-                "line_count": line_count,
-            }
-        )
-
-    duplicate_bootstrap_files = sorted(
-        rel
-        for rel, text in file_text_cache.items()
-        if rel in runtime_files
-        and "_ensure_plugin_root_on_path" in text
-        and '(root / "aidd_runtime").is_dir()' in text
-    )
-    if len(duplicate_bootstrap_files) >= 5:
-        candidates.append(
-            {
-                "path": "skills/**/runtime/**/*.py",
-                "kind": "duplicate_runtime_bootstrap",
-                "reason": f"{len(duplicate_bootstrap_files)} runtime entrypoints inline the same plugin-root bootstrap logic",
-                "confidence": "high",
-                "risk": "medium",
-                "proposed_action": "merge",
-                "required_checks": [
-                    "tests/repo_tools/ci-lint.sh",
-                    "tests/repo_tools/smoke-workflow.sh",
-                ],
-                "sample_paths": duplicate_bootstrap_files[:10],
-            }
-        )
-
-    oversized_prompt_sources = {
-        rel: len(text.splitlines())
-        for rel, text in file_text_cache.items()
-        if rel.startswith("tests/repo_tools/e2e_prompt/")
-        and rel.endswith(".md")
-        and "/includes/" not in rel
-        and len(text.splitlines()) > OVERSIZED_PROMPT_SOURCE_LINES
-    }
-    for rel, line_count in sorted(oversized_prompt_sources.items(), key=lambda item: (-item[1], item[0])):
-        candidates.append(
-            {
-                "path": rel,
-                "kind": "oversized_prompt_source",
-                "reason": f"prompt source is {line_count} lines; likely carrying merged policy/orchestration text that should be collapsed into shared fragments",
-                "confidence": "high",
-                "risk": "low",
-                "proposed_action": "shorten",
-                "required_checks": [
-                    "python3 tests/repo_tools/build_e2e_prompts.py --check",
-                    "python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py tests/repo_tools/test_e2e_quality_prompt_contract.py",
-                ],
-                "line_count": line_count,
-            }
-        )
-
-    maintainer_doc_lines = len(file_text_cache.get("AGENTS.md", "").splitlines())
-    if maintainer_doc_lines > OVERSIZED_MAINTAINER_DOC_LINES:
-        candidates.append(
-            {
-                "path": "AGENTS.md",
-                "kind": "oversized_maintainer_doc",
-                "reason": f"maintainer guide is {maintainer_doc_lines} lines; policy index is likely carrying duplicate prompt/doc detail",
-                "confidence": "high",
-                "risk": "low",
-                "proposed_action": "shorten",
-                "required_checks": [
-                    "python3 tests/repo_tools/lint-prompts.py --root .",
-                    "tests/repo_tools/ci-lint.sh",
-                ],
-                "line_count": maintainer_doc_lines,
-            }
-        )
-
-    repo_tool_lines = len(file_text_cache.get("tests/repo_tools/ci-lint.sh", "").splitlines())
-    if repo_tool_lines > OVERSIZED_REPO_TOOL_LINES:
-        candidates.append(
-            {
-                "path": "tests/repo_tools/ci-lint.sh",
-                "kind": "oversized_repo_tool",
-                "reason": f"repo tool is {repo_tool_lines} lines; guard surface likely mixes too many independent checks in one shell entrypoint",
-                "confidence": "medium",
-                "risk": "low",
-                "proposed_action": "shorten",
-                "required_checks": [
-                    "tests/repo_tools/ci-lint.sh",
-                ],
-                "line_count": repo_tool_lines,
-            }
-        )
-
-    for archived_path in sorted(root.glob("archive/experimental/repo_tools/*")):
-        if not archived_path.is_file():
-            continue
-        rel = archived_path.relative_to(root).as_posix()
-        incoming = incoming_by_path.get(rel, [])
-        outside_mentions = sorted(
-            source
-            for source in mention_index.get(rel, set())
-            if not source.startswith("archive/experimental/repo_tools/")
-        )
-        if incoming or outside_mentions:
-            continue
-        candidates.append(
-            {
-                "path": rel,
-                "kind": "archived_experimental_repo_tool",
-                "reason": "archived experimental repo tool has no live inbound references outside its archive directory",
-                "confidence": "high",
-                "risk": "low",
-                "proposed_action": "delete",
-                "required_checks": [
-                    "confirm no owner workflow still depends on the archived tool",
-                    "tests/repo_tools/ci-lint.sh",
-                ],
             }
         )
 
@@ -794,43 +609,10 @@ def _build_revision_payload(root: Path, *, generated_at: Optional[str] = None) -
             dedup_candidates[key] = item
     candidates = [dedup_candidates[key] for key in sorted(dedup_candidates)]
 
-    actions: List[Dict[str, Any]] = []
-    order = 1
-    for item in safe_items:
-        actions.append(
-            {
-                "order": order,
-                "target": item["path"],
-                "proposed_action": item["proposed_action"],
-                "reason": item["reason"],
-                "risk": item["risk"],
-                "required_checks": item["required_checks"],
-            }
-        )
-        order += 1
-    for item in candidates:
-        actions.append(
-            {
-                "order": order,
-                "target": item["path"],
-                "proposed_action": item["proposed_action"],
-                "reason": item["reason"],
-                "risk": item["risk"],
-                "required_checks": item["required_checks"],
-            }
-        )
-        order += 1
-
-    cleanup_actions_summary = (
-        f"{len(actions)} cleanup actions staged from graph, size, and archive heuristics."
-        if actions
-        else "No cleanup actions detected."
-    )
-
     cleanup_plan = {
-        "policy": "conservative_no_autodelete",
-        "summary": cleanup_actions_summary,
-        "actions": actions,
+        "policy": "reachability_and_dangling_only",
+        "summary": "No auto-delete recommendations. Review only reachability gaps and dangling references.",
+        "actions": [],
         "validation_commands": [
             "python3 tests/repo_tools/repo_topology_audit.py --repo-root . --output-json /tmp/repo-revision.graph.json --output-md /tmp/repo-revision.md --output-cleanup /tmp/repo-cleanup-plan.json",
             "tests/repo_tools/ci-lint.sh",
@@ -857,12 +639,6 @@ def _build_revision_payload(root: Path, *, generated_at: Optional[str] = None) -
         "total_edges": len(edges),
         "reachable_node_count": len(reachable),
         "reachable_runtime_count": len([node for node in reachable if node.startswith("runtime_py:")]),
-        "oversized_runtime_count_warn": oversized_runtime_count,
-        "oversized_runtime_count_error": oversized_runtime_error_count,
-        "duplicate_runtime_bootstrap_count": len(duplicate_bootstrap_files),
-        "oversized_prompt_source_count": len(oversized_prompt_sources),
-        "oversized_maintainer_doc_count": 1 if maintainer_doc_lines > OVERSIZED_MAINTAINER_DOC_LINES else 0,
-        "oversized_repo_tool_count": 1 if repo_tool_lines > OVERSIZED_REPO_TOOL_LINES else 0,
         "detached_agent_paths": detached_agent_names,
         "edge_types": dict(sorted(edge_counter.items())),
     }
@@ -893,7 +669,7 @@ def _build_revision_payload(root: Path, *, generated_at: Optional[str] = None) -
         ),
         "metrics": metrics,
         "unused": {
-            "safe": sorted(safe_items, key=lambda item: str(item.get("path", ""))),
+            "safe": [],
             "candidates": candidates,
         },
         "cleanup_plan": cleanup_plan,
@@ -992,7 +768,7 @@ def _render_markdown(payload: Mapping[str, Any]) -> str:
     lines: List[str] = []
     lines.append("# Repository Revision Report")
     lines.append("")
-    lines.append("> INTERNAL/DEV-ONLY: generated maintainer report for repository topology and cleanup planning.")
+    lines.append("> INTERNAL/DEV-ONLY: generated maintainer report for repository topology, reachability, and dangling references.")
     lines.append("")
     lines.append("Owner: feature-dev-aidd")
     generated_at = str(meta.get("generated_at", ""))
@@ -1159,7 +935,7 @@ def _format_output_path(path: Path, root: Path) -> str:
 
 
 def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Generate repository topology graph + unused triage + cleanup plan.")
+    parser = argparse.ArgumentParser(description="Generate repository topology graph with reachability and dangling-reference findings.")
     parser.add_argument("--repo-root", default=".", help="Repository root path.")
     parser.add_argument(
         "--output-json",

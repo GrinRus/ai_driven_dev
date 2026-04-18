@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-import hashlib
+from pathlib import Path
+import runpy
 
+_bootstrap = runpy.run_path(str(Path(__file__).with_name("_bootstrap.py")))
+export_module = _bootstrap["export_module"]
+run_main = _bootstrap["run_main"]
 
-def stable_id(prefix: str, *parts: str) -> str:
-    digest = hashlib.sha1()
-    for part in parts:
-        digest.update(str(part).encode("utf-8", errors="ignore"))
-        digest.update(b"\x1f")
-    return f"{prefix}:{digest.hexdigest()[:12]}"
+export_module("aidd_runtime.id_utils", globals())
+
+if __name__ == "__main__":  # pragma: no cover
+    raise SystemExit(run_main("aidd_runtime.id_utils"))

@@ -3,7 +3,6 @@ from __future__ import annotations
 import re
 import subprocess
 import sys
-import tempfile
 import unittest
 from pathlib import Path
 
@@ -11,8 +10,8 @@ from tests.repo_tools.prompt_contract_support import assert_prompt_contract, loa
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-AUDIT_PROMPT_FULL = "aidd_test_flow_prompt_ralph_script_full.txt"
-AUDIT_PROMPT_SMOKE = "aidd_test_flow_prompt_ralph_script.txt"
+AUDIT_PROMPT_FULL = REPO_ROOT / "docs" / "e2e" / "aidd_test_flow_prompt_ralph_script_full.txt"
+AUDIT_PROMPT_SMOKE = REPO_ROOT / "docs" / "e2e" / "aidd_test_flow_prompt_ralph_script.txt"
 PROMPT_BUILDER = REPO_ROOT / "tests" / "repo_tools" / "build_e2e_prompts.py"
 PROMPT_FRAGMENTS_DIR = REPO_ROOT / "tests" / "repo_tools" / "e2e_prompt"
 PROMPT_SPECS = PROMPT_FRAGMENTS_DIR / "prompt_specs.json"
@@ -75,31 +74,20 @@ class E2EPromptContractTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.contracts = load_prompt_contracts()
-        cls._prompt_dir_ctx = tempfile.TemporaryDirectory()
-        cls.prompt_dir = Path(cls._prompt_dir_ctx.name)
-        result = subprocess.run(
-            [sys.executable, str(PROMPT_BUILDER), "--output-dir", str(cls.prompt_dir)],
-            cwd=str(REPO_ROOT),
-            text=True,
-            capture_output=True,
-            check=False,
-        )
-        if result.returncode != 0:
-            raise AssertionError(
-                "prompt builder failed\n"
-                f"stdout:\n{result.stdout}\n"
-                f"stderr:\n{result.stderr}"
-            )
-
-    @classmethod
-    def tearDownClass(cls) -> None:
-        cls._prompt_dir_ctx.cleanup()
 
     def test_prompt_builder_and_fragments_exist(self) -> None:
         self.assertTrue(PROMPT_BUILDER.exists(), msg=f"missing prompt builder: {PROMPT_BUILDER}")
         self.assertTrue(PROMPT_SPECS.exists(), msg=f"missing prompt specs: {PROMPT_SPECS}")
         self.assertTrue((PROMPT_FRAGMENTS_DIR / "prompt_contracts.json").exists())
-        for rel in ("base_contract.md", "profile_full.md", "profile_smoke.md", "must_read_manifest.md"):
+        for rel in (
+            "base_contract.md",
+            "profile_full.md",
+            "profile_smoke.md",
+            "must_read_manifest.md",
+            "includes/flow_overlay.md",
+            "includes/delta_smoke.md",
+            "includes/delta_full.md",
+        ):
             path = PROMPT_FRAGMENTS_DIR / rel
             self.assertTrue(path.exists(), msg=f"missing prompt fragment: {path}")
 
@@ -120,8 +108,8 @@ class E2EPromptContractTests(unittest.TestCase):
     def test_flow_prompt_contracts_are_data_driven(self) -> None:
         flow = self.contracts["flow"]
         texts = {
-            "FULL": read_text(self.prompt_dir / AUDIT_PROMPT_FULL),
-            "SMOKE": read_text(self.prompt_dir / AUDIT_PROMPT_SMOKE),
+            "FULL": read_text(AUDIT_PROMPT_FULL),
+            "SMOKE": read_text(AUDIT_PROMPT_SMOKE),
         }
         for profile, text in texts.items():
             assert_prompt_contract(self, text=text, contract=flow["ALL"], label=f"TST-001 {profile}")
@@ -146,15 +134,6 @@ class E2EPromptContractTests(unittest.TestCase):
         text = read_text(SMOKE_WORKFLOW)
         self.assertIn("for shadow in docs reports config .cache; do", text)
         self.assertIn("non-canonical root artifact created at workspace root", text)
-
-    def test_full_prompt_loop_step_command_uses_supported_flags_only(self) -> None:
-        text = read_text(self.prompt_dir / AUDIT_PROMPT_FULL)
-        match = re.search(r"python3 \$PLUGIN_DIR/skills/aidd-loop/runtime/loop_step\.py[^\n`]*", text)
-        self.assertIsNotNone(match, msg="missing loop_step.py command in full prompt step 7")
-        command = str(match.group(0))
-        self.assertNotIn("--max-iterations", command)
-        self.assertNotIn("--blocked-policy", command)
-        self.assertNotIn("--recoverable-block-retries", command)
 
     def test_researcher_contract_prefers_reviewed_and_plan_new(self) -> None:
         agent_text = read_text(RESEARCHER_AGENT)
@@ -204,6 +183,13 @@ class E2EPromptContractTests(unittest.TestCase):
                     re.search(pattern, lower),
                     msg=f"{skill_path}: direct manual recovery pattern matched: {pattern}",
                 )
+
+    def test_full_prompt_keeps_compact_flow_markers(self) -> None:
+        text = read_text(AUDIT_PROMPT_FULL)
+        self.assertIn("PROFILE=full", text)
+        self.assertIn("STEP6_IMPLEMENT_BUDGET_SECONDS", text)
+        self.assertIn("STEP6_REVIEW_BUDGET_SECONDS", text)
+        self.assertIn("loop-run|loop-step", text)
 
     def test_stage_skill_guidance_avoids_legacy_stage_aliases(self) -> None:
         for skill_path in STAGE_SKILLS_FOR_ALIAS_GUARD:

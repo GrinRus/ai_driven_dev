@@ -34,16 +34,15 @@ user-invocable: true
 Follow `feature-dev-aidd:aidd-core` and `feature-dev-aidd:aidd-loop`.
 
 ## Steps
-1. Resolve active `<ticket>/<scope_key>` and verify loop/readmap artifacts required for review stage.
-2. Stage-chain only: internal preflight/postflight stay internal; manual write/create of `stage.review.result.json` is forbidden. `[AIDD_LOOP_POLICY:MANUAL_STAGE_RESULT_FORBIDDEN]`
-3. Runtime-path safety: use only commands declared below. If stdout/stderr shows `can't open file .../skills/.../runtime/...`, stop with BLOCKED `runtime_path_missing_or_drift`; do not guess alternate paths.
-4. Test command safety: do not run raw build/test commands from review orchestration. Manage test requirement through `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review/runtime/reviewer_tests.py` and existing `aidd/reports/tests/**` evidence. If cwd/path resolution fails, record blocker `tests_cwd_mismatch`.
-5. Read order after stage-chain preflight artifacts: `readmap.md` -> loop pack -> review pack (if exists) -> rolling context pack.
-6. Run subagent `feature-dev-aidd:reviewer`.
-7. Produce review artifacts with `review_report.py`, `review_pack.py`, `reviewer_tests.py`, and `tasks_derive.py`; then Fill actions.json at `aidd/reports/actions/<ticket>/<scope_key>/review.actions.json` as `aidd.actions.v1` and validate via `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review/runtime/review_run.py`.
-8. Canonical stage-chain: internal preflight -> stage runtime -> actions_apply.py/postflight -> `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py`; expected output is `aidd/reports/loops/<ticket>/<scope_key>/stage.review.result.json`. `[AIDD_LOOP_POLICY:CANONICAL_STAGE_RESULT_PATH]`
-9. Non-canonical stage-result path under `skills/aidd-loop/runtime/` is forbidden and counts as prompt-flow drift. `[AIDD_LOOP_POLICY:NON_CANONICAL_STAGE_RESULT_FORBIDDEN]`
-10. Return one terminal review payload with findings summary and explicit next action or handoff.
+1. Resolve active `<ticket>/<scope_key>` and read in order: `readmap.md` -> loop pack -> latest review pack when present -> rolling context pack.
+2. Execute only via canonical stage-chain orchestration. Internal preflight and postflight are orchestration details, not operator commands.
+3. Manual write/create of `stage.review.result.json` is forbidden. `[AIDD_LOOP_POLICY:MANUAL_STAGE_RESULT_FORBIDDEN]`
+4. Run subagent `feature-dev-aidd:reviewer` for the current bounded scope only.
+5. Fill actions.json: produce review artifacts with `review_report.py`, `review_pack.py`, `reviewer_tests.py`, and `tasks_derive.py`, then validate `aidd/reports/actions/<ticket>/<scope_key>/review.actions.json` via `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review/runtime/review_run.py`.
+6. Canonical stage-chain: internal preflight -> stage runtime -> actions_apply.py/postflight -> `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py`; the only valid stage result path is `aidd/reports/loops/<ticket>/<scope_key>/stage.review.result.json`. `[AIDD_LOOP_POLICY:CANONICAL_STAGE_RESULT_PATH]`
+7. Non-canonical stage-result path under `skills/aidd-loop/runtime/` is forbidden. `[AIDD_LOOP_POLICY:NON_CANONICAL_STAGE_RESULT_FORBIDDEN]`
+8. Do not run raw build/test commands from review orchestration. If stdout/stderr contains `can't open file .../skills/.../runtime/...`, stop with BLOCKED `runtime_path_missing_or_drift`.
+9. Return one terminal payload with findings summary, evidence links, and the next canonical handoff.
 
 ## Command contracts
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review/runtime/review_run.py`
@@ -73,6 +72,10 @@ Follow `feature-dev-aidd:aidd-core` and `feature-dev-aidd:aidd-loop`.
 - Outputs: canonical `aidd.stage_result.v1` at `aidd/reports/loops/<ticket>/<scope_key>/stage.review.result.json`.
 - Failure mode: non-zero exit on missing required args or invalid stage-result contract fields.
 - Next action: fix postflight payload generation and rerun the stage-chain; do not switch to non-canonical loop runtime paths.
+
+## Notes
+- Review stage sets/verifies test requirement via reviewer marker and existing reports; avoid ad-hoc repeated shell retries.
+- Use the existing rolling context pack; do not regenerate it in loop mode.
 
 ## Additional resources
 - Contract schema: [CONTRACT.yaml](CONTRACT.yaml) (when: review artifacts or actions contract is ambiguous; why: verify required structure before rerunning runtime/postflight).

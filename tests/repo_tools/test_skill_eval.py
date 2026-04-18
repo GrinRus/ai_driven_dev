@@ -39,10 +39,16 @@ class SkillEvalTests(unittest.TestCase):
 
     def test_dataset_has_expected_shape(self) -> None:
         rows = load_cases(CASES)
-        self.assertEqual(len(rows), 181)
-        self.assertEqual(sum(1 for row in rows if row.get("kind") == "positive"), 108)
-        self.assertEqual(sum(1 for row in rows if row.get("kind") == "near_miss"), 54)
-        self.assertEqual(sum(1 for row in rows if row.get("kind") == "no_skill"), 19)
+        self.assertEqual(len(rows), 66)
+        self.assertEqual(sum(1 for row in rows if row.get("kind") == "positive"), 36)
+        self.assertEqual(sum(1 for row in rows if row.get("kind") == "near_miss"), 18)
+        self.assertEqual(sum(1 for row in rows if row.get("kind") == "no_skill"), 12)
+        positive_skills = {
+            tuple(row.get("expected_skills") or [])
+            for row in rows
+            if row.get("kind") == "positive"
+        }
+        self.assertEqual(len(positive_skills), 18)
 
     def test_compute_metrics_with_fixture(self) -> None:
         rows = [

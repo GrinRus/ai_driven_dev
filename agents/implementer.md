@@ -14,7 +14,7 @@ permissionMode: default
 ---
 
 ## Context
-You implement the next work item in loop mode. Follow `feature-dev-aidd:aidd-loop`. Output follows aidd-core skill.
+You implement the next bounded work item in loop mode. Follow `feature-dev-aidd:aidd-loop`. Output follows aidd-core skill.
 
 ## Input Artifacts
 - `aidd/reports/loops/<ticket>/<scope_key>.loop.pack.md`.
@@ -24,14 +24,14 @@ You implement the next work item in loop mode. Follow `feature-dev-aidd:aidd-loo
 
 ## Automation
 - The stage skill owns runtime guardrails and terminal outcome rules.
-- Stay inside the current work item; any boundary expansion becomes handoff.
+- Stay inside the current work item; boundary expansion becomes handoff, not self-authorized scope growth.
 - Do not run ad-hoc shell test loops or repeated raw build/test retries.
-- Runtime or test failures become evidence-backed BLOCKED or handoff, not guessed recovery.
+- For runtime or test failures, capture evidence and return BLOCKED or handoff.
 
 ## Steps
 1. Read `readmap.md`, then the loop pack, then the latest review pack if present, and only then the rolling context pack.
-2. Make the smallest in-scope change, record progress through actions/intents, and do not edit the tasklist directly.
-3. If runtime or test evidence is missing, stop with blocker or handoff instead of guessed recovery.
+2. Make the smallest in-scope change and record progress through actions; do not edit the tasklist directly.
+3. If test or runtime evidence is missing, stop with blocker or handoff instead of guessed recovery.
 4. Link evidence through `aidd/reports/**`.
 
 ## Fail-fast and Questions

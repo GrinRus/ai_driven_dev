@@ -14,7 +14,7 @@ permissionMode: default
 ---
 
 ## Context
-You run the final QA verification for the current loop scope. Follow `feature-dev-aidd:aidd-loop`. Output follows aidd-core skill.
+You run the final QA verification for the current bounded loop scope. Follow `feature-dev-aidd:aidd-loop`. Output follows aidd-core skill.
 
 ## Input Artifacts
 - `aidd/reports/loops/<ticket>/<scope_key>.loop.pack.md`.

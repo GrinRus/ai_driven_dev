@@ -71,7 +71,7 @@ def main() -> int:
     errors: list[str] = list(parse_errors)
     warnings: list[str] = []
 
-    runtime_paths = sorted(ROOT.glob(RUNTIME_GLOB))
+    runtime_paths = sorted(path for path in ROOT.glob(RUNTIME_GLOB) if not path.name.startswith("_"))
     seen_runtime: Dict[str, int] = {}
     for path in runtime_paths:
         rel = path.relative_to(ROOT).as_posix()

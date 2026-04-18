@@ -1,62 +1,20 @@
 from __future__ import annotations
 
-import runpy
-
-import argparse
-import sys
 from pathlib import Path
+import runpy
+import sys
 
-_PLUGIN_ROOT = runpy.run_path(
-    next(
-        parent / "aidd_runtime" / "plugin_bootstrap.py"
-        for parent in Path(__file__).resolve().parents
-        if (parent / "aidd_runtime" / "plugin_bootstrap.py").is_file()
-    )
-)["ensure_plugin_root_on_path"](__file__)
+_bootstrap = runpy.run_path(str(Path(__file__).with_name("_bootstrap.py")))
+ensure_repo_root = _bootstrap["ensure_repo_root"]
+ensure_repo_root(__file__)
 
-from aidd_runtime import runtime
-from aidd_runtime.analyst_guard import AnalystValidationError, load_settings, validate_prd
+from aidd_runtime import analyst_check as _impl
 
-
-def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Validate the analyst dialog (Вопрос/Ответ) for the active feature PRD.",
-    )
-    parser.add_argument(
-        "--ticket",
-        dest="ticket",
-        help="Ticket identifier to validate (defaults to docs/.active.json).",
-    )
-    parser.add_argument(
-        "--slug-hint",
-        dest="slug_hint",
-        help="Optional slug hint override for messaging (defaults to docs/.active.json if present).",
-    )
-    parser.add_argument(
-        "--branch",
-        help="Current Git branch used to evaluate config.gates analyst branch rules.",
-    )
-    parser.add_argument(
-        "--allow-blocked",
-        action="store_true",
-        help="Allow PRD with Status: blocked (skip blocking).",
-    )
-    parser.add_argument(
-        "--no-ready-required",
-        action="store_true",
-        help="Do not require PRD Status: READY.",
-    )
-    parser.add_argument(
-        "--min-questions",
-        type=int,
-        help="Override minimum number of analyst questions.",
-    )
-    parser.add_argument(
-        "--docs-only",
-        action="store_true",
-        help="Enable docs-only rewrite mode for this invocation.",
-    )
-    return parser.parse_args(argv)
+AnalystValidationError = _impl.AnalystValidationError
+load_settings = _impl.load_settings
+parse_args = _impl.parse_args
+runtime = _impl.runtime
+validate_prd = _impl.validate_prd
 
 
 def main(argv: list[str] | None = None) -> int:
