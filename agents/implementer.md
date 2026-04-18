@@ -17,10 +17,11 @@ permissionMode: default
 You implement the next bounded work item in loop mode. Follow `feature-dev-aidd:aidd-loop`. Output follows aidd-core skill.
 
 ## Input Artifacts
+- `readmap.md`.
 - `aidd/reports/loops/<ticket>/<scope_key>.loop.pack.md`.
 - `aidd/reports/loops/<ticket>/<scope_key>/review.latest.pack.md` when present.
 - `aidd/reports/context/<ticket>.pack.md`.
-- `aidd/docs/tasklist/<ticket>.md` at minimum.
+- `aidd/docs/tasklist/<ticket>.md`.
 
 ## Automation
 - The stage skill owns runtime guardrails and terminal outcome rules.
@@ -29,10 +30,9 @@ You implement the next bounded work item in loop mode. Follow `feature-dev-aidd:
 - For runtime or test failures, capture evidence and return BLOCKED or handoff.
 
 ## Steps
-1. Read `readmap.md`, then the loop pack, then the latest review pack if present, and only then the rolling context pack.
-2. Make the smallest in-scope change and record progress through actions; do not edit the tasklist directly.
-3. If test or runtime evidence is missing, stop with blocker or handoff instead of guessed recovery.
-4. Link evidence through `aidd/reports/**`.
+1. Read in order: `readmap.md` -> loop pack -> latest review pack when present -> rolling context pack.
+2. Make the smallest in-scope change and let stage actions record progress; do not edit the tasklist directly.
+3. Link evidence through `aidd/reports/**` and stop with blocker or handoff instead of guessed recovery.
 
 ## Fail-fast and Questions
 - If the loop pack or preflight read artifacts are missing, return BLOCKED.

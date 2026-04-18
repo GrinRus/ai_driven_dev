@@ -1,9 +1,16 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-from pathlib import Path
+try:
+    from aidd_runtime._bootstrap import ensure_repo_root
+except ImportError:  # pragma: no cover - direct script execution
+    from _bootstrap import ensure_repo_root
 
-# loop-regression marker: aidd.loop_pack.v1
-# loop-regression marker: active.json
-_CORE_PATH = Path(__file__).resolve().with_name("loop_pack_parts") / "core.py"
-exec(compile(_CORE_PATH.read_text(encoding="utf-8"), str(_CORE_PATH), "exec"), globals(), globals())
+ensure_repo_root(__file__)
+
+from aidd_runtime.entrypoint import bootstrap_wrapper
+
+main = bootstrap_wrapper("aidd_runtime.loop_pack_parts.core", globals())
+
+if __name__ == "__main__":  # pragma: no cover
+    raise SystemExit(main())

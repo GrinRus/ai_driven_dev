@@ -1,35 +1,26 @@
 # Contributing
 
-Короткий и практичный гайд для вкладов в репозиторий.
+Короткий operational guide для вкладов.
 
-## Как внести изменения
-1. Форкните репозиторий и создайте ветку под задачу.
-2. Следуйте процессу в `AGENTS.md` (agent-first, порядок стадий, артефакты).
-3. Прогоните проверки:
+## Typical change flow
+1. Создайте рабочую ветку.
+2. Следуйте repo contract из `AGENTS.md`.
+3. Прогоните обязательные проверки:
    - `tests/repo_tools/ci-lint.sh`
-   - `tests/repo_tools/smoke-workflow.sh` (обязательно при runtime изменениях; в CI job запускается всегда и auto-skip'ается при отсутствии runtime diff)
-   - `python3 tests/repo_tools/release_guard.py --root .` (обязательно для release-правок)
-4. Обновите документацию:
-   - `README.md` + `README.en.md` (и поле _Last sync_)
-   - `AGENTS.md` при изменении поведения
-5. Обновите `CHANGELOG.md` в секции **Unreleased** при изменении поведения.
-6. Для release PR синхронизируйте `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `CHANGELOG.md`.
+   - `tests/repo_tools/smoke-workflow.sh`
+   - `python3 tests/repo_tools/release_guard.py --root .` для release-правок
+4. Обновите публичные docs и `CHANGELOG.md`, если поведение изменилось.
+5. Для release PR синхронизируйте `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `CHANGELOG.md`.
 
-## Self-hosted release process (GitHub, tag-driven)
-1. Подготовьте release PR:
-   - `version = X.Y.Z` в `.claude-plugin/plugin.json`;
-   - `metadata.description` в `.claude-plugin/marketplace.json` (обязательное поле для `claude plugin validate .` без warning);
-   - `plugins[].version = X.Y.Z` и `plugins[].source.ref = vX.Y.Z` в `.claude-plugin/marketplace.json`;
-   - release heading `## X.Y.Z - YYYY-MM-DD` в `CHANGELOG.md`.
-2. В `main` допускается только immutable `source.ref` формата `vX.Y.Z` (ветки `main/feature/*` запрещены).
-3. После merge создайте аннотированный tag `vX.Y.Z` на merge commit и запушьте его.
-4. Tag запускает `.github/workflows/release-self-hosted.yml`, который проверяет parity и публикует GitHub Release.
-5. В GitHub Settings включите tag protection/ruleset для `v*` (запрет force-update/delete).
+## Release essentials
+1. Подготовьте release PR: версия в `.claude-plugin/plugin.json`, immutable `vX.Y.Z` ref и версия в `.claude-plugin/marketplace.json`, heading `## X.Y.Z - YYYY-MM-DD` в `CHANGELOG.md`.
+2. После merge создайте annotated tag `vX.Y.Z` на merge commit и push.
+3. Публикацию и parity checks выполняет `.github/workflows/release-self-hosted.yml`.
 
-## Что важно помнить
+## Invariants
 - Канонические артефакты плагина: `skills/`, `agents/`, `hooks/`, `.claude-plugin/`.
 - Workspace-шаблоны: `templates/aidd/` (копируются через `/feature-dev-aidd:aidd-init`).
 - Canonical runtime API: `python3 skills/*/runtime/*.py`.
 - `tools/*.sh` не является runtime API.
 
-Полный процесс и проверки описаны в `AGENTS.md`.
+Полный maintainer process: `AGENTS.md`. Release checklist: `docs/runbooks/marketplace-release.md`.

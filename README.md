@@ -1,9 +1,9 @@
 # AIDD Claude Code Plugin
 
-> Минимальный шаблон AI-driven workflow для Claude Code: idea -> research -> plan -> review-spec -> tasklist -> implement -> review -> qa.
+> Минимальный artifact-driven workflow для Claude Code: idea -> research -> plan -> review-spec -> tasklist -> implement -> review -> qa.
 
-## Что это
-AIDD добавляет в Claude Code готовый workflow, слэш-команды и базовые проверки для разработки через артефакты (`prd`, `plan`, `tasklist`, `qa`).
+## Кратко
+AIDD добавляет компактный staged-workflow, слэш-команды и базовые guardrails вокруг артефактов `prd`, `plan`, `tasklist`, `qa`.
 
 ## Требования
 - Claude Code с поддержкой plugin marketplace команд.
@@ -31,22 +31,13 @@ Self-hosted канал обновляется только через immutable 
 /feature-dev-aidd:qa TICKET-123
 ```
 
-## Слэш-команды
+## Основные команды
+- `/feature-dev-aidd:aidd-init` разворачивает `aidd/` в workspace.
+- `/feature-dev-aidd:idea-new`, `researcher`, `plan-new`, `review-spec`, `tasks-new` строят цепочку артефактов.
+- `/feature-dev-aidd:implement`, `review`, `qa` ведут bounded delivery loop.
+- `/feature-dev-aidd:status [ticket]` показывает текущее состояние фичи.
 
-| Команда | Когда запускать |
-| --- | --- |
-| `/feature-dev-aidd:aidd-init` | Один раз на workspace или после удаления `aidd/`. |
-| `/feature-dev-aidd:idea-new <ticket> "<note>"` | Старт фичи и создание PRD-драфта. |
-| `/feature-dev-aidd:researcher <ticket>` | Сбор исследовательского контекста перед планированием. |
-| `/feature-dev-aidd:plan-new <ticket>` | Подготовка плана реализации. |
-| `/feature-dev-aidd:review-spec <ticket>` | Сверка плана и PRD перед tasklist. |
-| `/feature-dev-aidd:tasks-new <ticket>` | Формирование tasklist для реализации. |
-| `/feature-dev-aidd:implement <ticket>` | Реализация задач по tasklist. |
-| `/feature-dev-aidd:review <ticket>` | Ревью и фиксация замечаний по реализации. |
-| `/feature-dev-aidd:qa <ticket>` | Финальная QA-проверка. |
-| `/feature-dev-aidd:status [ticket]` | Быстрый статус текущего или указанного тикета. |
-
-Опционально для loop-режима:
+Loop mode entrypoints:
 - `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/loop_step.py --ticket TICKET-123`
 - `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/loop_run.py --ticket TICKET-123 --max-iterations 5`
 
@@ -57,19 +48,9 @@ Self-hosted канал обновляется только через immutable 
 После обновления перезапустите сессию Claude Code.
 
 ## Диагностика
-### После обновления не видны новые слэш-команды
-1. Выполните `/plugin update feature-dev-aidd@aidd-local`.
-2. Полностью перезапустите сессию Claude Code.
-
-### Ошибка `ModuleNotFoundError: No module named 'aidd_runtime'`
-1. Выполните `/plugin remove feature-dev-aidd@aidd-local`.
-2. Выполните `/plugin install feature-dev-aidd@aidd-local`.
-3. Перезапустите сессию Claude Code.
-
-### Команды сообщают, что workspace не инициализирован
-1. Выполните `/feature-dev-aidd:aidd-init`.
-2. Проверьте окружение командой:
-   `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-observability/runtime/doctor.py`
+- После обновления не видны команды: снова выполните `/plugin update feature-dev-aidd@aidd-local` и перезапустите Claude Code.
+- Ошибка `ModuleNotFoundError: No module named 'aidd_runtime'`: переустановите плагин и перезапустите сессию.
+- Workspace не инициализирован: выполните `/feature-dev-aidd:aidd-init`, затем `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-observability/runtime/doctor.py`.
 
 ## Документация
 ### Public docs
@@ -77,10 +58,6 @@ Self-hosted канал обновляется только через immutable 
 - `CHANGELOG.md` — пользовательские release notes.
 - `SECURITY.md` и `SUPPORT.md` — security disclosure и support policy.
 - `CONTRIBUTING.md` и `CODE_OF_CONDUCT.md` — правила вкладов и поведения.
-
-### Stability note
-- Стабилизационный трек wave `120 -> 121 -> 136` закрыт (2026-04-09), включая deterministic runtime contracts и release-gate parity.
-- Пользовательский срез изменений отражён в `CHANGELOG.md`.
 
 ## Вклад
 Процесс вкладов: `CONTRIBUTING.md`.

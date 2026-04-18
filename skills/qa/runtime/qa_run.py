@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
-import runpy
 
-_bootstrap = runpy.run_path(str(Path(__file__).with_name("_bootstrap.py")))
-export_module = _bootstrap["export_module"]
-run_main = _bootstrap["run_main"]
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
-export_module("aidd_runtime.qa_run", globals())
+from aidd_runtime.entrypoint import bootstrap_wrapper
+
+main = bootstrap_wrapper("aidd_runtime.qa_run", globals())
 
 if __name__ == "__main__":  # pragma: no cover
-    raise SystemExit(run_main("aidd_runtime.qa_run"))
+    raise SystemExit(main())

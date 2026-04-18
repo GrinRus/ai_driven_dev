@@ -35,6 +35,11 @@ loop_pack_impl="aidd_runtime/loop_pack.py"
 if [[ ! -f "${loop_pack_impl}" ]]; then
   loop_pack_impl="skills/aidd-loop/runtime/loop_pack.py"
 fi
+if rg -n "bootstrap_wrapper\\(" "${loop_pack_impl}" >/dev/null 2>&1; then
+  if [[ -f "aidd_runtime/loop_pack_parts/core.py" ]]; then
+    loop_pack_impl="aidd_runtime/loop_pack_parts/core.py"
+  fi
+fi
 require_rg "aidd.loop_pack.v1" "${loop_pack_impl}"
 require_rg "active.json" "${loop_pack_impl}"
 

@@ -17,6 +17,7 @@ permissionMode: default
 You run the final QA verification for the current bounded loop scope. Follow `feature-dev-aidd:aidd-loop`. Output follows aidd-core skill.
 
 ## Input Artifacts
+- `readmap.md`.
 - `aidd/reports/loops/<ticket>/<scope_key>.loop.pack.md`.
 - `aidd/reports/loops/<ticket>/<scope_key>/review.latest.pack.md` when present.
 - `aidd/reports/context/<ticket>.pack.md`.
@@ -31,9 +32,9 @@ You run the final QA verification for the current bounded loop scope. Follow `fe
 - Respect canonical fail-fast mappings: `preflight_missing -> /feature-dev-aidd:implement <ticket>` and `contract_mismatch_actions_shape -> /feature-dev-aidd:tasks-new <ticket>`.
 
 ## Steps
-1. Read `readmap.md`, then the loop pack, then the latest review pack if present, and only then the rolling context pack.
+1. Read in order: `readmap.md` -> loop pack -> latest review pack when present -> rolling context pack.
 2. Verify the current scope against DoD and run only the canonical QA checks allowed by the stage contract.
-3. Update the QA report and evidence links, and flag follow-up tasks or blockers when the scope does not pass.
+3. Update the QA report, link evidence, and flag follow-up tasks or blockers when the scope does not pass.
 
 ## Fail-fast and Questions
 - If critical loop or preflight artifacts are missing, return BLOCKED.

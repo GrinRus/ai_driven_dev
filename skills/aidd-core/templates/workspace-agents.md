@@ -16,7 +16,6 @@ Single entrypoint for AIDD runtime agents in a workspace. Repository maintainer 
 - `AIDD:READ_LOG` is required for artifact reads and for any fallback full-read reason.
 - Loop discipline lives in `skills/aidd-loop`.
 - Stage/shared runtime entrypoints use the Python-only canon: `skills/*/runtime/*.py`.
-- Shared entrypoints use canonical paths such as `skills/aidd-core/runtime/*.py`, `skills/aidd-loop/runtime/*.py`, and `skills/aidd-rlm/runtime/*.py`.
 - Shell wrappers are allowed only for hooks and platform glue; stage orchestration must not depend on `skills/*/scripts/*`.
 - `tools/` contains import stubs and repo-only tooling only.
 - Wrapper output must stay within the output budget: stdout <= 200 lines or <= 50KB, stderr <= 50 lines; send large outputs to `aidd/reports/**`.
@@ -29,8 +28,8 @@ Single entrypoint for AIDD runtime agents in a workspace. Repository maintainer 
 ## Migration Policy (Legacy -> RLM-only)
 - Legacy pre-RLM research context/targets artifacts are not read by gates and do not count as evidence.
 - For older workspaces, rebuild the research stage with `python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py --ticket <ticket> --auto`.
-- If `rlm_status=pending` after research, hand off to the shared owner with `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_finalize.py --ticket <ticket>`.
-- Plan/review/qa readiness requires the minimum RLM set: `rlm-targets`, `rlm-manifest`, `rlm.worklist.pack`, `rlm.nodes`, `rlm.links`, and `rlm.pack`.
+- If `rlm_status=pending` after research, hand off with `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_finalize.py --ticket <ticket>`.
+- Plan/review/qa readiness requires the minimum RLM set: `rlm-targets`, `rlm-manifest`, `rlm.worklist.pack`, `rlm.nodes`, `rlm.links`, `rlm.pack`.
 
 ## User Answers
 Keep answers within the same command run without switching stages. If answers arrive in chat, request this block:

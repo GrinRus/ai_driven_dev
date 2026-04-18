@@ -39,6 +39,7 @@ STATUS_DRAFT_RE = re.compile(r"^(?:Status|Статус):\s*Draft\b", re.IGNORECA
 RUNTIME_PATH_MENTION_RE = re.compile(r"(skills/[A-Za-z0-9_.-]+/runtime/[A-Za-z0-9_.-]+\.py)")
 BACKLOG_TASK_RE = re.compile(r"^\s*-\s*\[([ xX])\]\s*(.*)$")
 DOC_PATH_RE = re.compile(r"(docs/[A-Za-z0-9_.\-/]+\.md)")
+PROMPT_INCLUDE_RE = re.compile(r"\{\{INCLUDE:([^}]+)\}\}")
 
 ROOT_DOC_FILES = {
     "README.md",
@@ -172,6 +173,19 @@ def _iter_text_files(root: Path) -> Iterable[Path]:
         if path.suffix.lower() in EXCLUDED_SUFFIXES:
             continue
         yield path
+
+
+def _collect_prompt_include_refs(root: Path) -> Set[str]:
+    refs: Set[str] = set()
+    fragments_root = root / "tests" / "repo_tools" / "e2e_prompt"
+    if not fragments_root.is_dir():
+        return refs
+    for path in fragments_root.rglob("*.md"):
+        text = _read_text(path)
+        for raw in PROMPT_INCLUDE_RE.findall(text):
+            include_rel = _normalize_rel(raw)
+            refs.add(_normalize_rel((Path("tests/repo_tools/e2e_prompt") / include_rel).as_posix()))
+    return refs
 
 
 def _source_kind(rel_path: str) -> str:
@@ -552,8 +566,6 @@ def _build_revision_payload(root: Path, *, generated_at: Optional[str] = None) -
     protected_paths.update(hook_scripts)
     protected_paths.update(path.relative_to(root).as_posix() for path in root.glob("skills/*/templates/*") if path.is_file())
     protected_paths.update(path.relative_to(root).as_posix() for path in root.glob("skills/*/CONTRACT.yaml"))
-    protected_paths.update(path.relative_to(root).as_posix() for path in root.glob("skills/aidd-core/runtime/schemas/**/*") if path.is_file())
-
     candidates: List[Dict[str, Any]] = []
 
     # Candidate 1: detached agents (registry exists, not reachable from user command chain).
@@ -598,6 +610,21 @@ def _build_revision_payload(root: Path, *, generated_at: Optional[str] = None) -
                 "confidence": "high",
                 "risk": "low",
                 "missing_runtime_paths": missing,
+            }
+        )
+
+    prompt_include_refs = _collect_prompt_include_refs(root)
+    for include_path in sorted(root.glob("tests/repo_tools/e2e_prompt/includes/*.md")):
+        rel = include_path.relative_to(root).as_posix()
+        if rel in prompt_include_refs:
+            continue
+        candidates.append(
+            {
+                "path": rel,
+                "kind": "orphan_prompt_include",
+                "reason": "prompt include fragment is not referenced by any rendered prompt source",
+                "confidence": "high",
+                "risk": "low",
             }
         )
 
@@ -936,7 +963,13 @@ def _format_output_path(path: Path, root: Path) -> str:
 
 def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate repository topology graph with reachability and dangling-reference findings.")
-    parser.add_argument("--repo-root", default=".", help="Repository root path.")
+    parser.add_argument(
+        "--repo-root",
+        "--root",
+        dest="repo_root",
+        default=".",
+        help="Repository root path.",
+    )
     parser.add_argument(
         "--output-json",
         default="/tmp/repo-revision.graph.json",

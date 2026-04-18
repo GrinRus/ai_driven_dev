@@ -6,17 +6,12 @@
 
 {{MUST_READ_MANIFEST}}
 
-- `$PLUGIN_DIR/docs/e2e/aidd_test_flow_prompt_ralph_script_full.txt`
-- `$PLUGIN_DIR/docs/backlog.md`
-- `$PLUGIN_DIR/skills/review-spec/SKILL.md`
-
 ## 2) Environment
 
 - `PROJECT_DIR=<absolute-path-to-target-workspace>`
 - `PLUGIN_DIR=<absolute-path-to-plugin-repo>`
 - `CLAUDE_PLUGIN_ROOT=$PLUGIN_DIR`
 - `TICKET=TST-002`
-- `BASE_PROMPT=$PLUGIN_DIR/docs/e2e/aidd_test_flow_prompt_ralph_script_full.txt`
 - `BACKLOG_PATH=$PLUGIN_DIR/docs/backlog.md`
 - `QUALITY_FINAL_MARKER=QUALITY_AUDIT_COMPLETE`
 - `QUALITY_GATE_POLICY=strict`
