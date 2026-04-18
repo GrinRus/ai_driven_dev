@@ -22,6 +22,19 @@ User‑гайд для workspace находится в `skills/aidd-core/templat
 - Derived‑артефакты: `aidd/docs/index/`, `aidd/reports/events/`, `aidd/.cache/`.
 - Примеры: демо‑проекты и helper‑скрипты не поставляются — держите их вне плагина и документируйте в workspace.
 
+## Repo tools lifecycle
+- `tests/repo_tools/**` делится на `required` (CI/runtime contract), `advisory` (optional diagnostics) и `experimental`.
+- `experimental` tooling не считается поддерживаемым surface, пока не появилось в CI, release docs или в явном operator flow.
+- Если `experimental` script не получил owner decision за один planning cycle, default policy = archive-candidate, а не бессрочное хранение в активном контуре.
+- Архивировать предпочтительнее, чем держать orphaned repo-only utilities в корневом active surface.
+
+## Owner review required before deletion
+- `aidd_runtime/**` и другие compatibility bridges.
+- Любые `legacy|compat|fallback|shadow` ветки в hooks/runtime/prompts.
+- Draft RFCs и roadmap docs (`docs/*-rfc.md`) без явного replacement path.
+- Experimental repo tools, которые не подключены к CI, но могут использоваться ad-hoc локально.
+- Generated prompt/report outputs, пока CI и release guards ещё читают их напрямую.
+
 ## Источник истины (dev vs user)
 - Stage content templates (`prd/plan/research/tasklist/spec/loop/context-pack`) — источник истины в `skills/*/templates/*`.
 - `templates/aidd/**` — bootstrap source только для config/placeholders/infra-директорий; не хранит stage content templates.

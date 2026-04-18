@@ -6,14 +6,18 @@ import sys
 import unittest
 from pathlib import Path
 
+from tests.repo_tools.prompt_contract_support import assert_prompt_contract, load_prompt_contracts, read_text
+
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 AUDIT_PROMPT_FULL = REPO_ROOT / "docs" / "e2e" / "aidd_test_flow_prompt_ralph_script_full.txt"
 AUDIT_PROMPT_SMOKE = REPO_ROOT / "docs" / "e2e" / "aidd_test_flow_prompt_ralph_script.txt"
 PROMPT_BUILDER = REPO_ROOT / "tests" / "repo_tools" / "build_e2e_prompts.py"
 PROMPT_FRAGMENTS_DIR = REPO_ROOT / "tests" / "repo_tools" / "e2e_prompt"
+PROMPT_SPECS = PROMPT_FRAGMENTS_DIR / "prompt_specs.json"
 RESEARCHER_AGENT = REPO_ROOT / "agents" / "researcher.md"
 RESEARCHER_SKILL = REPO_ROOT / "skills" / "researcher" / "SKILL.md"
+SMOKE_WORKFLOW = REPO_ROOT / "tests" / "repo_tools" / "smoke-workflow.sh"
 
 LOOP_STAGE_SKILLS = [
     REPO_ROOT / "skills" / "implement" / "SKILL.md",
@@ -44,14 +48,8 @@ FORBIDDEN_LOOP_ALLOWED_TOOL_SURFACES = [
 ]
 
 
-def _read(path: Path) -> str:
-    if not path.exists():
-        raise AssertionError(f"missing contract file: {path}")
-    return path.read_text(encoding="utf-8")
-
-
 def _front_matter(path: Path) -> str:
-    text = _read(path)
+    text = read_text(path)
     lines = text.splitlines()
     if not lines or lines[0].strip() != "---":
         return ""
@@ -62,7 +60,7 @@ def _front_matter(path: Path) -> str:
 
 
 def _body(path: Path) -> str:
-    text = _read(path)
+    text = read_text(path)
     lines = text.splitlines()
     if not lines or lines[0].strip() != "---":
         return text
@@ -73,8 +71,14 @@ def _body(path: Path) -> str:
 
 
 class E2EPromptContractTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.contracts = load_prompt_contracts()
+
     def test_prompt_builder_and_fragments_exist(self) -> None:
         self.assertTrue(PROMPT_BUILDER.exists(), msg=f"missing prompt builder: {PROMPT_BUILDER}")
+        self.assertTrue(PROMPT_SPECS.exists(), msg=f"missing prompt specs: {PROMPT_SPECS}")
+        self.assertTrue((PROMPT_FRAGMENTS_DIR / "prompt_contracts.json").exists())
         for rel in ("base_contract.md", "profile_full.md", "profile_smoke.md", "must_read_manifest.md"):
             path = PROMPT_FRAGMENTS_DIR / rel
             self.assertTrue(path.exists(), msg=f"missing prompt fragment: {path}")
@@ -93,39 +97,19 @@ class E2EPromptContractTests(unittest.TestCase):
             msg=f"builder check failed\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}",
         )
 
-    def test_prompts_do_not_contain_wave_readiness_markers(self) -> None:
-        for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
-            text = _read(prompt)
-            self.assertIsNone(
-                re.search(r"\bWave\s+\d+\b", text, flags=re.IGNORECASE),
-                msg=f"{prompt}: contains wave marker",
-            )
-            self.assertIsNone(
-                re.search(r"\bW\d{2,}\b", text),
-                msg=f"{prompt}: contains readiness marker W<number>",
-            )
-
-    def test_full_prompt_contains_mandatory_fixed_fs_catalog(self) -> None:
-        text = _read(AUDIT_PROMPT_FULL)
-        self.assertIn("Каталог задач для шага 3 (выбрать ровно одну)", text)
-        for task_id in ("FS-GA-01", "FS-MP-02", "FS-RBAC-03", "FS-ID-04", "FS-GRAPH-05"):
-            self.assertIn(task_id, text, msg=f"missing fixed task id {task_id}")
-
-    def test_full_prompt_contains_retry_seed_and_drift_guards(self) -> None:
-        text = _read(AUDIT_PROMPT_FULL)
-        self.assertIn("retry-триггер разрешён только по текущему stage-return", text)
-        self.assertIn("question retry для шага 6 запрещён", text)
-        self.assertIn("prompt-flow drift (non-canonical stage orchestration)", text)
-        self.assertNotIn("manual preflight/debug path", text)
-
-    def test_prompts_include_plan_new_success_warn_retry_trigger(self) -> None:
-        for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
-            text = _read(prompt)
-            self.assertIn("для `idea-new` и `plan-new` retry-триггер", text, msg=f"{prompt}: missing plan parity")
+    def test_flow_prompt_contracts_are_data_driven(self) -> None:
+        flow = self.contracts["flow"]
+        texts = {
+            "FULL": read_text(AUDIT_PROMPT_FULL),
+            "SMOKE": read_text(AUDIT_PROMPT_SMOKE),
+        }
+        for profile, text in texts.items():
+            assert_prompt_contract(self, text=text, contract=flow["ALL"], label=f"TST-001 {profile}")
+            assert_prompt_contract(self, text=text, contract=flow[profile], label=f"TST-001 {profile}")
 
     def test_review_surfaces_enforce_canonical_plan_path_without_alias(self) -> None:
-        review_skill = _read(REPO_ROOT / "skills" / "review-spec" / "SKILL.md")
-        plan_reviewer = _read(REPO_ROOT / "agents" / "plan-reviewer.md")
+        review_skill = read_text(REPO_ROOT / "skills" / "review-spec" / "SKILL.md")
+        plan_reviewer = read_text(REPO_ROOT / "agents" / "plan-reviewer.md")
         for text, label in (
             (review_skill, "skills/review-spec/SKILL.md"),
             (plan_reviewer, "agents/plan-reviewer.md"),
@@ -138,199 +122,13 @@ class E2EPromptContractTests(unittest.TestCase):
                     msg=f"{label}: alias .plan.md may only appear as a forbidden path",
                 )
 
-        for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
-            text = _read(prompt)
-            self.assertNotIn(".plan.md", text, msg=f"{prompt}: contains non-canonical plan alias")
-
-    def test_prompt_policy_uses_stage_return_only_signal_extraction(self) -> None:
-        for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
-            text = _read(prompt)
-            self.assertIn(
-                "не считать trigger-ом `Q*`/`AIDD:ANSWERS`/`Question` внутри вложенных артефактов",
-                text,
-                msg=f"{prompt}: missing nested-artifact trigger guard",
-            )
-            self.assertRegex(
-                text.lower(),
-                r"stage-level классификац|stage-return",
-                msg=f"{prompt}: missing stage-return-only extraction policy",
-            )
-
-    def test_prompt_policy_has_stream_liveness_contract(self) -> None:
-        full_text = _read(AUDIT_PROMPT_FULL).lower()
-        smoke_text = _read(AUDIT_PROMPT_SMOKE).lower()
-        for text, label in ((full_text, "full"), (smoke_text, "smoke")):
-            self.assertIn("active_stream", text, msg=f"{label}: missing active_stream policy")
-            self.assertIn("main log", text, msg=f"{label}: missing main log probe policy")
-            self.assertRegex(
-                text,
-                r"stream.*jsonl|stream-jsonl",
-                msg=f"{label}: missing stream jsonl probe policy",
-            )
-
-    def test_prompts_require_canonical_stream_source_extraction_only(self) -> None:
-        full_text = _read(AUDIT_PROMPT_FULL)
-        smoke_text = _read(AUDIT_PROMPT_SMOKE)
-        for text, label in ((full_text, "full"), (smoke_text, "smoke")):
-            self.assertRegex(
-                text,
-                r"system/init.*JSON|init JSON",
-                msg=f"{label}: missing init-json stream extraction rule",
-            )
-            self.assertIn("streaming enabled", text, msg=f"{label}: missing control-header extraction rule")
-            self.assertRegex(
-                text.lower(),
-                r"tool_result|artifact",
-                msg=f"{label}: missing explicit tool_result/artifact exclusion",
-            )
-
-    def test_full_prompt_captures_watchdog_and_stream_path_attribution_rules(self) -> None:
-        text = _read(AUDIT_PROMPT_FULL)
-        self.assertIn("stream_path_invalid", text)
-        self.assertIn("stream_path_missing", text)
-        self.assertIn("stream_path_resolution_incomplete", text)
-        self.assertIn("fallback_scan=1", text)
-        self.assertIn("stream_path_not_emitted_by_cli=1", text)
-        self.assertIn("exit_code=143", text)
-        self.assertIn("watchdog_marker=1", text)
-        self.assertIn("watchdog_terminated", text)
-        self.assertIn("result_count` в summary отсутствует", text)
-
-    def test_full_prompt_has_diff_boundary_ephemeral_guard_for_step7(self) -> None:
-        text = _read(AUDIT_PROMPT_FULL)
-        self.assertIn("R17.5", text)
-        self.assertIn("diff_boundary_violation", text)
-        self.assertIn(".aidd_audit/**", text)
-        self.assertIn("diff_boundary_ephemeral_misclassified", text)
-
-    def test_prompts_define_conservative_severity_profile(self) -> None:
-        for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
-            text = _read(prompt)
-            self.assertIn("SEVERITY_PROFILE=conservative", text)
-            self.assertIn("Severity profile `conservative`", text)
-
-    def test_full_prompt_contains_step5_readiness_gate_contract(self) -> None:
-        text = _read(AUDIT_PROMPT_FULL)
-        self.assertIn("#### 5.2.1 Step 5 Readiness Gate (hard-stop)", text)
-        self.assertIn("05_precondition_block.txt", text)
-        self.assertIn("answers_format=compact_q_values", text)
-        self.assertIn("`compact_q_values` обязателен для retry payload", text)
-        self.assertIn(
-            "prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready",
-            text,
-        )
-        self.assertIn("research_warn_scope=<none|links_empty_non_blocking|minimal_baseline_soft|invalid>", text)
-        self.assertIn("INFO(readiness_gate_research_softened)", text)
-        self.assertIn("NOT VERIFIED (readiness_gate_failed)", text)
-        self.assertIn("NOT VERIFIED (upstream_readiness_gate_failed)", text)
-
-    def test_prompts_require_workspace_layout_shadow_check(self) -> None:
-        full_text = _read(AUDIT_PROMPT_FULL)
-        smoke_text = _read(AUDIT_PROMPT_SMOKE)
-        self.assertIn("99_workspace_layout_check.txt", full_text)
-        self.assertIn("non-canonical root", full_text)
-        self.assertIn("99_workspace_layout_check.txt", smoke_text)
-
-    def test_prompts_define_scoped_research_warn_readiness_policy(self) -> None:
-        for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
-            text = _read(prompt)
-            self.assertIn("research_status=reviewed|ok|warn|pending", text)
-            self.assertIn("minimal RLM baseline", text)
-            self.assertIn("research_warn_scope=minimal_baseline_soft", text)
-            self.assertIn("INFO(readiness_gate_research_softened)", text)
-
-    def test_prompts_require_review_spec_report_alignment(self) -> None:
-        for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
-            text = _read(prompt)
-            self.assertIn("review_spec_report_mismatch", text, msg=f"{prompt}: missing report mismatch classification")
-            self.assertIn(
-                "review_spec_report_mismatch_non_blocking",
-                text,
-                msg=f"{prompt}: missing non-blocking report mismatch classification",
-            )
-            self.assertIn("05_review_spec_report_check_run<N>.txt", text, msg=f"{prompt}: missing review-spec report check artifact")
-            self.assertIn("prd_findings_sync_needed", text, msg=f"{prompt}: missing PRD findings sync marker")
-            self.assertIn("plan_findings_sync_needed", text, msg=f"{prompt}: missing plan findings sync marker")
-
-    def test_prompts_require_findings_sync_cycle(self) -> None:
-        for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
-            text = _read(prompt)
-            self.assertIn("AIDD:SYNC_FROM_REVIEW", text, msg=f"{prompt}: missing findings sync payload contract")
-            self.assertIn("05_prd_findings_sync_request.txt", text, msg=f"{prompt}: missing PRD sync request artifact")
-            self.assertIn("05_plan_findings_sync_request.txt", text, msg=f"{prompt}: missing plan sync request artifact")
-            self.assertIn("NOT VERIFIED (findings_sync_not_converged)", text, msg=f"{prompt}: missing non-converged sync classification")
-
-    def test_prompts_soften_false_missing_tasks_in_tasks_new(self) -> None:
-        for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
-            text = _read(prompt)
-            self.assertIn("AIDD:TEST_EXECUTION missing tasks", text, msg=f"{prompt}: missing missing-tasks guard")
-            self.assertIn("05_tasklist_test_execution_probe.txt", text, msg=f"{prompt}: missing tasklist probe artifact")
-            self.assertIn("tasks_list_count>0", text, msg=f"{prompt}: missing tasklist list-count probe condition")
-            self.assertIn(
-                "INFO(tasklist_schema_parser_mismatch_recoverable)",
-                text,
-                msg=f"{prompt}: missing recoverable mismatch classification",
-            )
-            self.assertIn("не terminal blocker", text, msg=f"{prompt}: missing non-terminal continuation policy")
-
-    def test_full_prompt_requires_answer_normalization_and_compact_retry_payload(self) -> None:
-        text = _read(AUDIT_PROMPT_FULL)
-        self.assertIn("если source содержит `TBD`/пустые значения в `AIDD:ANSWERS`", text)
-        self.assertIn('Q<N>="короткий текст"', text)
-        self.assertIn("AUDIT_DIR/<step>_questions_normalized.txt", text)
-        self.assertIn("AIDD:ANSWERS Q1=C; Q2=B; Q3=C; Q4=A; Q5=C", text)
-
-    def test_prompts_require_retry_payload_to_cover_current_question_set(self) -> None:
-        for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
-            text = _read(prompt)
-            self.assertIn("количество `Q<N>` в retry определяется только актуальным top-level stage-return", text)
-            self.assertIn("question_retry_incomplete", text)
-            self.assertIn("partial", text, msg=f"{prompt}: missing partial-payload guard wording")
-
-    def test_full_prompt_marker_semantics_excludes_template_backup_noise(self) -> None:
-        text = _read(AUDIT_PROMPT_FULL)
-        self.assertIn("marker semantics", text)
-        self.assertIn("aidd/docs/tasklist/templates/**", text)
-        self.assertIn("*.bak", text)
-        self.assertIn("*.tmp", text)
-        self.assertIn("report_noise", text)
-
-    def test_prompt_launcher_policy_enforces_cwd_plugin_dir_and_verbose(self) -> None:
-        for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
-            text = _read(prompt)
-            self.assertIn('cd "$PROJECT_DIR"', text, msg=f"{prompt}: missing cwd launcher invariant")
-            self.assertIn('--plugin-dir "$PLUGIN_DIR"', text, msg=f"{prompt}: missing plugin-dir launcher invariant")
-            self.assertIn("--verbose --output-format stream-json", text, msg=f"{prompt}: missing stream-json verbose flags")
-            self.assertIn("aidd_stage_launcher.py", text, msg=f"{prompt}: missing canonical launcher path")
-            self.assertIn('df -Pk "$PROJECT_DIR"', text, msg=f"{prompt}: missing disk preflight invariant")
-            self.assertIn('realpath("$PROJECT_DIR") != realpath("$PLUGIN_DIR")', text, msg=f"{prompt}: missing project/plugin topology invariant")
-            self.assertIn("PROJECT_DIR must differ from PLUGIN_DIR", text, msg=f"{prompt}: missing shell-safe topology precheck snippet")
-
-    def test_prompts_require_preflight_artifact_completeness_markers(self) -> None:
-        for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
-            text = _read(prompt)
-            self.assertIn("01_gates_snapshot.json", text, msg=f"{prompt}: missing gates snapshot artifact")
-            self.assertIn("01_test_policy_source_scan.txt", text, msg=f"{prompt}: missing test policy scan artifact")
-            self.assertIn("not_available=1", text, msg=f"{prompt}: missing not_available marker contract")
-
     def test_smoke_script_blocks_legacy_shadow_artifacts_in_workspace_root(self) -> None:
-        text = _read(REPO_ROOT / "tests" / "repo_tools" / "smoke-workflow.sh")
+        text = read_text(SMOKE_WORKFLOW)
         self.assertIn("for shadow in docs reports config .cache; do", text)
         self.assertIn("non-canonical root artifact created at workspace root", text)
 
-    def test_full_prompt_step7_python_runtime_has_plugin_env_wiring(self) -> None:
-        text = _read(AUDIT_PROMPT_FULL)
-        self.assertIn(
-            'CLAUDE_PLUGIN_ROOT="$PLUGIN_DIR" PYTHONPATH="$PLUGIN_DIR${PYTHONPATH:+:$PYTHONPATH}" python3 $PLUGIN_DIR/skills/aidd-loop/runtime/loop_run.py',
-            text,
-        )
-        self.assertIn(
-            'CLAUDE_PLUGIN_ROOT="$PLUGIN_DIR" PYTHONPATH="$PLUGIN_DIR${PYTHONPATH:+:$PYTHONPATH}" python3 $PLUGIN_DIR/skills/aidd-loop/runtime/loop_step.py',
-            text,
-        )
-
-    def test_full_prompt_step7_loop_step_command_uses_supported_flags_only(self) -> None:
-        text = _read(AUDIT_PROMPT_FULL)
+    def test_full_prompt_loop_step_command_uses_supported_flags_only(self) -> None:
+        text = read_text(AUDIT_PROMPT_FULL)
         match = re.search(r"python3 \$PLUGIN_DIR/skills/aidd-loop/runtime/loop_step\.py[^\n`]*", text)
         self.assertIsNotNone(match, msg="missing loop_step.py command in full prompt step 7")
         command = str(match.group(0))
@@ -338,147 +136,9 @@ class E2EPromptContractTests(unittest.TestCase):
         self.assertNotIn("--blocked-policy", command)
         self.assertNotIn("--recoverable-block-retries", command)
 
-    def test_prompts_do_not_define_model_override_policy(self) -> None:
-        forbidden_patterns = (
-            r"\b--model\b",
-            r"\bglm[-_ ]?4\.?7",
-            r"\bflashx?\b",
-            r"\blight model\b",
-            r"\bfast model\b",
-        )
-        for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
-            text = _read(prompt)
-            for pattern in forbidden_patterns:
-                self.assertIsNone(
-                    re.search(pattern, text, flags=re.IGNORECASE),
-                    msg=f"{prompt}: must not contain model override policy ({pattern})",
-                )
-
-    def test_prompt_ralph_blocked_policy_parity(self) -> None:
-        full_text = _read(AUDIT_PROMPT_FULL)
-        smoke_text = _read(AUDIT_PROMPT_SMOKE)
-        for text, label in ((full_text, "full"), (smoke_text, "smoke")):
-            self.assertIn("BLOCKED_POLICY=strict|ralph", text, msg=f"{label}: missing blocked policy variable")
-            self.assertIn("(default: `ralph`)", text, msg=f"{label}: blocked policy default must be ralph")
-            self.assertIn("RECOVERABLE_BLOCK_RETRIES", text, msg=f"{label}: missing recoverable retry variable")
-        self.assertIn("--blocked-policy $BLOCKED_POLICY", full_text)
-        self.assertIn("--recoverable-block-retries $RECOVERABLE_BLOCK_RETRIES", full_text)
-        self.assertIn("recoverable_blocked", full_text)
-        self.assertIn("recovery_path", full_text)
-        self.assertIn("retry_attempt", full_text)
-
-    def test_full_prompt_loop_timeout_contract_is_explicit(self) -> None:
-        full_text = _read(AUDIT_PROMPT_FULL)
-        self.assertIn("LOOP_STEP_TIMEOUT_SECONDS", full_text)
-        self.assertIn("LOOP_STAGE_BUDGET_SECONDS", full_text)
-        self.assertIn("STEP6_IMPLEMENT_BUDGET_SECONDS", full_text)
-        self.assertIn("STEP6_REVIEW_BUDGET_SECONDS", full_text)
-        self.assertIn("--step-timeout-seconds $LOOP_STEP_TIMEOUT_SECONDS", full_text)
-        self.assertIn("--stage-budget-seconds $LOOP_STAGE_BUDGET_SECONDS", full_text)
-        self.assertIn("budget считается по каждому запуску отдельно", full_text)
-
-    def test_full_prompt_enforces_seed_single_scope_and_dependency_fail_fast(self) -> None:
-        text = _read(AUDIT_PROMPT_FULL)
-        self.assertIn("--budget-seconds <N>", text)
-        self.assertIn("seed_scope_cascade_detected", text)
-        self.assertIn("tests_env_dependency_missing", text)
-        self.assertIn("single-scope invariant", text)
-
-    def test_full_prompt_declares_soft_default_with_strict_shadow_for_step6(self) -> None:
-        text = _read(AUDIT_PROMPT_FULL)
-        self.assertIn("CLASSIFICATION_PROFILE=soft_default|strict", text)
-        self.assertIn("(default: `soft_default`)", text)
-        self.assertIn("strict-shadow telemetry", text)
-        self.assertIn("softened=1", text)
-        self.assertIn("strict_shadow_classification", text)
-
-    def test_prompt_research_pending_finalize_contract(self) -> None:
-        for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
-            text = _read(prompt)
-            self.assertIn("rlm_status_pending", text, msg=f"{prompt}: missing downstream pending reason contract")
-            self.assertIn("baseline_missing", text, msg=f"{prompt}: missing baseline_missing drift guard")
-            self.assertIn(
-                "WARN(research_gate_softened)",
-                text,
-                msg=f"{prompt}: missing plan-stage soft pending contract",
-            )
-            self.assertIn(
-                "policy=warn_continue",
-                text,
-                msg=f"{prompt}: missing warn-continue telemetry contract",
-            )
-            self.assertIn("AIDD:RLM_EVIDENCE", text, msg=f"{prompt}: missing RLM evidence section contract")
-            self.assertRegex(
-                text.lower(),
-                r"bounded[\s\S]*finalize|finalize[\s\S]*bounded",
-                msg=f"{prompt}: missing bounded finalize recovery expectation",
-            )
-
-    def test_prompt_retry_contract_removes_legacy_answers_alias(self) -> None:
-        for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
-            text = _read(prompt)
-            self.assertIn("--plan-path", text, msg=f"{prompt}: missing plan-review-gate retry arg guard")
-            self.assertNotIn("--answers", text, msg=f"{prompt}: removed spec-interview alias should not be documented")
-
-    def test_full_prompt_cwd_recovery_stays_on_project_dir(self) -> None:
-        text = _read(AUDIT_PROMPT_FULL)
-        self.assertIn("refusing to use plugin repository as workspace root", text)
-        self.assertIn("исправь `cwd` на `PROJECT_DIR`", text)
-
-    def test_full_prompt_has_preloop_fail_fast_gate(self) -> None:
-        text = _read(AUDIT_PROMPT_FULL)
-        self.assertIn("Fail-fast gate (до шага 7)", text)
-        self.assertIn("preloop_artifacts_missing", text)
-        self.assertIn("шаги 7 и 8 пометить `NOT VERIFIED`", text)
-        self.assertIn("NOT VERIFIED (upstream_seed_stage_failed)", text)
-        self.assertIn("NOT VERIFIED (upstream_loop_stage_failed)", text)
-
-    def test_full_prompt_has_plan_question_closure_and_anti_cascade(self) -> None:
-        text = _read(AUDIT_PROMPT_FULL)
-        self.assertIn("#### 5.3.1 Plan question-closure", text)
-        self.assertIn("05_plan_new_questions_raw.txt", text)
-        self.assertIn("05_plan_new_questions_normalized.txt", text)
-        self.assertIn("05_plan_new_answers.txt", text)
-        self.assertIn("05_plan_head.txt", text)
-        self.assertIn("NOT VERIFIED (plan_qna_unresolved)", text)
-        self.assertIn("NOT VERIFIED (upstream_plan_qna_unresolved)", text)
-
-    def test_smoke_prompt_has_plan_question_closure_and_anti_cascade(self) -> None:
-        text = _read(AUDIT_PROMPT_SMOKE)
-        self.assertIn("#### 5.3a Plan question-closure", text)
-        self.assertIn("05_plan_new_questions_raw.txt", text)
-        self.assertIn("05_plan_new_questions_normalized.txt", text)
-        self.assertIn("05_plan_new_answers.txt", text)
-        self.assertIn("NOT VERIFIED (plan_qna_unresolved)", text)
-        self.assertIn("NOT VERIFIED (upstream_plan_qna_unresolved)", text)
-
-    def test_prompts_enforce_runtime_drift_fail_fast_without_manual_stage_chain_preflight_guard(self) -> None:
-        full_text = _read(AUDIT_PROMPT_FULL)
-        smoke_text = _read(AUDIT_PROMPT_SMOKE)
-        self.assertIn("runtime_path_missing_or_drift", full_text)
-        self.assertIn("immediate `blocked`", full_text)
-        self.assertNotIn("manual_stage_chain_preflight_forbidden", full_text)
-        self.assertIn("runtime_path_missing_or_drift", smoke_text)
-        self.assertNotIn("manual_stage_chain_preflight_forbidden", smoke_text)
-
-    def test_full_prompt_requires_soft_research_gate_telemetry(self) -> None:
-        text = _read(AUDIT_PROMPT_FULL)
-        self.assertIn("rlm_links_empty_warn|rlm_status_pending", text)
-        self.assertIn("research_gate_softened=true", text)
-        self.assertIn("research_gate_soft_reason", text)
-        self.assertIn("research_gate_soft_policy=always", text)
-
-    def test_prompts_use_ralph_policy_matrix_v2_wording(self) -> None:
-        full_text = _read(AUDIT_PROMPT_FULL)
-        smoke_text = _read(AUDIT_PROMPT_SMOKE)
-        self.assertIn("policy_matrix_v2", full_text)
-        self.assertNotIn("blocking_findings_only", full_text)
-        self.assertIn("policy matrix v2", smoke_text)
-
     def test_researcher_contract_prefers_reviewed_and_plan_new(self) -> None:
-        agent_text = _read(RESEARCHER_AGENT)
-        skill_text = _read(RESEARCHER_SKILL)
-
+        agent_text = read_text(RESEARCHER_AGENT)
+        skill_text = read_text(RESEARCHER_SKILL)
         self.assertIn("Status: reviewed|pending|warn", agent_text)
         self.assertIn("/feature-dev-aidd:plan-new <ticket>", agent_text)
         self.assertIn("/feature-dev-aidd:plan-new <ticket>", skill_text)
@@ -487,7 +147,7 @@ class E2EPromptContractTests(unittest.TestCase):
 
     def test_loop_stage_skills_enforce_stage_chain_only_policy(self) -> None:
         for skill_path in LOOP_STAGE_SKILLS:
-            text = _read(skill_path)
+            text = read_text(skill_path)
             lower = text.lower()
             body_lower = _body(skill_path).lower()
             frontmatter_lower = _front_matter(skill_path).lower()
@@ -527,7 +187,7 @@ class E2EPromptContractTests(unittest.TestCase):
 
     def test_stage_skill_guidance_avoids_legacy_stage_aliases(self) -> None:
         for skill_path in STAGE_SKILLS_FOR_ALIAS_GUARD:
-            text = _read(skill_path)
+            text = read_text(skill_path)
             for alias in LEGACY_STAGE_ALIASES:
                 self.assertNotIn(alias, text, msg=f"{skill_path}: contains legacy alias {alias}")
 

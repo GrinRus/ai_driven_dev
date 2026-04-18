@@ -11,8 +11,8 @@
       "lang": "en",
       "name": "implementer",
       "path": "agents/implementer.md",
-      "prompt_version": "1.1.43",
-      "source_version": "1.1.43"
+      "prompt_version": "1.1.44",
+      "source_version": "1.1.44"
     },
     {
       "lang": "en",
@@ -39,8 +39,8 @@
       "lang": "en",
       "name": "qa",
       "path": "agents/qa.md",
-      "prompt_version": "1.0.32",
-      "source_version": "1.0.32"
+      "prompt_version": "1.0.33",
+      "source_version": "1.0.33"
     },
     {
       "lang": "en",
@@ -53,8 +53,8 @@
       "lang": "en",
       "name": "reviewer",
       "path": "agents/reviewer.md",
-      "prompt_version": "1.0.37",
-      "source_version": "1.0.37"
+      "prompt_version": "1.0.38",
+      "source_version": "1.0.38"
     },
     {
       "lang": "en",
@@ -168,8 +168,8 @@
       "lang": "en",
       "name": "implement",
       "path": "skills/implement/SKILL.md",
-      "prompt_version": "1.1.50",
-      "source_version": "1.1.50",
+      "prompt_version": "1.1.51",
+      "source_version": "1.1.51",
       "user_invocable": "true"
     },
     {
@@ -186,8 +186,8 @@
       "lang": "en",
       "name": "qa",
       "path": "skills/qa/SKILL.md",
-      "prompt_version": "1.0.41",
-      "source_version": "1.0.41",
+      "prompt_version": "1.0.42",
+      "source_version": "1.0.42",
       "user_invocable": "true"
     },
     {
@@ -213,8 +213,8 @@
       "lang": "en",
       "name": "review",
       "path": "skills/review/SKILL.md",
-      "prompt_version": "1.0.46",
-      "source_version": "1.0.46",
+      "prompt_version": "1.0.47",
+      "source_version": "1.0.47",
       "user_invocable": "true"
     },
     {

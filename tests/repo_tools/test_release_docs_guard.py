@@ -31,8 +31,8 @@ internal_dev_docs:
   - docs/skill-language.md
   - docs/skill-trigger-taxonomy.md
   - docs/memory-v2-rfc.md
+  - docs/host-agnostic-flow-rfc.md
   - docs/runbooks/*.md
-  - docs/revision/*.md
 """
 
 
@@ -104,8 +104,8 @@ def _seed_valid_fixture(root: Path) -> None:
     _write(root / "docs" / "skill-language.md", f"# Doc\n{marker_block}")
     _write(root / "docs" / "skill-trigger-taxonomy.md", f"# Doc\n{marker_block}")
     _write(root / "docs" / "memory-v2-rfc.md", f"# Doc\n{marker_block}")
+    _write(root / "docs" / "host-agnostic-flow-rfc.md", f"# Doc\n{marker_block}")
     _write(root / "docs" / "runbooks" / "tst001-audit-hardening.md", f"# Doc\n{marker_block}")
-    _write(root / "docs" / "revision" / "repo-revision.md", f"# Doc\n{marker_block}")
 
 
 class ReleaseDocsGuardTests(unittest.TestCase):

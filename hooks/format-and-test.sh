@@ -37,7 +37,12 @@ VENDOR_DIR = HOOKS_DIR / "_vendor"
 if VENDOR_DIR.exists():
     sys.path.insert(0, str(VENDOR_DIR))
 
-from aidd_runtime.feature_ids import FeatureIdentifiers, resolve_aidd_root, resolve_identifiers
+from aidd_runtime.feature_ids import (
+    FeatureIdentifiers,
+    read_active_state as read_feature_active_state,
+    resolve_aidd_root,
+    resolve_identifiers,
+)
 from aidd_runtime.test_settings_defaults import (
     DEFAULT_COMMON_PATTERNS,
     DEFAULT_CODE_EXTENSIONS,
@@ -716,14 +721,15 @@ def resolve_workspace_root(ctx: object | None) -> Path:
     return base.resolve()
 
 def read_active_state(project_root: Path) -> dict:
-    path = project_root / "docs" / ".active.json"
-    if not path.exists():
-        return {}
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        return {}
-    return payload if isinstance(payload, dict) else {}
+    state = read_feature_active_state(project_root)
+    return {
+        "ticket": state.ticket,
+        "slug_hint": state.slug_hint,
+        "stage": state.stage,
+        "work_item": state.work_item,
+        "last_review_report_id": state.last_review_report_id,
+        "updated_at": state.updated_at,
+    }
 
 
 def read_active_stage(project_root: Path) -> str:
