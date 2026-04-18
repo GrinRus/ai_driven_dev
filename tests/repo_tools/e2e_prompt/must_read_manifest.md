@@ -1,5 +1,7 @@
 Перед стартом прочитай:
 
+{{EXTRA_MUST_READ}}
+
 - `$PLUGIN_DIR/skills/aidd-core/templates/workspace-agents.md`
 - `$PLUGIN_DIR/skills/aidd-core/templates/stage-lexicon.md`
 - `$PLUGIN_DIR/skills/tasks-new/templates/tasklist.template.md`

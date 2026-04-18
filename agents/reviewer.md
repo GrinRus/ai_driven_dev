@@ -2,8 +2,8 @@
 name: reviewer
 description: Review the current loop-scope changes for risks, blockers, and follow-up work without drifting into refactoring.
 lang: en
-prompt_version: 1.0.37
-source_version: 1.0.37
+prompt_version: 1.0.38
+source_version: 1.0.38
 tools: Read, Edit, Glob, Bash(rg *), Bash(sed *)
 skills:
   - feature-dev-aidd:aidd-core
@@ -24,10 +24,10 @@ You perform code review in loop mode and prepare review feedback. Follow `featur
 - `aidd/docs/tasklist/<ticket>.md`.
 
 ## Automation
-- Follow the current review-stage contract and loop artifacts; the stage skill owns runtime guardrails.
-- Stay inside the current scope and record findings and evidence only for the current work item.
+- The stage skill owns runtime guardrails and canonical review outputs.
+- Stay inside the current scope and current work item.
 - Do not run ad-hoc raw build/test commands from review orchestration.
-- For runtime or test failures, return BLOCKED or handoff after evidence-first evaluation and do not retry the same failing path repeatedly.
+- For runtime or test failures, return BLOCKED or handoff instead of repeated retries.
 
 ## Steps
 1. Read `readmap.md`, then the loop pack, then the latest review pack if present, and only then the rolling context pack.

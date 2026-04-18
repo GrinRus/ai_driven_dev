@@ -2,8 +2,8 @@
 name: qa
 description: Run the final QA verification for the current loop scope and report severity plus PRD traceability.
 lang: en
-prompt_version: 1.0.32
-source_version: 1.0.32
+prompt_version: 1.0.33
+source_version: 1.0.33
 tools: Read, Edit, Glob, Bash(rg *), Bash(sed *), Bash(npm *), Bash(pnpm *), Bash(yarn *), Bash(pytest *), Bash(python *), Bash(go *), Bash(mvn *), Bash(make *)
 skills:
   - feature-dev-aidd:aidd-core
@@ -24,11 +24,11 @@ You run the final QA verification for the current loop scope. Follow `feature-de
 - QA report template and test logs when present.
 
 ## Automation
-- Follow the current qa-stage contract and loop artifacts; the stage skill owns runtime guardrails.
+- The stage skill owns runtime guardrails, QA report shape, and handoff mappings.
 - Keep verification inside the current scope and DoD; do not add off-scope fixes as QA recovery.
-- For runtime or test failures, capture evidence and return BLOCKED or handoff after evidence-first evaluation; no guessed retries.
-- Do not use ad-hoc shell recovery through raw test commands from arbitrary cwd; rely on the canonical QA runtime and tasklist test contract.
-- Respect the canonical fail-fast mappings: `preflight_missing -> /feature-dev-aidd:implement <ticket>` and `contract_mismatch_actions_shape -> /feature-dev-aidd:tasks-new <ticket>`.
+- For runtime or test failures, capture evidence and return BLOCKED or handoff; no guessed retries.
+- Do not use ad-hoc shell recovery through raw test commands from arbitrary cwd.
+- Respect canonical fail-fast mappings: `preflight_missing -> /feature-dev-aidd:implement <ticket>` and `contract_mismatch_actions_shape -> /feature-dev-aidd:tasks-new <ticket>`.
 
 ## Steps
 1. Read `readmap.md`, then the loop pack, then the latest review pack if present, and only then the rolling context pack.
