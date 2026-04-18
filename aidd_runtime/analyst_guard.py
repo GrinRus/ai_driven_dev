@@ -6,14 +6,29 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+import os
+import sys
 
 
-try:
-    from aidd_runtime._bootstrap import ensure_repo_root
-except ImportError:  # pragma: no cover - direct script execution
-    from _bootstrap import ensure_repo_root
+def _ensure_plugin_root_on_path() -> None:
+    env_root = os.environ.get("CLAUDE_PLUGIN_ROOT", "").strip()
+    if env_root:
+        root = Path(env_root).resolve()
+        if (root / "aidd_runtime").is_dir():
+            if str(root) not in sys.path:
+                sys.path.insert(0, str(root))
+            return
 
-ensure_repo_root(__file__)
+    probe = Path(__file__).resolve()
+    for parent in (probe.parent, *probe.parents):
+        if (parent / "aidd_runtime").is_dir():
+            os.environ.setdefault("CLAUDE_PLUGIN_ROOT", str(parent))
+            if str(parent) not in sys.path:
+                sys.path.insert(0, str(parent))
+            return
+
+
+_ensure_plugin_root_on_path()
 
 from aidd_runtime import gates
 from aidd_runtime.feature_ids import resolve_aidd_root
@@ -38,6 +53,7 @@ RESEARCH_REF_TEMPLATE = "aidd/docs/research/{ticket}.md"
 LEGACY_RESEARCH_REF_TEMPLATE = "docs/research/{ticket}.md"
 MARKDOWN_HEADING_RE = re.compile(r"^\s{0,3}#{1,6}\s+\S")
 HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
+FENCE_MARKER_RE = re.compile(r"^\s*(```+|~~~+)")
 DIALOG_METADATA_PREFIXES = (
     "status:",
     "ссылка:",
@@ -144,6 +160,37 @@ def _collect_compact_answers(section: str) -> dict[int, str]:
             continue
         answers[number] = value
     return answers
+
+
+def _prepare_answers_source(section: str | None) -> str:
+    if not section:
+        return ""
+
+    lines: list[str] = []
+    in_fence = False
+    fence_marker = ""
+    for raw in section.splitlines():
+        stripped = raw.strip()
+        fence_match = FENCE_MARKER_RE.match(raw)
+        if fence_match:
+            marker = str(fence_match.group(1) or "")[:3]
+            if not in_fence:
+                in_fence = True
+                fence_marker = marker
+            elif marker == fence_marker:
+                in_fence = False
+                fence_marker = ""
+            continue
+        if in_fence:
+            continue
+        if not stripped or stripped.startswith(">"):
+            continue
+        if stripped.startswith("<!--") or stripped.endswith("-->"):
+            continue
+        if stripped.startswith("`") and stripped.endswith("`") and len(stripped) > 1:
+            continue
+        lines.append(raw)
+    return "\n".join(lines).strip()
 
 
 def _invalid_compact_answers(answers: dict[int, str]) -> list[int]:
@@ -268,7 +315,7 @@ def validate_prd(
             )
 
     answers_section = _extract_section(text, ANSWERS_HEADING)
-    answers_source = answers_section or ""
+    answers_source = _prepare_answers_source(answers_section)
     answers_map = _collect_compact_answers(answers_source)
     if answers_source.strip() and not answers_map:
         raise AnalystValidationError(

@@ -1003,8 +1003,8 @@ def lint_skills(root: Path) -> Tuple[List[str], List[str]]:
             if disable_invocation == "true":
                 errors.append(f"{info.path}: preloaded skills must not set disable-model-invocation: true")
         elif path.parent.name == "status":
-            if disable_invocation != "false":
-                errors.append(f"{info.path}: status must set disable-model-invocation: false")
+            if disable_invocation != "true":
+                errors.append(f"{info.path}: status must set disable-model-invocation: true")
         else:
             if disable_invocation != "true":
                 errors.append(f"{info.path}: stage skills must set disable-model-invocation: true")

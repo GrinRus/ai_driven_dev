@@ -370,12 +370,14 @@ class LoopRunTests(unittest.TestCase):
             finally:
                 os.chdir(cwd)
 
-            self.assertEqual(code, 20)
+            self.assertEqual(code, 11)
             payload = json.loads(captured.getvalue())
-            self.assertEqual(payload.get("status"), "blocked")
-            self.assertEqual(payload.get("reason_code"), "contract_mismatch_stage_result_shape")
-            self.assertEqual(payload.get("recoverable_blocked"), False)
-            self.assertEqual(payload.get("retry_attempt"), 0)
+            self.assertEqual(payload.get("status"), "max-iterations")
+            last_step = payload.get("last_step") or {}
+            self.assertEqual(last_step.get("reason_code"), "contract_mismatch_stage_result_shape")
+            self.assertEqual(last_step.get("recoverable_blocked"), True)
+            self.assertEqual(last_step.get("ralph_reason_class"), "recoverable_retry")
+            self.assertEqual(payload.get("retry_attempt"), 1)
 
     def test_loop_run_research_gate_softens_links_empty_before_auto_loop(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
@@ -1147,9 +1149,9 @@ class LoopRunTests(unittest.TestCase):
             self.assertEqual(payload.get("recoverable_blocked"), False)
             self.assertEqual(payload.get("retry_attempt"), 0)
             self.assertEqual(payload.get("reason_code"), "user_approval_required")
-            self.assertEqual(payload.get("ralph_policy_version"), "v2")
+            self.assertEqual(payload.get("ralph_policy_version"), "v3")
             self.assertEqual(payload.get("ralph_reason_class"), "hard_block")
-            self.assertEqual(payload.get("ralph_recoverable_reason_scope"), "policy_matrix_v2")
+            self.assertEqual(payload.get("ralph_recoverable_reason_scope"), "policy_matrix_v3")
             self.assertEqual(payload.get("ralph_recoverable_expected"), False)
             self.assertEqual(payload.get("ralph_recoverable_exercised"), False)
             self.assertEqual(payload.get("ralph_recoverable_not_exercised"), True)
@@ -1215,7 +1217,138 @@ class LoopRunTests(unittest.TestCase):
             self.assertEqual(last_step.get("reason_code"), "review_context_pack_missing")
             self.assertEqual(last_step.get("recoverable_blocked"), True)
             self.assertEqual(last_step.get("ralph_reason_class"), "recoverable_retry")
-            self.assertEqual(payload.get("ralph_recoverable_reason_scope"), "policy_matrix_v2")
+            self.assertEqual(payload.get("ralph_recoverable_reason_scope"), "policy_matrix_v3")
+
+    def test_loop_run_ralph_softens_diff_boundary_violation(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-RALPH-DIFF-BOUNDARY"
+            write_active_state(root, ticket=ticket, stage="review", work_item="iteration_id=I1")
+
+            fake_result = subprocess.CompletedProcess(
+                args=["loop-step"],
+                returncode=20,
+                stdout=json.dumps(
+                    {
+                        "status": "blocked",
+                        "stage": "review",
+                        "scope_key": "iteration_id_I1",
+                        "work_item_key": "iteration_id=I1",
+                        "reason_code": "diff_boundary_violation",
+                        "reason": "diff escaped declared boundaries",
+                    }
+                ),
+                stderr="",
+            )
+            captured = io.StringIO()
+            cwd = os.getcwd()
+            try:
+                os.chdir(root.parent)
+                with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
+                    with patch("aidd_runtime.loop_run.run_loop_step", return_value=fake_result):
+                        with redirect_stdout(captured):
+                            code = loop_run_module.main(
+                                [
+                                    "--ticket",
+                                    ticket,
+                                    "--work-item-key",
+                                    "iteration_id=I1",
+                                    "--max-iterations",
+                                    "1",
+                                    "--blocked-policy",
+                                    "ralph",
+                                    "--recoverable-block-retries",
+                                    "1",
+                                    "--format",
+                                    "json",
+                                ]
+                            )
+            finally:
+                os.chdir(cwd)
+
+            self.assertEqual(code, 11)
+            payload = json.loads(captured.getvalue())
+            self.assertEqual(payload.get("status"), "max-iterations")
+            last_step = payload.get("last_step") or {}
+            self.assertEqual(last_step.get("reason_code"), "diff_boundary_violation")
+            self.assertEqual(last_step.get("ralph_reason_class"), "recoverable_retry")
+            self.assertEqual(last_step.get("recoverable_blocked"), True)
+
+    def test_loop_run_ralph_uses_final_scope_completion_handoff_after_retry_budget(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-RALPH-SCOPE-COMPLETE"
+            write_active_state(root, ticket=ticket, stage="review", work_item="iteration_id=I1")
+
+            fake_results = [
+                subprocess.CompletedProcess(
+                    args=["loop-step"],
+                    returncode=20,
+                    stdout=json.dumps(
+                        {
+                            "status": "blocked",
+                            "stage": "review",
+                            "scope_key": "iteration_id_I1",
+                            "work_item_key": "iteration_id=I1",
+                            "reason_code": "review_context_pack_missing",
+                            "reason": "review context pack missing",
+                        }
+                    ),
+                    stderr="",
+                ),
+                subprocess.CompletedProcess(
+                    args=["loop-step"],
+                    returncode=20,
+                    stdout=json.dumps(
+                        {
+                            "status": "blocked",
+                            "stage": "review",
+                            "scope_key": "iteration_id_I1",
+                            "work_item_key": "iteration_id=I1",
+                            "reason_code": "review_context_pack_missing",
+                            "reason": "review context pack missing",
+                        }
+                    ),
+                    stderr="",
+                ),
+            ]
+            captured = io.StringIO()
+            cwd = os.getcwd()
+            try:
+                os.chdir(root.parent)
+                with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
+                    with patch("aidd_runtime.loop_run.run_loop_step", side_effect=fake_results):
+                        with redirect_stdout(captured):
+                            code = loop_run_module.main(
+                                [
+                                    "--ticket",
+                                    ticket,
+                                    "--work-item-key",
+                                    "iteration_id=I1",
+                                    "--max-iterations",
+                                    "2",
+                                    "--blocked-policy",
+                                    "ralph",
+                                    "--recoverable-block-retries",
+                                    "1",
+                                    "--format",
+                                    "json",
+                                ]
+                            )
+            finally:
+                os.chdir(cwd)
+
+            self.assertEqual(code, 11)
+            payload = json.loads(captured.getvalue())
+            self.assertEqual(payload.get("status"), "max-iterations")
+            self.assertEqual(payload.get("last_recovery_path"), "handoff_to_implement")
+            last_step = payload.get("last_step") or {}
+            self.assertEqual(last_step.get("reason_code"), "review_context_pack_missing")
+            self.assertEqual(last_step.get("recovery_path"), "handoff_to_implement")
+            self.assertEqual(last_step.get("scope_completion_handoff"), True)
+            active_payload = json.loads((root / "docs" / ".active.json").read_text(encoding="utf-8"))
+            self.assertEqual(active_payload.get("stage"), "implement")
+            self.assertEqual(active_payload.get("work_item"), "iteration_id=I1")
 
     def test_loop_run_ralph_warn_continue_for_output_contract_warn(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
@@ -1372,12 +1505,14 @@ class LoopRunTests(unittest.TestCase):
             finally:
                 os.chdir(cwd)
 
-            self.assertEqual(code, 20)
+            self.assertEqual(code, 11)
             payload = json.loads(captured.getvalue())
-            self.assertEqual(payload.get("status"), "blocked")
-            self.assertEqual(payload.get("reason_code"), "prompt_flow_blocker")
-            self.assertEqual(payload.get("recoverable_blocked"), False)
-            self.assertEqual(payload.get("retry_attempt"), 0)
+            self.assertEqual(payload.get("status"), "max-iterations")
+            last_step = payload.get("last_step") or {}
+            self.assertEqual(last_step.get("reason_code"), "prompt_flow_blocker")
+            self.assertEqual(last_step.get("recoverable_blocked"), True)
+            self.assertEqual(last_step.get("ralph_reason_class"), "recoverable_retry")
+            self.assertEqual(payload.get("retry_attempt"), 1)
 
     def test_loop_run_rejects_invalid_work_item_key_override(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
@@ -2181,6 +2316,68 @@ class LoopRunTests(unittest.TestCase):
             _, kwargs = run_mock.call_args
             self.assertEqual(kwargs.get("timeout_seconds"), 9)
             self.assertEqual(kwargs.get("budget_exhausted_on_timeout"), True)
+
+    def test_loop_run_resets_stage_budget_for_each_loop_step_invocation(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-BUDGET-RESET"
+            write_active_state(root, ticket=ticket, stage="review", work_item="iteration_id=I1")
+
+            fake_result = subprocess.CompletedProcess(
+                args=["loop-step"],
+                returncode=20,
+                stdout=json.dumps(
+                    {
+                        "status": "blocked",
+                        "stage": "review",
+                        "scope_key": "iteration_id_I1",
+                        "work_item_key": "iteration_id=I1",
+                        "reason_code": "output_contract_warn",
+                        "reason": "output contract warnings",
+                    }
+                ),
+                stderr="",
+            )
+            captured = io.StringIO()
+            cwd = os.getcwd()
+            try:
+                os.chdir(root.parent)
+                with patch.dict(
+                    os.environ,
+                    {
+                        "CLAUDE_PLUGIN_ROOT": str(REPO_ROOT),
+                        "AIDD_LOOP_STEP_TIMEOUT_SECONDS": "60",
+                        "AIDD_LOOP_STAGE_BUDGET_SECONDS": "9",
+                    },
+                    clear=False,
+                ):
+                    with patch("aidd_runtime.loop_run.run_loop_step", return_value=fake_result) as run_mock:
+                        with redirect_stdout(captured):
+                            code = loop_run_module.main(
+                                [
+                                    "--ticket",
+                                    ticket,
+                                    "--max-iterations",
+                                    "2",
+                                    "--stream",
+                                    "text",
+                                    "--blocked-policy",
+                                    "ralph",
+                                    "--format",
+                                    "json",
+                                ]
+                            )
+            finally:
+                os.chdir(cwd)
+
+            self.assertEqual(code, 11)
+            self.assertEqual(run_mock.call_count, 2)
+            first_kwargs = run_mock.call_args_list[0].kwargs
+            second_kwargs = run_mock.call_args_list[1].kwargs
+            self.assertEqual(first_kwargs.get("stage_budget_remaining_seconds"), 9)
+            self.assertEqual(second_kwargs.get("stage_budget_remaining_seconds"), 9)
+            self.assertEqual(first_kwargs.get("timeout_seconds"), 9)
+            self.assertEqual(second_kwargs.get("timeout_seconds"), 9)
 
     def test_loop_run_uses_default_step_timeout_when_not_configured(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:

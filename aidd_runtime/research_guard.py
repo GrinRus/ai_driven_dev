@@ -11,12 +11,25 @@ from pathlib import Path
 from typing import Iterable, Optional
 
 
-try:
-    from aidd_runtime._bootstrap import ensure_repo_root
-except ImportError:  # pragma: no cover - direct script execution
-    from _bootstrap import ensure_repo_root
+def _ensure_plugin_root_on_path() -> None:
+    env_root = os.environ.get("CLAUDE_PLUGIN_ROOT", "").strip()
+    if env_root:
+        root = Path(env_root).resolve()
+        if (root / "aidd_runtime").is_dir():
+            if str(root) not in sys.path:
+                sys.path.insert(0, str(root))
+            return
 
-ensure_repo_root(__file__)
+    probe = Path(__file__).resolve()
+    for parent in (probe.parent, *probe.parents):
+        if (parent / "aidd_runtime").is_dir():
+            os.environ.setdefault("CLAUDE_PLUGIN_ROOT", str(parent))
+            if str(parent) not in sys.path:
+                sys.path.insert(0, str(parent))
+            return
+
+
+_ensure_plugin_root_on_path()
 
 from aidd_runtime import gates
 from aidd_runtime import runtime
@@ -51,6 +64,11 @@ RESEARCH_TEMPLATE_MARKERS = (
 )
 STATUS_LINE_RE = re.compile(r"^\*{0,2}\s*status\s*\*{0,2}\s*:\s*(.+)$", re.IGNORECASE)
 LIST_ITEM_RE = re.compile(r"^(?:[-+*])\s+")
+STATUS_ALIASES = {
+    "warning": "warn",
+}
+DOWNSTREAM_SOFT_STAGES = {"plan", "review", "qa"}
+DOWNSTREAM_SOFT_STATUSES = {"pending", "warn"}
 
 
 @dataclass
@@ -218,7 +236,7 @@ def _extract_status(doc_text: str) -> Optional[str]:
         token = raw_status.split(None, 1)[0] if raw_status else ""
         normalized = token.strip().lower().strip("`'\"*.,;:()[]{}")
         if normalized:
-            return normalized
+            return STATUS_ALIASES.get(normalized, normalized)
     return None
 
 
@@ -463,9 +481,7 @@ def _validate_rlm_evidence(
     stage = str(expected_stage or _load_stage(root) or "").strip().lower()
     normalized_status = (doc_status or "").strip().lower()
     ready_required = stage in {"plan", "review", "qa"} or normalized_status == "reviewed"
-    downstream_soft_mode = (
-        settings.downstream_gate_mode == "always_soft" and stage in {"plan", "review", "qa"}
-    )
+    downstream_soft_mode = settings.downstream_gate_mode == "always_soft" and stage in DOWNSTREAM_SOFT_STAGES
 
     nodes_exists = rlm_nodes_path.exists()
     nodes_total = _count_rlm_nodes(rlm_nodes_path) if nodes_exists else 0
@@ -659,8 +675,8 @@ def validate_research(
     status = _extract_status(doc_text)
     stage = str(expected_stage or _load_stage(root) or "").strip().lower()
     baseline_stage_allowed = stage in {"research"}
-    downstream_stage = stage in {"plan", "review", "qa", "implement"}
-    downstream_soft_mode = settings.downstream_gate_mode == "always_soft" and stage in {"plan", "review", "qa"}
+    downstream_stage = stage in DOWNSTREAM_SOFT_STAGES.union({"implement"})
+    downstream_soft_mode = settings.downstream_gate_mode == "always_soft" and stage in DOWNSTREAM_SOFT_STAGES
     status_softened_warning = ""
     required_statuses = settings.require_status or ["reviewed"]
     required_statuses = [item for item in required_statuses if item]
@@ -672,7 +688,7 @@ def validate_research(
                 _research_cmd_hint(ticket),
             )
         if status not in required_statuses:
-            if downstream_soft_mode and status in {"pending", "warn"}:
+            if downstream_soft_mode and status in DOWNSTREAM_SOFT_STATUSES:
                 status_softened_warning = f"research_status_{status}_softened"
             else:
                 if status == "pending" and settings.allow_pending_baseline:

@@ -6,7 +6,22 @@ import os
 import sys
 from pathlib import Path
 
-_PLUGIN_ROOT = Path(__file__).resolve().parents[3]
+
+def _detect_plugin_root() -> Path:
+    env_root = (os.getenv("CLAUDE_PLUGIN_ROOT") or "").strip()
+    if env_root:
+        candidate = Path(env_root).expanduser().resolve()
+        if (candidate / "aidd_runtime").is_dir():
+            return candidate
+
+    probe = Path(__file__).resolve()
+    for parent in (probe.parent, *probe.parents):
+        if (parent / "aidd_runtime").is_dir():
+            return parent
+    return probe.parent
+
+
+_PLUGIN_ROOT = _detect_plugin_root()
 os.environ.setdefault("CLAUDE_PLUGIN_ROOT", str(_PLUGIN_ROOT))
 if str(_PLUGIN_ROOT) not in sys.path:
     sys.path.insert(0, str(_PLUGIN_ROOT))
@@ -44,26 +59,68 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    _, target = runtime.require_workflow_root()
-    ticket, context = runtime.require_ticket(
-        target,
-        ticket=getattr(args, "ticket", None),
-        slug_hint=getattr(args, "slug_hint", None),
-    )
+    try:
+        _, target = runtime.resolve_roots()
+    except RuntimeError as exc:
+        print(f"[status] unavailable: {exc}", file=sys.stderr)
+        return 1
+    except FileNotFoundError as exc:
+        print("[status] unavailable")
+        print(f"- Reason: {exc}")
+        print("- Next action: /feature-dev-aidd:aidd-init")
+        print("- Status mode: read-only (no workspace mutations performed)")
+        return 0
+
+    if not (target / "docs").exists():
+        print("[status] unavailable")
+        print(
+            f"- Reason: workflow files not found at {runtime.rel_path(target / 'docs', target)}"
+        )
+        print("- Next action: /feature-dev-aidd:aidd-init")
+        print("- Status mode: read-only (no workspace mutations performed)")
+        return 0
+
+    try:
+        ticket, context = runtime.require_ticket(
+            target,
+            ticket=getattr(args, "ticket", None),
+            slug_hint=getattr(args, "slug_hint", None),
+        )
+    except (ValueError, RuntimeError) as exc:
+        print(f"[status] unavailable: {exc}", file=sys.stderr)
+        return 1
     slug = context.slug_hint or ticket
 
-    from aidd_runtime import index_sync as _index_sync
     from aidd_runtime.reports import events as _events
     from aidd_runtime.reports import tests_log as _tests_log
 
     index_path = target / "docs" / "index" / f"{ticket}.json"
-    if args.refresh or not index_path.exists():
+    if args.refresh:
+        from aidd_runtime import index_sync as _index_sync
+
         _index_sync.write_index(target, ticket, slug)
+    elif not index_path.exists():
+        rel_index = runtime.rel_path(index_path, target)
+        print(f"[status] {ticket}")
+        print(f"- Index snapshot missing: {rel_index}")
+        print(
+            f"- Next action: python3 ${{CLAUDE_PLUGIN_ROOT}}/skills/status/runtime/status.py --ticket {ticket} --refresh"
+        )
+        print("- Status mode: read-only (no workspace mutations performed)")
+        return 0
 
     try:
         index_payload = json.loads(index_path.read_text(encoding="utf-8"))
-    except Exception:
-        index_payload = {}
+    except Exception as exc:
+        print(
+            f"[status] unavailable: failed to read {runtime.rel_path(index_path, target)} ({exc})",
+            file=sys.stderr,
+        )
+        print(
+            f"[status] next action: python3 ${{CLAUDE_PLUGIN_ROOT}}/skills/status/runtime/status.py --ticket {ticket} --refresh",
+            file=sys.stderr,
+        )
+        return 1
 
     stage = index_payload.get("stage") or ""
     summary = index_payload.get("summary") or ""

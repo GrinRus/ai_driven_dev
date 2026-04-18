@@ -1,5 +1,6 @@
 import datetime as dt
 import json
+import os
 import pathlib
 from pathlib import Path
 import subprocess
@@ -1220,6 +1221,53 @@ def test_documents_are_not_blocked(tmp_path):
 
     result = run_hook(tmp_path, "gate-workflow.sh", DOC_PAYLOAD)
     assert result.returncode == 0, result.stderr
+
+
+def test_missing_aidd_docs_allows_read_only_stop_without_changes(tmp_path):
+    git_init(tmp_path)
+    git_config_user(tmp_path)
+
+    result = subprocess.run(
+        [str(HOOKS_DIR / "gate-workflow.sh")],
+        input="{}",
+        text=True,
+        capture_output=True,
+        cwd=tmp_path,
+        env={
+            **dict(os.environ),
+            "CLAUDE_PLUGIN_ROOT": str(HOOKS_DIR.parent),
+            "PYTHONDONTWRITEBYTECODE": "1",
+        },
+    )
+    assert result.returncode == 0, result.stderr
+    combined = result.stdout + result.stderr
+    assert "Read-only flow allowed before bootstrap" in combined
+    assert "/feature-dev-aidd:aidd-init" in combined
+
+
+def test_missing_aidd_docs_allows_read_only_stop_with_audit_only_changes(tmp_path):
+    git_init(tmp_path)
+    git_config_user(tmp_path)
+    audit_log = tmp_path / ".aidd_audit" / "TST-001" / "run.log"
+    audit_log.parent.mkdir(parents=True, exist_ok=True)
+    audit_log.write_text("telemetry\n", encoding="utf-8")
+
+    result = subprocess.run(
+        [str(HOOKS_DIR / "gate-workflow.sh")],
+        input="{}",
+        text=True,
+        capture_output=True,
+        cwd=tmp_path,
+        env={
+            **dict(os.environ),
+            "CLAUDE_PLUGIN_ROOT": str(HOOKS_DIR.parent),
+            "PYTHONDONTWRITEBYTECODE": "1",
+        },
+    )
+    assert result.returncode == 0, result.stderr
+    combined = result.stdout + result.stderr
+    assert "Read-only flow allowed before bootstrap" in combined
+    assert "BLOCK: aidd/docs not found" not in combined
 
 
 def test_loop_preflight_missing_does_not_block_docs_only_when_stage_active(tmp_path):

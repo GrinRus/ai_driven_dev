@@ -9,14 +9,28 @@ import sys
 from pathlib import Path
 from typing import List, Optional
 
+import os
 
 
-try:
-    from aidd_runtime._bootstrap import ensure_repo_root
-except ImportError:  # pragma: no cover - direct script execution
-    from _bootstrap import ensure_repo_root
+def _ensure_plugin_root_on_path() -> None:
+    env_root = os.environ.get("CLAUDE_PLUGIN_ROOT", "").strip()
+    if env_root:
+        root = Path(env_root).resolve()
+        if (root / "aidd_runtime").is_dir():
+            if str(root) not in sys.path:
+                sys.path.insert(0, str(root))
+            return
 
-ensure_repo_root(__file__)
+    probe = Path(__file__).resolve()
+    for parent in (probe.parent, *probe.parents):
+        if (parent / "aidd_runtime").is_dir():
+            os.environ.setdefault("CLAUDE_PLUGIN_ROOT", str(parent))
+            if str(parent) not in sys.path:
+                sys.path.insert(0, str(parent))
+            return
+
+
+_ensure_plugin_root_on_path()
 
 from aidd_runtime import cache_helpers
 from aidd_runtime import runtime
@@ -33,6 +47,7 @@ OPEN_ITEM_PREFIX_RE = re.compile(r"^(?:[-*+]\s+|\d+\.\s+)")
 CHECKBOX_PREFIX_RE = re.compile(r"^\[[ xX]\]\s*")
 NONE_VALUES = {"none", "нет", "n/a", "na"}
 INVALID_ANSWER_VALUES = {"tbd", "todo", "none", "нет", "n/a", "na", "empty", "unknown", "-", "?"}
+FENCE_MARKER_RE = re.compile(r"^\s*(```+|~~~+)")
 
 
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
@@ -121,6 +136,37 @@ def _collect_compact_answers(section: str) -> dict[int, str]:
     return answers
 
 
+def _prepare_answers_source(section: str | None) -> str:
+    if not section:
+        return ""
+
+    lines: list[str] = []
+    in_fence = False
+    fence_marker = ""
+    for raw in section.splitlines():
+        stripped = raw.strip()
+        fence_match = FENCE_MARKER_RE.match(raw)
+        if fence_match:
+            marker = str(fence_match.group(1) or "")[:3]
+            if not in_fence:
+                in_fence = True
+                fence_marker = marker
+            elif marker == fence_marker:
+                in_fence = False
+                fence_marker = ""
+            continue
+        if in_fence:
+            continue
+        if not stripped or stripped.startswith(">"):
+            continue
+        if stripped.startswith("<!--") or stripped.endswith("-->"):
+            continue
+        if stripped.startswith("`") and stripped.endswith("`") and len(stripped) > 1:
+            continue
+        lines.append(raw)
+    return "\n".join(lines).strip()
+
+
 def _soften_block_for_docs_only(message: str, *, reason_code: str) -> int:
     rendered = message.strip()
     if rendered.startswith("BLOCK:"):
@@ -182,9 +228,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         if docs_only_mode:
             return _soften_block_for_docs_only(message, reason_code="prd_open_questions_present")
         raise SystemExit(message)
-    answers_section = _extract_section(text, AIDD_ANSWERS_HEADING) or ""
-    answers_map = _collect_compact_answers(answers_section)
-    if answers_section.strip() and not answers_map:
+    answers_section = _extract_section(text, AIDD_ANSWERS_HEADING)
+    answers_source = _prepare_answers_source(answers_section)
+    had_answers_section_content = bool((answers_section or "").strip())
+    answers_map = _collect_compact_answers(answers_source)
+    if (had_answers_section_content and not answers_source.strip()) or (answers_source.strip() and not answers_map):
         message = "BLOCK: AIDD:ANSWERS должен быть в compact формате `Q<N>=<value>`."
         if docs_only_mode:
             return _soften_block_for_docs_only(message, reason_code="answers_format_invalid")

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -78,6 +79,97 @@ class AiddAuditRunnerTests(unittest.TestCase):
             summary_path=FIXTURES / "07_loop_run_run1.summary.txt",
             run_log_path=FIXTURES / "07_loop_run_run1.log",
         )
+        self.assertEqual(payload.get("classification"), "ENV_MISCONFIG")
+        self.assertEqual(payload.get("classification_subtype"), "loop_runner_env_missing")
+
+    def test_nested_tool_result_marker_does_not_trigger_loop_runner_env_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "05_plan_new_run2.summary.txt"
+            log_path = Path(tmp) / "05_plan_new_run2.log"
+            summary_path.write_text(
+                "\n".join(
+                    [
+                        "step=05_plan_new",
+                        "exit_code=0",
+                        "result_count=1",
+                        "top_level_result=1",
+                        "top_level_status=pending",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            log_path.write_text(
+                "\n".join(
+                    [
+                        '{"type":"user","message":{"content":[{"type":"tool_result","content":"claude_plugin_root (or aidd_plugin_dir) is required"}]}}',
+                        '{"type":"result","subtype":"success","result":"**Status: PENDING** validator gaps remain"}',
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(summary_path=summary_path, run_log_path=log_path)
+        self.assertNotEqual(payload.get("classification_subtype"), "loop_runner_env_missing")
+        self.assertEqual(payload.get("classification"), "TELEMETRY_ONLY")
+        self.assertEqual(payload.get("classification_subtype"), "top_level_pending")
+
+    def test_exit_zero_completed_termination_does_not_map_to_parent_terminated(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "05_plan_new_run2.summary.txt"
+            log_path = Path(tmp) / "05_plan_new_run2.log"
+            termination_path = Path(tmp) / "05_plan_new_termination_attribution.txt"
+            summary_path.write_text(
+                "\n".join(
+                    [
+                        "step=05_plan_new",
+                        "exit_code=0",
+                        "effective_exit_code=0",
+                        "result_count=1",
+                        "top_level_result=1",
+                        "top_level_status=pending",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            log_path.write_text('{"type":"result","subtype":"success","result":"**Status: PENDING** validator gaps remain"}\n', encoding="utf-8")
+            termination_path.write_text(
+                "\n".join(
+                    [
+                        "exit_code=0",
+                        "killed_flag=0",
+                        "watchdog_marker=0",
+                        "classification=completed",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(
+                summary_path=summary_path,
+                run_log_path=log_path,
+                termination_path=termination_path,
+            )
+        self.assertNotEqual(payload.get("classification_subtype"), "parent_terminated_or_external_terminate")
+        self.assertEqual(payload.get("classification"), "TELEMETRY_ONLY")
+        self.assertEqual(payload.get("classification_subtype"), "top_level_pending")
+
+    def test_loop_runner_env_missing_from_summary_reason_code_remains_env_misconfig(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "07_loop_run_run1.summary.txt"
+            summary_path.write_text(
+                "\n".join(
+                    [
+                        "step=07_loop_run",
+                        "exit_code=2",
+                        "reason=claude_plugin_root (or aidd_plugin_dir) is required",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(summary_path=summary_path)
         self.assertEqual(payload.get("classification"), "ENV_MISCONFIG")
         self.assertEqual(payload.get("classification_subtype"), "loop_runner_env_missing")
 
@@ -387,6 +479,9 @@ class AiddAuditRunnerTests(unittest.TestCase):
                         "answered_question_ids=",
                         "unanswered_question_ids=Q4",
                         "question_retry_incomplete=1",
+                        "question_trigger_required=1",
+                        "question_trigger_source=result_text_questions",
+                        "question_trigger_confidence=high",
                     ]
                 )
                 + "\n",
@@ -405,7 +500,181 @@ class AiddAuditRunnerTests(unittest.TestCase):
         self.assertEqual(payload.get("question_cycle_required"), 1)
         self.assertEqual(payload.get("retry_attempted"), 1)
         self.assertEqual(payload.get("pending_question_ids"), ["Q4"])
+        self.assertEqual(payload.get("question_trigger_source"), "result_text_questions")
         self.assertIn("question_retry_incomplete", payload.get("secondary_symptoms") or [])
+
+    def test_persisted_template_questions_with_answers_do_not_trigger_pending_question_closure(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "05_plan_new_run2.summary.txt"
+            log_path = Path(tmp) / "05_plan_new_run2.log"
+            summary_path.write_text(
+                "\n".join(
+                    [
+                        "step=05_plan_new",
+                        "exit_code=0",
+                        "result_count=1",
+                        "top_level_result=1",
+                        "top_level_status=pending",
+                        "question_cycle_required=1",
+                        "pending_question_count=3",
+                        "pending_question_ids=Q1,Q2,Q3",
+                        "retry_attempted=1",
+                        "answered_question_ids=Q1,Q2,Q3",
+                        "unanswered_question_ids=",
+                        "question_retry_incomplete=0",
+                        "question_source=persisted_doc",
+                        "question_trigger_required=0",
+                        "question_trigger_source=none",
+                        "question_trigger_confidence=none",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            log_path.write_text(
+                '{"type":"result","subtype":"success","result":"## Stage Result: `plan`\\n\\n**Status: PENDING**\\n\\nValidator gaps found."}\n',
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(summary_path=summary_path, run_log_path=log_path)
+        self.assertNotEqual(payload.get("rollup_outcome"), "pending_question_closure")
+        self.assertNotEqual(payload.get("effective_terminal_status"), "PENDING(question_closure_required)")
+        self.assertEqual(payload.get("has_unresolved_questions"), 0)
+
+    def test_tst001_regression_path_does_not_cascade_to_upstream_plan_qna_unresolved(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            idea_summary = root / "05_idea_new_run2.summary.txt"
+            idea_log = root / "05_idea_new_run2.log"
+            research_summary = root / "05_researcher_run2.summary.txt"
+            research_log = root / "05_researcher_run2.log"
+            plan_summary = root / "05_plan_new_run2.summary.txt"
+            plan_log = root / "05_plan_new_run2.log"
+            precondition_path = root / "05_precondition_block.txt"
+
+            idea_summary.write_text(
+                "\n".join(
+                    [
+                        "step=05_idea_new",
+                        "run=2",
+                        "exit_code=0",
+                        "result_count=1",
+                        "top_level_result=1",
+                        "top_level_status=",
+                        "question_cycle_required=0",
+                        "pending_question_count=0",
+                        "pending_question_ids=",
+                        "retry_attempted=1",
+                        "answered_question_ids=Q1,Q2,Q3",
+                        "unanswered_question_ids=",
+                        "question_retry_incomplete=0",
+                        "question_source=none",
+                        "question_trigger_required=0",
+                        "question_trigger_source=none",
+                        "question_trigger_confidence=none",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            idea_log.write_text('{"type":"result","subtype":"success","result":"**TST-001 idea stage: READY**"}\n', encoding="utf-8")
+
+            research_summary.write_text(
+                "\n".join(
+                    [
+                        "step=05_researcher",
+                        "run=2",
+                        "exit_code=0",
+                        "result_count=1",
+                        "top_level_result=1",
+                        "top_level_status=",
+                        "question_cycle_required=0",
+                        "pending_question_count=0",
+                        "pending_question_ids=",
+                        "retry_attempted=1",
+                        "answered_question_ids=Q1,Q2,Q3",
+                        "unanswered_question_ids=",
+                        "question_retry_incomplete=0",
+                        "question_source=none",
+                        "question_trigger_required=0",
+                        "question_trigger_source=none",
+                        "question_trigger_confidence=none",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            research_log.write_text(
+                '{"type":"result","subtype":"success","result":"Research pipeline for TST-001 completed successfully. RLM Status: ready"}\n',
+                encoding="utf-8",
+            )
+
+            plan_summary.write_text(
+                "\n".join(
+                    [
+                        "step=05_plan_new",
+                        "run=2",
+                        "exit_code=0",
+                        "result_count=1",
+                        "top_level_result=1",
+                        "top_level_status=pending",
+                        "question_cycle_required=1",
+                        "pending_question_count=3",
+                        "pending_question_ids=Q1,Q2,Q3",
+                        "retry_attempted=1",
+                        "answered_question_ids=Q1,Q2,Q3",
+                        "unanswered_question_ids=",
+                        "question_retry_incomplete=0",
+                        "question_source=persisted_doc",
+                        "question_trigger_required=0",
+                        "question_trigger_source=none",
+                        "question_trigger_confidence=none",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            plan_log.write_text(
+                '{"type":"result","subtype":"success","result":"## Stage Result: `plan`\\n\\n**Status: PENDING**\\n\\nValidator gaps found."}\n',
+                encoding="utf-8",
+            )
+            precondition_path.write_text(
+                "\n".join(
+                    [
+                        "prd_status=READY",
+                        "open_questions_count=0",
+                        "answers_format=compact_q_values",
+                        "research_status=reviewed",
+                        "research_warn_scope=none",
+                        "readiness_gate=PASS",
+                        "reason_code=-",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            idea_payload = self.runner.analyze_run(
+                summary_path=idea_summary,
+                run_log_path=idea_log,
+                precondition_path=precondition_path,
+            )
+            research_payload = self.runner.analyze_run(
+                summary_path=research_summary,
+                run_log_path=research_log,
+                precondition_path=precondition_path,
+            )
+            plan_payload = self.runner.analyze_run(
+                summary_path=plan_summary,
+                run_log_path=plan_log,
+                precondition_path=precondition_path,
+            )
+            rolled = self.runner.rollup_latest_runs([idea_payload, research_payload, plan_payload])
+
+        steps = rolled.get("steps") or {}
+        self.assertNotEqual((steps.get("05_idea_new") or {}).get("rollup_outcome"), "pending_question_closure")
+        self.assertNotEqual((steps.get("05_researcher") or {}).get("rollup_outcome"), "pending_question_closure")
+        self.assertNotEqual((steps.get("05_plan_new") or {}).get("rollup_outcome"), "pending_question_closure")
+        self.assertNotIn("upstream_plan_qna_unresolved", json.dumps(rolled, ensure_ascii=False))
 
     def test_project_contract_reason_overrides_exit_143_external_terminate(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -92,6 +92,34 @@ def test_index_sync_includes_pack_variants(tmp_path):
     assert qa_check.get("status") == "WARN"
 
 
+def test_index_sync_ignores_template_none_and_guidance_in_open_questions(tmp_path):
+    project_root = ensure_project_root(tmp_path)
+    write_active_feature(project_root, "DEMO-2A")
+    write_active_stage(project_root, "idea")
+    write_file(project_root, "docs/tasklist/DEMO-2A.md", "## AIDD:CONTEXT_PACK\n- Demo\n")
+    write_file(
+        project_root,
+        "docs/prd/DEMO-2A.prd.md",
+        dedent(
+            """
+            # Demo PRD
+
+            ## AIDD:OPEN_QUESTIONS
+            - `none`
+            > Номера `Q` синхронизируй с `Вопрос N` из «Диалог analyst».
+            > Если ответ зафиксирован, перенеси пункт в `AIDD:DECISIONS`.
+            """
+        ).strip()
+        + "\n",
+    )
+
+    index_path = index_sync.write_index(project_root, "DEMO-2A", "DEMO-2A")
+    payload = json.loads(index_path.read_text(encoding="utf-8"))
+
+    assert payload["open_questions"] == []
+    assert payload["open_questions_source"] == "none"
+
+
 class IndexSyncEventTests(unittest.TestCase):
     def test_index_sync_includes_events(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

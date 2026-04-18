@@ -11,14 +11,29 @@ import re
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional
 
+import os
+import sys
 
 
-try:
-    from aidd_runtime._bootstrap import ensure_repo_root
-except ImportError:  # pragma: no cover - direct script execution
-    from _bootstrap import ensure_repo_root
+def _ensure_plugin_root_on_path() -> None:
+    env_root = os.environ.get("CLAUDE_PLUGIN_ROOT", "").strip()
+    if env_root:
+        root = Path(env_root).resolve()
+        if (root / "aidd_runtime").is_dir():
+            if str(root) not in sys.path:
+                sys.path.insert(0, str(root))
+            return
 
-ensure_repo_root(__file__)
+    probe = Path(__file__).resolve()
+    for parent in (probe.parent, *probe.parents):
+        if (parent / "aidd_runtime").is_dir():
+            os.environ.setdefault("CLAUDE_PLUGIN_ROOT", str(parent))
+            if str(parent) not in sys.path:
+                sys.path.insert(0, str(parent))
+            return
+
+
+_ensure_plugin_root_on_path()
 
 from aidd_runtime import runtime
 from aidd_runtime import artifact_truth
@@ -43,6 +58,9 @@ REQUIRED_FIELDS = [
 
 SECTION_RE = re.compile(r"^##\s+(AIDD:[A-Z0-9_]+)\b", re.IGNORECASE)
 HEADING_RE = re.compile(r"^##\s+")
+OPEN_ITEM_PREFIX_RE = re.compile(r"^(?:[-*+]\s+|\d+\.\s+)")
+CHECKBOX_PREFIX_RE = re.compile(r"^\[[ xX]\]\s*")
+NONE_VALUES = {"none", "нет", "n/a", "na"}
 
 
 def _read_text(path: Path) -> str:
@@ -69,6 +87,31 @@ def _extract_section(md: str, name: str) -> List[str]:
             break
         if line.strip():
             collected.append(line.strip())
+    return collected
+
+
+def _normalize_section_item(line: str) -> str:
+    normalized = OPEN_ITEM_PREFIX_RE.sub("", line.strip())
+    normalized = CHECKBOX_PREFIX_RE.sub("", normalized).strip()
+    if normalized.startswith("`") and normalized.endswith("`") and len(normalized) > 1:
+        normalized = normalized[1:-1].strip()
+    if normalized.startswith("**") and normalized.endswith("**") and len(normalized) > 3:
+        normalized = normalized[2:-2].strip()
+    if normalized.startswith("__") and normalized.endswith("__") and len(normalized) > 3:
+        normalized = normalized[2:-2].strip()
+    return normalized
+
+
+def _extract_open_questions(md: str) -> List[str]:
+    collected: List[str] = []
+    for raw in _extract_section(md, "AIDD:OPEN_QUESTIONS"):
+        stripped = raw.strip()
+        if not stripped or stripped.startswith(">"):
+            continue
+        normalized = _normalize_section_item(stripped)
+        if not normalized or normalized.casefold() in NONE_VALUES:
+            continue
+        collected.append(stripped)
     return collected
 
 
@@ -231,10 +274,10 @@ def build_index(root: Path, ticket: str, slug: str) -> Dict[str, object]:
     prd_text = _read_text(prd_path)
 
     next3 = _extract_section(tasklist_text, "AIDD:NEXT_3")
-    open_questions = _extract_section(tasklist_text, "AIDD:OPEN_QUESTIONS")
+    open_questions = _extract_open_questions(tasklist_text)
     open_questions_source = "tasklist"
     if not open_questions:
-        open_questions = _extract_section(prd_text, "AIDD:OPEN_QUESTIONS")
+        open_questions = _extract_open_questions(prd_text)
         if open_questions:
             open_questions_source = "prd:aidd_open_questions"
     if not open_questions:

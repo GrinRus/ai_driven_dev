@@ -138,7 +138,7 @@ def build_stage_skill(stage: str, *, lang: str = "en") -> str:
     prompt_version = "1.0.0"
     source_version = "1.0.0"
     runtime_tool = f"Bash(python3 ${{CLAUDE_PLUGIN_ROOT}}/{STAGE_RUNTIME_ENTRYPOINT[stage]} *)"
-    disable_invocation = "false" if stage == "status" else "true"
+    disable_invocation = "true"
     loop_ref = " and `feature-dev-aidd:aidd-loop`" if stage in {"implement", "review", "qa"} else ""
 
     lines = [

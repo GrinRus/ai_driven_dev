@@ -250,6 +250,43 @@ def test_ready_allows_aidd_open_questions_none(tmp_path):
     assert summary.status == "READY"
 
 
+def test_template_answer_examples_do_not_count_as_real_answers(tmp_path):
+    project = tmp_path / "aidd"
+    project.mkdir(parents=True, exist_ok=True)
+    ensure_gates_config(project)
+    slug = "demo"
+    prd = """# PRD\n\n## Диалог analyst\nStatus: BLOCKED\nСсылка: docs/research/demo.md\n\nВопрос 1: Что уточнить?\n\n## AIDD:ANSWERS\n> Единый формат ответов из чата.\n> Используй только compact формат.\n`AIDD:ANSWERS Q1=A`\n`AIDD:ANSWERS Q1=A; Q2=\"нужен режим без кэша\"`\n"""
+    _write_prd(project, slug, prd)
+    _write_research(project, slug, status="pending")
+    settings = load_settings(project)
+
+    with pytest.raises(AnalystValidationError) as excinfo:
+        validate_prd(project, slug, settings=settings)
+
+    message = str(excinfo.value)
+    assert "отсутствуют ответы" in message
+    assert "ответы без соответствующих вопросов" not in message
+    assert "AIDD:ANSWERS должен быть в compact формате" not in message
+
+
+def test_template_answer_examples_in_tilde_fence_do_not_count_as_real_answers(tmp_path):
+    project = tmp_path / "aidd"
+    project.mkdir(parents=True, exist_ok=True)
+    ensure_gates_config(project)
+    slug = "demo"
+    prd = """# PRD\n\n## Диалог analyst\nStatus: BLOCKED\nСсылка: docs/research/demo.md\n\nВопрос 1: Что уточнить?\n\n## AIDD:ANSWERS\n~~~md\nAIDD:ANSWERS Q1=A\nAIDD:ANSWERS Q1=A; Q2=\\"нужен режим без кэша\\"\n~~~\n"""
+    _write_prd(project, slug, prd)
+    _write_research(project, slug, status="pending")
+    settings = load_settings(project)
+
+    with pytest.raises(AnalystValidationError) as excinfo:
+        validate_prd(project, slug, settings=settings)
+
+    message = str(excinfo.value)
+    assert "отсутствуют ответы" in message
+    assert "AIDD:ANSWERS должен быть в compact формате" not in message
+
+
 def test_open_questions_q_requires_matching_question(tmp_path):
     project = tmp_path / "aidd"
     project.mkdir(parents=True, exist_ok=True)

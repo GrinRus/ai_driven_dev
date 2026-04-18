@@ -277,12 +277,74 @@ class AiddStageLauncherTests(unittest.TestCase):
                 encoding="utf-8",
             )
             payload = self.launcher.extract_question_cycle(
-                log_text=json_line({"type": "result", "subtype": "success", "result": "**PENDING**"}),
+                log_text=json_line(
+                    {
+                        "type": "result",
+                        "subtype": "success",
+                        "result": "**PENDING** — answer Q4 in AIDD:ANSWERS",
+                    }
+                ),
                 project_dir=project_dir,
                 ticket="TST-001",
             )
         self.assertEqual(payload["source"], "persisted_doc")
         self.assertEqual(payload["pending_question_ids"], ["Q4"])
+        self.assertEqual(payload["question_trigger_required"], 1)
+        self.assertEqual(payload["question_trigger_source"], "result_text_signal")
+
+    def test_extract_question_cycle_persisted_doc_ignores_historical_questions_when_open_questions_none(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project_dir = Path(tmp)
+            prd_path = project_dir / "aidd" / "docs" / "prd" / "TST-001.prd.md"
+            prd_path.parent.mkdir(parents=True, exist_ok=True)
+            prd_path.write_text(
+                (
+                    "# PRD\n\n"
+                    "## Диалог analyst\n"
+                    "Вопрос 1: Already answered.\n"
+                    "Вопрос 2: Already answered.\n\n"
+                    "## AIDD:ANSWERS\n"
+                    "AIDD:ANSWERS Q1=A; Q2=B\n\n"
+                    "## AIDD:OPEN_QUESTIONS\n"
+                    "- none\n"
+                ),
+                encoding="utf-8",
+            )
+            payload = self.launcher.extract_question_cycle(
+                log_text=json_line({"type": "result", "subtype": "success", "result": "**PENDING** validation gaps remain"}),
+                project_dir=project_dir,
+                ticket="TST-001",
+            )
+        self.assertEqual(payload["source"], "none")
+        self.assertEqual(payload["pending_question_count"], 0)
+        self.assertEqual(payload["pending_question_ids"], [])
+        self.assertEqual(payload["question_trigger_required"], 0)
+        self.assertEqual(payload["question_trigger_source"], "none")
+
+    def test_extract_question_cycle_does_not_use_persisted_doc_without_top_level_trigger(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project_dir = Path(tmp)
+            prd_path = project_dir / "aidd" / "docs" / "prd" / "TST-001.prd.md"
+            prd_path.parent.mkdir(parents=True, exist_ok=True)
+            prd_path.write_text(
+                (
+                    "# PRD\n\n"
+                    "## Диалог analyst\n"
+                    "Вопрос 1: historical entry.\n\n"
+                    "## AIDD:OPEN_QUESTIONS\n"
+                    "- Q1: open\n"
+                ),
+                encoding="utf-8",
+            )
+            payload = self.launcher.extract_question_cycle(
+                log_text=json_line({"type": "result", "subtype": "success", "result": "**READY** stage complete"}),
+                project_dir=project_dir,
+                ticket="TST-001",
+            )
+        self.assertEqual(payload["source"], "none")
+        self.assertEqual(payload["pending_question_count"], 0)
+        self.assertEqual(payload["question_trigger_required"], 0)
+        self.assertEqual(payload["question_trigger_confidence"], "none")
 
     def test_materialize_retry_payload_rejects_partial_answer_map(self) -> None:
         question_cycle = {
@@ -642,11 +704,16 @@ class AiddStageLauncherTests(unittest.TestCase):
             self.assertIn("answered_question_ids=", summary_text)
             self.assertIn("unanswered_question_ids=Q4", summary_text)
             self.assertIn("question_retry_incomplete=1", summary_text)
+            self.assertIn("question_trigger_required=1", summary_text)
+            self.assertIn("question_trigger_source=result_text_questions", summary_text)
+            self.assertIn("question_trigger_confidence=high", summary_text)
             raw_text = (audit_dir / "05_idea_new_questions_raw.txt").read_text(encoding="utf-8")
             normalized_text = (audit_dir / "05_idea_new_questions_normalized.txt").read_text(encoding="utf-8")
             retry_payload_text = (audit_dir / "05_idea_new_retry_payload_run2.txt").read_text(encoding="utf-8")
             self.assertIn("## Q4", raw_text)
+            self.assertIn("question_trigger_required=1", raw_text)
             self.assertIn("Q4|kind=Blocker|default=B|choices=A,B", normalized_text)
+            self.assertIn("question_trigger_source=result_text_questions", normalized_text)
             self.assertIn("retry_attempted=1", retry_payload_text)
             self.assertIn("unanswered_question_ids=Q4", retry_payload_text)
 

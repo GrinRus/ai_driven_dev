@@ -1,58 +1,100 @@
-# Implementation Plan
+# План реализации — шаблон
 
 Status: PENDING
 PRD: `aidd/docs/prd/<ticket>.prd.md`
-Research: `aidd/docs/research/<ticket>.md`
+Primary research evidence: `aidd/reports/research/<ticket>-rlm.pack.json`
+Research narrative: `aidd/docs/research/<ticket>.md` (reference only; consult on demand)
+Context pack: `aidd/reports/context/<ticket>.pack.md` (optional; only if PRD + RLM pack are insufficient)
 
 ## AIDD:CONTEXT_PACK
-- `<plan summary>`
+- `<краткий контекст итерации>`
 
 ## AIDD:NON_NEGOTIABLES
-- `<must keep true>`
+- `<что нельзя нарушать>`
 
 ## AIDD:OPEN_QUESTIONS
-- `PRD Q1 -> <owner> -> <deadline>` or `none`
+- `PRD Q1 → <кто отвечает> → <срок>`
+- `<новый вопрос> → <кто отвечает> → <срок>`
+> Если вопрос уже есть в PRD `AIDD:OPEN_QUESTIONS`, не повторяй текст — укажи ссылку `PRD QN`.
 
 ## AIDD:ANSWERS
-`AIDD:ANSWERS Q1=A`
+> Единый формат ответов из чата (если вопросы были).
+`AIDD:ANSWERS Q1=A; Q2="нужен режим без кэша"`
 
 ## AIDD:RISKS
-- `<risk> -> <mitigation>`
+- `<риск> → <митигация>`
 
 ## AIDD:DECISIONS
-- `<decision> -> <why>`
+- `<решение> → <почему>`
 
 ## AIDD:DESIGN
-- `<layers, boundaries, reuse>`
+- `<ключевые слои/границы>`
 
 ## AIDD:FILES_TOUCHED
-- `<path> -> <change>`
+- `<путь/модуль> — <что меняем>`
 
 ## AIDD:ITERATIONS
 - iteration_id: I1
-  - Goal: <bounded goal>
-  - Boundaries: <paths/modules>
-  - Outputs: <artifacts>
-  - DoD: <done criteria>
+  - Goal: <цель итерации>
+  - Boundaries: <модули/границы>
+  - Outputs: <артефакты>
+  - DoD: <критерий готовности>
   - Test categories: <unit|integration|e2e>
 
 ## AIDD:TEST_STRATEGY
-- `<what gets tested where>`
+- `<что/где/как тестируем>`
 
-## Summary
-- Scope: `<in / out>`
-- Constraints: `<technical or process>`
-- Flags / migrations: `<none or list>`
-- Observability: `<logs, metrics, alerts>`
+## 1. Контекст и цели
+- **Цель:** [кратко]
+- **Scope:** [что в/что вне]
+- **Ограничения:** [тех/процессные]
+
+## 2. Дизайн и паттерны
+- **Слои/границы:** [domain/app/infra]
+- **Паттерны:** [service layer / ports-adapters / другое]
+- **Reuse-точки:** [что используем]
+
+## 3. Files & Modules Touched
+- [путь/модуль] — [что меняем]
+
+## 4. Итерации и DoD
+### Итерация I1
+- Goal: [что именно делаем]
+- Boundaries: [модули/пути, где меняем]
+- Outputs: [артефакты итерации]
+- DoD: [критерии готовности]
+- Test categories: [unit/integration/e2e]
+
+### Итерация I2
+- ...
+
+## 5. Test Strategy
+- По итерациям: [что/где тестируем]
+- Категории: [unit/integration/e2e]
+
+## 6. Feature Flags & Migrations
+- Флаги: [название/поведение]
+- Миграции: [что/где]
+
+## 7. Observability
+- Логи/метрики/алерты: [что добавляем]
+
+## 8. Риски
+- [риск] → [митигация]
+
+## 9. Открытые вопросы
+- [вопрос] → [ответственный] → [срок]
 
 ## Plan Review
 Status: PENDING
+Note: Action items must live under `### Action items`. Avoid checkboxes elsewhere in Plan Review.
 
-### Verdict
-- `<short verdict>`
+### Summary
+- [краткий вывод]
 
 ### Findings
-- `<severity> <issue> -> <recommendation>` or `None`
+- [severity] [проблема] — [рекомендация]
 
 ### Action items
-- `<action> -> <owner> -> <deadline>` or `None`
+- None
+- <действие> — <ответственный> — <срок>

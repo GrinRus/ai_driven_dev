@@ -718,6 +718,26 @@ def _apply_recoverable_block_recovery(
     return "retry_without_state", ""
 
 
+def _apply_scope_completion_handoff(
+    *,
+    target: Path,
+    ticket: str,
+    stage: str,
+    work_item_key: str,
+    chosen_scope: str,
+) -> Tuple[str, str]:
+    if stage not in {"review", "qa"}:
+        return "", ""
+    active_work_item = str(work_item_key or "").strip()
+    if not runtime.is_valid_work_item_key(active_work_item):
+        active_work_item = _scope_to_work_item_key(chosen_scope)
+    if not runtime.is_iteration_work_item_key(active_work_item):
+        return "", ""
+    write_active_state(target, ticket=ticket, work_item=active_work_item)
+    write_active_stage(target, "implement")
+    return "handoff_to_implement", active_work_item
+
+
 def _latest_valid_stage_result_candidate(target: Path, ticket: str, stage: str) -> tuple[str, str]:
     if stage not in {"implement", "review", "qa"}:
         return "", ""
@@ -1111,7 +1131,7 @@ def _ralph_recoverable_semantics(
     return {
         "ralph_policy_version": loop_block_policy.RALPH_POLICY_VERSION,
         "ralph_reason_class": normalized_class,
-        "ralph_recoverable_reason_scope": "policy_matrix_v2",
+        "ralph_recoverable_reason_scope": "policy_matrix_v3",
         "ralph_recoverable_expected": expected,
         "ralph_recoverable_exercised": exercised,
         "ralph_recoverable_not_exercised": not exercised,
@@ -1146,10 +1166,10 @@ def main(argv: List[str] | None = None) -> int:
     research_gate_softened = False
     research_gate_soft_reason = ""
     research_gate_soft_policy = "always"
-    stage_budget_starts: Dict[str, float] = {}
     recoverable_retry_attempt = 0
     last_recovery_path = ""
     scope_drift_recovery_probe_used = False
+    scope_completion_handoffs_used: set[str] = set()
     last_command_failure_signature = ""
     consecutive_command_failure_hits = 0
     last_policy_block_signature = ""
@@ -1449,93 +1469,7 @@ def main(argv: List[str] | None = None) -> int:
             getattr(args, "stage_budget_seconds", None),
             active_stage_for_budget,
         )
-        now_ts = time.time()
-        stage_started_at = stage_budget_starts.get(active_stage_for_budget)
-        if stage_started_at is None:
-            stage_started_at = now_ts
-            stage_budget_starts[active_stage_for_budget] = stage_started_at
-        stage_elapsed_seconds = max(now_ts - stage_started_at, 0.0)
-        stage_budget_remaining_seconds = (
-            max(int(stage_budget_seconds - stage_elapsed_seconds), 0)
-            if stage_budget_seconds > 0
-            else 0
-        )
-
-        if stage_budget_seconds > 0 and stage_budget_remaining_seconds <= 0:
-            reason_code = "seed_stage_budget_exhausted"
-            reason = (
-                f"{active_stage_for_budget} stage budget exhausted "
-                f"({stage_budget_seconds}s, elapsed={int(stage_elapsed_seconds)}s)"
-            )
-            active_work_item = str(runtime.read_active_work_item(target) or "").strip()
-            if active_stage_for_budget == "qa":
-                budget_scope_key = runtime.resolve_scope_key("", ticket)
-            else:
-                budget_scope_key = runtime.resolve_scope_key(active_work_item, ticket)
-            termination_attribution = _build_termination_attribution(
-                exit_code=143,
-                classification="watchdog_terminated",
-                killed_flag=True,
-                watchdog_marker=True,
-            )
-            stream_liveness = {
-                "main_log_path": runtime.rel_path(log_path, target),
-                "main_log_bytes": _safe_size(log_path),
-                "main_log_updated_at": _safe_updated_at(log_path),
-                "step_stream_log_bytes": 0,
-                "step_stream_log_updated_at": "",
-                "step_stream_jsonl_bytes": 0,
-                "step_stream_jsonl_updated_at": "",
-                "observability_degraded": False,
-                "stream_path_invalid_count": 0,
-                "stream_path_invalid": [],
-                "active_source": "none",
-            }
-            payload = {
-                "status": "blocked",
-                "iterations": iteration,
-                "exit_code": BLOCKED_CODE,
-                "log_path": runtime.rel_path(log_path, target),
-                "cli_log_path": runtime.rel_path(cli_log_path, target),
-                "runner_label": runner_label,
-                "blocked_policy": blocked_policy,
-                "stream_log_path": runtime.rel_path(stream_log_path, target) if stream_log_path else "",
-                "stream_jsonl_path": runtime.rel_path(stream_jsonl_path, target) if stream_jsonl_path else "",
-                "reason": reason,
-                "reason_code": reason_code,
-                "scope_key": budget_scope_key,
-                "work_item_key": active_work_item or None,
-                "recoverable_blocked": False,
-                "retry_attempt": recoverable_retry_attempt,
-                "recoverable_retry_budget": recoverable_retry_budget,
-                "runner_cmd": str(args.runner or os.environ.get("AIDD_LOOP_RUNNER") or "claude").strip() or "claude",
-                "stage": active_stage_for_budget,
-                "stage_budget_seconds": stage_budget_seconds,
-                "stage_budget_remaining_seconds": 0,
-                "budget_exhausted": True,
-                "watchdog_marker": 1,
-                "termination_attribution": termination_attribution,
-                "stream_liveness": stream_liveness,
-                "updated_at": utc_timestamp(),
-            }
-            append_log(
-                log_path,
-                (
-                    f"{utc_timestamp()} iteration={iteration} status=blocked stage={active_stage_for_budget} "
-                    f"reason_code={reason_code} stage_budget_seconds={stage_budget_seconds} "
-                    f"stage_elapsed_seconds={int(stage_elapsed_seconds)} watchdog_marker=1"
-                ),
-            )
-            append_log(
-                cli_log_path,
-                (
-                    f"{utc_timestamp()} event=blocked iteration={iteration} "
-                    f"reason_code={reason_code} stage={active_stage_for_budget}"
-                ),
-            )
-            clear_active_mode(target)
-            _emit_payload(payload)
-            return BLOCKED_CODE
+        stage_budget_remaining_seconds = stage_budget_seconds if stage_budget_seconds > 0 else 0
 
         if stream_mode:
             watchdog_timeout_seconds = max(step_timeout_seconds, 1)
@@ -1812,6 +1746,7 @@ def main(argv: List[str] | None = None) -> int:
         warn_continue_blocked = bool(step_status == "blocked" and reason_class == "warn_continue" and blocked_policy == "ralph")
         if step_status == "blocked":
             step_payload = dict(step_payload)
+            step_payload["reason_code"] = log_reason_code
             step_payload["ralph_reason_class"] = reason_class
             step_payload["ralph_policy_version"] = (
                 loop_block_policy.RALPH_POLICY_VERSION
@@ -2330,7 +2265,7 @@ def main(argv: List[str] | None = None) -> int:
                     (
                         f"{utc_timestamp()} event=warn-continue iteration={iteration} "
                         f"reason_code={log_reason_code} ralph_reason_class={reason_class} "
-                        "classification=policy_matrix_v2_warn_continue"
+                        "classification=policy_matrix_v3_warn_continue"
                     ),
                 )
                 append_log(
@@ -2392,6 +2327,54 @@ def main(argv: List[str] | None = None) -> int:
                 if sleep_seconds:
                     time.sleep(sleep_seconds)
                 continue
+            scope_completion_handoff_allowed = False
+            scope_completion_work_item = str(step_work_item or "").strip()
+            if blocked_policy == "ralph" and recoverable_blocked and step_stage in {"review", "qa"}:
+                if not runtime.is_valid_work_item_key(scope_completion_work_item):
+                    scope_completion_work_item = _scope_to_work_item_key(str(chosen_scope or ""))
+                scope_completion_handoff_allowed = (
+                    runtime.is_iteration_work_item_key(scope_completion_work_item)
+                    and scope_completion_work_item not in scope_completion_handoffs_used
+                )
+            if scope_completion_handoff_allowed:
+                recovery_path, recovery_work_item = _apply_scope_completion_handoff(
+                    target=target,
+                    ticket=ticket,
+                    stage=step_stage,
+                    work_item_key=scope_completion_work_item,
+                    chosen_scope=str(chosen_scope or ""),
+                )
+                if recovery_path:
+                    scope_completion_handoffs_used.add(recovery_work_item or scope_completion_work_item)
+                    last_recovery_path = recovery_path
+                    step_payload = dict(step_payload)
+                    step_payload["recoverable_blocked"] = True
+                    step_payload["retry_attempt"] = recoverable_retry_attempt
+                    step_payload["recovery_path"] = recovery_path
+                    step_payload["blocked_policy"] = blocked_policy
+                    step_payload["recovery_work_item"] = recovery_work_item or None
+                    step_payload["ralph_policy_version"] = loop_block_policy.RALPH_POLICY_VERSION
+                    step_payload["ralph_reason_class"] = reason_class
+                    step_payload["scope_completion_handoff"] = True
+                    last_payload = step_payload
+                    append_log(
+                        log_path,
+                        (
+                            f"{utc_timestamp()} event=scope-completion-handoff iteration={iteration} "
+                            f"reason_code={log_reason_code} recovery_path={recovery_path} "
+                            f"recovery_work_item={recovery_work_item or 'n/a'}"
+                        ),
+                    )
+                    append_log(
+                        cli_log_path,
+                        (
+                            f"{utc_timestamp()} event=scope-completion-handoff iteration={iteration} "
+                            f"reason_code={log_reason_code} recovery_path={recovery_path}"
+                        ),
+                    )
+                    if sleep_seconds:
+                        time.sleep(sleep_seconds)
+                    continue
             if log_reason_code == "scope_drift_recoverable" and not scope_drift_probe_allowed:
                 append_log(
                     log_path,

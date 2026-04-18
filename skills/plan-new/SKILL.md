@@ -28,13 +28,15 @@ Follow `feature-dev-aidd:aidd-core`.
 1. Set active stage `plan` and active feature.
 2. Run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan-new/runtime/research_check.py --ticket <ticket>`.
 3. Gate readiness with `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/prd_check.py` and `python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan-new/runtime/research_check.py`; block early if either fails.
-4. Use the existing rolling context pack as input evidence; do not invoke standalone context-pack builder scripts from this stage.
-5. Runtime-path safety: execute only canonical runtime commands from this contract (`python3 ${CLAUDE_PLUGIN_ROOT}/skills/.../runtime/...`).
-6. Root-relative `/skills/...` runtime paths are forbidden; use only `${CLAUDE_PLUGIN_ROOT}/skills/.../runtime/...`.
-7. Run subagent `feature-dev-aidd:planner`. The planner is the only writer for `aidd/docs/plan/<ticket>.md`.
-8. Run subagent `feature-dev-aidd:validator`. The validator is read-only and returns the narrative verdict and gap list only.
-9. Final stage readiness is sourced from `prd_check + research_check + validator verdict`; return `/feature-dev-aidd:review-spec <ticket>` only on the ready path.
-10. Otherwise return PENDING or BLOCKED with the validator gaps and the canonical next action for the current stage.
+4. Evidence order is deterministic: read PRD first, then the primary RLM pack (`aidd/reports/research/<ticket>-rlm.pack.json`), and only then the existing rolling context pack when the first two sources are insufficient. Do not invoke standalone context-pack builder scripts from this stage.
+5. Planner first-pass handoff must stay narrow: pass PRD + RLM pack by default, add the rolling context pack only when a concrete gap remains, and keep `aidd/docs/research/<ticket>.md` strictly on-demand. The default planner handoff must not list both the full research markdown and the full context pack together.
+6. Prompt-budget rule: when the first-pass context approaches the model budget, drop lower-priority artifacts instead of widening the evidence set. Drop research markdown first, then context pack, and keep pack/slice-first evidence.
+7. Runtime-path safety: execute only canonical runtime commands from this contract (`python3 ${CLAUDE_PLUGIN_ROOT}/skills/.../runtime/...`).
+8. Root-relative `/skills/...` runtime paths are forbidden; use only `${CLAUDE_PLUGIN_ROOT}/skills/.../runtime/...`.
+9. Run subagent `feature-dev-aidd:planner`. The planner is the only writer for `aidd/docs/plan/<ticket>.md`.
+10. Run subagent `feature-dev-aidd:validator`. The validator is read-only and returns the narrative verdict and gap list only.
+11. Final stage readiness is sourced from `prd_check + research_check + validator verdict`; return `/feature-dev-aidd:review-spec <ticket>` only on the ready path.
+12. Otherwise return PENDING or BLOCKED with the validator gaps and the canonical next action for the current stage.
 
 ## Command contracts
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan-new/runtime/research_check.py`

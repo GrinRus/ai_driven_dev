@@ -7,7 +7,22 @@ import re
 import sys
 from pathlib import Path
 
-_PLUGIN_ROOT = Path(__file__).resolve().parents[3]
+
+def _detect_plugin_root() -> Path:
+    env_root = (os.getenv("CLAUDE_PLUGIN_ROOT") or "").strip()
+    if env_root:
+        candidate = Path(env_root).expanduser().resolve()
+        if (candidate / "aidd_runtime").is_dir():
+            return candidate
+
+    probe = Path(__file__).resolve()
+    for parent in (probe.parent, *probe.parents):
+        if (parent / "aidd_runtime").is_dir():
+            return parent
+    return probe.parent
+
+
+_PLUGIN_ROOT = _detect_plugin_root()
 os.environ.setdefault("CLAUDE_PLUGIN_ROOT", str(_PLUGIN_ROOT))
 if str(_PLUGIN_ROOT) not in sys.path:
     sys.path.insert(0, str(_PLUGIN_ROOT))
@@ -17,6 +32,7 @@ from aidd_runtime import rlm_finalize
 from aidd_runtime.research_guard import (
     ResearchCheckSummary,
     ResearchValidationError,
+    _extract_status,
     load_settings,
     validate_research,
 )
@@ -31,15 +47,43 @@ def _extract_reason_code(message: str) -> str:
     return str(match.group(1) or "").strip().lower()
 
 
-def _is_plan_pending_soft_mode(expected_stage: str) -> bool:
-    return str(expected_stage or "").strip().lower() == "plan"
+def _is_downstream_soft_mode(expected_stage: str) -> bool:
+    return str(expected_stage or "").strip().lower() in {"plan", "review", "qa"}
 
 
-def _soft_pending_summary() -> ResearchCheckSummary:
+def _soft_pending_summary(status: str = "pending", reason_code: str = "rlm_status_pending") -> ResearchCheckSummary:
     return ResearchCheckSummary(
-        status="pending",
-        warnings=["plan_research_pending_softened"],
+        status=status,
+        warnings=[
+            "downstream_research_gate_softened",
+            f"downstream_research_gate_softened:{reason_code}",
+        ],
     )
+
+
+def _read_research_doc_status(target: Path, ticket: str) -> str:
+    doc_path = target / "docs" / "research" / f"{ticket}.md"
+    try:
+        text = doc_path.read_text(encoding="utf-8")
+    except Exception:
+        return ""
+    return str(_extract_status(text) or "").strip().lower()
+
+
+def _is_softenable_reason(
+    *,
+    target: Path,
+    ticket: str,
+    expected_stage: str,
+    reason_code: str,
+) -> bool:
+    if not _is_downstream_soft_mode(expected_stage):
+        return False
+    if reason_code in {"rlm_status_pending", "rlm_links_empty_warn"}:
+        return True
+    if reason_code != "research_status_invalid":
+        return False
+    return _read_research_doc_status(target, ticket) in {"pending", "warn"}
 
 
 def _enforce_minimum_rlm_artifacts(target: Path, ticket: str) -> None:
@@ -47,6 +91,7 @@ def _enforce_minimum_rlm_artifacts(target: Path, ticket: str) -> None:
         target / "reports" / "research" / f"{ticket}-rlm-targets.json",
         target / "reports" / "research" / f"{ticket}-rlm-manifest.json",
         target / "reports" / "research" / f"{ticket}-rlm.worklist.pack.json",
+        target / "reports" / "research" / f"{ticket}-rlm.pack.json",
     ]
     missing = [runtime.rel_path(path, target) for path in required if not path.exists()]
     if missing:
@@ -67,6 +112,24 @@ def _enforce_minimum_rlm_artifacts(target: Path, ticket: str) -> None:
                 "BLOCK: invalid RLM artifact payload "
                 f"(reason_code=research_artifacts_invalid): {runtime.rel_path(path, target)} (expected object)"
             )
+    nodes_path = target / "reports" / "research" / f"{ticket}-rlm.nodes.jsonl"
+    if not nodes_path.exists():
+        raise RuntimeError(
+            "BLOCK: missing mandatory RLM artifacts for plan gate "
+            f"(reason_code=research_artifacts_missing): {runtime.rel_path(nodes_path, target)}"
+        )
+    try:
+        has_node = any(line.strip() for line in nodes_path.read_text(encoding="utf-8").splitlines())
+    except Exception as exc:
+        raise RuntimeError(
+            "BLOCK: invalid RLM artifact payload "
+            f"(reason_code=research_artifacts_invalid): {runtime.rel_path(nodes_path, target)} ({exc})"
+        ) from exc
+    if not has_node:
+        raise RuntimeError(
+            "BLOCK: missing mandatory RLM artifacts for plan gate "
+            f"(reason_code=research_artifacts_missing): {runtime.rel_path(nodes_path, target)} (empty)"
+        )
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -111,7 +174,6 @@ def main(argv: list[str] | None = None) -> int:
     )
     settings = load_settings(target)
     docs_only_mode = runtime.docs_only_mode_requested(explicit=getattr(args, "docs_only", False))
-    plan_pending_soft_mode = _is_plan_pending_soft_mode(args.expected_stage)
     try:
         summary = validate_research(
             target,
@@ -123,7 +185,12 @@ def main(argv: list[str] | None = None) -> int:
         )
     except ResearchValidationError as exc:
         reason_code = _extract_reason_code(str(exc))
-        if reason_code != "rlm_status_pending":
+        if not _is_softenable_reason(
+            target=target,
+            ticket=ticket,
+            expected_stage=args.expected_stage,
+            reason_code=reason_code,
+        ):
             if docs_only_mode:
                 print(
                     "[aidd] WARN: docs-only rewrite mode bypasses research gate blocker "
@@ -135,7 +202,7 @@ def main(argv: list[str] | None = None) -> int:
         finalize_exit_code = rlm_finalize.main(["--ticket", ticket, "--emit-json"])
         if finalize_exit_code != 0:
             raise RuntimeError(
-                f"{exc}\n[aidd] ERROR: reason_code=rlm_status_pending_finalize_failed "
+                f"{exc}\n[aidd] ERROR: reason_code={reason_code or 'research_gate'}_finalize_failed "
                 f"(exit_code={finalize_exit_code})"
             ) from exc
         else:
@@ -150,7 +217,12 @@ def main(argv: list[str] | None = None) -> int:
                 )
             except ResearchValidationError as retry_exc:
                 retry_reason_code = _extract_reason_code(str(retry_exc))
-                if not (plan_pending_soft_mode and retry_reason_code == "rlm_status_pending"):
+                if not _is_softenable_reason(
+                    target=target,
+                    ticket=ticket,
+                    expected_stage=args.expected_stage,
+                    reason_code=retry_reason_code,
+                ):
                     if docs_only_mode:
                         print(
                             "[aidd] WARN: docs-only rewrite mode bypasses research finalize blocker "
@@ -160,19 +232,24 @@ def main(argv: list[str] | None = None) -> int:
                         return 0
                     raise RuntimeError(
                         f"{exc}\n[aidd] INFO: auto_recovery_attempted=1 "
-                        "(recovery_path=research_finalize_probe)\n"
-                        f"{retry_exc}"
-                    ) from retry_exc
+                            "(recovery_path=research_finalize_probe)\n"
+                            f"{retry_exc}"
+                        ) from retry_exc
+                softened_status = _read_research_doc_status(target, ticket) or "pending"
                 print(
-                    "[aidd] WARN: plan-stage research gate softened after finalize probe "
-                    "(reason_code=rlm_status_pending, auto_recovery_attempted=1, policy=warn_continue).",
+                    "[aidd] WARN: downstream research gate softened after finalize probe "
+                    f"(reason_code={retry_reason_code or reason_code or 'research_gate'}, "
+                    "auto_recovery_attempted=1, policy=warn_continue).",
                     file=sys.stderr,
                 )
-                summary = _soft_pending_summary()
+                summary = _soft_pending_summary(
+                    status=softened_status,
+                    reason_code=retry_reason_code or reason_code or "research_gate",
+                )
             else:
                 print(
                     "[aidd] WARN: research gate auto-recovery applied "
-                    "(reason_code=rlm_status_pending, recovery_path=research_finalize_probe).",
+                    f"(reason_code={reason_code or 'research_gate'}, recovery_path=research_finalize_probe).",
                     file=sys.stderr,
                 )
 

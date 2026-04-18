@@ -274,8 +274,7 @@
         "allowed-tools": [
           "Read",
           "Bash(rg *)",
-          "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/status/runtime/status.py *)",
-          "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/status/runtime/index_sync.py *)"
+          "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/status/runtime/status.py *)"
         ],
         "model": "inherit",
         "prompt_version": "1.0.9",
