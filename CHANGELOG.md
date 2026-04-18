@@ -10,7 +10,7 @@
   - split `ExpectedReports` from actual `reports` in derived state;
   - added soft `artifact_truth` policy knob and consumer-side event de-noise for repeated `gate-tests warn`.
 - Added closure runbook and baseline evidence for stabilization sign-off:
-  - `docs/runbooks/w120-w121-w136-closure.md`
+  - `docs/archive/runbooks/w120-w121-w136-closure.md`
   - `aidd/reports/events/w120-w121-w136-baseline-2026-04-09.md`
 - Breaking cleanup override (Wave 139):
   - Removed internal docs:

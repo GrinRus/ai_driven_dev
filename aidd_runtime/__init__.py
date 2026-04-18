@@ -7,6 +7,12 @@ import sys
 from pathlib import Path
 from typing import Type
 
+"""Explicit runtime package for AIDD.
+
+`aidd_runtime` remains the stable import namespace, but it no longer mutates
+`__path__` to expose `skills/*/runtime`. Reusable runtime modules live directly
+under this package; `skills/*/runtime/*.py` are thin entrypoints only.
+"""
 
 _DEBUG_FLAGS = {"1", "true", "yes", "on", "debug"}
 _HELP_SECTION_MARKERS = {
@@ -16,36 +22,8 @@ _HELP_SECTION_MARKERS = {
 }
 _OUTPUT_HINT_TOKENS = ("output", "out", "report", "result", "log", "json", "md", "pack", "path", "file")
 _HELP_PATCHED = False
-
 _PACKAGE_ROOT = Path(__file__).resolve().parent
 _REPO_ROOT = _PACKAGE_ROOT.parent
-_RUNTIME_DIRS = (
-    _REPO_ROOT / "skills" / "aidd-core" / "runtime",
-    _REPO_ROOT / "skills" / "aidd-docio" / "runtime",
-    _REPO_ROOT / "skills" / "aidd-flow-state" / "runtime",
-    _REPO_ROOT / "skills" / "aidd-observability" / "runtime",
-    _REPO_ROOT / "skills" / "aidd-loop" / "runtime",
-    _REPO_ROOT / "skills" / "aidd-rlm" / "runtime",
-    _REPO_ROOT / "skills" / "aidd-init" / "runtime",
-    _REPO_ROOT / "skills" / "idea-new" / "runtime",
-    _REPO_ROOT / "skills" / "plan-new" / "runtime",
-    _REPO_ROOT / "skills" / "researcher" / "runtime",
-    _REPO_ROOT / "skills" / "review-spec" / "runtime",
-    _REPO_ROOT / "skills" / "tasks-new" / "runtime",
-    _REPO_ROOT / "skills" / "implement" / "runtime",
-    _REPO_ROOT / "skills" / "review" / "runtime",
-    _REPO_ROOT / "skills" / "qa" / "runtime",
-    _REPO_ROOT / "skills" / "status" / "runtime",
-)
-
-# Runtime bridge for Wave 96: resolve `aidd_runtime.<module>` from
-# canonical `skills/*/runtime` locations during path migration.
-for runtime_dir in _RUNTIME_DIRS:
-    if not runtime_dir.is_dir():
-        continue
-    runtime_dir_str = str(runtime_dir)
-    if runtime_dir_str not in __path__:
-        __path__.append(runtime_dir_str)
 
 
 def _resolve_script_label() -> str:
@@ -75,7 +53,7 @@ def _example_invocations(parser: argparse.ArgumentParser) -> list[str]:
     script = _resolve_script_label()
     base = f"python3 ${{CLAUDE_PLUGIN_ROOT}}/{script}".replace("//", "/")
     required_tokens: list[str] = []
-    for action in parser._actions:  # noqa: SLF001 - argparse exposes actions through this runtime field
+    for action in parser._actions:  # noqa: SLF001 - argparse exposes actions here
         if action.dest in {"help", "h"}:
             continue
         if action.option_strings and getattr(action, "required", False):
@@ -149,9 +127,6 @@ def _install_help_contract_patch() -> None:
     _HELP_PATCHED = True
 
 
-_install_help_contract_patch()
-
-
 def _debug_enabled() -> bool:
     return os.getenv("AIDD_DEBUG", "").strip().lower() in _DEBUG_FLAGS
 
@@ -171,4 +146,6 @@ def _aidd_excepthook(exc_type: Type[BaseException], exc: BaseException, tb) -> N
     sys.stderr.write(f"[aidd] ERROR: {message}\n")
 
 
+_install_help_contract_patch()
 sys.excepthook = _aidd_excepthook
+

@@ -269,7 +269,7 @@ skills:
             self.assertIn("docs/legacy-draft.md", report)
             self.assertNotIn("docs/memory-v2-rfc.md", report)
 
-    def test_size_and_archive_heuristics_surface_cleanup_candidates(self) -> None:
+    def test_topology_audit_does_not_emit_removed_cleanup_heuristics(self) -> None:
         with tempfile.TemporaryDirectory(prefix="repo-topology-heuristics-") as tmp:
             root = Path(tmp)
             self._build_fixture_repo(root)
@@ -277,34 +277,18 @@ skills:
             candidates = payload.get("unused", {}).get("candidates", [])
             by_path = {item.get("path"): item for item in candidates}
 
-            self.assertIn("archive/experimental/repo_tools/orphaned_tool.py", by_path)
             self.assertEqual(
-                by_path["archive/experimental/repo_tools/orphaned_tool.py"].get("kind"),
-                "archived_experimental_repo_tool",
+                payload.get("cleanup_plan", {}).get("policy"),
+                "reachability_and_dangling_only",
             )
-
-            self.assertIn("skills/aidd-core/runtime/oversized_runtime.py", by_path)
+            self.assertNotIn("archive/experimental/repo_tools/orphaned_tool.py", by_path)
+            self.assertNotIn("skills/aidd-core/runtime/oversized_runtime.py", by_path)
+            self.assertNotIn("tests/repo_tools/e2e_prompt/profile_full.md", by_path)
+            self.assertNotIn("AGENTS.md", by_path)
+            self.assertNotIn("tests/repo_tools/ci-lint.sh", by_path)
             self.assertEqual(
-                by_path["skills/aidd-core/runtime/oversized_runtime.py"].get("kind"),
-                "oversized_runtime_module",
-            )
-
-            self.assertIn("tests/repo_tools/e2e_prompt/profile_full.md", by_path)
-            self.assertEqual(
-                by_path["tests/repo_tools/e2e_prompt/profile_full.md"].get("kind"),
-                "oversized_prompt_source",
-            )
-
-            self.assertIn("AGENTS.md", by_path)
-            self.assertEqual(
-                by_path["AGENTS.md"].get("kind"),
-                "oversized_maintainer_doc",
-            )
-
-            self.assertIn("tests/repo_tools/ci-lint.sh", by_path)
-            self.assertEqual(
-                by_path["tests/repo_tools/ci-lint.sh"].get("kind"),
-                "oversized_repo_tool",
+                by_path["docs/legacy-draft.md"].get("kind"),
+                "draft_doc_missing_runtime_paths",
             )
 
     def test_main_allows_output_paths_outside_repo_root(self) -> None:

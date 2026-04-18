@@ -31,8 +31,12 @@ for stage in implement review qa; do
 done
 
 log "checking loop-pack schema and active work item"
-require_rg "aidd.loop_pack.v1" "skills/aidd-loop/runtime/loop_pack.py"
-require_rg "active.json" "skills/aidd-loop/runtime/loop_pack.py"
+loop_pack_impl="aidd_runtime/loop_pack.py"
+if [[ ! -f "${loop_pack_impl}" ]]; then
+  loop_pack_impl="skills/aidd-loop/runtime/loop_pack.py"
+fi
+require_rg "aidd.loop_pack.v1" "${loop_pack_impl}"
+require_rg "active.json" "${loop_pack_impl}"
 
 log "checking loop-step/loop-run presence and docs"
 if [[ ! -f "skills/aidd-loop/runtime/loop_step.py" ]]; then

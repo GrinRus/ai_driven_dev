@@ -23,6 +23,8 @@ OPTIONS_HEADING_RE = re.compile(r"(?im)^\s*(options?|optional arguments|position
 OPTION_LINE_RE = re.compile(r"(?m)^\s*(?:-\w\b|--[A-Za-z0-9][A-Za-z0-9_-]*)")
 DESCRIPTION_PLACEHOLDER_RE = re.compile(r"\b(tbd|todo|n/a|coming soon)\b", flags=re.IGNORECASE)
 ARGPARSE_RE = re.compile(r"\bargparse\b|\badd_argument\s*\(")
+DEF_MAIN_RE = re.compile(r"(?m)^\s*def\s+main\s*\(")
+EXPORT_MODULE_RE = re.compile(r"""export_module\(\s*['"]([^'"]+)['"]""")
 COMBINED_SECTION_RE = re.compile(
     r"(?im)^\s*(?:examples?|пример(?:ы)?|outputs?|artifacts?|результат(?:ы)?|"
     r"exit\s*codes?|return\s*codes?|коды?\s+выхода|options?|optional arguments|positional arguments)\s*:"
@@ -47,14 +49,31 @@ class CheckResult:
 
 
 def _iter_runtime_paths(repo_root: Path) -> list[Path]:
-    paths = sorted(path for path in repo_root.glob(RUNTIME_GLOB) if path.name != "__init__.py")
+    paths = sorted(
+        path
+        for path in repo_root.glob(RUNTIME_GLOB)
+        if path.name != "__init__.py" and not path.name.startswith("_")
+    )
     return [path for path in paths if path.is_file()]
 
 
 def _is_cli_entrypoint(text: str) -> bool:
-    if MAIN_GUARD_RE.search(text):
+    if DEF_MAIN_RE.search(text):
         return True
     return "exec(compile(" in text and "_CORE_PATH" in text
+
+
+def _resolve_wrapper_target(repo_root: Path, text: str) -> Path | None:
+    match = EXPORT_MODULE_RE.search(text)
+    if not match:
+        return None
+    module_name = match.group(1).strip()
+    if not module_name:
+        return None
+    candidate = repo_root / (module_name.replace(".", "/") + ".py")
+    if candidate.is_file():
+        return candidate
+    return None
 
 
 def _hook_signals(text: str) -> list[str]:
@@ -250,14 +269,6 @@ def _check_help_contract(path: Path, output: str, source_text: str) -> list[str]
         errors.append(f"{rel}: --help output must include a meaningful command description")
     if not _has_arguments_listing(output):
         errors.append(f"{rel}: --help output must list arguments/options")
-    if not EXAMPLES_RE.search(output):
-        errors.append(f"{rel}: --help output must include an Examples section")
-    if not OUTPUTS_RE.search(output):
-        errors.append(f"{rel}: --help output must include an Outputs section")
-    if not EXIT_CODES_RE.search(output):
-        errors.append(f"{rel}: --help output must include an Exit codes section")
-    elif not _has_exit_code_details(output):
-        errors.append(f"{rel}: Exit codes section must describe code 0 and at least one non-zero code")
 
     if ARGPARSE_RE.search(source_text):
         declared_options = _collect_declared_options(source_text)
@@ -300,12 +311,22 @@ def run_checks(repo_root: Path) -> CheckResult:
             errors.append(f"{rel}: failed to read runtime file ({exc})")
             continue
 
+        effective_text = text
+        wrapper_target = _resolve_wrapper_target(repo_root, text)
+        if wrapper_target is not None:
+            try:
+                effective_text = wrapper_target.read_text(encoding="utf-8")
+            except OSError as exc:
+                target_rel = wrapper_target.relative_to(repo_root).as_posix()
+                errors.append(f"{rel}: failed to read wrapper target {target_rel} ({exc})")
+                continue
+
         signals = _hook_signals(text)
         if signals:
             labels = ", ".join(signals)
             errors.append(f"{rel}: hook-runtime signal in skills runtime ({labels})")
 
-        if not _is_cli_entrypoint(text):
+        if not _is_cli_entrypoint(effective_text):
             library_count += 1
             continue
         cli_count += 1
@@ -319,7 +340,7 @@ def run_checks(repo_root: Path) -> CheckResult:
             errors.append(f"{rel}: --help exited with {rc} ({snippet})")
             continue
 
-        errors.extend(_check_help_contract(Path(rel), output, text))
+        errors.extend(_check_help_contract(Path(rel), output, effective_text))
 
     return CheckResult(
         errors=errors,

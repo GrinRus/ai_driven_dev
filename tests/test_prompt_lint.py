@@ -584,7 +584,7 @@ class PromptLintTests(unittest.TestCase):
         )
 
     def write_policy(self, root: Path) -> None:
-        policy_path = root / "docs" / "skill-language.md"
+        policy_path = root / "docs" / "skill-authoring.md"
         policy_path.parent.mkdir(parents=True, exist_ok=True)
         policy_path.write_text("Prompt corpus is EN-only.\n", encoding="utf-8")
 

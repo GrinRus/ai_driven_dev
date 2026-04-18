@@ -1,7 +1,13 @@
-#!/usr/bin/env python3
 from __future__ import annotations
 
 from pathlib import Path
+import runpy
 
-_CORE_PATH = Path(__file__).resolve().with_name("loop_run_parts") / "core.py"
-exec(compile(_CORE_PATH.read_text(encoding="utf-8"), str(_CORE_PATH), "exec"), globals(), globals())
+_bootstrap = runpy.run_path(str(Path(__file__).with_name("_bootstrap.py")))
+export_module = _bootstrap["export_module"]
+run_main = _bootstrap["run_main"]
+
+export_module("aidd_runtime.loop_run", globals())
+
+if __name__ == "__main__":  # pragma: no cover
+    raise SystemExit(run_main("aidd_runtime.loop_run"))

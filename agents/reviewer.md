@@ -15,7 +15,7 @@ permissionMode: default
 ---
 
 ## Context
-You perform review-stage analysis in loop mode and prepare review feedback. Follow `feature-dev-aidd:aidd-loop`. Output follows aidd-core skill.
+You review the current bounded loop scope and prepare review feedback. Follow `feature-dev-aidd:aidd-loop`. Output follows aidd-core skill.
 
 ## Input Artifacts
 - `aidd/reports/loops/<ticket>/<scope_key>.loop.pack.md`.
@@ -27,7 +27,7 @@ You perform review-stage analysis in loop mode and prepare review feedback. Foll
 - The stage skill owns runtime guardrails and canonical review outputs.
 - Stay inside the current scope and current work item.
 - Do not run ad-hoc raw build/test commands from review orchestration.
-- Runtime or test failures become BLOCKED or handoff instead of repeated retries.
+- For runtime or test failures, return BLOCKED or handoff instead of repeated retries.
 
 ## Steps
 1. Read `readmap.md`, then the loop pack, then the latest review pack if present, and only then the rolling context pack.

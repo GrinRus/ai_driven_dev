@@ -7,7 +7,7 @@ Last reviewed: 2026-04-18
 Status: active
 
 Active backlog keeps only open work, current queue, and owner-review candidates.
-Completed/reverted history moved to `docs/archive/backlog-w120-w121-w136.md`.
+Historical closure notes moved under `docs/archive/**`.
 
 ## Current Queue
 - Gate A: `W145-2` -> `W145-3`
@@ -64,8 +64,8 @@ Completed/reverted history moved to `docs/archive/backlog-w120-w121-w136.md`.
 ## Deferred / Owner review
 
 - `W147-*`: host-agnostic flow refactor remains deferred until current cleanup and prompt hardening settle.
-- `docs/host-agnostic-flow-rfc.md`: draft source only; do not delete or rewrite without owner confirmation.
-- `docs/memory-v2-rfc.md`: draft roadmap doc; keep out of active execution queue until an owner explicitly reopens memory work.
+- `docs/archive/rfc/host-agnostic-flow.md`: archived draft; reopen only with owner confirmation.
+- `docs/archive/rfc/memory-v2.md`: archived draft; reopen only with owner confirmation.
 - Compatibility removal candidates requiring explicit owner decision:
   - `aidd_runtime/**`
   - `legacy|compat|fallback|shadow` runtime and hook branches
