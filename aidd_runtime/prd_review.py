@@ -91,9 +91,6 @@ COMPACT_ANSWER_INSTRUCTION_RE = re.compile(
     r"(compact\s+формат|q<n>\s*=\s*<token>|q<n>\s*=\s*\"[^\"]+\")",
     re.IGNORECASE,
 )
-PLACEHOLDER_STANDALONE_RE = re.compile(
-    r"^(?:[-*+]\s+|\d+\.\s+)?(?:\[[ xX]\]\s*)?<[^>]+>(?:\s*(?:[.,;:]|→\s*<[^>]+>|\|\s*<[^>]+>)\s*)*$"
-)
 PLACEHOLDER_FIELD_RE = re.compile(
     r"^(?:[-*+]\s+|\d+\.\s+)?(?:\[[ xX]\]\s*)?"
     r"(?:\*\*[^*]+\*\*|[A-Za-zА-Яа-я0-9_./() -]{1,80})\s*:\s*<[^>]+>"
@@ -106,6 +103,7 @@ EXAMPLE_PLACEHOLDER_RE = re.compile(
     r".*<[^>]+>",
     re.IGNORECASE,
 )
+PLACEHOLDER_TOKEN_RE = re.compile(r"<[^>\n]+>")
 
 
 def _normalize_output_path(root: Path, path: Path) -> Path:
@@ -388,8 +386,43 @@ def _looks_like_placeholder_example(line: str) -> bool:
     return False
 
 
+def _matches_placeholder_standalone(line: str) -> bool:
+    value = CHECKBOX_PREFIX_RE.sub("", OPEN_ITEM_PREFIX_RE.sub("", line.strip())).strip()
+    if not value:
+        return False
+
+    match = PLACEHOLDER_TOKEN_RE.match(value)
+    if match is None:
+        return False
+
+    pos = match.end()
+    length = len(value)
+    while pos < length:
+        while pos < length and value[pos].isspace():
+            pos += 1
+        if pos >= length:
+            break
+
+        char = value[pos]
+        if char in ".,;:":
+            pos += 1
+            continue
+        if char in {"→", "|"}:
+            pos += 1
+            while pos < length and value[pos].isspace():
+                pos += 1
+            match = PLACEHOLDER_TOKEN_RE.match(value, pos)
+            if match is None:
+                return False
+            pos = match.end()
+            continue
+        return False
+
+    return True
+
+
 def _is_actionable_placeholder_line(line: str) -> bool:
-    if PLACEHOLDER_STANDALONE_RE.match(line):
+    if _matches_placeholder_standalone(line):
         return True
     if PLACEHOLDER_FIELD_RE.match(line):
         return True
