@@ -188,7 +188,7 @@ Agent‑first правило: сначала читаем артефакты (`a
 - Skills/agents хранят версии в frontmatter; stage‑skills должны совпадать с baseline.
 - Preload matrix v2 (lint-enforced): `aidd-policy` для всех agents, `aidd-rlm` только для `analyst|planner|plan-reviewer|prd-reviewer|researcher|reviewer|tasklist-refiner|validator`, `aidd-stage-research` обязательно для `researcher`, `aidd-loop` только для `implementer|reviewer|qa`. Waivers — `AGENT_PRELOAD_WAIVERS` в `tests/repo_tools/lint-prompts.py`.
 - Инструменты:
-  - `python3 tests/repo_tools/prompt-version bump --root <workflow-root> --prompts <name> --kind agent|command --lang en --part <major|minor|patch>` (agents + historical commands)
+  - `python3 tests/repo_tools/prompt-version bump --root <workflow-root> --prompts <name> --kind agent|command --lang en --part <major|minor|patch>` (agents + stage skills; legacy `commands/*.md` only as fallback)
   - `python3 tests/repo_tools/lint-prompts.py --root <workflow-root>`
 
 ## Reports format (MVP)

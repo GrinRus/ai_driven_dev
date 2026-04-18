@@ -3,14 +3,16 @@
 Single entrypoint for AIDD runtime agents in a workspace. Repository maintainer guidance lives in the plugin-root `AGENTS.md`.
 
 ## Skill-first Canon
-- Core policy: `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/SKILL.md`.
+- Runtime topology: `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/SKILL.md`.
+- Shared policy: `${CLAUDE_PLUGIN_ROOT}/skills/aidd-policy/SKILL.md`.
 - Loop policy: `${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/SKILL.md`.
 - This document is a user-facing overview; do not duplicate algorithms from the skills.
 - Stage lexicon (public/internal): `aidd/docs/shared/stage-lexicon.md`.
 
 ## Baseline Rules
 - All workspace artifacts live under `aidd/**` relative to the project root.
-- For pack-first/read-budget rules, output contract, question format, DocOps, and subagent guardrails, follow `skills/aidd-core`.
+- For output format, question format, read discipline, and runtime-path safety, follow `skills/aidd-policy`.
+- For runtime ownership and shared entrypoint discovery, follow `skills/aidd-core`.
 - `AIDD:READ_LOG` is required for artifact reads and for any fallback full-read reason.
 - Loop discipline lives in `skills/aidd-loop`.
 - Stage/shared runtime entrypoints use the Python-only canon: `skills/*/runtime/*.py`.

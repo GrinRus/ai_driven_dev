@@ -171,6 +171,21 @@ class PromptVersioningTests(unittest.TestCase):
             self.assertIn("prompt_version: 1.0.45", prompt_text)
             self.assertIn("source_version: 1.0.45", prompt_text)
 
+    def test_bump_prefers_stage_skill_over_legacy_command_prompt(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_prompt(root, "qa", version="1.0.0", kind="command")
+            write_stage_skill(root, "qa", version="2.0.0")
+            result = self.run_prompt_version(root, "qa", "command", "patch")
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+
+            stage_skill_text = (root / "skills" / "qa" / "SKILL.md").read_text(encoding="utf-8")
+            legacy_command_text = (root / "commands" / "qa.md").read_text(encoding="utf-8")
+            self.assertIn("prompt_version: 2.0.1", stage_skill_text)
+            self.assertIn("source_version: 2.0.1", stage_skill_text)
+            self.assertIn("prompt_version: 1.0.0", legacy_command_text)
+            self.assertIn("source_version: 1.0.0", legacy_command_text)
+
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()

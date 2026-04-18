@@ -47,29 +47,23 @@ def bump_version(version: str, part: str) -> str:
 
 
 def resolve_prompt_base(root: Path, kind: str) -> Path:
-    subdir = "agents" if kind == "agent" else "commands"
-    candidates = [
-        root / subdir,
-        root / "aidd" / subdir,
-        root / ".claude" / subdir,
-    ]
-    for candidate in candidates:
-        if candidate.exists():
-            return candidate
-    return candidates[0]
+    return root / ("agents" if kind == "agent" else "skills")
 
 
 def resolve_prompt_path(root: Path, name: str, kind: str) -> Path | None:
-    prompt_base = resolve_prompt_base(root, kind)
-    direct = prompt_base / f"{name}.md"
-    if direct.exists():
-        return direct
+    if kind == "agent":
+        direct = (resolve_prompt_base(root, kind) / f"{name}.md")
+        if direct.exists():
+            return direct
+        return None
 
-    # Stage commands in this repository are stored as skills/<stage>/SKILL.md.
-    if kind == "command":
-        stage_skill = root / "skills" / name / "SKILL.md"
-        if stage_skill.exists():
-            return stage_skill
+    stage_skill = root / "skills" / name / "SKILL.md"
+    if stage_skill.exists():
+        return stage_skill
+
+    legacy_command = root / "commands" / f"{name}.md"
+    if legacy_command.exists():
+        return legacy_command
 
     return None
 
@@ -84,9 +78,12 @@ def process_prompt(
     requested_lang = next(iter(langs))
     prompt_path = resolve_prompt_path(root, name, kind)
     if prompt_path is None:
-        prompt_base = resolve_prompt_base(root, kind)
-        expected = prompt_base / f"{name}.md"
-        fallback = root / "skills" / name / "SKILL.md"
+        expected = (
+            resolve_prompt_base(root, kind) / f"{name}.md"
+            if kind == "agent"
+            else resolve_prompt_base(root, kind) / name / "SKILL.md"
+        )
+        fallback = root / "commands" / f"{name}.md" if kind == "command" else expected
         print(
             f"[prompt-version] prompt missing: {expected} (fallback: {fallback})",
             file=sys.stderr,
@@ -116,7 +113,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Bump prompt_version/source_version for prompts.")
     subparsers = parser.add_subparsers(dest="command", required=True)
     bump = subparsers.add_parser("bump", help="Bump prompt versions for selected prompts.")
-    bump.add_argument("--root", required=True, help="Workflow root containing agents/commands.")
+    bump.add_argument("--root", required=True, help="Workflow root containing agents/ and skills/.")
     bump.add_argument("--prompts", required=True, help="Comma-separated prompt names.")
     bump.add_argument("--kind", choices=("agent", "command"), required=True)
     bump.add_argument("--lang", default="en", help="Comma-separated languages to bump (default: en).")
