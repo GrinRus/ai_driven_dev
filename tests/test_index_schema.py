@@ -293,3 +293,42 @@ def test_index_sync_collapses_repeated_gate_tests_events(tmp_path):
     assert events[0]["repeat_count"] == 2
     assert events[0]["first_seen"] == "2024-01-01T00:00:00Z"
     assert events[0]["last_seen"] == "2024-01-01T00:01:00Z"
+
+
+def test_index_sync_keeps_prd_header_status_separate_from_prd_review_verdict(tmp_path):
+    project_root = ensure_project_root(tmp_path)
+    ticket = "DEMO-PRD-REVIEW"
+    write_active_feature(project_root, ticket)
+    write_active_stage(project_root, "idea")
+    write_file(project_root, f"docs/tasklist/{ticket}.md", "## AIDD:CONTEXT_PACK\n- Demo\n")
+    write_file(
+        project_root,
+        f"docs/prd/{ticket}.prd.md",
+        dedent(
+            """
+            # Demo PRD
+
+            Status: READY
+
+            ## PRD Review
+            Status: PENDING
+
+            ### Verdict
+            - Pending until review-spec
+            """
+        ).strip()
+        + "\n",
+    )
+    write_file(
+        project_root,
+        f"reports/prd/{ticket}.json",
+        json.dumps({"status": "WARN"}, indent=2),
+    )
+
+    payload = json.loads(index_sync.write_index(project_root, ticket, ticket).read_text(encoding="utf-8"))
+
+    assert payload["doc_statuses"]["prd"] == "READY"
+    checks = payload.get("checks") or []
+    prd_review = next((item for item in checks if item.get("name") == "prd-review"), None)
+    assert prd_review is not None
+    assert prd_review.get("doc_status") == "pending"

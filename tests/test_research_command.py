@@ -7,6 +7,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from tests.helpers import REPO_ROOT, cli_cmd, cli_env
@@ -21,6 +22,30 @@ from aidd_runtime import research
 
 
 class ResearchCommandTest(unittest.TestCase):
+    def test_research_command_reconciles_ready_alias_to_reviewed(self):
+        with tempfile.TemporaryDirectory(prefix="aidd-research-reconcile-") as tmpdir:
+            research_path = Path(tmpdir) / "READY-1.md"
+            research_path.write_text("# Research\n\nStatus: ready\n", encoding="utf-8")
+
+            result = research._reconcile_research_doc_status(research_path)
+
+            self.assertEqual(result["status"], "reviewed")
+            self.assertTrue(result["reconciled"])
+            self.assertEqual(result["marker"], "ready->reviewed")
+            self.assertIn("Status: reviewed", research_path.read_text(encoding="utf-8"))
+
+    def test_research_command_reconciles_invalid_status_to_warn(self):
+        with tempfile.TemporaryDirectory(prefix="aidd-research-reconcile-") as tmpdir:
+            research_path = Path(tmpdir) / "WARN-1.md"
+            research_path.write_text("# Research\n\nStatus: draft\n", encoding="utf-8")
+
+            result = research._reconcile_research_doc_status(research_path)
+
+            self.assertEqual(result["status"], "warn")
+            self.assertTrue(result["reconciled"])
+            self.assertEqual(result["marker"], "draft->warn")
+            self.assertIn("Status: warn", research_path.read_text(encoding="utf-8"))
+
     def test_research_command_materializes_summary(self):
         with tempfile.TemporaryDirectory(prefix="aidd-research-") as tmpdir:
             project_root = Path(tmpdir) / "aidd"
@@ -53,6 +78,22 @@ class ResearchCommandTest(unittest.TestCase):
             summary_path = project_root / "docs" / "research" / "TEST-123.md"
             self.assertTrue(summary_path.exists(), "Research summary should be materialised")
             self.assertNotIn("{{", summary_path.read_text(encoding="utf-8"))
+            result = subprocess.run(
+                cli_cmd(
+                    "research",
+                    "--ticket",
+                    "TEST-123",
+                    "--keywords",
+                    "test",
+                ),
+                cwd=project_root,
+                env=command_env,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            self.assertIn("aidd/docs/research/TEST-123.md", result.stdout)
 
     def test_research_command_blocks_without_research_hints(self):
         with tempfile.TemporaryDirectory(prefix="aidd-research-hints-") as tmpdir:
@@ -652,6 +693,147 @@ class ResearchCommandTest(unittest.TestCase):
             self.assertNotIn("{{prd_overrides}}", updated_text)
             self.assertNotIn("{{rlm_status}}", updated_text)
             self.assertNotIn("{{", updated_text)
+
+    def test_research_command_keeps_pending_path_when_pack_ready_but_links_warn(self):
+        with tempfile.TemporaryDirectory(prefix="aidd-research-pack-warn-") as tmpdir:
+            workspace = Path(tmpdir) / "workspace"
+            project_root = workspace / "aidd"
+            project_root.mkdir(parents=True, exist_ok=True)
+            subprocess.run(
+                cli_cmd("init"),
+                cwd=workspace,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=cli_env(),
+            )
+
+            write_json = lambda path, payload: path.write_text(  # noqa: E731
+                json.dumps(payload, indent=2) + "\n",
+                encoding="utf-8",
+            )
+
+            (project_root / "config").mkdir(parents=True, exist_ok=True)
+            write_json(project_root / "config" / "gates.json", {"rlm": {"enabled": True, "require_links": True}})
+            (project_root / "docs" / "prd").mkdir(parents=True, exist_ok=True)
+            (project_root / "docs" / "prd" / "PACK-WARN.prd.md").write_text(
+                "# PRD\n\n## AIDD:RESEARCH_HINTS\n- **Keywords**: `warn`\n",
+                encoding="utf-8",
+            )
+
+            rlm_dir = project_root / "reports" / "research"
+            rlm_dir.mkdir(parents=True, exist_ok=True)
+            (rlm_dir / "PACK-WARN-rlm.nodes.jsonl").write_text(
+                '{"node_kind":"file","file_id":"file-demo","id":"file-demo","path":"src/App.kt","rev_sha":"demo"}\n',
+                encoding="utf-8",
+            )
+            (rlm_dir / "PACK-WARN-rlm.links.jsonl").write_text("", encoding="utf-8")
+            write_json(rlm_dir / "PACK-WARN-rlm.links.stats.json", {"links_total": 0, "empty_reason": "no_matches"})
+            write_json(rlm_dir / "PACK-WARN-rlm.pack.json", {"schema": "aidd.report.pack.v1", "type": "rlm", "status": "ready"})
+
+            args = research.parse_args(["--ticket", "PACK-WARN", "--auto", "--keywords", "warn"])
+            stderr = io.StringIO()
+            old_cwd = Path.cwd()
+            os.chdir(workspace)
+            try:
+                with contextlib.redirect_stderr(stderr):
+                    exit_code = research.run(args)
+            finally:
+                os.chdir(old_cwd)
+
+            self.assertEqual(exit_code, 0)
+            research_doc = (project_root / "docs" / "research" / "PACK-WARN.md").read_text(encoding="utf-8")
+            self.assertIn("Status: warn", research_doc)
+            self.assertIn("reason_code=rlm_links_empty_warn", stderr.getvalue())
+
+    def test_research_command_no_template_preserves_reviewed_ready_event(self):
+        with tempfile.TemporaryDirectory(prefix="aidd-research-no-template-") as tmpdir:
+            workspace = Path(tmpdir) / "workspace"
+            project_root = workspace / "aidd"
+            project_root.mkdir(parents=True, exist_ok=True)
+            (project_root / "docs" / "research").mkdir(parents=True, exist_ok=True)
+            (project_root / "docs" / "research" / "NO-TPL-1.md").write_text(
+                "# Research\n\nStatus: reviewed\n",
+                encoding="utf-8",
+            )
+            context = SimpleNamespace(slug_hint="no-tpl-1")
+            nodes_path = project_root / "reports" / "research" / "NO-TPL-1-rlm.nodes.jsonl"
+            links_path = project_root / "reports" / "research" / "NO-TPL-1-rlm.links.jsonl"
+            pack_path = project_root / "reports" / "research" / "NO-TPL-1-rlm.pack.json"
+            nodes_path.parent.mkdir(parents=True, exist_ok=True)
+            nodes_path.write_text('{"node_kind":"file"}\n', encoding="utf-8")
+            links_path.write_text('{"link_kind":"import"}\n', encoding="utf-8")
+            pack_path.write_text(
+                json.dumps({"schema": "aidd.report.pack.v1", "type": "rlm", "status": "ready"}) + "\n",
+                encoding="utf-8",
+            )
+
+            targets_payload = {"paths": ["src"], "keywords": ["demo"], "paths_discovered": [], "files": []}
+            manifest_payload = {"ticket": "NO-TPL-1", "files": []}
+            worklist_payload = {
+                "schema": "aidd.report.pack.v1",
+                "type": "rlm-worklist",
+                "status": "ready",
+                "entries": [],
+            }
+
+            args = research.parse_args(["--ticket", "NO-TPL-1", "--keywords", "demo", "--no-template"])
+            with patch.object(research.runtime, "require_workflow_root", return_value=(workspace, project_root)), patch.object(
+                research.runtime,
+                "require_ticket",
+                return_value=("NO-TPL-1", context),
+            ), patch.object(
+                research,
+                "write_active_state",
+                return_value=None,
+            ), patch.object(
+                research.prd_hints,
+                "parse_research_hints",
+                return_value=SimpleNamespace(paths=["src"], keywords=["demo"], notes=[]),
+            ), patch.object(
+                research,
+                "load_rlm_settings",
+                return_value=object(),
+            ), patch.object(
+                research.rlm_targets,
+                "build_targets",
+                return_value=targets_payload,
+            ), patch.object(
+                research.rlm_manifest,
+                "build_manifest",
+                return_value=manifest_payload,
+            ), patch.object(
+                research.rlm_nodes_build,
+                "build_worklist_pack",
+                return_value=worklist_payload,
+            ), patch.object(
+                research,
+                "_enforce_research_artifacts",
+                return_value=None,
+            ), patch.object(
+                research,
+                "_evaluate_rlm_state",
+                return_value={
+                    "status": "ready",
+                    "warnings": [],
+                    "nodes_ready": True,
+                    "links_ok": True,
+                    "links_empty": False,
+                    "links_total": 1,
+                    "links_empty_reason": "",
+                    "pack_exists": True,
+                    "nodes_path": nodes_path,
+                    "links_path": links_path,
+                },
+            ):
+                exit_code = research.run(args)
+
+            self.assertEqual(exit_code, 0)
+            events_path = project_root / "reports" / "events" / "NO-TPL-1.jsonl"
+            events = [json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+            self.assertTrue(events)
+            self.assertEqual(events[-1]["status"], "ok")
+            self.assertEqual(events[-1]["details"]["research_doc_status"], "reviewed")
 
 
 

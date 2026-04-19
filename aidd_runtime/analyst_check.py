@@ -11,7 +11,12 @@ if str(_PLUGIN_ROOT) not in sys.path:
     sys.path.insert(0, str(_PLUGIN_ROOT))
 
 from aidd_runtime import runtime
-from aidd_runtime.analyst_guard import AnalystValidationError, load_settings, validate_prd
+from aidd_runtime.analyst_guard import (
+    AnalystValidationError,
+    load_settings,
+    sync_answers_provenance,
+    validate_prd,
+)
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -52,6 +57,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Enable docs-only rewrite mode for this invocation.",
     )
+    parser.add_argument(
+        "--answers-origin",
+        choices=("explicit-retry",),
+        help="Record that the current PRD answers came from an explicit retry payload.",
+    )
     return parser.parse_args(argv)
 
 
@@ -74,6 +84,7 @@ def main(argv: list[str] | None = None) -> int:
             require_ready_override=False if args.no_ready_required else None,
             allow_blocked_override=True if args.allow_blocked else None,
             min_questions_override=args.min_questions,
+            answers_origin=args.answers_origin,
         )
     except AnalystValidationError as exc:
         runtime.maybe_sync_index(target, ticket, context.slug_hint, reason="idea-analyst-check")
@@ -85,6 +96,12 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 0
         raise RuntimeError(str(exc)) from exc
+    sync_answers_provenance(
+        target,
+        ticket,
+        getattr(summary, "answers_map", None) or {},
+        origin=args.answers_origin,
+    )
     runtime.maybe_sync_index(target, ticket, context.slug_hint, reason="idea-analyst-check")
 
     if summary.status is None:

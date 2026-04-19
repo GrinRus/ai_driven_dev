@@ -160,9 +160,6 @@ def _read_prd_status(path: Path) -> str:
     if not path.exists():
         return "MISSING"
     text = _read_text(path)
-    _found, status, _items = extract_prd_review_section(text, normalize_status=lambda value: value.strip().lower())
-    if status:
-        return _normalize_doc_status(status)
     return _extract_first_status(text)
 
 

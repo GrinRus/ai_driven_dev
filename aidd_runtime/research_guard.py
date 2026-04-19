@@ -65,6 +65,7 @@ RESEARCH_TEMPLATE_MARKERS = (
 STATUS_LINE_RE = re.compile(r"^\*{0,2}\s*status\s*\*{0,2}\s*:\s*(.+)$", re.IGNORECASE)
 LIST_ITEM_RE = re.compile(r"^(?:[-+*])\s+")
 STATUS_ALIASES = {
+    "ready": "reviewed",
     "warning": "warn",
 }
 DOWNSTREAM_SOFT_STAGES = {"plan", "review", "qa"}
@@ -236,8 +237,18 @@ def _extract_status(doc_text: str) -> Optional[str]:
         token = raw_status.split(None, 1)[0] if raw_status else ""
         normalized = token.strip().lower().strip("`'\"*.,;:()[]{}")
         if normalized:
-            return STATUS_ALIASES.get(normalized, normalized)
+            return normalized
     return None
+
+
+def _normalize_research_status(raw_status: Optional[str]) -> tuple[Optional[str], str]:
+    normalized = str(raw_status or "").strip().lower()
+    if not normalized:
+        return None, ""
+    canonical = STATUS_ALIASES.get(normalized, normalized)
+    if canonical != normalized:
+        return canonical, f"research_status_alias_normalized={normalized}->{canonical}"
+    return canonical, ""
 
 
 def _resolve_report_path(root: Path, raw: Optional[str]) -> Optional[Path]:
@@ -672,7 +683,8 @@ def validate_research(
             _research_cmd_hint(ticket),
         )
 
-    status = _extract_status(doc_text)
+    raw_status = _extract_status(doc_text)
+    status, status_alias_warning = _normalize_research_status(raw_status)
     stage = str(expected_stage or _load_stage(root) or "").strip().lower()
     baseline_stage_allowed = stage in {"research"}
     downstream_stage = stage in DOWNSTREAM_SOFT_STAGES.union({"implement"})
@@ -766,6 +778,14 @@ def validate_research(
         allow_scoped_links_empty_warn=allow_scoped_links_empty_warn,
         auto_recovery_attempted=auto_recovery_attempted,
     )
+    if status_alias_warning:
+        warnings = list(warnings)
+        warnings.append(status_alias_warning)
+        print(
+            "[aidd] INFO: normalized research status alias "
+            f"({status_alias_warning}).",
+            file=sys.stderr,
+        )
     if status_softened_warning:
         warnings = list(warnings)
         warnings.append(status_softened_warning)

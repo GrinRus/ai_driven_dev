@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -83,6 +85,7 @@ class AnalystCheckSummary:
     status: Optional[str]
     question_count: int
     answered_count: int
+    answers_map: Optional[dict[int, str]] = None
 
 
 def load_settings(root: Path) -> AnalystSettings:
@@ -160,6 +163,51 @@ def _collect_compact_answers(section: str) -> dict[int, str]:
             continue
         answers[number] = value
     return answers
+
+
+def _answers_provenance_path(root: Path, ticket: str) -> Path:
+    return root / "reports" / "context" / f"{ticket}.analyst-answers.json"
+
+
+def _answers_digest(answers_map: dict[int, str]) -> str:
+    payload = {
+        f"Q{number}": str(value).strip()
+        for number, value in sorted(answers_map.items(), key=lambda item: item[0])
+    }
+    encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _read_answers_provenance(root: Path, ticket: str) -> dict[str, str]:
+    path = _answers_provenance_path(root, ticket)
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if not isinstance(payload, dict):
+        return {}
+    return {str(key): str(value) for key, value in payload.items()}
+
+
+def sync_answers_provenance(
+    root: Path,
+    ticket: str,
+    answers_map: dict[int, str],
+    *,
+    origin: Optional[str] = None,
+) -> None:
+    if not answers_map or origin != "explicit-retry":
+        return
+    path = _answers_provenance_path(root, ticket)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "schema": "aidd.analyst_answers_provenance.v1",
+        "ticket": ticket,
+        "origin": origin,
+        "answers_digest": _answers_digest(answers_map),
+        "answer_count": len(answers_map),
+    }
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
 def _prepare_answers_source(section: str | None) -> str:
@@ -265,6 +313,7 @@ def validate_prd(
     require_ready_override: Optional[bool] = None,
     allow_blocked_override: Optional[bool] = None,
     min_questions_override: Optional[int] = None,
+    answers_origin: Optional[str] = None,
 ) -> AnalystCheckSummary:
     if not settings.enabled or not gates.branch_enabled(branch, allow=settings.branches, skip=settings.skip_branches):
         return AnalystCheckSummary(status=None, question_count=0, answered_count=0)
@@ -382,6 +431,21 @@ def validate_prd(
             "Согласуйте пары `Вопрос N`/`Question N` и `AIDD:ANSWERS QN=<value>`."
         )
 
+    if answers_map:
+        provenance = _read_answers_provenance(root, ticket)
+        stored_digest = str(provenance.get("answers_digest") or "").strip()
+        stored_origin = str(provenance.get("origin") or "").strip()
+        current_digest = _answers_digest(answers_map)
+        current_origin = str(answers_origin or "").strip()
+        has_current_retry = current_origin == "explicit-retry"
+        has_persisted_retry = stored_origin == "explicit-retry" and stored_digest == current_digest
+        if not has_current_retry and not has_persisted_retry:
+            raise AnalystValidationError(
+                "BLOCK: ответы появились в `AIDD:ANSWERS` без явного compact retry payload текущего или ранее "
+                "зафиксированного запуска. Не материализуйте ответы из `Default:` или предположений; "
+                "повторите `/feature-dev-aidd:idea-new` с `AIDD:ANSWERS Q<N>=...`."
+            )
+
     if status is None:
         raise AnalystValidationError("BLOCK: в PRD отсутствует строка `Status:` → обновите раздел `## Диалог analyst`.")
     if status == "DRAFT":
@@ -416,7 +480,12 @@ def validate_prd(
             f"BLOCK: PRD должен ссылаться на `{research_ref}` в разделе `## Диалог analyst` → добавьте ссылку на отчёт Researcher."
         )
 
-    return AnalystCheckSummary(status=status, question_count=len(set(questions)), answered_count=len(set(answers_map)))
+    return AnalystCheckSummary(
+        status=status,
+        question_count=len(set(questions)),
+        answered_count=len(set(answers_map)),
+        answers_map=dict(answers_map),
+    )
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -443,6 +512,11 @@ def _build_parser() -> argparse.ArgumentParser:
         type=int,
         help="Override minimum number of questions expected from analyst.",
     )
+    parser.add_argument(
+        "--answers-origin",
+        choices=("explicit-retry",),
+        help="Record that the current PRD answers came from an explicit retry payload.",
+    )
     return parser
 
 
@@ -460,6 +534,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             require_ready_override=False if args.no_ready_required else None,
             allow_blocked_override=True if args.allow_blocked else None,
             min_questions_override=args.min_questions,
+            answers_origin=args.answers_origin,
         )
     except AnalystValidationError as exc:
         parser.exit(1, f"{exc}\n")

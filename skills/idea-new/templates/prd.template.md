@@ -10,9 +10,10 @@ Updated: YYYY-MM-DD
 Вопрос 1 (Blocker|Clarification): `<что уточнить>`
 Зачем: `<что блокирует>`
 Варианты: `A) ... B) ...`
-Default: `<разумное значение по умолчанию>`
+Default: `<рекомендация analyst; не считается выбранным ответом без явного AIDD:ANSWERS>`
 
 ## AIDD:ANSWERS
+> Этот блок заполняется только из явного retry payload `AIDD:ANSWERS ...`; `Default:` выше не материализует ответ автоматически.
 > Только compact формат: `Q<N>=<token>` или `Q<N>="короткий текст"`.
 `AIDD:ANSWERS Q1=A`
 
@@ -70,7 +71,7 @@ Default: `<разумное значение по умолчанию>`
 Status: PENDING
 
 ### Verdict
-- `<short verdict>`
+- `Pending until /feature-dev-aidd:review-spec <ticket> returns recommended_status=ready.`
 
 ### Findings
 - `<severity> <issue> -> <recommendation>` or `None`

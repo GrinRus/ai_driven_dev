@@ -33,6 +33,7 @@ from aidd_runtime.research_guard import (
     ResearchCheckSummary,
     ResearchValidationError,
     _extract_status,
+    _normalize_research_status,
     load_settings,
     validate_research,
 )
@@ -67,7 +68,8 @@ def _read_research_doc_status(target: Path, ticket: str) -> str:
         text = doc_path.read_text(encoding="utf-8")
     except Exception:
         return ""
-    return str(_extract_status(text) or "").strip().lower()
+    normalized, _marker = _normalize_research_status(_extract_status(text))
+    return str(normalized or "").strip().lower()
 
 
 def _is_softenable_reason(

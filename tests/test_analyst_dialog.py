@@ -1,4 +1,5 @@
 import inspect
+import re
 import sys
 import tempfile
 import unittest
@@ -40,14 +41,30 @@ except ModuleNotFoundError:  # pragma: no cover - fallback for unittest environm
 from aidd_runtime.analyst_guard import (
     AnalystValidationError,
     load_settings,
+    sync_answers_provenance,
     validate_prd,
 )
 
 from .helpers import ensure_gates_config, write_file
 
 
-def _write_prd(root, slug, body):
-    return write_file(root, f"docs/prd/{slug}.prd.md", body)
+_COMPACT_ANSWER_RE = re.compile(r'\bQ(\d+)\s*=\s*(?:"([^"\n]+)"|([^\s;,#`]+))')
+
+
+def _sync_test_answers_provenance(root, slug, body):
+    answers = {}
+    for match in _COMPACT_ANSWER_RE.finditer(body):
+        number = int(match.group(1))
+        answers[number] = str((match.group(2) if match.group(2) is not None else match.group(3)) or "").strip()
+    if answers:
+        sync_answers_provenance(root, slug, answers, origin="explicit-retry")
+
+
+def _write_prd(root, slug, body, *, with_answers_provenance=True):
+    path = write_file(root, f"docs/prd/{slug}.prd.md", body)
+    if with_answers_provenance:
+        _sync_test_answers_provenance(root, slug, body)
+    return path
 
 
 def _write_research(root, slug, status="reviewed"):
@@ -267,6 +284,22 @@ def test_template_answer_examples_do_not_count_as_real_answers(tmp_path):
     assert "отсутствуют ответы" in message
     assert "ответы без соответствующих вопросов" not in message
     assert "AIDD:ANSWERS должен быть в compact формате" not in message
+
+
+def test_answers_without_retry_provenance_are_rejected(tmp_path):
+    project = tmp_path / "aidd"
+    project.mkdir(parents=True, exist_ok=True)
+    ensure_gates_config(project)
+    slug = "demo"
+    prd = """# PRD\n\n## Диалог analyst\nStatus: READY\nСсылка: docs/research/demo.md\n\nВопрос 1: Что уточнить?\n\n## AIDD:ANSWERS\nAIDD:ANSWERS Q1=A\n\n## AIDD:OPEN_QUESTIONS\n- none\n"""
+    _write_prd(project, slug, prd, with_answers_provenance=False)
+    _write_research(project, slug)
+    settings = load_settings(project)
+
+    with pytest.raises(AnalystValidationError) as excinfo:
+        validate_prd(project, slug, settings=settings)
+
+    assert "без явного compact retry payload" in str(excinfo.value)
 
 
 def test_template_answer_examples_in_tilde_fence_do_not_count_as_real_answers(tmp_path):
