@@ -10,9 +10,6 @@
 
 Перед стартом прочитай:
 
-- `$PLUGIN_DIR/tests/repo_tools/e2e_prompt/profile_full.md`
-- `$PLUGIN_DIR/docs/backlog.md`
-- `$PLUGIN_DIR/skills/review-spec/SKILL.md`
 
 - `$PLUGIN_DIR/skills/aidd-core/templates/workspace-agents.md`
 - `$PLUGIN_DIR/skills/aidd-core/templates/stage-lexicon.md`
@@ -29,12 +26,18 @@
 - `$PLUGIN_DIR/skills/review/SKILL.md`
 - `$PLUGIN_DIR/skills/qa/SKILL.md`
 
+- `$PROMPT_RENDER_DIR/aidd_test_flow_prompt_ralph_script_full.txt`
+- `$PLUGIN_DIR/docs/backlog.md`
+- `$PLUGIN_DIR/skills/review-spec/SKILL.md`
+
 ## 2) Environment
 
 - `PROJECT_DIR=<absolute-path-to-target-workspace>`
 - `PLUGIN_DIR=<absolute-path-to-plugin-repo>`
 - `CLAUDE_PLUGIN_ROOT=$PLUGIN_DIR`
 - `TICKET=TST-002`
+- `PROMPT_RENDER_DIR=$PROJECT_DIR/.aidd_audit/$TICKET/rendered-prompts`
+- `BASE_PROMPT=$PROMPT_RENDER_DIR/aidd_test_flow_prompt_ralph_script_full.txt`
 - `BACKLOG_PATH=$PLUGIN_DIR/docs/backlog.md`
 - `QUALITY_FINAL_MARKER=QUALITY_AUDIT_COMPLETE`
 - `QUALITY_GATE_POLICY=strict`
@@ -64,8 +67,9 @@
 
 ## 5) Step outline
 
-1. Run the inherited flow steps.
-2. Evaluate final feature state, code quality, artifact quality, and acceptance traceability.
-3. Produce quality verdict and optional backlog wave.
-4. End with the exact final marker:
+1. Render the prompt set once: `python3 $PLUGIN_DIR/tests/repo_tools/build_e2e_prompts.py --output-dir "$PROMPT_RENDER_DIR"`.
+2. Run the inherited flow steps using `BASE_PROMPT`.
+3. Evaluate final feature state, code quality, artifact quality, and acceptance traceability.
+4. Produce quality verdict and optional backlog wave.
+5. End with the exact final marker:
 `QUALITY_AUDIT_COMPLETE TST-002 status=<PASS|WARN|FAIL> wave=<WNNN|none> feature_final_state=<REACHED|NOT_REACHED>`
