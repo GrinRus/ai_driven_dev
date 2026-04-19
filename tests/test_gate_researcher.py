@@ -1,6 +1,8 @@
 import datetime as dt
 from pathlib import Path
 
+from aidd_runtime.analyst_guard import sync_answers_provenance
+
 from .helpers import (
     DEFAULT_GATES_CONFIG,
     ensure_gates_config,
@@ -44,7 +46,8 @@ def _setup_common_artifacts(tmp_path: Path, ticket: str = "demo-checkout") -> No
         "## PRD Review\n"
         "Status: READY\n"
     )
-    write_file(tmp_path, f"docs/prd/{ticket}.prd.md", prd_body)
+    prd_path = write_file(tmp_path, f"docs/prd/{ticket}.prd.md", prd_body)
+    sync_answers_provenance(prd_path.parents[2], ticket, {1: "B"}, origin="explicit-retry")
     write_json(tmp_path, f"reports/prd/{ticket}.json", {"status": "ready", "findings": []})
     write_file(
         tmp_path,

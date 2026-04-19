@@ -3,7 +3,10 @@ import json
 import os
 import pathlib
 from pathlib import Path
+import re
 import subprocess
+
+from aidd_runtime.analyst_guard import sync_answers_provenance
 
 from .helpers import (
     HOOKS_DIR,
@@ -37,6 +40,7 @@ PROMPT_PAIRS = [
     ("prd-reviewer", "review-spec"),
 ]
 REVIEW_REPORT = {"summary": "", "findings": []}
+COMPACT_ANSWER_RE = re.compile(r'\bQ(\d+)\s*=\s*(?:"([^"\n]+)"|([^\s;,#`]+))')
 
 
 def append_handoff(tasklist_path: Path, content: str) -> None:
@@ -83,6 +87,35 @@ def _has_command(hooks: dict, event: str, needle: str) -> bool:
 
 def _timestamp() -> str:
     return dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
+def _extract_compact_answers(prd_text: str) -> dict[int, str]:
+    in_answers = False
+    section_lines: list[str] = []
+    for line in prd_text.splitlines():
+        if not in_answers:
+            if line.strip() == "## AIDD:ANSWERS":
+                in_answers = True
+            continue
+        if line.startswith("## "):
+            break
+        section_lines.append(line)
+
+    answers: dict[int, str] = {}
+    for match in COMPACT_ANSWER_RE.finditer("\n".join(section_lines)):
+        number = int(match.group(1))
+        value = (match.group(2) if match.group(2) is not None else match.group(3) or "").strip()
+        if value:
+            answers[number] = value
+    return answers
+
+
+def write_prd_fixture(root: pathlib.Path, ticket: str, content: str) -> None:
+    prd_path = write_file(root, f"docs/prd/{ticket}.prd.md", content)
+    answers = _extract_compact_answers(content)
+    if not answers:
+        return
+    sync_answers_provenance(prd_path.parents[2], ticket, answers, origin="explicit-retry")
 
 
 def approved_prd(ticket: str = "demo-checkout") -> str:
@@ -195,9 +228,9 @@ def write_research_doc(
 
 
 def write_prd_with_status(tmp_path: pathlib.Path, ticket: str, status: str, research_status: str = "pending") -> None:
-    write_file(
+    write_prd_fixture(
         tmp_path,
-        f"docs/prd/{ticket}.prd.md",
+        ticket,
         (
             "# PRD\n\n"
             "## Диалог analyst\n"
@@ -336,7 +369,7 @@ def test_missing_prd_blocks_when_feature_active(tmp_path):
 def test_missing_plan_blocks(tmp_path):
     write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
     write_active_feature(tmp_path, "demo-checkout")
-    write_file(tmp_path, "docs/prd/demo-checkout.prd.md", approved_prd())
+    write_prd_fixture(tmp_path, "demo-checkout", approved_prd())
     write_json(tmp_path, "reports/prd/demo-checkout.json", REVIEW_REPORT)
     write_research_doc(tmp_path)
 
@@ -350,7 +383,7 @@ def test_tasklist_blocks_when_next3_missing_fields(tmp_path):
     write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
     write_active_feature(tmp_path, ticket)
     write_active_stage(tmp_path, "review")
-    write_file(tmp_path, f"docs/prd/{ticket}.prd.md", approved_prd(ticket))
+    write_prd_fixture(tmp_path, ticket, approved_prd(ticket))
     write_json(tmp_path, f"reports/prd/{ticket}.json", REVIEW_REPORT)
     write_plan_with_review(tmp_path, ticket)
     write_research_doc(tmp_path, ticket=ticket, status="reviewed")
@@ -372,7 +405,7 @@ def test_tasklist_blocks_when_test_execution_missing(tmp_path):
     write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
     write_active_feature(tmp_path, ticket)
     write_active_stage(tmp_path, "review")
-    write_file(tmp_path, f"docs/prd/{ticket}.prd.md", approved_prd(ticket))
+    write_prd_fixture(tmp_path, ticket, approved_prd(ticket))
     write_json(tmp_path, f"reports/prd/{ticket}.json", REVIEW_REPORT)
     write_plan_with_review(tmp_path, ticket)
     write_research_doc(tmp_path, ticket=ticket, status="reviewed")
@@ -394,7 +427,7 @@ def test_tasklist_blocks_when_plan_iteration_missing_in_tasklist(tmp_path):
     write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
     write_active_feature(tmp_path, ticket)
     write_active_stage(tmp_path, "review")
-    write_file(tmp_path, f"docs/prd/{ticket}.prd.md", approved_prd(ticket))
+    write_prd_fixture(tmp_path, ticket, approved_prd(ticket))
     write_json(tmp_path, f"reports/prd/{ticket}.json", REVIEW_REPORT)
     write_plan_with_review(tmp_path, ticket)
     plan_path = ensure_project_root(tmp_path) / "docs" / "plan" / f"{ticket}.md"
@@ -414,7 +447,7 @@ def test_tasklist_blocks_when_plan_iteration_missing_in_tasklist(tmp_path):
 def test_pending_baseline_allows_docs_only(tmp_path):
     ticket = "demo-checkout"
     write_active_feature(tmp_path, ticket)
-    write_file(tmp_path, "docs/prd/demo-checkout.prd.md", pending_baseline_prd(ticket))
+    write_prd_fixture(tmp_path, ticket, pending_baseline_prd(ticket))
     write_json(tmp_path, "reports/prd/demo-checkout.json", REVIEW_REPORT)
     write_plan_with_review(tmp_path)
     write_file(tmp_path, "docs/tasklist/demo-checkout.md", "- [ ] <ticket> placeholder\n")
@@ -433,7 +466,7 @@ def test_gate_workflow_surfaces_rlm_status_pending_for_downstream_pending(tmp_pa
     ticket = "demo-baseline-missing"
     write_active_feature(tmp_path, ticket)
     write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
-    write_file(tmp_path, f"docs/prd/{ticket}.prd.md", pending_baseline_prd(ticket))
+    write_prd_fixture(tmp_path, ticket, pending_baseline_prd(ticket))
     write_json(tmp_path, f"reports/prd/{ticket}.json", REVIEW_REPORT)
     write_plan_with_review(tmp_path, ticket)
     tasklist_path = write_tasklist_ready(tmp_path, ticket)
@@ -451,7 +484,7 @@ def test_gate_workflow_surfaces_rlm_status_pending_reason_code(tmp_path):
     ticket = "demo-rlm-pending"
     write_active_feature(tmp_path, ticket)
     write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
-    write_file(tmp_path, f"docs/prd/{ticket}.prd.md", approved_prd(ticket))
+    write_prd_fixture(tmp_path, ticket, approved_prd(ticket))
     write_json(tmp_path, f"reports/prd/{ticket}.json", REVIEW_REPORT)
     write_plan_with_review(tmp_path, ticket)
     tasklist_path = write_tasklist_ready(tmp_path, ticket)
@@ -524,7 +557,7 @@ def test_autodetects_aidd_root_with_ready_prd_and_research(tmp_path):
     project_root = tmp_path / "aidd"
     write_file(project_root, "src/main/kotlin/App.kt", "class App")
     write_active_feature(project_root, ticket)
-    write_file(project_root, f"docs/prd/{ticket}.prd.md", approved_prd(ticket))
+    write_prd_fixture(project_root, ticket, approved_prd(ticket))
     write_plan_with_review(project_root, ticket)
     write_tasklist_ready(project_root, ticket)
     write_json(project_root, f"reports/prd/{ticket}.json", REVIEW_REPORT)
@@ -541,9 +574,9 @@ def test_prd_draft_blocks_even_with_reviewed_research(tmp_path):
     ticket = "demo-draft"
     write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
     write_active_feature(tmp_path, ticket)
-    write_file(
+    write_prd_fixture(
         tmp_path,
-        f"docs/prd/{ticket}.prd.md",
+        ticket,
         (
             "# PRD\n\n"
             "## Диалог analyst\n"
@@ -584,7 +617,7 @@ def test_idea_new_flow_creates_active_in_aidd_and_blocks_until_ready(tmp_path):
     # emulate idea-new: set active, scaffold PRD/research stub
     write_active_state(project_root, ticket=ticket)
     write_active_state(project_root, slug_hint="thin context demo")
-    write_file(project_root, f"docs/prd/{ticket}.prd.md", approved_prd(ticket))
+    write_prd_fixture(project_root, ticket, approved_prd(ticket))
     write_plan_with_review(project_root, ticket)
     write_tasklist_ready(project_root, ticket)
     write_file(project_root, f"docs/research/{ticket}.md", "# Research\nStatus: pending\n")
@@ -616,9 +649,9 @@ def test_idea_new_rich_context_allows_ready_without_auto_research(tmp_path):
     write_file(project_root, "src/main/kotlin/App.kt", "class App")
     write_active_state(project_root, ticket=ticket)
     write_active_state(project_root, slug_hint="rich context demo")
-    write_file(
+    write_prd_fixture(
         project_root,
-        f"docs/prd/{ticket}.prd.md",
+        ticket,
         (
             "# PRD\n\n"
             "## Диалог analyst\n"
@@ -655,7 +688,7 @@ def test_research_required_before_code_changes(tmp_path):
     ticket = "demo-checkout"
     write_active_feature(tmp_path, ticket)
     # PRD drafted but research missing → gate should block code edits
-    write_file(tmp_path, "docs/prd/demo-checkout.prd.md", pending_baseline_prd(ticket))
+    write_prd_fixture(tmp_path, ticket, pending_baseline_prd(ticket))
     write_json(tmp_path, "reports/prd/demo-checkout.json", REVIEW_REPORT)
     write_plan_with_review(tmp_path)
     write_file(tmp_path, "docs/tasklist/demo-checkout.md", "- [ ] <ticket> placeholder\n")
@@ -712,7 +745,7 @@ def test_blocked_status_blocks(tmp_path):
         "## PRD Review\n"
         "Status: pending\n"
     )
-    write_file(tmp_path, "docs/prd/demo-checkout.prd.md", blocked_prd)
+    write_prd_fixture(tmp_path, "demo-checkout", blocked_prd)
     write_json(tmp_path, "reports/prd/demo-checkout.json", REVIEW_REPORT)
     write_research_doc(tmp_path)
     write_plan_with_review(tmp_path)
@@ -730,7 +763,7 @@ def test_blocked_status_blocks(tmp_path):
 def test_missing_tasks_blocks(tmp_path):
     write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
     write_active_feature(tmp_path, "demo-checkout")
-    write_file(tmp_path, "docs/prd/demo-checkout.prd.md", approved_prd())
+    write_prd_fixture(tmp_path, "demo-checkout", approved_prd())
     write_plan_with_review(tmp_path)
     write_json(tmp_path, "reports/prd/demo-checkout.json", REVIEW_REPORT)
     write_research_doc(tmp_path)
@@ -743,7 +776,7 @@ def test_missing_tasks_blocks(tmp_path):
 def test_tasks_with_slug_allow_changes(tmp_path):
     write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
     write_active_feature(tmp_path, "demo-checkout")
-    write_file(tmp_path, "docs/prd/demo-checkout.prd.md", approved_prd())
+    write_prd_fixture(tmp_path, "demo-checkout", approved_prd())
     write_plan_with_review(tmp_path)
     write_json(tmp_path, "reports/prd/demo-checkout.json", REVIEW_REPORT)
     write_research_doc(tmp_path)
@@ -768,7 +801,7 @@ def test_review_handoff_blocks_without_tasklist_entry(tmp_path):
     ticket = "demo-review"
     write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
     write_active_feature(tmp_path, ticket)
-    write_file(tmp_path, f"docs/prd/{ticket}.prd.md", approved_prd(ticket))
+    write_prd_fixture(tmp_path, ticket, approved_prd(ticket))
     write_plan_with_review(tmp_path, ticket)
     write_json(tmp_path, f"reports/prd/{ticket}.json", REVIEW_REPORT)
     write_research_doc(tmp_path, ticket)
@@ -813,7 +846,7 @@ def test_review_handoff_blocks_on_empty_report(tmp_path):
     ticket = "demo-review-empty"
     write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
     write_active_feature(tmp_path, ticket)
-    write_file(tmp_path, f"docs/prd/{ticket}.prd.md", approved_prd(ticket))
+    write_prd_fixture(tmp_path, ticket, approved_prd(ticket))
     write_plan_with_review(tmp_path, ticket)
     write_json(tmp_path, f"reports/prd/{ticket}.json", REVIEW_REPORT)
     write_research_doc(tmp_path, ticket)
@@ -870,7 +903,7 @@ def test_handoff_uses_configured_qa_report(tmp_path):
         },
     )
     write_active_feature(tmp_path, ticket)
-    write_file(tmp_path, f"docs/prd/{ticket}.prd.md", approved_prd(ticket))
+    write_prd_fixture(tmp_path, ticket, approved_prd(ticket))
     write_plan_with_review(tmp_path, ticket)
     write_json(tmp_path, f"reports/qa/custom/{ticket}.json", {"status": "READY", "findings": []})
     tasklist_path = write_tasklist_ready(tmp_path, ticket)
@@ -905,7 +938,7 @@ def test_pending_research_baseline_blocks_downstream_source_edits(tmp_path):
     ticket = "demo-checkout"
     write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
     write_active_feature(tmp_path, ticket)
-    write_file(tmp_path, f"docs/prd/{ticket}.prd.md", approved_prd(ticket))
+    write_prd_fixture(tmp_path, ticket, approved_prd(ticket))
     write_plan_with_review(tmp_path, ticket)
     write_json(tmp_path, f"reports/prd/{ticket}.json", REVIEW_REPORT)
     tasklist_path = write_tasklist_ready(tmp_path, ticket)
@@ -972,7 +1005,7 @@ def test_progress_blocks_without_checkbox(tmp_path):
     )
 
     write_active_feature(tmp_path, slug)
-    write_file(tmp_path, f"docs/prd/{slug}.prd.md", approved_prd(slug))
+    write_prd_fixture(tmp_path, slug, approved_prd(slug))
     write_plan_with_review(tmp_path, slug)
     write_json(tmp_path, f"reports/prd/{slug}.json", REVIEW_REPORT)
     write_research_doc(tmp_path, slug)
@@ -1026,7 +1059,7 @@ def test_hook_uses_aidd_docs_when_root_docs_present(tmp_path):
     # workspace contains aidd/ with proper docs
     project_root = ensure_project_root(workspace_root)
     write_active_feature(project_root, slug)
-    write_file(project_root, f"docs/prd/{slug}.prd.md", approved_prd(slug))
+    write_prd_fixture(project_root, slug, approved_prd(slug))
     write_plan_with_review(project_root, slug)
     write_tasklist_ready(project_root, slug)
     write_research_doc(project_root, slug)
@@ -1044,7 +1077,7 @@ def test_hook_requires_plugin_root(tmp_path):
     slug = "demo-checkout"
     project_root = ensure_project_root(tmp_path)
     write_active_feature(project_root, slug)
-    write_file(project_root, f"docs/prd/{slug}.prd.md", approved_prd(slug))
+    write_prd_fixture(project_root, slug, approved_prd(slug))
     write_plan_with_review(project_root, slug)
     write_tasklist_ready(project_root, slug)
     write_research_doc(project_root, slug)
@@ -1070,7 +1103,7 @@ def test_hook_prefers_aidd_active_markers_over_root_docs(tmp_path):
     project_root = ensure_project_root(workspace_root)
     ticket = "AIDD-123"
     write_active_feature(project_root, ticket, slug_hint="aidd-slug")
-    write_file(project_root, f"docs/prd/{ticket}.prd.md", approved_prd(ticket))
+    write_prd_fixture(project_root, ticket, approved_prd(ticket))
     write_plan_with_review(project_root, ticket)
     write_tasklist_ready(project_root, ticket)
     write_research_doc(project_root, ticket, status="reviewed")
@@ -1110,7 +1143,7 @@ def test_hook_allows_with_duplicate_docs(tmp_path):
     )
     ticket = "AIDD-456"
     write_active_feature(project_root, ticket)
-    write_file(project_root, f"docs/prd/{ticket}.prd.md", approved_prd(ticket))
+    write_prd_fixture(project_root, ticket, approved_prd(ticket))
     write_plan_with_review(project_root, ticket)
     tasklist_path = write_tasklist_ready(project_root, ticket)
     append_handoff(
@@ -1152,7 +1185,7 @@ def test_reviewer_marker_with_slug_hint(tmp_path):
         },
     )
     write_active_feature(tmp_path, ticket, slug_hint=slug_hint)
-    write_file(tmp_path, f"docs/prd/{ticket}.prd.md", approved_prd(ticket))
+    write_prd_fixture(tmp_path, ticket, approved_prd(ticket))
     write_research_doc(tmp_path, ticket, status="pending")
     write_plan_with_review(tmp_path, ticket)
     write_json(tmp_path, f"reports/prd/{ticket}.json", REVIEW_REPORT)
@@ -1195,7 +1228,7 @@ def test_reviewer_required_warns_but_does_not_block_implement_stage(tmp_path):
     )
     write_active_feature(tmp_path, ticket, slug_hint=slug_hint)
     write_active_stage(tmp_path, "implement")
-    write_file(tmp_path, f"docs/prd/{ticket}.prd.md", approved_prd(ticket))
+    write_prd_fixture(tmp_path, ticket, approved_prd(ticket))
     write_research_doc(tmp_path, ticket, status="pending")
     write_plan_with_review(tmp_path, ticket)
     write_json(tmp_path, f"reports/prd/{ticket}.json", REVIEW_REPORT)

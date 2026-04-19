@@ -9,7 +9,6 @@ from aidd_runtime import runtime
 from aidd_runtime import tasklist_check
 from aidd_runtime import tasklist_parser
 from aidd_runtime.plan_review_gate import parse_review_section as parse_plan_review_section
-from aidd_runtime.prd_review_section import extract_prd_review_section
 
 DEFAULT_POLICY = {
     "mode": "soft",
