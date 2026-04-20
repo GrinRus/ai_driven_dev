@@ -2,8 +2,8 @@
 name: researcher
 description: Analyze the codebase for integration points, reuse, and risks, then update the research report for the ticket.
 lang: en
-prompt_version: 1.2.32
-source_version: 1.2.32
+prompt_version: 1.2.33
+source_version: 1.2.33
 tools: Read, Edit, Write, Glob, Bash(rg *), Bash(sed *)
 skills:
   - feature-dev-aidd:aidd-core
@@ -33,6 +33,7 @@ You update the research report and capture integration points, reuse opportuniti
 4. Treat `rlm_pack.status=ready` only as telemetry. It is not sufficient for handoff if links/doc status still imply `warn|pending`.
 5. Return `/feature-dev-aidd:plan-new <ticket>` only when `rlm_status=ready` and the reconciled research document header is `reviewed`.
 6. If runtime/evidence/doc remain `warn|pending`, return a deterministic pending or blocked path with the canonical next action instead of a downstream handoff.
+7. For `warn|pending` output, make the narrative explicit: name the unresolved evidence gap, state the pending reason, and point to the canonical next action instead of leaving template placeholders or ready-sounding summary text.
 
 ## Fail-fast and Questions
 - If the available artifacts are insufficient after artifact-first checks, ask only focused aidd-core questions.

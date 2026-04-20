@@ -36,7 +36,7 @@ class IdeaNewAnalystCheckTests(unittest.TestCase):
             target = Path(tmpdir) / "aidd"
             target.mkdir(parents=True, exist_ok=True)
             context = SimpleNamespace(slug_hint="demo-slug", resolved_ticket="TST-001")
-            summary = SimpleNamespace(status="READY", question_count=1)
+            summary = SimpleNamespace(status="READY", question_count=1, answered_count=1)
             stdout = io.StringIO()
 
             with patch.object(self.module.runtime, "require_workflow_root", return_value=(target.parent, target)), patch.object(
@@ -66,6 +66,7 @@ class IdeaNewAnalystCheckTests(unittest.TestCase):
         provenance_mock.assert_called_once_with(target, "TST-001", {}, origin=None)
         sync_mock.assert_called_once_with(target, "TST-001", "demo-slug", reason="idea-analyst-check")
         self.assertIn("analyst dialog ready", stdout.getvalue())
+        self.assertIn("open_questions: 0", stdout.getvalue())
 
     def test_main_syncs_index_before_rethrowing_validation_failure(self) -> None:
         with tempfile.TemporaryDirectory(prefix="idea-analyst-check-") as tmpdir:

@@ -37,3 +37,6 @@ def test_planner_prompt_uses_prd_then_rlm_then_context_pack() -> None:
     assert "Read the rolling context pack first." not in planner_text
     assert "Primary research evidence: `aidd/reports/research/<ticket>-rlm.pack.json`" in template_text
     assert "Research narrative: `aidd/docs/research/<ticket>.md` (reference only; consult on demand)" in template_text
+    assert "Run subagent `feature-dev-aidd:planner`" not in skill_text
+    assert "Run subagent `feature-dev-aidd:validator`" not in skill_text
+    assert "do not require `feature-dev-aidd:planner` or `feature-dev-aidd:validator` as runtime orchestration steps" in skill_text

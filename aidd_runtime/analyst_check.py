@@ -1,17 +1,17 @@
 from __future__ import annotations
 
 import argparse
-import os
 import sys
-from pathlib import Path
 
-_PLUGIN_ROOT = Path(__file__).resolve().parents[3]
-os.environ.setdefault("CLAUDE_PLUGIN_ROOT", str(_PLUGIN_ROOT))
-if str(_PLUGIN_ROOT) not in sys.path:
-    sys.path.insert(0, str(_PLUGIN_ROOT))
+try:
+    from aidd_runtime._bootstrap import ensure_repo_root
+except ImportError:  # pragma: no cover - direct script execution
+    from _bootstrap import ensure_repo_root
 
-from aidd_runtime import runtime
-from aidd_runtime.analyst_guard import (
+ensure_repo_root(__file__)
+
+from aidd_runtime import runtime  # noqa: E402
+from aidd_runtime.analyst_guard import (  # noqa: E402
     AnalystValidationError,
     load_settings,
     sync_answers_provenance,
@@ -109,8 +109,14 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     label = runtime.format_ticket_label(context, fallback=ticket)
-    print(f"[aidd] analyst dialog ready for `{label}` "
-          f"(status: {summary.status}, questions: {summary.question_count}).")
+    question_count = int(getattr(summary, "question_count", 0) or 0)
+    answered_count = int(getattr(summary, "answered_count", question_count) or 0)
+    open_questions = max(question_count - answered_count, 0)
+    print(
+        f"[aidd] analyst dialog ready for `{label}` "
+        f"(status: {summary.status}, questions: {question_count}, answered: {answered_count}, "
+        f"open_questions: {open_questions})."
+    )
     return 0
 
 

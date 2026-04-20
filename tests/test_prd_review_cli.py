@@ -118,6 +118,72 @@ class PrdReviewCliTests(unittest.TestCase):
 
             self.assertEqual(rc, 0)
 
+    def test_cli_does_not_mutate_review_section_status_when_report_is_not_ready(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="prd-review-") as tmpdir:
+            workspace = Path(tmpdir)
+            project_root = ensure_project_root(workspace)
+            ticket = "DEMO-SYNC-STATUS"
+            prd_path = _write_prd(project_root, ticket, status="READY", note="- [ ] sync metrics with ops")
+            (project_root / "reports" / "prd").mkdir(parents=True, exist_ok=True)
+            report_path = project_root / "reports" / "prd" / f"{ticket}.json"
+
+            cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+                rc = self.mod.main(["--ticket", ticket, "--report", str(report_path)])
+            finally:
+                os.chdir(cwd)
+
+            self.assertEqual(rc, 0)
+            payload = json.loads(report_path.read_text(encoding="utf-8"))
+            self.assertEqual(payload.get("status"), "ready")
+            self.assertEqual(payload.get("recommended_status"), "pending")
+            self.assertIn("## PRD Review\nStatus: READY", prd_path.read_text(encoding="utf-8"))
+
+    def test_cli_keeps_all_existing_review_section_statuses_when_duplicates_exist(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="prd-review-") as tmpdir:
+            workspace = Path(tmpdir)
+            project_root = ensure_project_root(workspace)
+            ticket = "DEMO-SYNC-DUPES"
+            prd_path = project_root / "docs" / "prd" / f"{ticket}.prd.md"
+            prd_path.parent.mkdir(parents=True, exist_ok=True)
+            prd_path.write_text(
+                "\n".join(
+                    [
+                        "# PRD",
+                        "",
+                        "## PRD Review",
+                        "Status: READY",
+                        "",
+                        "- [ ] sync metrics with ops",
+                        "",
+                        "## 11. PRD Review",
+                        "Status: READY",
+                        "",
+                        "- [ ] align acceptance criteria",
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            (project_root / "reports" / "prd").mkdir(parents=True, exist_ok=True)
+            report_path = project_root / "reports" / "prd" / f"{ticket}.json"
+
+            cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+                rc = self.mod.main(["--ticket", ticket, "--report", str(report_path)])
+            finally:
+                os.chdir(cwd)
+
+            self.assertEqual(rc, 0)
+            payload = json.loads(report_path.read_text(encoding="utf-8"))
+            self.assertEqual(payload.get("status"), "ready")
+            self.assertEqual(payload.get("recommended_status"), "pending")
+            prd_text = prd_path.read_text(encoding="utf-8")
+            self.assertEqual(prd_text.count("Status: READY"), 2)
+            self.assertNotIn("Status: PENDING", prd_text)
+
 
 if __name__ == "__main__":
     unittest.main()

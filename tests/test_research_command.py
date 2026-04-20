@@ -14,11 +14,12 @@ from tests.helpers import REPO_ROOT, cli_cmd, cli_env
 
 
 SRC_ROOT = REPO_ROOT
+TOP_LEVEL_RESEARCH_SCRIPT = REPO_ROOT / "aidd_runtime" / "research.py"
 
 if str(SRC_ROOT) not in sys.path:  # pragma: no cover - test bootstrap
     sys.path.insert(0, str(SRC_ROOT))
 
-from aidd_runtime import research
+from aidd_runtime import research  # noqa: E402
 
 
 class ResearchCommandTest(unittest.TestCase):
@@ -745,6 +746,69 @@ class ResearchCommandTest(unittest.TestCase):
             research_doc = (project_root / "docs" / "research" / "PACK-WARN.md").read_text(encoding="utf-8")
             self.assertIn("Status: warn", research_doc)
             self.assertIn("reason_code=rlm_links_empty_warn", stderr.getvalue())
+
+    def test_top_level_research_entrypoint_keeps_pending_path_when_pack_ready_but_links_warn(self):
+        with tempfile.TemporaryDirectory(prefix="aidd-research-top-level-pack-warn-") as tmpdir:
+            workspace = Path(tmpdir) / "workspace"
+            project_root = workspace / "aidd"
+            project_root.mkdir(parents=True, exist_ok=True)
+            subprocess.run(
+                cli_cmd("init"),
+                cwd=workspace,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=cli_env(),
+            )
+
+            write_json = lambda path, payload: path.write_text(  # noqa: E731
+                json.dumps(payload, indent=2) + "\n",
+                encoding="utf-8",
+            )
+
+            (project_root / "config").mkdir(parents=True, exist_ok=True)
+            write_json(project_root / "config" / "gates.json", {"rlm": {"enabled": True, "require_links": True}})
+            (project_root / "docs" / "prd").mkdir(parents=True, exist_ok=True)
+            (project_root / "docs" / "prd" / "PACK-WARN-TOP.prd.md").write_text(
+                "# PRD\n\n## AIDD:RESEARCH_HINTS\n- **Keywords**: `warn`\n",
+                encoding="utf-8",
+            )
+
+            rlm_dir = project_root / "reports" / "research"
+            rlm_dir.mkdir(parents=True, exist_ok=True)
+            (rlm_dir / "PACK-WARN-TOP-rlm.nodes.jsonl").write_text(
+                '{"node_kind":"file","file_id":"file-demo","id":"file-demo","path":"src/App.kt","rev_sha":"demo"}\n',
+                encoding="utf-8",
+            )
+            (rlm_dir / "PACK-WARN-TOP-rlm.links.jsonl").write_text("", encoding="utf-8")
+            write_json(rlm_dir / "PACK-WARN-TOP-rlm.links.stats.json", {"links_total": 0, "empty_reason": "no_matches"})
+            write_json(
+                rlm_dir / "PACK-WARN-TOP-rlm.pack.json",
+                {"schema": "aidd.report.pack.v1", "type": "rlm", "status": "ready"},
+            )
+
+            env = os.environ.copy()
+            env["CLAUDE_PLUGIN_ROOT"] = str(REPO_ROOT / "skills")
+            env.pop("AIDD_PLUGIN_DIR", None)
+            env.pop("PYTHONPATH", None)
+            env["PYTHONDONTWRITEBYTECODE"] = "1"
+
+            result = subprocess.run(
+                [sys.executable, str(TOP_LEVEL_RESEARCH_SCRIPT), "--ticket", "PACK-WARN-TOP", "--auto", "--keywords", "warn"],
+                cwd=workspace,
+                env=env,
+                check=False,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            research_doc = (project_root / "docs" / "research" / "PACK-WARN-TOP.md").read_text(encoding="utf-8")
+            combined_output = "\n".join((result.stdout, result.stderr, research_doc))
+            self.assertIn("Status: warn", research_doc)
+            self.assertIn("reason_code=rlm_links_empty_warn", combined_output)
+            self.assertNotIn("/feature-dev-aidd:plan-new", combined_output)
 
     def test_research_command_no_template_preserves_reviewed_ready_event(self):
         with tempfile.TemporaryDirectory(prefix="aidd-research-no-template-") as tmpdir:

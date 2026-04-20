@@ -23,30 +23,17 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Iterable, List, Optional
 
+try:
+    from aidd_runtime._bootstrap import ensure_repo_root
+except ImportError:  # pragma: no cover - direct script execution
+    from _bootstrap import ensure_repo_root
 
-def _detect_plugin_root() -> Path:
-    env_root = (os.getenv("CLAUDE_PLUGIN_ROOT") or "").strip()
-    if env_root:
-        candidate = Path(env_root).expanduser().resolve()
-        if (candidate / "aidd_runtime").is_dir():
-            return candidate
+ensure_repo_root(__file__)
 
-    probe = Path(__file__).resolve()
-    for parent in (probe.parent, *probe.parents):
-        if (parent / "aidd_runtime").is_dir():
-            return parent
-    return probe.parent
-
-
-plugin_root = _detect_plugin_root()
-os.environ.setdefault("CLAUDE_PLUGIN_ROOT", str(plugin_root))
-if str(plugin_root) not in sys.path:
-    sys.path.insert(0, str(plugin_root))
-
-from aidd_runtime import id_utils
-from aidd_runtime import runtime
-from aidd_runtime.feature_ids import resolve_aidd_root, resolve_identifiers
-from aidd_runtime.prd_review_section import (
+from aidd_runtime import id_utils  # noqa: E402
+from aidd_runtime import runtime  # noqa: E402
+from aidd_runtime.feature_ids import resolve_aidd_root, resolve_identifiers  # noqa: E402
+from aidd_runtime.prd_review_section import (  # noqa: E402
     extract_prd_review_section,
     is_markdown_h2,
     is_prd_review_header,

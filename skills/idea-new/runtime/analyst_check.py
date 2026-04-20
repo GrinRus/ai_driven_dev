@@ -61,8 +61,14 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     label = runtime.format_ticket_label(context, fallback=ticket)
-    print(f"[aidd] analyst dialog ready for `{label}` "
-          f"(status: {summary.status}, questions: {summary.question_count}).")
+    question_count = int(getattr(summary, "question_count", 0) or 0)
+    answered_count = int(getattr(summary, "answered_count", question_count) or 0)
+    open_questions = max(question_count - answered_count, 0)
+    print(
+        f"[aidd] analyst dialog ready for `{label}` "
+        f"(status: {summary.status}, questions: {question_count}, answered: {answered_count}, "
+        f"open_questions: {open_questions})."
+    )
     return 0
 
 

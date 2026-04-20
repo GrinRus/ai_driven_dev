@@ -8,32 +8,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-import os
-import sys
+try:
+    from aidd_runtime._bootstrap import ensure_repo_root
+except ImportError:  # pragma: no cover - direct script execution
+    from _bootstrap import ensure_repo_root
 
+ensure_repo_root(__file__)
 
-def _ensure_plugin_root_on_path() -> None:
-    env_root = os.environ.get("CLAUDE_PLUGIN_ROOT", "").strip()
-    if env_root:
-        root = Path(env_root).resolve()
-        if (root / "aidd_runtime").is_dir():
-            if str(root) not in sys.path:
-                sys.path.insert(0, str(root))
-            return
-
-    probe = Path(__file__).resolve()
-    for parent in (probe.parent, *probe.parents):
-        if (parent / "aidd_runtime").is_dir():
-            os.environ.setdefault("CLAUDE_PLUGIN_ROOT", str(parent))
-            if str(parent) not in sys.path:
-                sys.path.insert(0, str(parent))
-            return
-
-
-_ensure_plugin_root_on_path()
-
-from aidd_runtime import gates
-from aidd_runtime.feature_ids import resolve_aidd_root
+from aidd_runtime import gates  # noqa: E402
+from aidd_runtime.feature_ids import resolve_aidd_root  # noqa: E402
 
 # Allow Markdown prefixes (headings/bullets/bold) so analyst output doesn't trip the gate.
 QUESTION_RE = re.compile(

@@ -8,14 +8,16 @@ import sys
 from datetime import date
 from pathlib import Path
 
-_PLUGIN_ROOT = Path(__file__).resolve().parents[3]
-os.environ.setdefault("CLAUDE_PLUGIN_ROOT", str(_PLUGIN_ROOT))
-if str(_PLUGIN_ROOT) not in sys.path:
-    sys.path.insert(0, str(_PLUGIN_ROOT))
+try:
+    from aidd_runtime._bootstrap import ensure_repo_root
+except ImportError:  # pragma: no cover - direct script execution
+    from _bootstrap import ensure_repo_root
 
-from aidd_runtime import runtime
-from aidd_runtime import tasklist_check
-from aidd_runtime import gates
+ensure_repo_root(__file__)
+
+from aidd_runtime import runtime  # noqa: E402
+from aidd_runtime import tasklist_check  # noqa: E402
+from aidd_runtime import gates  # noqa: E402
 
 
 def _is_cwd_wrong_runtime_error(exc: Exception) -> bool:

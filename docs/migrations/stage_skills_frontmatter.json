@@ -60,8 +60,8 @@
           "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/tasks_derive.py *)"
         ],
         "model": "inherit",
-        "prompt_version": "1.2.36",
-        "source_version": "1.2.36",
+          "prompt_version": "1.2.37",
+          "source_version": "1.2.37",
         "lang": "en",
         "argument-hint": "$1 [note...] [--paths path1,path2] [--keywords kw1,kw2] [--note text]",
         "name": "researcher"
@@ -85,8 +85,8 @@
           "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_slice.py *)"
         ],
         "model": "inherit",
-        "prompt_version": "1.1.17",
-        "source_version": "1.1.17",
+          "prompt_version": "1.1.18",
+          "source_version": "1.1.18",
         "lang": "en",
         "argument-hint": "$1 [note...]",
         "name": "plan-new"
@@ -97,12 +97,10 @@
       "skill_path": "skills/review-spec/SKILL.md",
       "frontmatter": {
         "allowed-tools": [
-          "Read",
-          "Edit",
-          "Write",
-          "Glob",
-          "Bash(rg *)",
-          "Bash(sed *)",
+            "Read",
+            "Glob",
+            "Bash(rg *)",
+            "Bash(sed *)",
           "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_slice.py *)",
           "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_links_build.py *)",
           "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_finalize.py *)",
@@ -114,8 +112,8 @@
           "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_feature.py *)"
         ],
         "model": "inherit",
-        "prompt_version": "1.0.29",
-        "source_version": "1.0.29",
+          "prompt_version": "1.0.31",
+          "source_version": "1.0.31",
         "lang": "en",
         "argument-hint": "$1 [note...]",
         "name": "review-spec"
@@ -141,8 +139,8 @@
           "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/tasklist_check.py *)"
         ],
         "model": "inherit",
-        "prompt_version": "1.1.25",
-        "source_version": "1.1.25",
+          "prompt_version": "1.1.27",
+          "source_version": "1.1.27",
         "lang": "en",
         "argument-hint": "$1 [note...]",
         "name": "tasks-new"

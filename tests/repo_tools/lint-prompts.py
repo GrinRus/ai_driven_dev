@@ -87,9 +87,9 @@ STAGE_CANONICAL_BODY_RUNTIME_ENV_REQUIRED = {
 LOOP_STAGES = {"implement", "review", "qa", "status"}
 NO_FORK_STAGE_SUBAGENT_COUNTS: Dict[str, int] = {
     "idea-new": 1,
-    "plan-new": 2,
-    "review-spec": 2,
-    "tasks-new": 1,
+    "plan-new": 0,
+    "review-spec": 0,
+    "tasks-new": 0,
     "implement": 1,
     "review": 1,
     "qa": 1,

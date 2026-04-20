@@ -8,6 +8,13 @@ import sys
 from dataclasses import dataclass
 from typing import Any, Iterable, Optional, TextIO
 
+try:
+    from aidd_runtime._bootstrap import ensure_repo_root
+except ImportError:  # pragma: no cover - direct script execution
+    from _bootstrap import ensure_repo_root
+
+ensure_repo_root(__file__)
+
 
 MAX_ARG_CHARS = 200
 HELP_EPILOG = """Examples:

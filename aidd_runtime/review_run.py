@@ -1,17 +1,18 @@
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
 
-_PLUGIN_ROOT = Path(__file__).resolve().parents[3]
-os.environ.setdefault("CLAUDE_PLUGIN_ROOT", str(_PLUGIN_ROOT))
-if str(_PLUGIN_ROOT) not in sys.path:
-    sys.path.insert(0, str(_PLUGIN_ROOT))
+try:
+    from aidd_runtime._bootstrap import ensure_repo_root
+except ImportError:  # pragma: no cover - direct script execution
+    from _bootstrap import ensure_repo_root
 
-from aidd_runtime import launcher
-from aidd_runtime import runtime
-from aidd_runtime import stage_actions_run
+ensure_repo_root(__file__)
+
+from aidd_runtime import launcher  # noqa: E402
+from aidd_runtime import runtime  # noqa: E402
+from aidd_runtime import stage_actions_run  # noqa: E402
 
 DEFAULT_STAGE = "review"
 DESCRIPTION = "Validate review actions payload with canonical aidd.actions.v1 contract and fail-fast diagnostics."

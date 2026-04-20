@@ -1,4 +1,5 @@
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -11,7 +12,7 @@ SRC_ROOT = REPO_ROOT
 if str(SRC_ROOT) not in sys.path:  # pragma: no cover - test bootstrap
     sys.path.insert(0, str(SRC_ROOT))
 
-from .helpers import cli_cmd, cli_env, write_file
+from .helpers import cli_cmd, cli_env, write_file  # noqa: E402
 
 
 class ResearcherContextTests(unittest.TestCase):
@@ -151,6 +152,40 @@ class ResearcherContextTests(unittest.TestCase):
         self.assertEqual(state.get("slug_hint"), "checkout-lite")
 
         # RLM targets refresh is best-effort in set-active-feature and should not affect slug persistence.
+
+    def test_top_level_set_active_feature_recovers_from_invalid_plugin_root_env(self) -> None:
+        bootstrap_env = cli_env()
+        subprocess.run(
+            cli_cmd("init"),
+            text=True,
+            capture_output=True,
+            cwd=self.workspace,
+            env=bootstrap_env,
+            check=True,
+        )
+
+        env = os.environ.copy()
+        env["CLAUDE_PLUGIN_ROOT"] = str(REPO_ROOT / "skills")
+        env.pop("AIDD_PLUGIN_DIR", None)
+        env.pop("PYTHONPATH", None)
+        env["PYTHONDONTWRITEBYTECODE"] = "1"
+        env.setdefault("AIDD_ALLOW_PLUGIN_WRITES", "1")
+
+        result = subprocess.run(
+            [sys.executable, str(REPO_ROOT / "aidd_runtime" / "set_active_feature.py"), "demo-checkout"],
+            text=True,
+            capture_output=True,
+            cwd=self.workspace,
+            env=env,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        state = json.loads((self.root / "docs" / ".active.json").read_text(encoding="utf-8"))
+        self.assertEqual(state.get("ticket"), "demo-checkout")
+        self.assertEqual(state.get("slug_hint"), "demo-checkout")
+        self.assertTrue((self.root / "docs" / "prd" / "demo-checkout.prd.md").exists())
+        self.assertIn("active feature: demo-checkout", result.stdout)
 
 
 if __name__ == "__main__":

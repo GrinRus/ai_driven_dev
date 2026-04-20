@@ -2,34 +2,20 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
 import sys
 from pathlib import Path
 
+try:
+    from aidd_runtime._bootstrap import ensure_repo_root
+except ImportError:  # pragma: no cover - direct script execution
+    from _bootstrap import ensure_repo_root
 
-def _detect_plugin_root() -> Path:
-    env_root = (os.getenv("CLAUDE_PLUGIN_ROOT") or "").strip()
-    if env_root:
-        candidate = Path(env_root).expanduser().resolve()
-        if (candidate / "aidd_runtime").is_dir():
-            return candidate
+ensure_repo_root(__file__)
 
-    probe = Path(__file__).resolve()
-    for parent in (probe.parent, *probe.parents):
-        if (parent / "aidd_runtime").is_dir():
-            return parent
-    return probe.parent
-
-
-_PLUGIN_ROOT = _detect_plugin_root()
-os.environ.setdefault("CLAUDE_PLUGIN_ROOT", str(_PLUGIN_ROOT))
-if str(_PLUGIN_ROOT) not in sys.path:
-    sys.path.insert(0, str(_PLUGIN_ROOT))
-
-from aidd_runtime import runtime
-from aidd_runtime import rlm_finalize
-from aidd_runtime.research_guard import (
+from aidd_runtime import rlm_finalize  # noqa: E402
+from aidd_runtime import runtime  # noqa: E402
+from aidd_runtime.research_guard import (  # noqa: E402
     ResearchCheckSummary,
     ResearchValidationError,
     _extract_status,

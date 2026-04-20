@@ -3,8 +3,8 @@ name: plan-new
 description: Drafts implementation plan from ready PRD and research artifacts. Use when PRD and research gates pass and plan stage should start. Do not use when the request is feature kickoff in `idea-new` or readiness approval in `review-spec`.
 argument-hint: $1 [note...]
 lang: en
-prompt_version: 1.1.17
-source_version: 1.1.17
+prompt_version: 1.1.18
+source_version: 1.1.18
 allowed-tools:
   - Read
   - Edit
@@ -33,10 +33,10 @@ Follow `feature-dev-aidd:aidd-core`.
 6. Prompt-budget rule: when the first-pass context approaches the model budget, drop lower-priority artifacts instead of widening the evidence set. Drop research markdown first, then context pack, and keep pack/slice-first evidence.
 7. Runtime-path safety: execute only canonical runtime commands from this contract (`python3 ${CLAUDE_PLUGIN_ROOT}/skills/.../runtime/...`).
 8. Root-relative `/skills/...` runtime paths are forbidden; use only `${CLAUDE_PLUGIN_ROOT}/skills/.../runtime/...`.
-9. Run subagent `feature-dev-aidd:planner`. The planner is the only writer for `aidd/docs/plan/<ticket>.md`.
-10. Run subagent `feature-dev-aidd:validator`. The validator is read-only and returns the narrative verdict and gap list only.
-11. Final stage readiness is sourced from `prd_check + research_check + validator verdict`; return `/feature-dev-aidd:review-spec <ticket>` only on the ready path.
-12. Otherwise return PENDING or BLOCKED with the validator gaps and the canonical next action for the current stage.
+9. Produce or refresh `aidd/docs/plan/<ticket>.md` directly in this stage command from the canonical evidence above; do not require `feature-dev-aidd:planner` or `feature-dev-aidd:validator` as runtime orchestration steps under this stage policy.
+10. Keep validation in the same stage pass: use canonical gate results plus bounded self-review of the generated plan, and treat planner/validator roles as conceptual authoring guidance only, not as required runtime handoffs.
+11. Final stage readiness is sourced from `prd_check + research_check + stage-authored plan validation`; return `/feature-dev-aidd:review-spec <ticket>` only on the ready path.
+12. Otherwise return PENDING or BLOCKED with the concrete plan gaps and the canonical next action for the current stage.
 
 ## Command contracts
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan-new/runtime/research_check.py`

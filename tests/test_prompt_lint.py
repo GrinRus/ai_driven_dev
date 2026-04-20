@@ -187,11 +187,14 @@ def build_stage_skill(stage: str, *, lang: str = "en") -> str:
             "10. Non-canonical stage-result path under `skills/aidd-loop/runtime/` is forbidden. [AIDD_LOOP_POLICY:NON_CANONICAL_STAGE_RESULT_FORBIDDEN]"
         )
     elif stage == "plan-new":
-        lines.append("1. Run subagent `feature-dev-aidd:planner`.")
-        lines.append("2. Run subagent `feature-dev-aidd:validator`.")
+        lines.append("1. Produce the plan directly in this stage; do not run planner or validator subagents.")
+        lines.append("2. Keep validation in-stage and return review-spec only on the ready path.")
     elif stage == "review-spec":
-        lines.append("1. Run subagent `feature-dev-aidd:plan-reviewer`.")
-        lines.append("2. Run subagent `feature-dev-aidd:prd-reviewer`.")
+        lines.append("1. Treat plan-reviewer/prd-reviewer only as read-only narrative role references; do not run them as subagents.")
+        lines.append("2. Keep report/gate payload authoritative and return implementation only on the ready path.")
+    elif stage == "tasks-new":
+        lines.append("1. Treat tasklist-refiner only as repair guidance; do not run it as a subagent.")
+        lines.append("2. Rerun tasks_new.py after any repair pass before final validator check.")
     elif stage in STAGE_SUBAGENT:
         lines.append(f"1. Run subagent `feature-dev-aidd:{STAGE_SUBAGENT[stage]}` after stage orchestration.")
     else:
@@ -747,7 +750,7 @@ class PromptLintTests(unittest.TestCase):
 
     def test_invalid_status_fails(self) -> None:
         bad_skill = build_stage_skill("plan-new").replace(
-            "## Steps\n1. Run subagent `feature-dev-aidd:planner`.\n2. Run subagent `feature-dev-aidd:validator`.",
+            "## Steps\n1. Produce the plan directly in this stage; do not run planner or validator subagents.\n2. Keep validation in-stage and return review-spec only on the ready path.",
             "## Steps\nStatus: approved",
             1,
         )
@@ -1236,8 +1239,8 @@ class PromptLintTests(unittest.TestCase):
 
     def test_stage_skill_legacy_stage_alias_fails(self) -> None:
         bad_skill = build_stage_skill("review-spec").replace(
-            "## Steps\n1. Run subagent `feature-dev-aidd:plan-reviewer`.\n2. Run subagent `feature-dev-aidd:prd-reviewer`.",
-            "## Steps\n1. Run `/feature-dev-aidd:planner DEMO-1` before review.",
+            "1. Treat plan-reviewer/prd-reviewer only as read-only narrative role references; do not run them as subagents.",
+            "1. Run `/feature-dev-aidd:planner DEMO-1` before review.",
             1,
         )
         with tempfile.TemporaryDirectory() as tmp:
@@ -1249,11 +1252,8 @@ class PromptLintTests(unittest.TestCase):
 
     def test_stage_skill_deprecated_runtime_alias_without_ban_fails(self) -> None:
         bad_skill = build_stage_skill("review-spec").replace(
-            "## Steps\n1. Run subagent `feature-dev-aidd:plan-reviewer`.\n2. Run subagent `feature-dev-aidd:prd-reviewer`.",
-            (
-                "## Steps\n"
-                "1. Run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_set.py --stage review-prd`."
-            ),
+            "1. Treat plan-reviewer/prd-reviewer only as read-only narrative role references; do not run them as subagents.",
+            "1. Run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_set.py --stage review-prd`.",
             1,
         )
         with tempfile.TemporaryDirectory() as tmp:
@@ -1265,11 +1265,8 @@ class PromptLintTests(unittest.TestCase):
 
     def test_stage_skill_non_canonical_runtime_alias_without_ban_fails(self) -> None:
         bad_skill = build_stage_skill("review-spec").replace(
-            "## Steps\n1. Run subagent `feature-dev-aidd:plan-reviewer`.\n2. Run subagent `feature-dev-aidd:prd-reviewer`.",
-            (
-                "## Steps\n"
-                "1. Run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_stage.py --stage review-prd`."
-            ),
+            "1. Treat plan-reviewer/prd-reviewer only as read-only narrative role references; do not run them as subagents.",
+            "1. Run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_stage.py --stage review-prd`.",
             1,
         )
         with tempfile.TemporaryDirectory() as tmp:
@@ -1281,7 +1278,7 @@ class PromptLintTests(unittest.TestCase):
 
     def test_stage_skill_absolute_skills_runtime_path_fails(self) -> None:
         bad_skill = build_stage_skill("plan-new").replace(
-            "## Steps\n1. Run subagent `feature-dev-aidd:planner`.\n2. Run subagent `feature-dev-aidd:validator`.",
+            "## Steps\n1. Produce the plan directly in this stage; do not run planner or validator subagents.\n2. Keep validation in-stage and return review-spec only on the ready path.",
             (
                 "## Steps\n"
                 "1. Run `python3 /skills/aidd-flow-state/runtime/set_active_stage.py --stage plan`."
@@ -1297,7 +1294,7 @@ class PromptLintTests(unittest.TestCase):
 
     def test_stage_skill_context_pack_refresh_without_agent_fails(self) -> None:
         bad_skill = build_stage_skill("plan-new").replace(
-            "## Steps\n1. Run subagent `feature-dev-aidd:planner`.\n2. Run subagent `feature-dev-aidd:validator`.",
+            "## Steps\n1. Produce the plan directly in this stage; do not run planner or validator subagents.\n2. Keep validation in-stage and return review-spec only on the ready path.",
             (
                 "## Steps\n"
                 "1. Run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review/runtime/context_pack.py --refresh --stage plan`."
@@ -1383,10 +1380,10 @@ class PromptLintTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("must contain exactly one `Run subagent` step", result.stderr)
 
-    def test_plan_new_requires_two_run_subagent_steps(self) -> None:
+    def test_plan_new_forbids_run_subagent_steps(self) -> None:
         bad_skill = build_stage_skill("plan-new").replace(
+            "2. Keep validation in-stage and return review-spec only on the ready path.",
             "2. Run subagent `feature-dev-aidd:validator`.",
-            "2. Validate plan artifacts.",
             1,
         )
         with tempfile.TemporaryDirectory() as tmp:
@@ -1394,12 +1391,12 @@ class PromptLintTests(unittest.TestCase):
             self.write_prompts(root, skill_override={"plan-new": bad_skill})
             result = self.run_lint(root)
             self.assertNotEqual(result.returncode, 0)
-            self.assertIn("stage must contain exactly 2 `Run subagent` step(s)", result.stderr)
+            self.assertIn("stage must contain exactly 0 `Run subagent` step(s)", result.stderr)
 
-    def test_review_spec_requires_two_run_subagent_steps(self) -> None:
+    def test_review_spec_forbids_run_subagent_steps(self) -> None:
         bad_skill = build_stage_skill("review-spec").replace(
+            "2. Keep report/gate payload authoritative and return implementation only on the ready path.",
             "2. Run subagent `feature-dev-aidd:prd-reviewer`.",
-            "2. Summarize review findings.",
             1,
         )
         with tempfile.TemporaryDirectory() as tmp:
@@ -1407,7 +1404,20 @@ class PromptLintTests(unittest.TestCase):
             self.write_prompts(root, skill_override={"review-spec": bad_skill})
             result = self.run_lint(root)
             self.assertNotEqual(result.returncode, 0)
-            self.assertIn("stage must contain exactly 2 `Run subagent` step(s)", result.stderr)
+            self.assertIn("stage must contain exactly 0 `Run subagent` step(s)", result.stderr)
+
+    def test_tasks_new_forbids_run_subagent_steps(self) -> None:
+        bad_skill = build_stage_skill("tasks-new").replace(
+            "2. Rerun tasks_new.py after any repair pass before final validator check.",
+            "2. Run subagent `feature-dev-aidd:tasklist-refiner`.",
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, skill_override={"tasks-new": bad_skill})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("stage must contain exactly 0 `Run subagent` step(s)", result.stderr)
 
     def test_legacy_bash_grammar_warns_in_warn_mode(self) -> None:
         legacy_tail = ":" + "*"

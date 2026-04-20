@@ -3,8 +3,8 @@ name: researcher
 description: Generates or refreshes research artifacts and RLM evidence for a ticket. Use when research stage should produce or update canonical RLM outputs. Do not use when the request is initial ticket bootstrap in `idea-new` or implementation planning in `plan-new`.
 argument-hint: $1 [note...] [--paths path1,path2] [--keywords kw1,kw2] [--note text]
 lang: en
-prompt_version: 1.2.36
-source_version: 1.2.36
+prompt_version: 1.2.37
+source_version: 1.2.37
 allowed-tools:
   - Read
   - Edit
@@ -34,8 +34,9 @@ Follow `feature-dev-aidd:aidd-core`.
 8. Ready path: return `/feature-dev-aidd:plan-new <ticket>` only when the runtime produced canonical ready state: `rlm_status=ready` and the reconciled research document header is `Status: reviewed`.
 9. `rlm_pack.status=ready` alone is not a ready signal. If the document header or evidence remains `warn|pending`, keep the stage in deterministic pending/blocked output and do not guess a downstream handoff.
 10. Pending or blocked path: if readiness is not canonically ready, return the deterministic blocker or pending output instead of guessing a downstream handoff.
-11. Runtime-path safety: execute only canonical runtime commands from this contract (`python3 ${CLAUDE_PLUGIN_ROOT}/skills/.../runtime/...`).
-12. Root-relative `/skills/...` runtime paths are forbidden; use only `${CLAUDE_PLUGIN_ROOT}/skills/.../runtime/...`.
+11. When the research document remains `warn|pending`, write an explicit pending reason, unresolved evidence gap, and canonical next action; do not leave template placeholders or ready-sounding summary text.
+12. Runtime-path safety: execute only canonical runtime commands from this contract (`python3 ${CLAUDE_PLUGIN_ROOT}/skills/.../runtime/...`).
+13. Root-relative `/skills/...` runtime paths are forbidden; use only `${CLAUDE_PLUGIN_ROOT}/skills/.../runtime/...`.
 
 ## Command contracts
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py`

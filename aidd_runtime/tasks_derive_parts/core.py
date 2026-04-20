@@ -1000,8 +1000,9 @@ def main(argv: list[str] | None = None) -> int:
     tasklist_rel = Path("docs") / "tasklist" / f"{ticket}.md"
     tasklist_path = target / tasklist_rel
     if not tasklist_path.exists():
+        tasklist_label = runtime.rel_path(tasklist_path, target)
         raise FileNotFoundError(
-            f"tasklist not found at {tasklist_rel}; create it via /feature-dev-aidd:tasks-new {ticket}."
+            f"tasklist not found at {tasklist_label}; create it via /feature-dev-aidd:tasks-new {ticket}."
         )
     tasklist_text = tasklist_path.read_text(encoding="utf-8")
     if source == "research" and not derived_tasks:

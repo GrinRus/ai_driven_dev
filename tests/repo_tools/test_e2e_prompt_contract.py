@@ -173,6 +173,46 @@ class E2EPromptContractTests(unittest.TestCase):
         self.assertNotIn("/feature-dev-aidd:planner", agent_text)
         self.assertNotIn("/feature-dev-aidd:planner", skill_text)
 
+    def test_review_spec_uses_canonical_shared_rlm_runtime_paths(self) -> None:
+        review_skill = read_text(REPO_ROOT / "skills" / "review-spec" / "SKILL.md")
+        self.assertIn(
+            "python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_links_build.py",
+            review_skill,
+        )
+        self.assertIn(
+            "python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_finalize.py",
+            review_skill,
+        )
+        self.assertNotIn("skills/aidd-core/runtime/rlm_links_build.py", review_skill)
+
+    def test_review_spec_reviewers_are_read_only_and_report_first(self) -> None:
+        review_skill = read_text(REPO_ROOT / "skills" / "review-spec" / "SKILL.md")
+        prd_reviewer = read_text(REPO_ROOT / "agents" / "prd-reviewer.md")
+        plan_reviewer = read_text(REPO_ROOT / "agents" / "plan-reviewer.md")
+
+        self.assertNotIn("\n  - Edit\n", review_skill)
+        self.assertNotIn("\n  - Write\n", review_skill)
+        self.assertIn("The report payload is authoritative", review_skill)
+        self.assertNotIn("Run subagent `feature-dev-aidd:plan-reviewer`", review_skill)
+        self.assertNotIn("Run subagent `feature-dev-aidd:prd-reviewer`", review_skill)
+        self.assertIn("tools: Read, Glob, Bash(rg *), Bash(sed *)", prd_reviewer)
+        self.assertIn("do not edit `aidd/docs/prd/<ticket>.prd.md`", prd_reviewer)
+        self.assertIn("tools: Read, Glob, Bash(rg *), Bash(sed *)", plan_reviewer)
+        self.assertIn("do not edit `aidd/docs/plan/<ticket>.md`", plan_reviewer)
+
+    def test_tasks_new_uses_refiner_as_guidance_not_runtime_subagent(self) -> None:
+        task_skill = read_text(REPO_ROOT / "skills" / "tasks-new" / "SKILL.md")
+        self.assertNotIn("Run subagent `feature-dev-aidd:tasklist-refiner`", task_skill)
+        self.assertIn("Treat `feature-dev-aidd:tasklist-refiner` only as repair guidance", task_skill)
+
+    def test_idea_stage_prompts_keep_prd_review_pending_until_review_spec(self) -> None:
+        idea_skill = read_text(REPO_ROOT / "skills" / "idea-new" / "SKILL.md")
+        analyst_agent = read_text(REPO_ROOT / "agents" / "analyst.md")
+        prd_template = read_text(REPO_ROOT / "skills" / "idea-new" / "templates" / "prd.template.md")
+        self.assertIn("must not mark `## PRD Review` as `READY`", idea_skill)
+        self.assertIn("only `review-spec` may grant READY", analyst_agent)
+        self.assertIn("Pending until /feature-dev-aidd:review-spec <ticket>", prd_template)
+
     def test_loop_stage_skills_enforce_stage_chain_only_policy(self) -> None:
         for skill_path in LOOP_STAGE_SKILLS:
             text = read_text(skill_path)
