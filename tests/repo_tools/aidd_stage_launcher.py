@@ -52,6 +52,12 @@ OPTION_LINE_RE = re.compile(r"^\s*[-*]?\s*(?:\*\*)?([A-Z])\)(?:\*\*)?\s*(.+?)\s*
 QUESTION_STAGE_HINT_RE = re.compile(r"(idea[-_ ]new|plan[-_ ]new|05_idea_new|05_plan_new)", re.IGNORECASE)
 AIDD_OPEN_QUESTIONS_HEADING_RE = re.compile(r"^\s*##\s+AIDD:OPEN_QUESTIONS\s*$", re.IGNORECASE | re.MULTILINE)
 SECTION_HEADING_RE = re.compile(r"^\s*##\s+.+$", re.MULTILINE)
+QUESTION_TRIGGER_PATTERNS = (
+    re.compile(r"\b(?:Q|Вопрос|Question)\s*[0-9]+\b", re.IGNORECASE),
+    re.compile(r"\baidd:answers\b", re.IGNORECASE),
+    re.compile(r"\bopen[_ ]questions?\b", re.IGNORECASE),
+    re.compile(r"\b(?:answer|ответ)(?:s|ить|ы)?\b", re.IGNORECASE),
+)
 
 
 def build_paths(audit_dir: Path, step: str, run: int) -> Dict[str, Path]:
@@ -499,7 +505,10 @@ def _detect_top_level_status(log_text: str) -> str:
     assistant_text = _last_top_level_assistant_text(log_text)
     if assistant_text:
         candidate_texts.append(assistant_text)
-    candidate_texts.append(str(log_text or ""))
+    if not candidate_texts:
+        raw_tail = "\n".join(str(log_text or "").splitlines()[-120:])
+        if raw_tail:
+            candidate_texts.append(raw_tail)
     for text in candidate_texts:
         for pattern in STATUS_TEXT_PATTERNS:
             match = pattern.search(text)
@@ -745,32 +754,41 @@ def _extract_questions_from_persisted_doc(project_dir: Path, ticket: str) -> Lis
         if not candidate.exists():
             continue
         text = candidate.read_text(encoding="utf-8", errors="replace")
-        open_ids = _extract_open_question_ids_from_persisted_doc(text)
+        open_questions_meta = _extract_open_questions_meta_from_persisted_doc(text)
+        open_ids = open_questions_meta["ids"]
         questions = _extract_questions_from_text(text, source=f"persisted_doc:{candidate.name}")
-        if open_ids:
+        if open_questions_meta["present"]:
+            if not open_ids:
+                return []
             filtered = [item for item in questions if int(item.get("number") or 0) in open_ids]
             if filtered:
                 return filtered
+            return []
         if questions:
             return questions
     return []
 
 
 def _extract_open_question_ids_from_persisted_doc(text: str) -> set[int]:
+    return set(_extract_open_questions_meta_from_persisted_doc(text)["ids"])
+
+
+def _extract_open_questions_meta_from_persisted_doc(text: str) -> Dict[str, Any]:
     match = AIDD_OPEN_QUESTIONS_HEADING_RE.search(text)
     if not match:
-        return set()
+        return {"present": False, "explicit_none": False, "ids": set()}
     start = match.end()
     next_heading = SECTION_HEADING_RE.search(text, start)
     end = next_heading.start() if next_heading else len(text)
     section = text[start:end]
-    if re.search(r"^\s*-\s*`?none`?\s*$", section, re.IGNORECASE | re.MULTILINE):
-        return set()
+    explicit_none = bool(re.search(r"^\s*-\s*`?none`?\s*$", section, re.IGNORECASE | re.MULTILINE))
+    if explicit_none:
+        return {"present": True, "explicit_none": True, "ids": set()}
     ids = {
         _normalize_question_number(found.group(1))
         for found in re.finditer(r"\bQ([0-9]+)\b", section)
     }
-    return {number for number in ids if number > 0}
+    return {"present": True, "explicit_none": False, "ids": {number for number in ids if number > 0}}
 
 
 def _dedupe_questions(questions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -798,6 +816,35 @@ def _dedupe_questions(questions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return [deduped[number] for number in sorted(deduped)]
 
 
+def _contains_question_trigger(text: str) -> bool:
+    for pattern in QUESTION_TRIGGER_PATTERNS:
+        if pattern.search(str(text or "")):
+            return True
+    return False
+
+
+def _detect_question_trigger(
+    *,
+    result_event: Mapping[str, Any] | None,
+    result_permission_questions: List[Dict[str, Any]],
+    result_text_questions: List[Dict[str, Any]],
+    assistant_text: str,
+    assistant_text_questions: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    if result_permission_questions:
+        return {"required": 1, "source": "result_permission_denials", "confidence": "high"}
+    if result_text_questions:
+        return {"required": 1, "source": "result_text_questions", "confidence": "high"}
+    result_text = str((result_event or {}).get("result") or "")
+    if _contains_question_trigger(result_text):
+        return {"required": 1, "source": "result_text_signal", "confidence": "high"}
+    if assistant_text_questions:
+        return {"required": 1, "source": "assistant_text_questions", "confidence": "medium"}
+    if _contains_question_trigger(assistant_text):
+        return {"required": 1, "source": "assistant_text_signal", "confidence": "medium"}
+    return {"required": 0, "source": "none", "confidence": "none"}
+
+
 def extract_question_cycle(
     *,
     log_text: str,
@@ -807,24 +854,27 @@ def extract_question_cycle(
     result_event = _last_result_event(log_text)
     top_level_status = _detect_top_level_status(log_text)
     sources: List[Tuple[str, List[Dict[str, Any]]]] = []
+    result_permission_questions: List[Dict[str, Any]] = []
+    result_text_questions: List[Dict[str, Any]] = []
     if result_event:
-        sources.append(
-            (
-                "result_permission_denials",
-                _extract_questions_from_permission_denials(result_event),
-            )
-        )
-        sources.append(
-            (
-                "result_text",
-                _extract_questions_from_text(str(result_event.get("result") or ""), source="result_text"),
-            )
-        )
+        result_permission_questions = _extract_questions_from_permission_denials(result_event)
+        sources.append(("result_permission_denials", result_permission_questions))
+        result_text_questions = _extract_questions_from_text(str(result_event.get("result") or ""), source="result_text")
+        sources.append(("result_text", result_text_questions))
     assistant_text = _last_top_level_assistant_text(log_text)
+    assistant_text_questions: List[Dict[str, Any]] = []
     if assistant_text:
-        sources.append(("assistant_text", _extract_questions_from_text(assistant_text, source="assistant_text")))
+        assistant_text_questions = _extract_questions_from_text(assistant_text, source="assistant_text")
+        sources.append(("assistant_text", assistant_text_questions))
+    question_trigger = _detect_question_trigger(
+        result_event=result_event,
+        result_permission_questions=result_permission_questions,
+        result_text_questions=result_text_questions,
+        assistant_text=assistant_text,
+        assistant_text_questions=assistant_text_questions,
+    )
     persisted_questions = _extract_questions_from_persisted_doc(project_dir=project_dir, ticket=ticket)
-    if persisted_questions:
+    if persisted_questions and int(question_trigger.get("required") or 0):
         sources.append(("persisted_doc", persisted_questions))
 
     selected_source = "none"
@@ -844,6 +894,9 @@ def extract_question_cycle(
         "pending_question_count": len(selected_questions),
         "pending_question_ids": pending_ids,
         "questions": selected_questions,
+        "question_trigger_required": int(question_trigger.get("required") or 0),
+        "question_trigger_source": str(question_trigger.get("source") or "none"),
+        "question_trigger_confidence": str(question_trigger.get("confidence") or "none"),
     }
 
 
@@ -852,6 +905,9 @@ def _format_questions_raw(question_cycle: Mapping[str, Any]) -> str:
         f"source={str(question_cycle.get('source') or 'none')}",
         f"top_level_status={str(question_cycle.get('top_level_status') or '')}",
         f"question_cycle_required={int(bool(question_cycle.get('question_cycle_required')))}",
+        f"question_trigger_required={int(bool(question_cycle.get('question_trigger_required')))}",
+        f"question_trigger_source={str(question_cycle.get('question_trigger_source') or 'none')}",
+        f"question_trigger_confidence={str(question_cycle.get('question_trigger_confidence') or 'none')}",
         f"pending_question_count={int(question_cycle.get('pending_question_count') or 0)}",
         "pending_question_ids=" + ",".join(str(item) for item in question_cycle.get("pending_question_ids") or []),
     ]
@@ -886,6 +942,9 @@ def _format_questions_normalized(question_cycle: Mapping[str, Any]) -> str:
         f"source={str(question_cycle.get('source') or 'none')}",
         f"top_level_status={str(question_cycle.get('top_level_status') or '')}",
         f"question_cycle_required={int(bool(question_cycle.get('question_cycle_required')))}",
+        f"question_trigger_required={int(bool(question_cycle.get('question_trigger_required')))}",
+        f"question_trigger_source={str(question_cycle.get('question_trigger_source') or 'none')}",
+        f"question_trigger_confidence={str(question_cycle.get('question_trigger_confidence') or 'none')}",
     ]
     for question in question_cycle.get("questions") or []:
         if not isinstance(question, dict):
@@ -1306,6 +1365,9 @@ def main() -> int:
         "unanswered_question_ids=" + ",".join(str(item) for item in retry_payload.get("unanswered_question_ids") or []),
         f"question_retry_incomplete={question_retry_incomplete}",
         f"question_source={str(question_cycle.get('source') or 'none')}",
+        f"question_trigger_required={int(bool(question_cycle.get('question_trigger_required')))}",
+        f"question_trigger_source={str(question_cycle.get('question_trigger_source') or 'none')}",
+        f"question_trigger_confidence={str(question_cycle.get('question_trigger_confidence') or 'none')}",
         f"primary_stream_count={stream_result['primary_candidates']}",
         f"valid_stream_count={stream_result['valid_count']}",
         f"invalid_stream_count={stream_result['invalid_count']}",

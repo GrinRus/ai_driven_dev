@@ -10,16 +10,22 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-_PLUGIN_ROOT = Path(__file__).resolve().parents[3]
-os.environ.setdefault("CLAUDE_PLUGIN_ROOT", str(_PLUGIN_ROOT))
-if str(_PLUGIN_ROOT) not in sys.path:
-    sys.path.insert(0, str(_PLUGIN_ROOT))
+if __package__ in {None, ""}:  # pragma: no cover - direct script execution bootstrap
+    for _parent in Path(__file__).resolve().parents:
+        if (_parent / "aidd_runtime" / "_bootstrap.py").is_file():
+            if str(_parent) not in sys.path:
+                sys.path.insert(0, str(_parent))
+            break
 
-from aidd_runtime import qa_agent as _qa_agent
-from aidd_runtime import gates
-from aidd_runtime import runtime
-from aidd_runtime import tasklist_parser
-from aidd_runtime.feature_ids import write_active_state
+from aidd_runtime._bootstrap import ensure_repo_root  # noqa: E402
+
+ensure_repo_root(__file__)
+
+from aidd_runtime import qa_agent as _qa_agent  # noqa: E402
+from aidd_runtime import gates  # noqa: E402
+from aidd_runtime import runtime  # noqa: E402
+from aidd_runtime import tasklist_parser  # noqa: E402
+from aidd_runtime.feature_ids import write_active_state  # noqa: E402
 
 def _resolve_qa_scope_context(target: Path, ticket: str) -> tuple[str, str]:
     active_work_item = str(runtime.read_active_work_item(target) or "").strip()

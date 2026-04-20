@@ -1,6 +1,8 @@
 import json
+import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -8,6 +10,22 @@ from tests.helpers import PROJECT_SUBDIR, REPO_ROOT, cli_cmd, cli_env
 
 
 class InitAiddTests(unittest.TestCase):
+    def run_top_level_script(self, workdir: Path, *args: str) -> subprocess.CompletedProcess:
+        env = os.environ.copy()
+        env["CLAUDE_PLUGIN_ROOT"] = str(REPO_ROOT / "skills")
+        env.pop("AIDD_PLUGIN_DIR", None)
+        env.pop("PYTHONPATH", None)
+        env["PYTHONDONTWRITEBYTECODE"] = "1"
+        return subprocess.run(
+            [sys.executable, str(REPO_ROOT / "aidd_runtime" / "init.py"), *args],
+            cwd=workdir,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=True,
+            env=env,
+        )
+
     def run_script(self, workdir: Path, *args: str) -> subprocess.CompletedProcess:
         """Run canonical init wrapper for the workspace root and return the completed process."""
         return subprocess.run(
@@ -54,6 +72,17 @@ class InitAiddTests(unittest.TestCase):
 
         conventions = (project_root / "config/conventions.json").read_text(encoding="utf-8")
         self.assertIn('"mode": "ticket-prefix"', conventions)
+
+    def test_top_level_init_entrypoint_uses_repo_templates_without_valid_plugin_root_env(self):
+        workdir = self.make_tempdir()
+
+        result = self.run_top_level_script(workdir)
+        self.assertEqual(result.returncode, 0, msg=f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}")
+
+        project_root = workdir / PROJECT_SUBDIR
+        self.assertTrue((project_root / "AGENTS.md").exists())
+        self.assertTrue((project_root / "docs" / "shared" / "stage-lexicon.md").exists())
+        self.assertTrue((project_root / "docs" / "tasklist" / "template.md").exists())
 
     def test_idempotent_run_does_not_overwrite(self):
         workdir = self.make_tempdir()

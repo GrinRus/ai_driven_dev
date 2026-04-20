@@ -1,4 +1,6 @@
+import os
 import subprocess
+import sys
 import tempfile
 import unittest
 import json
@@ -17,10 +19,23 @@ from tests.helpers import (
 
 
 TASKS_NEW_SCRIPT = REPO_ROOT / "skills" / "tasks-new" / "runtime" / "tasks_new.py"
+TOP_LEVEL_TASKS_NEW_SCRIPT = REPO_ROOT / "aidd_runtime" / "tasks_new.py"
 TASKS_NEW_SKILL = REPO_ROOT / "skills" / "tasks-new" / "SKILL.md"
+TASKLIST_REFINER_AGENT = REPO_ROOT / "agents" / "tasklist-refiner.md"
 
 
 class TasksNewRuntimeTests(unittest.TestCase):
+    def _top_level_env(self, extra_env: dict[str, str] | None = None) -> dict[str, str]:
+        env = os.environ.copy()
+        env["CLAUDE_PLUGIN_ROOT"] = str(REPO_ROOT / "skills")
+        env.pop("AIDD_PLUGIN_DIR", None)
+        env.pop("PYTHONPATH", None)
+        env["PYTHONDONTWRITEBYTECODE"] = "1"
+        env.setdefault("AIDD_ALLOW_PLUGIN_WRITES", "1")
+        if extra_env:
+            env.update(extra_env)
+        return env
+
     def _run_tasks_new(
         self,
         workspace: Path,
@@ -30,6 +45,22 @@ class TasksNewRuntimeTests(unittest.TestCase):
         env = cli_env(extra_env or {})
         return subprocess.run(
             ["python3", str(TASKS_NEW_SCRIPT), *args],
+            cwd=workspace,
+            text=True,
+            capture_output=True,
+            env=env,
+            check=False,
+        )
+
+    def _run_top_level_tasks_new(
+        self,
+        workspace: Path,
+        *args: str,
+        extra_env: dict[str, str] | None = None,
+    ) -> subprocess.CompletedProcess[str]:
+        env = self._top_level_env(extra_env)
+        return subprocess.run(
+            [sys.executable, str(TOP_LEVEL_TASKS_NEW_SCRIPT), *args],
             cwd=workspace,
             text=True,
             capture_output=True,
@@ -92,6 +123,26 @@ class TasksNewRuntimeTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0)
             self.assertIn("tasklist-check: error", result.stderr)
             self.assertIn("AIDD_ALLOW_TASKLIST_ERROR_SUCCESS=1", result.stderr)
+
+    def test_top_level_tasks_new_entrypoint_materializes_template_with_invalid_plugin_root_env(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="tasks-new-top-level-template-") as tmpdir:
+            workspace = Path(tmpdir) / "workspace"
+            workspace.mkdir(parents=True, exist_ok=True)
+            bootstrap_workspace(workspace)
+            project_root = workspace / "aidd"
+            ticket = "TASKS-TOP-LEVEL-1"
+            write_active_feature(project_root, ticket)
+            write_active_stage(project_root, "tasklist")
+            write_plan_iterations(project_root, ticket)
+
+            result = self._run_top_level_tasks_new(workspace, "--ticket", ticket)
+
+            self.assertNotEqual(result.returncode, 0)
+            tasklist_path = project_root / "docs" / "tasklist" / f"{ticket}.md"
+            text = tasklist_path.read_text(encoding="utf-8")
+            self.assertIn(f"# Tasklist: {ticket}", text)
+            self.assertIn("## AIDD:TEST_EXECUTION", text)
+            self.assertIn("tasklist_missing_iteration_ids_from_plan", result.stderr)
 
     def test_tasks_new_blocks_on_missing_project_test_contract(self) -> None:
         with tempfile.TemporaryDirectory(prefix="tasks-new-contract-missing-") as tmpdir:
@@ -182,6 +233,63 @@ class TasksNewRuntimeTests(unittest.TestCase):
             self.assertIn("## AIDD:TEST_EXECUTION", text)
             self.assertIn("- profile: targeted", text)
             self.assertIn("./backend-mcp/gradlew test", text)
+
+    def test_tasks_new_rematerializes_malformed_test_execution_from_contract(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="tasks-new-contract-rematerialize-") as tmpdir:
+            workspace = Path(tmpdir) / "workspace"
+            workspace.mkdir(parents=True, exist_ok=True)
+            bootstrap_workspace(workspace)
+            project_root = workspace / "aidd"
+            ticket = "TASKS-CONTRACT-3"
+            write_active_feature(project_root, ticket)
+            write_active_stage(project_root, "tasklist")
+            write_plan_iterations(project_root, ticket)
+            tasklist_path = write_tasklist_ready(project_root, ticket)
+            gates_path = project_root / "config" / "gates.json"
+            payload = json.loads(gates_path.read_text(encoding="utf-8"))
+            payload.setdefault("qa", {}).setdefault("tests", {}).update(
+                {
+                    "profile_default": "targeted",
+                    "filters_default": ["Smoke"],
+                    "when_default": "manual",
+                    "reason_default": "contract rematerialization",
+                    "commands": [
+                        {
+                            "id": "backend_tests",
+                            "command": ["./gradlew", "test"],
+                            "cwd": "backend-mcp",
+                            "profiles": ["targeted", "full"],
+                        }
+                    ],
+                }
+            )
+            gates_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            broken = tasklist_path.read_text(encoding="utf-8").replace(
+                "## AIDD:TEST_EXECUTION\n"
+                "- profile: none\n"
+                "- tasks: []\n"
+                "- filters: []\n"
+                "- when: manual\n"
+                "- reason: docs-only\n",
+                "## AIDD:TEST_EXECUTION\n"
+                "- profile: targeted\n"
+                "- tasks:\n"
+                "  - backend: ./gradlew test\n"
+                "  - cd frontend && npx vitest run\n"
+                "- filters: []\n"
+                "- when: manual\n"
+                "- reason: stale refiner output\n",
+                1,
+            )
+            tasklist_path.write_text(broken, encoding="utf-8")
+
+            result = self._run_tasks_new(workspace, "--ticket", ticket)
+
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            updated = tasklist_path.read_text(encoding="utf-8")
+            self.assertIn("./backend-mcp/gradlew test", updated)
+            self.assertNotIn("backend: ./gradlew test", updated)
+            self.assertNotIn("cd frontend && npx vitest run", updated)
 
     def test_tasks_new_reports_cwd_wrong_with_deterministic_reason_code(self) -> None:
         with tempfile.TemporaryDirectory(prefix="tasks-new-cwd-wrong-") as tmpdir:
@@ -334,6 +442,14 @@ class TasksNewRuntimeTests(unittest.TestCase):
         self.assertIn("creating missing upstream artifacts", text)
         self.assertIn("reading runtime source files for self-diagnosis", text)
         self.assertIn("looping `tasks_new.py -> tasklist_check.py -> manual edits`", text)
+        self.assertIn("must not introduce prose-labeled or shell-chained commands into `AIDD:TEST_EXECUTION`", text)
+        self.assertIn("rerun `python3 ${CLAUDE_PLUGIN_ROOT}/skills/tasks-new/runtime/tasks_new.py --ticket <ticket>` once", text)
+
+    def test_tasklist_refiner_agent_treats_validator_output_as_contract(self) -> None:
+        text = TASKLIST_REFINER_AGENT.read_text(encoding="utf-8")
+        self.assertIn("Treat validator output as contract", text)
+        self.assertIn("never rewrite commands into prose labels such as `backend:` / `frontend:`", text)
+        self.assertIn("never collapse multiple commands into a single shell chain", text)
 
     def test_tasks_new_migrates_legacy_reports_header_to_expected_reports(self) -> None:
         with tempfile.TemporaryDirectory(prefix="tasks-new-expected-reports-") as tmpdir:

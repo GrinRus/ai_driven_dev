@@ -205,6 +205,55 @@ class PRDReviewAgentTests(unittest.TestCase):
         self.assertTrue(all(f.id for f in report.findings))
         self.assertEqual(report.recommended_status, "pending")
 
+    def test_analyse_prd_ignores_command_and_path_placeholder_examples(self):
+        prd = self.write_prd(
+            dedent(
+                """\
+                # Demo
+
+                ## Command examples
+                /feature-dev-aidd:github-analyze <owner>/<repo>
+                `aidd/reports/github/<ticket>/`
+                Ссылка на исследование: `aidd/docs/research/<ticket>.md`
+
+                ## PRD Review
+                Status: READY
+                """
+            ),
+        )
+
+        report = prd_review_agent.analyse_prd("demo-feature", prd)
+
+        self.assertEqual(report.recommended_status, "ready")
+        self.assertFalse(
+            any(
+                finding.title == "Найдены заглушки в PRD"
+                and ("<owner>/<repo>" in finding.details or "<ticket>" in finding.details)
+                for finding in report.findings
+            )
+        )
+
+    def test_analyse_prd_keeps_real_template_placeholder_bullets_blocking(self):
+        prd = self.write_prd(
+            dedent(
+                """\
+                # Demo
+
+                - **Paths**: <path1:path2>
+                - <риск> → <митигация>
+
+                ## PRD Review
+                Status: READY
+                """
+            ),
+        )
+
+        report = prd_review_agent.analyse_prd("demo-feature", prd)
+
+        self.assertEqual(report.recommended_status, "pending")
+        self.assertTrue(any("path1:path2" in finding.details for finding in report.findings))
+        self.assertTrue(any("<риск> → <митигация>" in finding.details for finding in report.findings))
+
     def test_analyse_prd_tracks_open_questions_from_structured_section(self):
         prd = self.write_prd(
             dedent(
@@ -336,6 +385,53 @@ class PRDReviewAgentTests(unittest.TestCase):
 
         self.assertEqual(report.recommended_status, "ready")
         self.assertFalse(any(item.title == "Найдены заглушки в PRD" for item in report.findings))
+
+    def test_analyse_prd_ignores_template_answer_examples(self):
+        prd = self.write_prd(
+            dedent(
+                """\
+                # Demo
+
+                ## AIDD:ANSWERS
+                > Используй только compact формат: `Q<N>=<token>`.
+                `AIDD:ANSWERS Q1=A`
+                `AIDD:ANSWERS Q1=A; Q2="короткий текст"`
+
+                ## PRD Review
+                Status: READY
+                """
+            ),
+        )
+
+        report = prd_review_agent.analyse_prd("demo-feature", prd)
+
+        self.assertEqual(report.answers_format, "invalid")
+        self.assertEqual(report.recommended_status, "pending")
+        self.assertTrue(any("AIDD:ANSWERS" in item.title for item in report.findings))
+
+    def test_analyse_prd_ignores_tilde_fenced_template_answer_examples(self):
+        prd = self.write_prd(
+            dedent(
+                """\
+                # Demo
+
+                ## AIDD:ANSWERS
+                ~~~md
+                AIDD:ANSWERS Q1=A
+                AIDD:ANSWERS Q1=A; Q2="короткий текст"
+                ~~~
+
+                ## PRD Review
+                Status: READY
+                """
+            ),
+        )
+
+        report = prd_review_agent.analyse_prd("demo-feature", prd)
+
+        self.assertEqual(report.answers_format, "invalid")
+        self.assertEqual(report.recommended_status, "pending")
+        self.assertTrue(any("AIDD:ANSWERS" in item.title for item in report.findings))
 
     def test_analyse_prd_still_detects_todo_outside_instructional_answers_context(self):
         prd = self.write_prd(

@@ -12,23 +12,24 @@ from aidd_runtime import runtime
 
 DEFAULT_BLOCKED_POLICY = "ralph"
 BLOCKED_POLICY_VALUES = {"strict", "ralph"}
-RALPH_POLICY_VERSION = "v2"
+RALPH_POLICY_VERSION = "v3"
 
 DEFAULT_HARD_BLOCK_REASONS: Set[str] = {
     "loop_runner_permissions",
     "user_approval_required",
-    "diff_boundary_violation",
-    "preflight_contract_mismatch",
     "plugin_root_missing",
     "command_unavailable",
     "invalid_work_item_key",
     "work_item_resolution_failed",
     "active_stage_sync_failed",
+    "project_contract_missing",
+    "tests_cwd_mismatch",
+    # These remain hard in strict mode but are softened for Ralph scope-completion.
+    "diff_boundary_violation",
+    "preflight_contract_mismatch",
     "prompt_flow_blocker",
     "contract_mismatch_stage_result_shape",
     "contract_mismatch_actions_shape",
-    "project_contract_missing",
-    "tests_cwd_mismatch",
 }
 
 DEFAULT_RECOVERABLE_REASONS: Set[str] = {
@@ -54,6 +55,14 @@ DEFAULT_RECOVERABLE_REASONS: Set[str] = {
     "qa_repair_multiple_handoffs",
     "qa_repair_tasklist_missing",
     "unsupported_stage_result",
+}
+
+RALPH_SOFTENED_HARD_REASONS: Set[str] = {
+    "diff_boundary_violation",
+    "preflight_contract_mismatch",
+    "prompt_flow_blocker",
+    "contract_mismatch_stage_result_shape",
+    "contract_mismatch_actions_shape",
 }
 
 DEFAULT_WARN_CONTINUE_REASONS: Set[str] = {
@@ -176,7 +185,10 @@ def classify_block_reason(
 
     reason_class = "not_recoverable"
     if normalized in policy["hard"]:
-        reason_class = "hard_block"
+        if resolved_policy == "ralph" and normalized in RALPH_SOFTENED_HARD_REASONS:
+            reason_class = "recoverable_retry"
+        else:
+            reason_class = "hard_block"
     elif resolved_policy == "strict" and normalized in policy["strict_recoverable"]:
         reason_class = "recoverable_retry"
     elif resolved_policy == "ralph":

@@ -150,11 +150,70 @@ class ResourcesTests(unittest.TestCase):
                 capture_output=True,
             )
 
-            self.assertNotEqual(result.returncode, 0)
-            combined = (result.stdout or "") + (result.stderr or "")
-            self.assertIn("aidd-init", combined)
+            self.assertEqual(result.returncode, 0)
+            self.assertIn("/feature-dev-aidd:aidd-init", result.stdout)
+            self.assertIn("read-only", result.stdout)
             self.assertTrue(legacy_prd.exists())
             self.assertFalse((workspace / "aidd" / "docs").exists())
+
+    def test_status_runtime_is_read_only_when_index_missing(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="resources-") as tmp:
+            workspace = Path(tmp) / "ws"
+            project_root = workspace / "aidd"
+            project_root.mkdir(parents=True)
+            (workspace / ".git").mkdir()
+            (project_root / "docs" / "prd").mkdir(parents=True, exist_ok=True)
+            (project_root / "docs" / "prd" / "TST-001.prd.md").write_text("# PRD\n", encoding="utf-8")
+
+            env = os.environ.copy()
+            env["CLAUDE_PLUGIN_ROOT"] = str(REPO_ROOT)
+            env["PYTHONPATH"] = str(REPO_ROOT)
+            env["PYTHONDONTWRITEBYTECODE"] = "1"
+            result = subprocess.run(
+                [sys.executable, str(REPO_ROOT / "skills" / "status" / "runtime" / "status.py"), "--ticket", "TST-001"],
+                cwd=workspace,
+                env=env,
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertEqual(result.returncode, 0)
+            self.assertIn("Index snapshot missing", result.stdout)
+            self.assertIn("--refresh", result.stdout)
+            self.assertFalse((project_root / "docs" / "index" / "TST-001.json").exists())
+
+    def test_status_runtime_refresh_rebuilds_index_explicitly(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="resources-") as tmp:
+            workspace = Path(tmp) / "ws"
+            project_root = workspace / "aidd"
+            project_root.mkdir(parents=True)
+            (workspace / ".git").mkdir()
+            (project_root / "docs" / "prd").mkdir(parents=True, exist_ok=True)
+            (project_root / "docs" / "prd" / "TST-001.prd.md").write_text(
+                "# PRD\n\nStatus: READY\n",
+                encoding="utf-8",
+            )
+
+            env = os.environ.copy()
+            env["CLAUDE_PLUGIN_ROOT"] = str(REPO_ROOT)
+            env["PYTHONPATH"] = str(REPO_ROOT)
+            env["PYTHONDONTWRITEBYTECODE"] = "1"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(REPO_ROOT / "skills" / "status" / "runtime" / "status.py"),
+                    "--ticket",
+                    "TST-001",
+                    "--refresh",
+                ],
+                cwd=workspace,
+                env=env,
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertEqual(result.returncode, 0, msg=(result.stdout or "") + (result.stderr or ""))
+            self.assertTrue((project_root / "docs" / "index" / "TST-001.json").exists())
 
 
 if __name__ == "__main__":

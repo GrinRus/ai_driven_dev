@@ -23,19 +23,17 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Iterable, List, Optional
 
-_PLUGIN_ROOT = (os.getenv("CLAUDE_PLUGIN_ROOT") or "").strip()
-if _PLUGIN_ROOT:
-    plugin_root = Path(_PLUGIN_ROOT).expanduser()
-else:
-    plugin_root = Path(__file__).resolve().parents[3]
-os.environ.setdefault("CLAUDE_PLUGIN_ROOT", str(plugin_root))
-if str(plugin_root) not in sys.path:
-    sys.path.insert(0, str(plugin_root))
+try:
+    from aidd_runtime._bootstrap import ensure_repo_root
+except ImportError:  # pragma: no cover - direct script execution
+    from _bootstrap import ensure_repo_root
 
-from aidd_runtime import id_utils
-from aidd_runtime import runtime
-from aidd_runtime.feature_ids import resolve_aidd_root, resolve_identifiers
-from aidd_runtime.prd_review_section import (
+ensure_repo_root(__file__)
+
+from aidd_runtime import id_utils  # noqa: E402
+from aidd_runtime import runtime  # noqa: E402
+from aidd_runtime.feature_ids import resolve_aidd_root, resolve_identifiers  # noqa: E402
+from aidd_runtime.prd_review_section import (  # noqa: E402
     extract_prd_review_section,
     is_markdown_h2,
     is_prd_review_header,
@@ -55,6 +53,8 @@ STATUS_ALIASES = {
 PLACEHOLDER_PATTERN = re.compile(r"<[^>]+>")
 TODO_TBD_PATTERN = re.compile(r"\b(?:TODO|TBD)\b", re.IGNORECASE)
 HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
+FENCE_MARKER_RE = re.compile(r"^\s*(```+|~~~+)")
+INLINE_CODE_RE = re.compile(r"`[^`\n]*`")
 NARRATIVE_TBD_PLACEHOLDER_RE = re.compile(
     r"\bcontain(?:s)?\s+tbd\s+placeholders\b",
     re.IGNORECASE,
@@ -78,6 +78,19 @@ COMPACT_ANSWER_INSTRUCTION_RE = re.compile(
     r"(compact\s+формат|q<n>\s*=\s*<token>|q<n>\s*=\s*\"[^\"]+\")",
     re.IGNORECASE,
 )
+PLACEHOLDER_FIELD_RE = re.compile(
+    r"^(?:[-*+]\s+|\d+\.\s+)?(?:\[[ xX]\]\s*)?"
+    r"(?:\*\*[^*]+\*\*|[A-Za-zА-Яа-я0-9_./() -]{1,80})\s*:\s*<[^>]+>"
+)
+PLACEHOLDER_ARROW_RE = re.compile(
+    r"^(?:[-*+]\s+|\d+\.\s+)?<[^>]+>\s*→\s*<[^>]+>(?:\s*→\s*<[^>]+>)*$"
+)
+EXAMPLE_PLACEHOLDER_RE = re.compile(
+    r"(?:^|[\s`])(?:/feature-dev-aidd:[^\s]+|python3\s+\$\{CLAUDE_PLUGIN_ROOT\}/skills/[^\s]+|aidd/[^\s`]+)"
+    r".*<[^>]+>",
+    re.IGNORECASE,
+)
+PLACEHOLDER_TOKEN_RE = re.compile(r"<[^>\n]+>")
 
 
 def _normalize_output_path(root: Path, path: Path) -> Path:
@@ -294,9 +307,34 @@ def _collect_open_question_count(section: str) -> int:
 
 
 def _detect_answers_format(section: str) -> str:
-    payload = (section or "").strip()
+    raw_payload = (section or "").strip()
+    payload_lines: list[str] = []
+    in_fence = False
+    fence_marker = ""
+    for raw in (section or "").splitlines():
+        stripped = raw.strip()
+        fence_match = FENCE_MARKER_RE.match(raw)
+        if fence_match:
+            marker = str(fence_match.group(1) or "")[:3]
+            if not in_fence:
+                in_fence = True
+                fence_marker = marker
+            elif marker == fence_marker:
+                in_fence = False
+                fence_marker = ""
+            continue
+        if in_fence:
+            continue
+        if not stripped or stripped.startswith(">"):
+            continue
+        if stripped.startswith("<!--") or stripped.endswith("-->"):
+            continue
+        if stripped.startswith("`") and stripped.endswith("`") and len(stripped) > 1:
+            continue
+        payload_lines.append(raw)
+    payload = "\n".join(payload_lines).strip()
     if not payload:
-        return "compact_q_values"
+        return "invalid" if raw_payload else "compact_q_values"
     compact_answers: dict[int, str] = {}
     for match in COMPACT_ANSWER_RE.finditer(payload):
         try:
@@ -318,11 +356,90 @@ def _detect_answers_format(section: str) -> str:
     return "compact_q_values"
 
 
+def _strip_inline_code(text: str) -> str:
+    return INLINE_CODE_RE.sub("", text)
+
+
+def _looks_like_placeholder_example(line: str) -> bool:
+    lowered = line.lower()
+    if EXAMPLE_PLACEHOLDER_RE.search(line):
+        return True
+    if ("например" in lowered or "example" in lowered) and not (
+        _matches_placeholder_standalone(line)
+        or PLACEHOLDER_FIELD_RE.match(line)
+        or PLACEHOLDER_ARROW_RE.match(line)
+    ):
+        return True
+    return False
+
+
+def _matches_placeholder_standalone(line: str) -> bool:
+    value = CHECKBOX_PREFIX_RE.sub("", OPEN_ITEM_PREFIX_RE.sub("", line.strip())).strip()
+    if not value:
+        return False
+
+    match = PLACEHOLDER_TOKEN_RE.match(value)
+    if match is None:
+        return False
+
+    pos = match.end()
+    length = len(value)
+    while pos < length:
+        while pos < length and value[pos].isspace():
+            pos += 1
+        if pos >= length:
+            break
+
+        char = value[pos]
+        if char in ".,;:":
+            pos += 1
+            continue
+        if char in {"→", "|"}:
+            pos += 1
+            while pos < length and value[pos].isspace():
+                pos += 1
+            match = PLACEHOLDER_TOKEN_RE.match(value, pos)
+            if match is None:
+                return False
+            pos = match.end()
+            continue
+        return False
+
+    return True
+
+
+def _is_actionable_placeholder_line(line: str) -> bool:
+    if _matches_placeholder_standalone(line):
+        return True
+    if PLACEHOLDER_FIELD_RE.match(line):
+        return True
+    if PLACEHOLDER_ARROW_RE.match(line):
+        return True
+    normalized = line.lstrip()
+    if normalized.startswith(("- ", "* ", "+ ")) and PLACEHOLDER_PATTERN.search(line):
+        return not _looks_like_placeholder_example(line)
+    return False
+
+
 def collect_placeholders(content: str) -> Iterable[str]:
     sanitized = HTML_COMMENT_RE.sub(" ", content)
     inside_review_section = False
     inside_answers_section = False
+    inside_fence = False
+    fence_marker = ""
     for line in sanitized.splitlines():
+        fence_match = FENCE_MARKER_RE.match(line)
+        if fence_match:
+            marker = str(fence_match.group(1) or "")[:3]
+            if not inside_fence:
+                inside_fence = True
+                fence_marker = marker
+            elif marker == fence_marker:
+                inside_fence = False
+                fence_marker = ""
+            continue
+        if inside_fence:
+            continue
         if is_markdown_h2(line):
             inside_review_section = is_prd_review_header(line)
             inside_answers_section = line.strip().lower().startswith(AIDD_ANSWERS_HEADING.lower())
@@ -346,7 +463,10 @@ def collect_placeholders(content: str) -> Iterable[str]:
         if TODO_TBD_PATTERN.search(trimmed):
             yield trimmed
             continue
-        if PLACEHOLDER_PATTERN.search(trimmed):
+        stripped = _strip_inline_code(trimmed).strip()
+        if not stripped:
+            continue
+        if PLACEHOLDER_PATTERN.search(stripped) and _is_actionable_placeholder_line(stripped):
             yield trimmed
 
 

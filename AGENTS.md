@@ -13,12 +13,14 @@ This file is the repo-level maintainer contract. User-facing workspace guidance 
 - Workspace bootstrap templates: `templates/aidd/` for config/placeholders only.
 - User/workspace artifacts live under `aidd/**`.
 - Repo-only tooling lives under `tests/repo_tools/`.
+- Generated E2E prompt copies live under `docs/e2e/*.txt` for operator copy/paste use.
 - Canonical runtime entrypoints stay at `skills/<stage>/runtime/*.py`.
 - Public slash commands, hook command names, and artifact names are compatibility surface and must stay stable unless explicitly versioned.
 
 ## Source of truth map
 - Skill/agent authoring policy: `docs/skill-authoring.md`.
 - Stage content templates: `skills/*/templates/*`.
+- E2E audit prompt source fragments: `tests/repo_tools/e2e_prompt/*`; assembled tracked copies: `docs/e2e/*.txt`.
 - Workspace bootstrap source: `templates/aidd/**`.
 - Hook wiring: `hooks/hooks.json`.
 - Prompt/version lint baseline: `docs/migrations/stage_skills_frontmatter.json`.

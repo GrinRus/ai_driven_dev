@@ -744,8 +744,8 @@ text = replace_section(text, "AIDD:OPEN_QUESTIONS", open_questions_body)
 path.write_text(text, encoding="utf-8")
 PY
 
-log "analyst-check must pass"
-run_cli analyst-check --ticket "$TICKET" >/dev/null
+log "analyst-check must pass for explicit retry answers"
+run_cli analyst-check --ticket "$TICKET" --answers-origin explicit-retry >/dev/null
 
 log "expect block until plan exists"
 assert_gate_exit 2 "missing plan"

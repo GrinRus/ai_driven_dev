@@ -36,7 +36,7 @@ class IdeaNewAnalystCheckTests(unittest.TestCase):
             target = Path(tmpdir) / "aidd"
             target.mkdir(parents=True, exist_ok=True)
             context = SimpleNamespace(slug_hint="demo-slug", resolved_ticket="TST-001")
-            summary = SimpleNamespace(status="READY", question_count=1)
+            summary = SimpleNamespace(status="READY", question_count=1, answered_count=1)
             stdout = io.StringIO()
 
             with patch.object(self.module.runtime, "require_workflow_root", return_value=(target.parent, target)), patch.object(
@@ -52,6 +52,10 @@ class IdeaNewAnalystCheckTests(unittest.TestCase):
                 "validate_prd",
                 return_value=summary,
             ), patch.object(
+                self.module,
+                "sync_answers_provenance",
+                return_value=None,
+            ) as provenance_mock, patch.object(
                 self.module.runtime,
                 "maybe_sync_index",
                 return_value=None,
@@ -59,8 +63,10 @@ class IdeaNewAnalystCheckTests(unittest.TestCase):
                 exit_code = self.module.main(["--ticket", "TST-001"])
 
         self.assertEqual(exit_code, 0)
+        provenance_mock.assert_called_once_with(target, "TST-001", {}, origin=None)
         sync_mock.assert_called_once_with(target, "TST-001", "demo-slug", reason="idea-analyst-check")
         self.assertIn("analyst dialog ready", stdout.getvalue())
+        self.assertIn("open_questions: 0", stdout.getvalue())
 
     def test_main_syncs_index_before_rethrowing_validation_failure(self) -> None:
         with tempfile.TemporaryDirectory(prefix="idea-analyst-check-") as tmpdir:
@@ -81,6 +87,10 @@ class IdeaNewAnalystCheckTests(unittest.TestCase):
                 "validate_prd",
                 side_effect=self.module.AnalystValidationError("missing dialog question"),
             ), patch.object(
+                self.module,
+                "sync_answers_provenance",
+                return_value=None,
+            ) as provenance_mock, patch.object(
                 self.module.runtime,
                 "maybe_sync_index",
                 return_value=None,
@@ -88,6 +98,7 @@ class IdeaNewAnalystCheckTests(unittest.TestCase):
                 with self.assertRaises(RuntimeError) as excinfo:
                     self.module.main(["--ticket", "TST-001"])
 
+        provenance_mock.assert_not_called()
         sync_mock.assert_called_once_with(target, "TST-001", "demo-slug", reason="idea-analyst-check")
         self.assertIn("missing dialog question", str(excinfo.exception))
 
@@ -111,6 +122,10 @@ class IdeaNewAnalystCheckTests(unittest.TestCase):
                 "validate_prd",
                 side_effect=self.module.AnalystValidationError("missing dialog question"),
             ), patch.object(
+                self.module,
+                "sync_answers_provenance",
+                return_value=None,
+            ) as provenance_mock, patch.object(
                 self.module.runtime,
                 "maybe_sync_index",
                 return_value=None,
@@ -118,8 +133,49 @@ class IdeaNewAnalystCheckTests(unittest.TestCase):
                 exit_code = self.module.main(["--ticket", "TST-001", "--docs-only"])
 
         self.assertEqual(exit_code, 0)
+        provenance_mock.assert_not_called()
         sync_mock.assert_called_once_with(target, "TST-001", "demo-slug", reason="idea-analyst-check")
         self.assertIn("docs-only rewrite mode bypasses analyst validation blocker", stderr.getvalue())
+
+    def test_main_records_explicit_retry_provenance(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="idea-analyst-check-") as tmpdir:
+            target = Path(tmpdir) / "aidd"
+            target.mkdir(parents=True, exist_ok=True)
+            context = SimpleNamespace(slug_hint="demo-slug", resolved_ticket="TST-001")
+            summary = SimpleNamespace(status="READY", question_count=1, answers_map={1: "A"})
+
+            with patch.object(self.module.runtime, "require_workflow_root", return_value=(target.parent, target)), patch.object(
+                self.module.runtime,
+                "require_ticket",
+                return_value=("TST-001", context),
+            ), patch.object(
+                self.module,
+                "load_settings",
+                return_value={},
+            ), patch.object(
+                self.module,
+                "validate_prd",
+                return_value=summary,
+            ), patch.object(
+                self.module,
+                "sync_answers_provenance",
+                return_value=None,
+            ) as provenance_mock, patch.object(
+                self.module.runtime,
+                "maybe_sync_index",
+                return_value=None,
+            ):
+                exit_code = self.module.main(
+                    ["--ticket", "TST-001", "--answers-origin", "explicit-retry"]
+                )
+
+        self.assertEqual(exit_code, 0)
+        provenance_mock.assert_called_once_with(
+            target,
+            "TST-001",
+            {1: "A"},
+            origin="explicit-retry",
+        )
 
 
 if __name__ == "__main__":

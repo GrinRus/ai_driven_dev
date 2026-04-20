@@ -420,14 +420,24 @@ def analyze_run(
     unanswered_question_ids = _parse_id_list(summary.get("unanswered_question_ids"))
     question_retry_incomplete = _truthy(summary.get("question_retry_incomplete"))
     question_source = str(summary.get("question_source") or "").strip()
+    question_trigger_source = str(summary.get("question_trigger_source") or "").strip() or "none"
+    question_trigger_confidence = str(summary.get("question_trigger_confidence") or "").strip() or "none"
+    question_trigger_required = _truthy(summary.get("question_trigger_required"))
+    if not question_trigger_required and "question_trigger_required" not in summary:
+        if question_source and question_source not in {"none", "persisted_doc"}:
+            question_trigger_required = True
+        elif unanswered_question_ids:
+            question_trigger_required = True
+    has_unresolved_questions = bool(unanswered_question_ids)
+    if not has_unresolved_questions:
+        if retry_attempted:
+            has_unresolved_questions = bool(question_retry_incomplete)
+        else:
+            has_unresolved_questions = bool(pending_question_count > 0 or pending_question_ids)
     pending_question_closure = bool(
         top_level_status == "pending"
-        and (
-            question_cycle_required
-            or pending_question_count > 0
-            or pending_question_ids
-            or unanswered_question_ids
-        )
+        and question_trigger_required
+        and has_unresolved_questions
     )
 
     classified = contract.classify_incident(
@@ -664,6 +674,10 @@ def analyze_run(
             "unanswered_question_ids": unanswered_question_ids,
             "question_retry_incomplete": int(question_retry_incomplete),
             "question_source": question_source,
+            "question_trigger_required": int(question_trigger_required),
+            "question_trigger_source": question_trigger_source,
+            "question_trigger_confidence": question_trigger_confidence,
+            "has_unresolved_questions": int(has_unresolved_questions),
             "classification_profile": classification_profile,
             "classification": effective.classification,
             "classification_subtype": effective.subtype,

@@ -12,17 +12,25 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from typing import Iterable, Optional
 
-_PLUGIN_ROOT = Path(__file__).resolve().parents[3]
-os.environ.setdefault("CLAUDE_PLUGIN_ROOT", str(_PLUGIN_ROOT))
-if str(_PLUGIN_ROOT) not in sys.path:
-    sys.path.insert(0, str(_PLUGIN_ROOT))
+try:
+    from aidd_runtime._bootstrap import ensure_repo_root
+except ImportError:  # pragma: no cover - direct script execution
+    from _bootstrap import ensure_repo_root
 
-from aidd_runtime import research_hints as prd_hints
-from aidd_runtime import rlm_finalize, rlm_manifest, rlm_nodes_build, rlm_targets, runtime, tasks_derive
-from aidd_runtime.feature_ids import write_active_state
-from aidd_runtime.rlm_config import load_rlm_settings
+ensure_repo_root(__file__)
+
+from aidd_runtime import research_hints as prd_hints  # noqa: E402
+from aidd_runtime import rlm_finalize, rlm_manifest, rlm_nodes_build, rlm_targets, runtime, tasks_derive  # noqa: E402
+from aidd_runtime.feature_ids import write_active_state  # noqa: E402
+from aidd_runtime.rlm_config import load_rlm_settings  # noqa: E402
 
 _TEMPLATE_MARKER_RE = re.compile(r"\{\{[^{}]+\}\}")
+_RESEARCH_STATUS_RE = re.compile(r"^(Status:\s*)(.+)$", re.MULTILINE)
+_ALLOWED_RESEARCH_DOC_STATUSES = {"reviewed", "pending", "warn"}
+_RESEARCH_STATUS_ALIASES = {
+    "ready": "reviewed",
+    "warning": "warn",
+}
 
 
 def _render_template(template_text: str, replacements: dict[str, str]) -> str:
@@ -78,6 +86,61 @@ def _doc_status_from_rlm(rlm_status: str) -> str:
     if normalized == "warn":
         return "warn"
     return "pending"
+
+
+def _canonicalize_research_doc_status(raw_status: str) -> tuple[str, str]:
+    normalized = str(raw_status or "").strip().lower()
+    if not normalized:
+        return "pending", "missing->pending"
+    token = normalized.split(None, 1)[0].strip("`'\"*.,;:()[]{}")
+    canonical = _RESEARCH_STATUS_ALIASES.get(token, token)
+    if canonical in _ALLOWED_RESEARCH_DOC_STATUSES:
+        marker = ""
+        if canonical != token:
+            marker = f"{token}->{canonical}"
+        return canonical, marker
+    return "warn", f"{token}->warn"
+
+
+def _reconcile_research_doc_status(path: Path) -> dict[str, object]:
+    text = path.read_text(encoding="utf-8")
+    match = _RESEARCH_STATUS_RE.search(text)
+    if not match:
+        canonical = "pending"
+        updated = _upsert_header_field(text, "Status", canonical)
+        if updated != text:
+            path.write_text(updated, encoding="utf-8")
+        return {
+            "status": canonical,
+            "source": "header_missing",
+            "reconciled": True,
+            "marker": "missing->pending",
+        }
+
+    raw_status = str(match.group(2) or "").strip()
+    canonical, marker = _canonicalize_research_doc_status(raw_status)
+    updated = text[: match.start(2)] + canonical + text[match.end(2) :]
+    reconciled = updated != text
+    if reconciled:
+        path.write_text(updated, encoding="utf-8")
+    return {
+        "status": canonical,
+        "source": "header",
+        "reconciled": reconciled,
+        "marker": marker,
+    }
+
+
+def _reconcile_existing_research_doc(target: Path, ticket: str) -> dict[str, object]:
+    doc_path = target / "docs" / "research" / f"{ticket}.md"
+    if not doc_path.exists():
+        return {
+            "status": "",
+            "source": "",
+            "reconciled": False,
+            "marker": "",
+        }
+    return _reconcile_research_doc_status(doc_path)
 
 
 def _ensure_research_doc(
@@ -690,6 +753,10 @@ def run(args: argparse.Namespace) -> int:
     pending_reason_code = ""
     pending_next_action = ""
     baseline_marker = "none"
+    research_doc_status = ""
+    research_doc_status_source = ""
+    research_status_reconciled = False
+    research_status_reconcile_marker = ""
     if rlm_status != "ready":
         finalized_reason = str(finalize_outcome.get("reason_code") or "").strip()
         finalized_next = str(finalize_outcome.get("next_action") or "").strip()
@@ -759,15 +826,36 @@ def run(args: argparse.Namespace) -> int:
         )
         if not doc_path:
             print("[aidd] research summary template not found; skipping materialisation.")
+            reconcile = _reconcile_existing_research_doc(target, ticket)
+            research_doc_status = str(reconcile.get("status") or "").strip().lower()
+            research_doc_status_source = str(reconcile.get("source") or "").strip()
+            research_status_reconciled = bool(reconcile.get("reconciled"))
+            research_status_reconcile_marker = str(reconcile.get("marker") or "").strip()
         else:
-            rel_doc = doc_path.relative_to(target).as_posix()
+            reconcile = _reconcile_research_doc_status(doc_path)
+            research_doc_status = str(reconcile.get("status") or "").strip().lower()
+            research_doc_status_source = str(reconcile.get("source") or "").strip() or "header"
+            research_status_reconciled = bool(reconcile.get("reconciled"))
+            research_status_reconcile_marker = str(reconcile.get("marker") or "").strip()
+            if research_status_reconcile_marker:
+                print(
+                    "[aidd] INFO: reconciled research document status "
+                    f"({research_status_reconcile_marker}).",
+                    file=sys.stderr,
+                )
+            rel_doc = runtime.rel_path(doc_path, target)
             if created == "created":
                 print(f"[aidd] research summary created at {rel_doc}.")
             elif created == "updated":
                 print(f"[aidd] research summary refreshed at {rel_doc}.")
             else:
                 print(f"[aidd] research summary already up-to-date at {rel_doc}.")
-
+    else:
+        reconcile = _reconcile_existing_research_doc(target, ticket)
+        research_doc_status = str(reconcile.get("status") or "").strip().lower()
+        research_doc_status_source = str(reconcile.get("source") or "").strip()
+        research_status_reconciled = bool(reconcile.get("reconciled"))
+        research_status_reconcile_marker = str(reconcile.get("marker") or "").strip()
     _sync_prd_overrides(target, ticket=ticket, overrides=prd_overrides)
 
     handoff_appended = False
@@ -802,9 +890,13 @@ def run(args: argparse.Namespace) -> int:
             ticket=ticket,
             slug_hint=feature_context.slug_hint,
             event_type="research",
-            status="ok" if rlm_status == "ready" else "pending",
+            status="ok" if rlm_status == "ready" and research_doc_status == "reviewed" else "pending",
             details={
                 "rlm_status": rlm_status,
+                "research_doc_status": research_doc_status or None,
+                "research_doc_status_source": research_doc_status_source or None,
+                "research_status_reconciled": research_status_reconciled,
+                "research_status_reconcile_marker": research_status_reconcile_marker or None,
                 "worklist_entries": len(worklist_pack.get("entries") or []),
                 "pending_reason_code": pending_reason_code or None,
                 "pending_next_action": pending_next_action or None,

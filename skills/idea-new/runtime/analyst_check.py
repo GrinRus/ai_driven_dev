@@ -13,6 +13,7 @@ AnalystValidationError = _impl.AnalystValidationError
 load_settings = _impl.load_settings
 parse_args = _impl.parse_args
 runtime = _impl.runtime
+sync_answers_provenance = _impl.sync_answers_provenance
 validate_prd = _impl.validate_prd
 
 
@@ -35,6 +36,7 @@ def main(argv: list[str] | None = None) -> int:
             require_ready_override=False if args.no_ready_required else None,
             allow_blocked_override=True if args.allow_blocked else None,
             min_questions_override=args.min_questions,
+            answers_origin=args.answers_origin,
         )
     except AnalystValidationError as exc:
         runtime.maybe_sync_index(target, ticket, context.slug_hint, reason="idea-analyst-check")
@@ -46,6 +48,12 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 0
         raise RuntimeError(str(exc)) from exc
+    sync_answers_provenance(
+        target,
+        ticket,
+        getattr(summary, "answers_map", None) or {},
+        origin=args.answers_origin,
+    )
     runtime.maybe_sync_index(target, ticket, context.slug_hint, reason="idea-analyst-check")
 
     if summary.status is None:
@@ -53,8 +61,14 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     label = runtime.format_ticket_label(context, fallback=ticket)
-    print(f"[aidd] analyst dialog ready for `{label}` "
-          f"(status: {summary.status}, questions: {summary.question_count}).")
+    question_count = int(getattr(summary, "question_count", 0) or 0)
+    answered_count = int(getattr(summary, "answered_count", question_count) or 0)
+    open_questions = max(question_count - answered_count, 0)
+    print(
+        f"[aidd] analyst dialog ready for `{label}` "
+        f"(status: {summary.status}, questions: {question_count}, answered: {answered_count}, "
+        f"open_questions: {open_questions})."
+    )
     return 0
 
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 import re
 from typing import Mapping
 
@@ -59,6 +60,56 @@ def _as_text(values: Mapping[str, object]) -> str:
     return "\n".join(f"{key}={value}" for key, value in values.items())
 
 
+def _extract_top_level_result_text(log_text: str) -> str:
+    for raw in reversed(str(log_text or "").splitlines()):
+        line = raw.strip()
+        if not line.startswith("{"):
+            continue
+        try:
+            payload = json.loads(line)
+        except Exception:
+            continue
+        if not isinstance(payload, dict):
+            continue
+        if str(payload.get("type") or "").strip().lower() != "result":
+            continue
+        result_text = str(payload.get("result") or "")
+        return "\n".join(
+            item
+            for item in (
+                result_text,
+                json.dumps(payload, ensure_ascii=False),
+            )
+            if item
+        )
+    tail_lines = str(log_text or "").splitlines()[-120:]
+    filtered_tail = [line for line in tail_lines if "tool_result" not in line.lower()]
+    return "\n".join(filtered_tail).strip()
+
+
+def _classify_marker_source(
+    *,
+    marker: str,
+    summary_text: str,
+    term_text: str,
+    pre_text: str,
+    diagnostics_text: str,
+    top_level_result_text: str,
+) -> str:
+    marker_lc = str(marker or "").lower()
+    if marker_lc in summary_text:
+        return "summary"
+    if marker_lc in term_text:
+        return "termination_attribution"
+    if marker_lc in pre_text:
+        return "runner_preflight"
+    if marker_lc in diagnostics_text:
+        return "diagnostics"
+    if marker_lc in top_level_result_text:
+        return "top_level_result"
+    return ""
+
+
 def classify_incident(
     *,
     summary: Mapping[str, object],
@@ -73,8 +124,10 @@ def classify_incident(
     summary_text = _as_text(summary).lower()
     term_text = _as_text(term).lower()
     pre_text = _as_text(pre).lower()
+    diagnostics_text_lc = diagnostics_text.lower()
+    top_level_result_text = _extract_top_level_result_text(log_text).lower()
     merged_text = "\n".join(
-        part for part in [summary_text, term_text, pre_text, diagnostics_text.lower(), log_text.lower()] if part
+        part for part in [summary_text, term_text, pre_text, diagnostics_text_lc, log_text.lower()] if part
     )
     top_level = str(top_level_status or "").strip().lower()
 
@@ -106,19 +159,37 @@ def classify_incident(
             label="ENV_MISCONFIG(no_space_left_on_device)",
         )
 
-    if "claude_plugin_root (or aidd_plugin_dir) is required" in merged_text:
+    loop_runner_marker = "claude_plugin_root (or aidd_plugin_dir) is required"
+    loop_runner_source = _classify_marker_source(
+        marker=loop_runner_marker,
+        summary_text=summary_text,
+        term_text=term_text,
+        pre_text=pre_text,
+        diagnostics_text=diagnostics_text_lc,
+        top_level_result_text=top_level_result_text,
+    )
+    if loop_runner_source:
         return Classification(
             classification="ENV_MISCONFIG",
             subtype="loop_runner_env_missing",
-            source="run_log",
+            source=loop_runner_source,
             label="ENV_MISCONFIG(loop_runner_env_missing)",
         )
 
-    if "parent_terminated_or_external_terminate" in merged_text:
+    parent_terminated_marker = "parent_terminated_or_external_terminate"
+    parent_terminated_source = _classify_marker_source(
+        marker=parent_terminated_marker,
+        summary_text=summary_text,
+        term_text=term_text,
+        pre_text=pre_text,
+        diagnostics_text=diagnostics_text_lc,
+        top_level_result_text=top_level_result_text,
+    )
+    if parent_terminated_source:
         return Classification(
             classification="ENV_MISCONFIG",
             subtype="parent_terminated_or_external_terminate",
-            source="summary" if "parent_terminated_or_external_terminate" in summary_text else "run_log",
+            source=parent_terminated_source,
             label="ENV_MISCONFIG(parent_terminated_or_external_terminate)",
         )
 

@@ -154,6 +154,63 @@ class PrdReadyCheckTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("должен быть в compact формате", result.stderr)
 
+    def test_prd_ready_ignores_template_answer_examples(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="prd-check-") as tmpdir:
+            root = Path(tmpdir)
+            write_file(
+                root,
+                "docs/prd/demo.prd.md",
+                (
+                    "# PRD\n\nStatus: READY\n\n"
+                    "## AIDD:ANSWERS\n"
+                    "> Используй только compact формат.\n"
+                    "`AIDD:ANSWERS Q1=A`\n"
+                    "`AIDD:ANSWERS Q1=A; Q2=\"короткий текст\"`\n"
+                    "\n"
+                    "## AIDD:OPEN_QUESTIONS\n"
+                    "- none\n"
+                ),
+            )
+            result = subprocess.run(
+                cli_cmd("prd-check", "--ticket", "demo"),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("должен быть в compact формате", result.stderr)
+
+    def test_prd_ready_ignores_tilde_fenced_template_answer_examples(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="prd-check-") as tmpdir:
+            root = Path(tmpdir)
+            write_file(
+                root,
+                "docs/prd/demo.prd.md",
+                (
+                    "# PRD\n\nStatus: READY\n\n"
+                    "## AIDD:ANSWERS\n"
+                    "~~~md\n"
+                    "AIDD:ANSWERS Q1=A\n"
+                    "AIDD:ANSWERS Q1=A; Q2=\"короткий текст\"\n"
+                    "~~~\n"
+                    "\n"
+                    "## AIDD:OPEN_QUESTIONS\n"
+                    "- none\n"
+                ),
+            )
+            result = subprocess.run(
+                cli_cmd("prd-check", "--ticket", "demo"),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("должен быть в compact формате", result.stderr)
+
     def test_prd_ready_docs_only_softens_non_compact_answers_format(self) -> None:
         with tempfile.TemporaryDirectory(prefix="prd-check-") as tmpdir:
             root = Path(tmpdir)

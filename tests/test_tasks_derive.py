@@ -1,9 +1,12 @@
 import json
+import os
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
 from textwrap import dedent
+
+from aidd_runtime import tasks_derive
 
 from .helpers import cli_cmd, cli_env, ensure_project_root, write_active_feature, write_file, write_json
 
@@ -320,6 +323,34 @@ def test_tasks_derive_from_review_report(tmp_path):
     assert "handoff:review start" in content
     assert "Review [major]" in content
     assert "aidd/reports/reviewer/demo-checkout/demo-checkout.json" in content
+
+
+def test_tasks_derive_missing_tasklist_reports_canonical_aidd_path(tmp_path):
+    project_root = ensure_project_root(tmp_path)
+    write_active_feature(project_root, "demo-checkout")
+    write_file(
+        project_root,
+        "reports/research/demo-checkout-rlm.pack.json",
+        json.dumps(
+            {
+                "schema": "aidd.report.pack.v1",
+                "type": "rlm",
+                "kind": "pack",
+                "status": "pending",
+            },
+            indent=2,
+        ),
+    )
+
+    cwd = os.getcwd()
+    os.chdir(project_root)
+    try:
+        with unittest.TestCase().assertRaises(FileNotFoundError) as ctx:
+            tasks_derive.main(["--source", "research", "--ticket", "demo-checkout"])
+    finally:
+        os.chdir(cwd)
+
+    assert "aidd/docs/tasklist/demo-checkout.md" in str(ctx.exception)
 
 
 def test_tasks_derive_idempotent_by_id(tmp_path):

@@ -9,7 +9,6 @@ from aidd_runtime import runtime
 from aidd_runtime import tasklist_check
 from aidd_runtime import tasklist_parser
 from aidd_runtime.plan_review_gate import parse_review_section as parse_plan_review_section
-from aidd_runtime.prd_review_section import extract_prd_review_section
 
 DEFAULT_POLICY = {
     "mode": "soft",
@@ -160,9 +159,6 @@ def _read_prd_status(path: Path) -> str:
     if not path.exists():
         return "MISSING"
     text = _read_text(path)
-    _found, status, _items = extract_prd_review_section(text, normalize_status=lambda value: value.strip().lower())
-    if status:
-        return _normalize_doc_status(status)
     return _extract_first_status(text)
 
 

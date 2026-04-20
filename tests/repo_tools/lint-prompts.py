@@ -87,9 +87,9 @@ STAGE_CANONICAL_BODY_RUNTIME_ENV_REQUIRED = {
 LOOP_STAGES = {"implement", "review", "qa", "status"}
 NO_FORK_STAGE_SUBAGENT_COUNTS: Dict[str, int] = {
     "idea-new": 1,
-    "plan-new": 2,
-    "review-spec": 2,
-    "tasks-new": 1,
+    "plan-new": 0,
+    "review-spec": 0,
+    "tasks-new": 0,
     "implement": 1,
     "review": 1,
     "qa": 1,
@@ -1003,8 +1003,8 @@ def lint_skills(root: Path) -> Tuple[List[str], List[str]]:
             if disable_invocation == "true":
                 errors.append(f"{info.path}: preloaded skills must not set disable-model-invocation: true")
         elif path.parent.name == "status":
-            if disable_invocation != "false":
-                errors.append(f"{info.path}: status must set disable-model-invocation: false")
+            if disable_invocation != "true":
+                errors.append(f"{info.path}: status must set disable-model-invocation: true")
         else:
             if disable_invocation != "true":
                 errors.append(f"{info.path}: stage skills must set disable-model-invocation: true")

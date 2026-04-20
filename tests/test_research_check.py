@@ -15,6 +15,7 @@ from tests.helpers import REPO_ROOT
 sys.path.append(str(REPO_ROOT))
 
 from aidd_runtime import research_check  # noqa: E402
+from aidd_runtime import research_guard  # noqa: E402
 
 from .helpers import (
     ensure_gates_config,
@@ -98,6 +99,29 @@ class ResearchCheckTests(unittest.TestCase):
                 "status": status,
                 "entries": entries if entries is not None else [{"file_id": "file-app"}],
             },
+        )
+
+    def _write_rlm_ready_evidence(self, root: Path, ticket: str) -> None:
+        self._write_rlm_baseline(root, ticket, status="ready", entries=[])
+        write_file(
+            root,
+            f"reports/research/{ticket}-rlm.nodes.jsonl",
+            '{"node_kind":"file","file_id":"file-app","id":"file-app","path":"src/main/kotlin/App.kt","rev_sha":"rev-app"}\n',
+        )
+        write_file(
+            root,
+            f"reports/research/{ticket}-rlm.links.jsonl",
+            '{"link_kind":"import","source":"file-app","target":"file-app","id":"link-1"}\n',
+        )
+        write_json(
+            root,
+            f"reports/research/{ticket}-rlm.links.stats.json",
+            {"links_total": 1},
+        )
+        write_json(
+            root,
+            f"reports/research/{ticket}-rlm.pack.json",
+            {"schema": "aidd.report.pack.v1", "type": "rlm", "status": "ready"},
         )
 
     def test_research_check_blocks_missing_report(self) -> None:
@@ -236,6 +260,41 @@ class ResearchCheckTests(unittest.TestCase):
         self.assertIn("reason_code=rlm_status_pending", str(excinfo.exception))
         self.assertIn("rlm_finalize.py --ticket", str(excinfo.exception))
 
+    def test_research_guard_normalizes_ready_alias_to_reviewed(self) -> None:
+        workspace, project_root = self._setup_workspace()
+        ticket = "demo-ready-alias"
+        write_active_feature(project_root, ticket)
+        write_active_stage(project_root, "plan")
+        self._write_base_research(project_root, ticket, status="ready")
+        self._write_rlm_ready_evidence(project_root, ticket)
+
+        settings = research_guard.load_settings(project_root)
+        summary = research_guard.validate_research(
+            project_root,
+            ticket,
+            settings=settings,
+            expected_stage="plan",
+        )
+
+        self.assertEqual(summary.status, "reviewed")
+        self.assertIn("research_status_alias_normalized=ready->reviewed", summary.warnings or [])
+
+    def test_research_check_plan_accepts_ready_alias_when_evidence_is_ready(self) -> None:
+        workspace, project_root = self._setup_workspace()
+        ticket = "demo-ready-alias-plan"
+        write_active_feature(project_root, ticket)
+        write_active_stage(project_root, "plan")
+        self._write_base_research(project_root, ticket, status="ready")
+        self._write_rlm_ready_evidence(project_root, ticket)
+
+        args = ["--ticket", ticket, "--expected-stage", "plan"]
+        old_cwd = Path.cwd()
+        os.chdir(workspace)
+        try:
+            research_check.main(args)
+        finally:
+            os.chdir(old_cwd)
+
     def test_research_check_blocks_pending_in_review(self) -> None:
         workspace, project_root = self._setup_workspace()
         ticket = "demo-review"
@@ -311,13 +370,147 @@ class ResearchCheckTests(unittest.TestCase):
         os.chdir(workspace)
         try:
             with patch("aidd_runtime.research_check.validate_research", side_effect=[first_error, retry_error]):
-                with patch("aidd_runtime.research_check.rlm_finalize.main", return_value=0):
+                with patch("aidd_runtime.research_check.rlm_finalize.main", return_value=0) as finalize_mock:
                     with patch("aidd_runtime.research_check._enforce_minimum_rlm_artifacts"):
                         exit_code = research_check.main(args)
         finally:
             os.chdir(old_cwd)
 
         self.assertEqual(exit_code, 0)
+        finalize_mock.assert_called_once_with(["--ticket", ticket, "--emit-json"])
+
+    def test_research_check_plan_softens_links_empty_warn_after_finalize_probe(self) -> None:
+        workspace, project_root = self._setup_workspace()
+        ticket = "demo-plan-soften-links-empty"
+        write_active_feature(project_root, ticket)
+        write_active_stage(project_root, "idea")
+        self._write_base_research(project_root, ticket, status="warn")
+        self._write_rlm_baseline(project_root, ticket, status="warn", entries=[{"file_id": "file-app"}])
+        write_json(
+            project_root,
+            f"reports/research/{ticket}-rlm.pack.json",
+            {"schema": "aidd.report.pack.v1", "type": "rlm", "status": "warn"},
+        )
+        write_file(
+            project_root,
+            f"reports/research/{ticket}-rlm.nodes.jsonl",
+            '{"node_kind":"file","file_id":"file-app","id":"file-app","path":"src/main/kotlin/App.kt","rev_sha":"rev-app"}\n',
+        )
+
+        first_error = research_check.ResearchValidationError(
+            "BLOCK: RLM links remain empty under scoped review "
+            "(reason_code=rlm_links_empty_warn)"
+        )
+        retry_error = research_check.ResearchValidationError(
+            "BLOCK: RLM links remain empty under scoped review "
+            "(reason_code=rlm_links_empty_warn)"
+        )
+
+        args = ["--ticket", ticket, "--expected-stage", "plan"]
+        old_cwd = Path.cwd()
+        os.chdir(workspace)
+        try:
+            with patch("aidd_runtime.research_check.validate_research", side_effect=[first_error, retry_error]):
+                with patch("aidd_runtime.research_check.rlm_finalize.main", return_value=0) as finalize_mock:
+                    exit_code = research_check.main(args)
+        finally:
+            os.chdir(old_cwd)
+
+        self.assertEqual(exit_code, 0)
+        finalize_mock.assert_called_once_with(["--ticket", ticket, "--emit-json"])
+
+    def test_research_check_plan_softens_warning_status_invalid_after_finalize_probe(self) -> None:
+        workspace, project_root = self._setup_workspace()
+        ticket = "demo-plan-soften-warning"
+        write_active_feature(project_root, ticket)
+        write_active_stage(project_root, "idea")
+        self._write_base_research(project_root, ticket, status="warning")
+        self._write_rlm_baseline(project_root, ticket, status="pending", entries=[{"file_id": "file-app"}])
+        write_json(
+            project_root,
+            f"reports/research/{ticket}-rlm.pack.json",
+            {"schema": "aidd.report.pack.v1", "type": "rlm", "status": "pending"},
+        )
+        write_file(
+            project_root,
+            f"reports/research/{ticket}-rlm.nodes.jsonl",
+            '{"node_kind":"file","file_id":"file-app","id":"file-app","path":"src/main/kotlin/App.kt","rev_sha":"rev-app"}\n',
+        )
+
+        first_error = research_check.ResearchValidationError(
+            "BLOCK: статус Researcher `warn` не входит в ['reviewed'] "
+            "(reason_code=research_status_invalid)"
+        )
+        retry_error = research_check.ResearchValidationError(
+            "BLOCK: статус Researcher `warn` не входит в ['reviewed'] "
+            "(reason_code=research_status_invalid)"
+        )
+
+        args = ["--ticket", ticket, "--expected-stage", "plan"]
+        old_cwd = Path.cwd()
+        os.chdir(workspace)
+        try:
+            with patch("aidd_runtime.research_check.validate_research", side_effect=[first_error, retry_error]):
+                with patch("aidd_runtime.research_check.rlm_finalize.main", return_value=0):
+                    exit_code = research_check.main(args)
+        finally:
+            os.chdir(old_cwd)
+
+        self.assertEqual(exit_code, 0)
+
+    def test_research_check_does_not_soften_blocked_status_invalid(self) -> None:
+        workspace, project_root = self._setup_workspace()
+        ticket = "demo-plan-soften-blocked"
+        write_active_feature(project_root, ticket)
+        write_active_stage(project_root, "idea")
+        self._write_base_research(project_root, ticket, status="blocked")
+
+        first_error = research_check.ResearchValidationError(
+            "BLOCK: статус Researcher `blocked` не входит в ['reviewed'] "
+            "(reason_code=research_status_invalid)"
+        )
+
+        args = ["--ticket", ticket, "--expected-stage", "plan"]
+        old_cwd = Path.cwd()
+        os.chdir(workspace)
+        try:
+            with patch("aidd_runtime.research_check.validate_research", side_effect=[first_error]):
+                with self.assertRaises(RuntimeError) as excinfo:
+                    research_check.main(args)
+        finally:
+            os.chdir(old_cwd)
+
+        self.assertIn("reason_code=research_status_invalid", str(excinfo.exception))
+
+    def test_research_check_plan_keeps_missing_minimal_baseline_as_hard_blocker(self) -> None:
+        workspace, project_root = self._setup_workspace()
+        ticket = "demo-plan-missing-baseline"
+        write_active_feature(project_root, ticket)
+        write_active_stage(project_root, "idea")
+        self._write_base_research(project_root, ticket, status="warning")
+
+        first_error = research_check.ResearchValidationError(
+            "BLOCK: статус Researcher `warn` не входит в ['reviewed'] "
+            "(reason_code=research_status_invalid)"
+        )
+        retry_error = research_check.ResearchValidationError(
+            "BLOCK: статус Researcher `warn` не входит в ['reviewed'] "
+            "(reason_code=research_status_invalid)"
+        )
+
+        args = ["--ticket", ticket, "--expected-stage", "plan"]
+        old_cwd = Path.cwd()
+        os.chdir(workspace)
+        try:
+            with patch("aidd_runtime.research_check.validate_research", side_effect=[first_error, retry_error]):
+                with patch("aidd_runtime.research_check.rlm_finalize.main", return_value=0) as finalize_mock:
+                    with self.assertRaises(RuntimeError) as excinfo:
+                        research_check.main(args)
+        finally:
+            os.chdir(old_cwd)
+
+        self.assertIn("reason_code=research_artifacts_missing", str(excinfo.exception))
+        finalize_mock.assert_called_once_with(["--ticket", ticket, "--emit-json"])
 
     def test_research_check_blocks_ready_links_empty(self) -> None:
         workspace, project_root = self._setup_workspace()

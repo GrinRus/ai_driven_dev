@@ -543,6 +543,13 @@ def _handoff_block(root: Path, ticket: str, slug_hint: str, branch: str, tasklis
     return ""
 
 
+def _is_prebootstrap_ignorable_change(path: str) -> bool:
+    normalized = path.strip()
+    if normalized.startswith("./"):
+        normalized = normalized[2:]
+    return normalized.startswith(".aidd_audit/")
+
+
 def main() -> int:
     _bootstrap()
     from hooks import hooklib
@@ -555,7 +562,19 @@ def main() -> int:
     if used_workspace:
         _log_stdout(f"WARN: detected workspace root; using {root} as project root")
 
+    workspace_cwd = root.parent if root.name == "aidd" and root.parent.exists() else root
+    payload = ctx.raw
+    file_path = hooklib.payload_file_path(payload) or ""
+    preinit_changed_files = hooklib.collect_changed_files(workspace_cwd) if workspace_cwd.exists() else []
+    preinit_blocking_changes = [path for path in preinit_changed_files if not _is_prebootstrap_ignorable_change(path)]
+
     if not (root / "docs").is_dir():
+        if not file_path and not preinit_blocking_changes:
+            _log_stdout(
+                "WARN: aidd/docs not found at {}. Read-only flow allowed before bootstrap. "
+                "Next action: run '/feature-dev-aidd:aidd-init' from the workspace root.".format(root / "docs")
+            )
+            return 0
         _log_stderr(
             "BLOCK: aidd/docs not found at {}. Run '/feature-dev-aidd:aidd-init' or "
             "'python3 ${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-init/runtime/init.py' from the workspace root to bootstrap ./aidd.".format(
@@ -567,9 +586,6 @@ def main() -> int:
     os.chdir(root)
     hooks_mode = hooklib.resolve_hooks_mode()
     fast_mode = hooks_mode == "fast"
-
-    payload = ctx.raw
-    file_path = hooklib.payload_file_path(payload) or ""
 
     current_branch = hooklib.git_current_branch(root)
     changed_files = hooklib.collect_changed_files(root)

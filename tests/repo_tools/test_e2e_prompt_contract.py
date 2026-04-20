@@ -11,6 +11,7 @@ from tests.repo_tools.prompt_contract_support import assert_prompt_contract, loa
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+COMMITTED_PROMPT_DIR = REPO_ROOT / "docs" / "e2e"
 AUDIT_PROMPT_FULL = "aidd_test_flow_prompt_ralph_script_full.txt"
 AUDIT_PROMPT_SMOKE = "aidd_test_flow_prompt_ralph_script.txt"
 PROMPT_BUILDER = REPO_ROOT / "tests" / "repo_tools" / "build_e2e_prompts.py"
@@ -135,8 +136,13 @@ class E2EPromptContractTests(unittest.TestCase):
             assert_prompt_contract(self, text=text, contract=flow["ALL"], label=f"TST-001 {profile}")
             assert_prompt_contract(self, text=text, contract=flow[profile], label=f"TST-001 {profile}")
 
-    def test_committed_e2e_prompt_outputs_are_not_tracked(self) -> None:
-        self.assertFalse((REPO_ROOT / "docs" / "e2e").exists())
+    def test_committed_e2e_prompt_outputs_are_tracked_and_synced(self) -> None:
+        self.assertTrue(COMMITTED_PROMPT_DIR.is_dir(), msg=f"missing committed prompt dir: {COMMITTED_PROMPT_DIR}")
+        for output_name in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
+            committed = COMMITTED_PROMPT_DIR / output_name
+            rendered = self.prompt_dir / output_name
+            self.assertTrue(committed.exists(), msg=f"missing committed prompt output: {committed}")
+            self.assertEqual(read_text(committed), read_text(rendered), msg=f"committed prompt is stale: {committed}")
 
     def test_review_surfaces_enforce_canonical_plan_path_without_alias(self) -> None:
         review_skill = read_text(REPO_ROOT / "skills" / "review-spec" / "SKILL.md")
@@ -166,6 +172,46 @@ class E2EPromptContractTests(unittest.TestCase):
         self.assertIn("/feature-dev-aidd:plan-new <ticket>", skill_text)
         self.assertNotIn("/feature-dev-aidd:planner", agent_text)
         self.assertNotIn("/feature-dev-aidd:planner", skill_text)
+
+    def test_review_spec_uses_canonical_shared_rlm_runtime_paths(self) -> None:
+        review_skill = read_text(REPO_ROOT / "skills" / "review-spec" / "SKILL.md")
+        self.assertIn(
+            "python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_links_build.py",
+            review_skill,
+        )
+        self.assertIn(
+            "python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_finalize.py",
+            review_skill,
+        )
+        self.assertNotIn("skills/aidd-core/runtime/rlm_links_build.py", review_skill)
+
+    def test_review_spec_reviewers_are_read_only_and_report_first(self) -> None:
+        review_skill = read_text(REPO_ROOT / "skills" / "review-spec" / "SKILL.md")
+        prd_reviewer = read_text(REPO_ROOT / "agents" / "prd-reviewer.md")
+        plan_reviewer = read_text(REPO_ROOT / "agents" / "plan-reviewer.md")
+
+        self.assertNotIn("\n  - Edit\n", review_skill)
+        self.assertNotIn("\n  - Write\n", review_skill)
+        self.assertIn("The report payload is authoritative", review_skill)
+        self.assertNotIn("Run subagent `feature-dev-aidd:plan-reviewer`", review_skill)
+        self.assertNotIn("Run subagent `feature-dev-aidd:prd-reviewer`", review_skill)
+        self.assertIn("tools: Read, Glob, Bash(rg *), Bash(sed *)", prd_reviewer)
+        self.assertIn("do not edit `aidd/docs/prd/<ticket>.prd.md`", prd_reviewer)
+        self.assertIn("tools: Read, Glob, Bash(rg *), Bash(sed *)", plan_reviewer)
+        self.assertIn("do not edit `aidd/docs/plan/<ticket>.md`", plan_reviewer)
+
+    def test_tasks_new_uses_refiner_as_guidance_not_runtime_subagent(self) -> None:
+        task_skill = read_text(REPO_ROOT / "skills" / "tasks-new" / "SKILL.md")
+        self.assertNotIn("Run subagent `feature-dev-aidd:tasklist-refiner`", task_skill)
+        self.assertIn("Treat `feature-dev-aidd:tasklist-refiner` only as repair guidance", task_skill)
+
+    def test_idea_stage_prompts_keep_prd_review_pending_until_review_spec(self) -> None:
+        idea_skill = read_text(REPO_ROOT / "skills" / "idea-new" / "SKILL.md")
+        analyst_agent = read_text(REPO_ROOT / "agents" / "analyst.md")
+        prd_template = read_text(REPO_ROOT / "skills" / "idea-new" / "templates" / "prd.template.md")
+        self.assertIn("must not mark `## PRD Review` as `READY`", idea_skill)
+        self.assertIn("only `review-spec` may grant READY", analyst_agent)
+        self.assertIn("Pending until /feature-dev-aidd:review-spec <ticket>", prd_template)
 
     def test_loop_stage_skills_enforce_stage_chain_only_policy(self) -> None:
         for skill_path in LOOP_STAGE_SKILLS:

@@ -11,6 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 FRAGMENTS_DIR = ROOT / "tests" / "repo_tools" / "e2e_prompt"
 PROMPT_SPECS_PATH = FRAGMENTS_DIR / "prompt_specs.json"
+DEFAULT_OUTPUT_DIR = ROOT / "docs" / "e2e"
 INCLUDE_PATTERN = re.compile(r"\{\{INCLUDE:([^}]+)\}\}")
 
 
@@ -125,7 +126,7 @@ def write_outputs(rendered: dict[str, str], output_dir: Path) -> None:
         print(f"[e2e-prompt-build] wrote {output_path}")
 
 
-def check_outputs(rendered: dict[str, str]) -> int:
+def check_outputs(rendered: dict[str, str], output_dir: Path) -> int:
     output_names = sorted(rendered)
     if len(output_names) != len(set(output_names)):
         print("[e2e-prompt-build] duplicate output names detected")
@@ -133,7 +134,32 @@ def check_outputs(rendered: dict[str, str]) -> int:
     if not output_names:
         print("[e2e-prompt-build] no prompts rendered")
         return 1
-    print(f"[e2e-prompt-build] render check passed for {len(output_names)} prompts")
+    if not output_dir.is_dir():
+        print(f"[e2e-prompt-build] output dir missing: {output_dir}")
+        return 1
+
+    missing: list[str] = []
+    stale: list[str] = []
+    for output_name in output_names:
+        output_path = output_dir / output_name
+        if not output_path.exists():
+            missing.append(output_name)
+            continue
+        actual = output_path.read_text(encoding="utf-8")
+        if actual != rendered[output_name]:
+            stale.append(output_name)
+
+    if missing or stale:
+        if missing:
+            print(f"[e2e-prompt-build] missing committed outputs: {', '.join(missing)}")
+        if stale:
+            print(f"[e2e-prompt-build] stale committed outputs: {', '.join(stale)}")
+        print(f"[e2e-prompt-build] run build_e2e_prompts.py --output-dir {output_dir}")
+        return 1
+
+    print(
+        f"[e2e-prompt-build] render check passed for {len(output_names)} prompts in {output_dir}"
+    )
     return 0
 
 
@@ -147,12 +173,10 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     rendered = build()
+    output_dir = (args.output_dir or DEFAULT_OUTPUT_DIR).resolve()
     if args.check:
-        return check_outputs(rendered)
-    if args.output_dir is None:
-        print("[e2e-prompt-build] --output-dir is required when writing rendered prompts")
-        return 2
-    write_outputs(rendered, args.output_dir.resolve())
+        return check_outputs(rendered, output_dir)
+    write_outputs(rendered, output_dir)
     return 0
 
 

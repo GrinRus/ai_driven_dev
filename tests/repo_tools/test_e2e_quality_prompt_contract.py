@@ -10,6 +10,7 @@ from tests.repo_tools.prompt_contract_support import assert_prompt_contract, loa
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+COMMITTED_PROMPT_DIR = REPO_ROOT / "docs" / "e2e"
 QUALITY_PROMPT = "aidd_test_quality_audit_prompt_tst002_full.txt"
 FLOW_PROMPT_FULL = "aidd_test_flow_prompt_ralph_script_full.txt"
 PROMPT_BUILDER = REPO_ROOT / "tests" / "repo_tools" / "build_e2e_prompts.py"
@@ -67,15 +68,20 @@ class E2EQualityPromptContractTests(unittest.TestCase):
     def test_quality_prompt_contract_is_data_driven(self) -> None:
         text = read_text(self.prompt_dir / QUALITY_PROMPT)
         assert_prompt_contract(self, text=text, contract=self.contracts["quality"]["FULL"], label="TST-002 FULL")
-        self.assertNotIn("docs/e2e", text)
+        self.assertIn("committed assembled copies live in `docs/e2e/`", text)
 
     def test_ci_lint_uses_render_guard_not_committed_outputs(self) -> None:
         ci_lint = read_text(CI_LINT_SCRIPT)
         self.assertIn("build_e2e_prompts.py --check", ci_lint)
         self.assertNotIn("docs/e2e", ci_lint)
 
-    def test_committed_e2e_prompt_outputs_are_not_tracked(self) -> None:
-        self.assertFalse((REPO_ROOT / "docs" / "e2e").exists())
+    def test_committed_e2e_prompt_outputs_are_tracked_and_synced(self) -> None:
+        self.assertTrue(COMMITTED_PROMPT_DIR.is_dir(), msg=f"missing committed prompt dir: {COMMITTED_PROMPT_DIR}")
+        for output_name in (FLOW_PROMPT_FULL, QUALITY_PROMPT):
+            committed = COMMITTED_PROMPT_DIR / output_name
+            rendered = self.prompt_dir / output_name
+            self.assertTrue(committed.exists(), msg=f"missing committed prompt output: {committed}")
+            self.assertEqual(read_text(committed), read_text(rendered), msg=f"committed prompt is stale: {committed}")
 
     def test_quality_prompt_keeps_flow_shared_invariants(self) -> None:
         flow_text = read_text(self.prompt_dir / FLOW_PROMPT_FULL)
