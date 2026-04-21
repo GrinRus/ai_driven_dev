@@ -1,15 +1,157 @@
 from __future__ import annotations
 
-import sys
-from pathlib import Path
+# Runtime utility module (imported by hooks); not a pytest test module.
+__test__ = False
 
-_REPO_ROOT = Path(__file__).resolve().parents[3]
-if str(_REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(_REPO_ROOT))
+BASE_COMMON_PATTERNS = ("config/",)
 
-from aidd_runtime.entrypoint import bootstrap_wrapper
+COMMON_PATTERNS_BY_TOOL: dict[str, tuple[str, ...]] = {
+    "gradle": (
+        "**/build.gradle",
+        "**/build.gradle.kts",
+        "**/settings.gradle",
+        "**/settings.gradle.kts",
+        "**/gradle/libs.versions.toml",
+        "**/buildSrc/**",
+    ),
+    "npm": (
+        "**/package.json",
+        "**/package-lock.json",
+        "**/pnpm-lock.yaml",
+        "**/yarn.lock",
+        "**/npm-shrinkwrap.json",
+    ),
+    "python": (
+        "**/pyproject.toml",
+        "**/requirements*.txt",
+        "**/Pipfile",
+        "**/Pipfile.lock",
+        "**/poetry.lock",
+        "**/setup.py",
+        "**/setup.cfg",
+    ),
+    "go": (
+        "**/go.mod",
+        "**/go.sum",
+    ),
+    "rust": (
+        "**/Cargo.toml",
+        "**/Cargo.lock",
+    ),
+    "dotnet": (
+        "**/*.csproj",
+        "**/*.fsproj",
+        "**/*.vbproj",
+        "**/Directory.Packages.props",
+        "**/packages.config",
+        "**/packages.lock.json",
+        "**/global.json",
+        "**/nuget.config",
+    ),
+}
 
-main = bootstrap_wrapper("aidd_runtime.test_settings_defaults", globals())
+DEFAULT_COMMON_PATTERNS = tuple(
+    pattern for pattern in BASE_COMMON_PATTERNS + sum(COMMON_PATTERNS_BY_TOOL.values(), ())
+)
 
-if __name__ == "__main__":  # pragma: no cover
-    raise SystemExit(main())
+DEFAULT_CODE_PATHS = (
+    "src",
+    "app",
+    "apps",
+    "modules",
+    "packages",
+    "service",
+    "services",
+    "backend",
+    "frontend",
+    "lib",
+    "libs",
+    "server",
+    "client",
+    "core",
+    "domain",
+    "shared",
+    "python",
+    "java",
+    "kotlin",
+    "cmd",
+    "pkg",
+    "internal",
+    "crates",
+)
+
+DEFAULT_CODE_EXTENSIONS = (
+    ".kt",
+    ".kts",
+    ".java",
+    ".groovy",
+    ".gradle",
+    ".gradle.kts",
+    ".scala",
+    ".swift",
+    ".c",
+    ".cc",
+    ".cpp",
+    ".cxx",
+    ".h",
+    ".hpp",
+    ".cs",
+    ".csproj",
+    ".fs",
+    ".fsx",
+    ".fsproj",
+    ".fsharp",
+    ".vb",
+    ".vbproj",
+    ".go",
+    ".rb",
+    ".rs",
+    ".py",
+    ".pyi",
+    ".pyx",
+    ".js",
+    ".jsx",
+    ".ts",
+    ".tsx",
+    ".m",
+    ".mm",
+    ".php",
+    ".dart",
+    ".mjs",
+    ".cjs",
+    ".hs",
+    ".erl",
+    ".ex",
+    ".exs",
+    ".cls",
+)
+
+DEFAULT_CODE_FILES = (
+    "build.gradle",
+    "build.gradle.kts",
+    "settings.gradle",
+    "settings.gradle.kts",
+    "gradle/libs.versions.toml",
+    "pom.xml",
+    "package.json",
+    "package-lock.json",
+    "pnpm-lock.yaml",
+    "yarn.lock",
+    "npm-shrinkwrap.json",
+    "pyproject.toml",
+    "requirements.txt",
+    "pipfile",
+    "pipfile.lock",
+    "poetry.lock",
+    "setup.py",
+    "setup.cfg",
+    "go.mod",
+    "go.sum",
+    "cargo.toml",
+    "cargo.lock",
+    "directory.packages.props",
+    "packages.config",
+    "packages.lock.json",
+    "global.json",
+    "nuget.config",
+)

@@ -12,7 +12,15 @@ log()  { printf '[info] %s\n' "$*"; }
 warn() { printf '[warn] %s\n' "$*" >&2; }
 err()  { printf '[error] %s\n' "$*" >&2; }
 
-PROMPT_ROOT="${ROOT_DIR}"
+resolve_prompt_root() {
+  if [[ -d "${ROOT_DIR}/agents" || -d "${ROOT_DIR}/commands" ]]; then
+    printf '%s' "${ROOT_DIR}"
+    return
+  fi
+  printf '%s' "${ROOT_DIR}"
+}
+
+PROMPT_ROOT="$(resolve_prompt_root)"
 
 run_prompt_lint() {
   if ! command -v python3 >/dev/null 2>&1; then
@@ -63,6 +71,27 @@ run_prompt_version_check() {
   fi
 }
 
+run_prompt_sync_guard() {
+  if ! command -v python3 >/dev/null 2>&1; then
+    warn "python3 not found; skipping prompt/template sync guard"
+    return
+  fi
+  if [[ ! -f "tests/repo_tools/prompt_template_sync.py" ]]; then
+    warn "tests/repo_tools/prompt_template_sync.py missing; skipping"
+    return
+  fi
+  log "running prompt/template sync guard (root: ${ROOT_DIR})"
+  local cmd=(python3 tests/repo_tools/prompt_template_sync.py --root "${ROOT_DIR}")
+  if [[ -n "${AIDD_PAYLOAD_ROOT:-}" ]]; then
+    cmd+=(--payload-root "${AIDD_PAYLOAD_ROOT}")
+  fi
+  if ! "${cmd[@]}"; then
+    err "prompt/template sync guard failed"
+    STATUS=1
+  fi
+}
+
+
 run_entrypoints_bundle_guard() {
   if ! command -v python3 >/dev/null 2>&1; then
     warn "python3 not found; skipping entrypoints bundle guard"
@@ -73,6 +102,7 @@ run_entrypoints_bundle_guard() {
     return
   fi
   log "running entrypoints bundle guard"
+  local expected="${ROOT_DIR}/tests/repo_tools/entrypoints-bundle.txt"
   local tmp_output
   tmp_output="$(mktemp "${TMPDIR:-/tmp}/aidd-entrypoints-bundle.XXXXXX")"
   trap 'rm -f "${tmp_output}"' RETURN
@@ -82,22 +112,8 @@ run_entrypoints_bundle_guard() {
     rm -f "${tmp_output}"
     return
   fi
-  if ! python3 - "${tmp_output}" <<'PY'
-from __future__ import annotations
-
-import json
-import sys
-from pathlib import Path
-
-path = Path(sys.argv[1])
-payload = json.loads(path.read_text(encoding="utf-8"))
-required = {"schema", "skills", "agents"}
-missing = sorted(required - payload.keys())
-if missing:
-    raise SystemExit(f"missing keys: {missing}")
-PY
-  then
-    err "entrypoints bundle validation failed"
+  if ! cmp -s "${expected}" "${tmp_output}"; then
+    err "entrypoints-bundle.txt out of date; rerun tests/repo_tools/entrypoints_bundle.py"
     STATUS=1
   fi
   rm -f "${tmp_output}"
@@ -469,6 +485,22 @@ run_ruff_hygiene() {
   fi
 }
 
+run_docs_hygiene_guard() {
+  if ! command -v python3 >/dev/null 2>&1; then
+    warn "python3 not found; skipping docs hygiene guard"
+    return
+  fi
+  if [[ ! -f "tests/repo_tools/docs_hygiene_guard.py" ]]; then
+    warn "tests/repo_tools/docs_hygiene_guard.py missing; skipping"
+    return
+  fi
+  log "running docs hygiene guard"
+  if ! python3 tests/repo_tools/docs_hygiene_guard.py; then
+    err "docs hygiene guard failed"
+    STATUS=1
+  fi
+}
+
 run_marketplace_ref_guard() {
   if ! command -v python3 >/dev/null 2>&1; then
     warn "python3 not found; skipping marketplace ref guard"
@@ -646,6 +678,8 @@ pattern = re.compile(r"\b(?:Answer|Ответ)\s+[0-9]+\s*:")
 target_globs = [
     "skills/*/templates/*",
     "tests/repo_tools/e2e_prompt/*.md",
+    "docs/e2e/aidd_test_flow_prompt_ralph_script*.txt",
+    "docs/e2e/aidd_test_quality_audit_prompt_tst002*.txt",
     "tests/repo_tools/smoke-workflow.sh",
 ]
 
@@ -716,6 +750,7 @@ cd "$ROOT_DIR"
 run_e2e_prompt_build_guard
 run_prompt_lint
 run_prompt_version_check
+run_prompt_sync_guard
 run_entrypoints_bundle_guard
 run_prompt_regression
 run_skill_eval_smoke
@@ -735,6 +770,7 @@ run_python_only_regression
 run_release_guard
 run_release_docs_guard
 run_ruff_hygiene
+run_docs_hygiene_guard
 run_marketplace_ref_guard
 run_repo_linters
 

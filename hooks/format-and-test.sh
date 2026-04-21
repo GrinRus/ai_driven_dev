@@ -37,12 +37,7 @@ VENDOR_DIR = HOOKS_DIR / "_vendor"
 if VENDOR_DIR.exists():
     sys.path.insert(0, str(VENDOR_DIR))
 
-from aidd_runtime.feature_ids import (
-    FeatureIdentifiers,
-    read_active_state as read_feature_active_state,
-    resolve_aidd_root,
-    resolve_identifiers,
-)
+from aidd_runtime.feature_ids import FeatureIdentifiers, resolve_aidd_root, resolve_identifiers
 from aidd_runtime.test_settings_defaults import (
     DEFAULT_COMMON_PATTERNS,
     DEFAULT_CODE_EXTENSIONS,
@@ -92,38 +87,19 @@ def dedupe_preserve(items: Iterable[str]) -> Tuple[str, ...]:
     return tuple(result)
 
 
-def _normalize_lower_items(
-    values: Iterable[str] | None,
-    defaults: Iterable[str],
-    *,
-    lstrip_chars: str = "",
-    rstrip_chars: str = "",
-    ensure_prefix: str = "",
-) -> Tuple[str, ...]:
+def normalize_common_patterns(values: Iterable[str] | None) -> Tuple[str, ...]:
     if values is None:
-        values = defaults
+        values = DEFAULT_COMMON_PATTERNS
     normalized: List[str] = []
     for raw in values:
         text = str(raw).strip()
         if not text:
             continue
-        text = text.replace("\\", "/")
-        if lstrip_chars:
-            text = text.lstrip(lstrip_chars)
+        text = text.replace("\\", "/").lstrip("./")
         if not text:
             continue
-        if rstrip_chars:
-            text = text.rstrip(rstrip_chars)
-        if not text:
-            continue
-        if ensure_prefix and not text.startswith(ensure_prefix):
-            text = f"{ensure_prefix}{text}"
         normalized.append(text.lower())
     return dedupe_preserve(normalized)
-
-
-def normalize_common_patterns(values: Iterable[str] | None) -> Tuple[str, ...]:
-    return _normalize_lower_items(values, DEFAULT_COMMON_PATTERNS, lstrip_chars="./")
 
 
 def match_common_pattern(path: str, pattern: str) -> bool:
@@ -147,15 +123,53 @@ def match_common_pattern(path: str, pattern: str) -> bool:
 
 
 def normalize_code_paths(values: Iterable[str] | None) -> Tuple[str, ...]:
-    return _normalize_lower_items(values, DEFAULT_CODE_PATHS, lstrip_chars="./", rstrip_chars="/")
+    if values is None:
+        values = DEFAULT_CODE_PATHS
+    normalized: List[str] = []
+    for raw in values:
+        text = str(raw).strip()
+        if not text:
+            continue
+        text = text.lstrip("./")
+        if not text:
+            continue
+        text = text.rstrip("/")
+        if not text:
+            continue
+        normalized.append(text.lower())
+    return dedupe_preserve(normalized)
 
 
 def normalize_code_extensions(values: Iterable[str] | None) -> Tuple[str, ...]:
-    return _normalize_lower_items(values, DEFAULT_CODE_EXTENSIONS, lstrip_chars="*", ensure_prefix=".")
+    if values is None:
+        values = DEFAULT_CODE_EXTENSIONS
+    normalized: List[str] = []
+    for raw in values:
+        text = str(raw).strip()
+        if not text:
+            continue
+        text = text.lstrip("*")
+        if not text:
+            continue
+        if not text.startswith("."):
+            text = f".{text}"
+        normalized.append(text.lower())
+    return dedupe_preserve(normalized)
 
 
 def normalize_code_files(values: Iterable[str] | None) -> Tuple[str, ...]:
-    return _normalize_lower_items(values, DEFAULT_CODE_FILES, lstrip_chars="./")
+    if values is None:
+        values = DEFAULT_CODE_FILES
+    normalized: List[str] = []
+    for raw in values:
+        text = str(raw).strip()
+        if not text:
+            continue
+        text = text.lstrip("./")
+        if not text:
+            continue
+        normalized.append(text.lower())
+    return dedupe_preserve(normalized)
 
 
 def is_code_related(path: str, prefixes: Tuple[str, ...], suffixes: Tuple[str, ...], exact: Tuple[str, ...]) -> bool:
@@ -520,16 +534,15 @@ def resolve_git_root(base: Path) -> Path:
     return Path(root).resolve()
 
 
-def _git_name_only_lines(*args: str) -> List[str]:
-    proc = subprocess.run(args, text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-    if proc.returncode != 0:
-        return []
-    return [line.strip() for line in proc.stdout.splitlines() if line.strip()]
-
-
-def _collect_git_files(base: Path, *, include_head_fallback: bool) -> List[str]:
+def collect_changed_files(base: Path) -> List[str]:
     files: set[str] = set()
     git_root = resolve_git_root(base)
+
+    def git_lines(args: Iterable[str]) -> List[str]:
+        proc = subprocess.run(args, text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        if proc.returncode != 0:
+            return []
+        return [line.strip() for line in proc.stdout.splitlines() if line.strip()]
 
     # tracked changes
     proc = subprocess.run(
@@ -539,22 +552,14 @@ def _collect_git_files(base: Path, *, include_head_fallback: bool) -> List[str]:
         stderr=subprocess.DEVNULL,
     )
     if proc.returncode == 0:
-        if include_head_fallback:
-            files.update(_git_name_only_lines("git", "-C", str(git_root), "diff", "--name-only", "HEAD"))
-        else:
-            files.update(_git_name_only_lines("git", "-C", str(git_root), "diff", "--name-only"))
-            files.update(_git_name_only_lines("git", "-C", str(git_root), "diff", "--cached", "--name-only"))
+        files.update(git_lines(["git", "-C", str(git_root), "diff", "--name-only", "HEAD"]))
     else:
-        files.update(_git_name_only_lines("git", "-C", str(git_root), "diff", "--name-only"))
-        files.update(_git_name_only_lines("git", "-C", str(git_root), "diff", "--cached", "--name-only"))
+        files.update(git_lines(["git", "-C", str(git_root), "diff", "--name-only"]))
+        files.update(git_lines(["git", "-C", str(git_root), "diff", "--cached", "--name-only"]))
 
     # untracked
-    files.update(_git_name_only_lines("git", "-C", str(git_root), "ls-files", "--others", "--exclude-standard"))
+    files.update(git_lines(["git", "-C", str(git_root), "ls-files", "--others", "--exclude-standard"]))
     return sorted(files)
-
-
-def collect_changed_files(base: Path) -> List[str]:
-    return _collect_git_files(base, include_head_fallback=True)
 
 
 def is_cache_artifact(path: str) -> bool:
@@ -711,15 +716,14 @@ def resolve_workspace_root(ctx: object | None) -> Path:
     return base.resolve()
 
 def read_active_state(project_root: Path) -> dict:
-    state = read_feature_active_state(project_root)
-    return {
-        "ticket": state.ticket,
-        "slug_hint": state.slug_hint,
-        "stage": state.stage,
-        "work_item": state.work_item,
-        "last_review_report_id": state.last_review_report_id,
-        "updated_at": state.updated_at,
-    }
+    path = project_root / "docs" / ".active.json"
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+    return payload if isinstance(payload, dict) else {}
 
 
 def read_active_stage(project_root: Path) -> str:
@@ -746,7 +750,19 @@ def read_active_mode(project_root: Path) -> str:
 
 
 def collect_diff_files(base: Path) -> List[str]:
-    return _collect_git_files(base, include_head_fallback=False)
+    files: set[str] = set()
+    git_root = resolve_git_root(base)
+
+    def git_lines(args: Iterable[str]) -> List[str]:
+        proc = subprocess.run(args, text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        if proc.returncode != 0:
+            return []
+        return [line.strip() for line in proc.stdout.splitlines() if line.strip()]
+
+    files.update(git_lines(["git", "-C", str(git_root), "diff", "--name-only"]))
+    files.update(git_lines(["git", "-C", str(git_root), "diff", "--cached", "--name-only"]))
+    files.update(git_lines(["git", "-C", str(git_root), "ls-files", "--others", "--exclude-standard"]))
+    return sorted(files)
 
 
 SERVICE_PREFIXES = (".claude/", ".cursor/")

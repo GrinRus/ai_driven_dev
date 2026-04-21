@@ -1,15 +1,9 @@
 from __future__ import annotations
 
-import sys
-from pathlib import Path
+from typing import Any, Iterable, List
 
-_REPO_ROOT = Path(__file__).resolve().parents[3]
-if str(_REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(_REPO_ROOT))
 
-from aidd_runtime.entrypoint import bootstrap_wrapper
-
-main = bootstrap_wrapper("aidd_runtime.validation_helpers", globals())
-
-if __name__ == "__main__":  # pragma: no cover
-    raise SystemExit(main())
+def require_fields(obj: dict[str, Any], fields: Iterable[str], errors: List[str], *, prefix: str = "") -> None:
+    for field in fields:
+        if field not in obj:
+            errors.append(f"{prefix}missing field: {field}")

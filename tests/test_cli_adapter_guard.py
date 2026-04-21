@@ -35,18 +35,18 @@ def test_cli_adapter_guard_repo_smoke() -> None:
     assert "[cli-adapter-guard] SUMMARY:" in result.stdout
 
 
-def test_cli_adapter_guard_blocks_minimal_help_output() -> None:
+def test_cli_adapter_guard_blocks_missing_help_sections() -> None:
     with tempfile.TemporaryDirectory(prefix="cli-adapter-guard-") as tmpdir:
         root = Path(tmpdir)
         _write(
             root / "skills" / "demo" / "runtime" / "tool.py",
             """#!/usr/bin/env python3
-import sys
+import argparse
 
 def main() -> int:
-    if "--help" in sys.argv:
-        print("usage: tool.py")
-        return 0
+    parser = argparse.ArgumentParser(description="Demo CLI.")
+    parser.add_argument("--ticket", default="DEMO-1")
+    parser.parse_args()
     return 0
 
 if __name__ == "__main__":
@@ -56,8 +56,9 @@ if __name__ == "__main__":
 
         result = _run_guard(root)
         assert result.returncode == 2
-        assert "must include a meaningful command description" in result.stderr
-        assert "must list arguments/options" in result.stderr
+        assert "must include an Examples section" in result.stderr
+        assert "must include an Outputs section" in result.stderr
+        assert "must include an Exit codes section" in result.stderr
 
 
 def test_cli_adapter_guard_blocks_hook_signals_inside_skills_runtime() -> None:
@@ -222,27 +223,6 @@ if __name__ == "__main__":
 
         result = _run_guard(root, "--fail-on-warn")
         assert result.returncode == 0, result.stderr
-
-
-def test_cli_adapter_guard_treats_thin_wrapper_to_library_module_as_library() -> None:
-    with tempfile.TemporaryDirectory(prefix="cli-adapter-guard-") as tmpdir:
-        root = Path(tmpdir)
-        _write(root / "aidd_runtime" / "lib.py", "def meaning() -> int:\n    return 42\n")
-        _write(
-            root / "skills" / "demo" / "runtime" / "lib.py",
-            """#!/usr/bin/env python3
-from aidd_runtime.entrypoint import export_module, run_main
-
-export_module("aidd_runtime.lib", globals())
-
-if __name__ == "__main__":
-    raise SystemExit(run_main("aidd_runtime.lib"))
-""",
-        )
-
-        result = _run_guard(root)
-        assert result.returncode == 0, result.stderr
-        assert "library=1" in result.stdout
 
 
 def test_cli_adapter_guard_accepts_top_level_help_with_subparsers() -> None:

@@ -18,8 +18,6 @@ ENV_STRIP_KEYS = ("CLAUDE_PLUGIN_ROOT", "AIDD_PLUGIN_DIR", "PYTHONPATH", "PYTHON
 def _entrypoints(root: Path) -> list[Path]:
     out: list[Path] = []
     for path in sorted(root.glob("skills/*/runtime/*.py")):
-        if path.name.startswith("_"):
-            continue
         try:
             text = path.read_text(encoding="utf-8")
         except OSError:

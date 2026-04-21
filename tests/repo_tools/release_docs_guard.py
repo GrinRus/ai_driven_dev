@@ -14,47 +14,6 @@ TOKEN_BOUNDARY = r"[A-Za-z0-9_./-]"
 BACKTICK_TOKEN_RE = re.compile(r"`([^`]+)`")
 LIFECYCLE_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 LIFECYCLE_STATUSES = {"active", "historical", "archive-candidate"}
-SCAN_GLOBS = (
-    "AGENTS.md",
-    "docs/**/*.md",
-    "tests/repo_tools/e2e_prompt/*.md",
-)
-SKIP_MISSING_PATH_CHECK = {
-    "docs/backlog.md",
-    "docs/archive/rfc/memory-v2.md",
-}
-ALLOWED_REPO_PREFIXES = (
-    "skills/",
-    "hooks/",
-    "tests/",
-    "docs/",
-    "templates/",
-    "agents/",
-    ".claude-plugin/",
-    "aidd_runtime/",
-    ".github/",
-)
-SKIP_TOKEN_PREFIXES = (
-    "http://",
-    "https://",
-    "mailto:",
-    "#",
-    "python3",
-    "bash",
-    "sh",
-    "rg",
-    "sed",
-    "cat",
-    "/feature-dev-aidd",
-    "Bash(",
-    "Read",
-    "Write",
-    "Edit",
-    "Glob",
-)
-ABS_USERS_RE = re.compile(r"/Users/[^\s`)]*")
-INLINE_CODE_RE = re.compile(r"`([^`]+)`")
-MARKDOWN_LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
 
 
 def _parse_manifest(path: Path) -> dict[str, list[str]]:
@@ -274,70 +233,6 @@ def _validate_changelog(path: Path) -> list[str]:
     return errors
 
 
-def _collect_markdown_files(root: Path) -> list[Path]:
-    files: set[Path] = set()
-    for pattern in SCAN_GLOBS:
-        for path in root.glob(pattern):
-            if path.is_file():
-                files.add(path.resolve())
-    return sorted(files)
-
-
-def _normalize_path_candidate(raw: str) -> str:
-    token = str(raw or "").strip()
-    if not token:
-        return ""
-    if token.startswith(SKIP_TOKEN_PREFIXES):
-        return ""
-    token = token.split("#", 1)[0].split("?", 1)[0].strip()
-    if not token:
-        return ""
-    token = token.split()[0].rstrip(".,:;")
-    if token.startswith("./"):
-        token = token[2:]
-    if not token:
-        return ""
-    if any(ch in token for ch in ("*", "$", "{", "}", "<", ">", "|")):
-        return ""
-    return token
-
-
-def _path_exists(root: Path, path: str) -> bool:
-    probe = root / path
-    if probe.exists():
-        return True
-    if ":" in path:
-        left = path.split(":", 1)[0]
-        if (root / left).exists():
-            return True
-    return False
-
-
-def _validate_repo_relative_references(root: Path) -> list[str]:
-    errors: list[str] = []
-    for file_path in _collect_markdown_files(root):
-        rel_file = file_path.relative_to(root).as_posix()
-        text = file_path.read_text(encoding="utf-8", errors="replace")
-        lines = text.splitlines()
-        for line_no, line in enumerate(lines, start=1):
-            abs_match = ABS_USERS_RE.search(line)
-            if abs_match:
-                errors.append(f"{rel_file}:{line_no}: contains machine-specific path `{abs_match.group(0)}`")
-            if rel_file in SKIP_MISSING_PATH_CHECK:
-                continue
-            candidates: list[str] = []
-            candidates.extend(m.group(1) for m in INLINE_CODE_RE.finditer(line))
-            candidates.extend(m.group(1) for m in MARKDOWN_LINK_RE.finditer(line))
-            for raw_candidate in candidates:
-                candidate = _normalize_path_candidate(raw_candidate)
-                if not candidate or not candidate.startswith(ALLOWED_REPO_PREFIXES):
-                    continue
-                if _path_exists(root, candidate):
-                    continue
-                errors.append(f"{rel_file}:{line_no}: missing repo-relative path `{candidate}`")
-    return errors
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Validate public/internal documentation split for release navigation."
@@ -410,8 +305,6 @@ def main() -> int:
         errors.append("CHANGELOG.md is required")
     else:
         errors.extend(_validate_changelog(changelog))
-
-    errors.extend(_validate_repo_relative_references(root))
 
     if errors:
         for item in errors:

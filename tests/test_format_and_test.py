@@ -551,33 +551,6 @@ def test_profile_targeted_uses_targeted_task(tmp_path):
     assert "Запуск тестов: /bin/echo target_task" in result.stderr
 
 
-def test_fresh_repo_staged_tracked_files_trigger_tests(tmp_path):
-    project = tmp_path / "aidd"
-    project.mkdir(parents=True, exist_ok=True)
-    git_init(project)
-    settings = write_settings(
-        project,
-        {
-            "automation": {
-                "tests": {
-                    "reviewerGate": {"enabled": False},
-                }
-            }
-        },
-    )
-    write_active_stage(project, "review")
-    (project / "src").mkdir(parents=True, exist_ok=True)
-    source = project / "src" / "main.py"
-    source.write_text("print('ok')", encoding="utf-8")
-    subprocess.run(["git", "add", "src/main.py"], cwd=project, check=True, capture_output=True)
-
-    result = run_hook(project, settings)
-
-    assert "нет изменений кода — тесты пропущены" not in result.stderr
-    assert "Выбранные задачи тестов (targeted):" in result.stderr
-    assert "Запуск тестов: /bin/echo default_task" in result.stderr
-
-
 def test_policy_file_tasks_and_filters(tmp_path):
     project = tmp_path / "aidd"
     project.mkdir(parents=True, exist_ok=True)

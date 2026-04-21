@@ -16,6 +16,10 @@ runtime_contract_docs:
 internal_dev_docs:
   - AGENTS.md
   - docs/backlog.md
-  - docs/skill-authoring.md
+  - docs/agent-skill-best-practices.md
+  - docs/skill-language.md
+  - docs/skill-trigger-taxonomy.md
+  - docs/memory-v2-rfc.md
+  - docs/host-agnostic-flow-rfc.md
   - docs/runbooks/*.md
-  - docs/archive/**/*.md
+  - docs/revision/*.md

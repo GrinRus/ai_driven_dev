@@ -1,15 +1,7 @@
+#!/usr/bin/env python3
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
-_REPO_ROOT = Path(__file__).resolve().parents[3]
-if str(_REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(_REPO_ROOT))
-
-from aidd_runtime.entrypoint import bootstrap_wrapper
-
-main = bootstrap_wrapper("aidd_runtime.tasks_derive", globals())
-
-if __name__ == "__main__":  # pragma: no cover
-    raise SystemExit(main())
+_CORE_PATH = Path(__file__).resolve().with_name("tasks_derive_parts") / "core.py"
+exec(compile(_CORE_PATH.read_text(encoding="utf-8"), str(_CORE_PATH), "exec"), globals(), globals())

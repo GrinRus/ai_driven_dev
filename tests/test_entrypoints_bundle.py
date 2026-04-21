@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import importlib.util
-import json
 import unittest
 from pathlib import Path
 
@@ -28,20 +27,6 @@ class EntrypointsBundleTests(unittest.TestCase):
         args = self.module.parse_args([])
         self.assertEqual(Path(args.root).resolve(), REPO_ROOT)
         self.assertTrue((Path(args.root) / ".claude-plugin" / "plugin.json").exists())
-
-    def test_build_bundle_returns_required_top_level_keys(self) -> None:
-        bundle = self.module.build_bundle(REPO_ROOT)
-        self.assertEqual(bundle["schema"], "aidd.entrypoints.bundle.v1")
-        self.assertTrue(bundle["skills"])
-        self.assertTrue(bundle["agents"])
-
-    def test_build_bundle_confirms_skills_agents_only_install_surface(self) -> None:
-        bundle = self.module.build_bundle(REPO_ROOT)
-        rendered = json.dumps(bundle, sort_keys=True)
-        self.assertNotIn("commands/", rendered)
-        self.assertNotIn("tools/", rendered)
-        self.assertTrue(all(item["path"].startswith("skills/") for item in bundle["skills"]))
-        self.assertTrue(all(item["path"].startswith("agents/") for item in bundle["agents"]))
 
 
 if __name__ == "__main__":

@@ -1,55 +1,332 @@
 # AGENTS (Repo development guide)
 
-> INTERNAL/DEV-ONLY: maintainer contract for repository development and release.
+> INTERNAL/DEV-ONLY: maintainer guide for repository development and release process.
 
 Owner: feature-dev-aidd
-Last reviewed: 2026-04-18
+Last reviewed: 2026-04-12
 Status: active
 
-This file is the repo-level maintainer contract. User-facing workspace guidance lives in `skills/aidd-core/templates/workspace-agents.md`.
+Этот файл — единая dev‑документация репозитория. Все dev‑правила и шаблоны живут здесь.
+User‑гайд для workspace находится в `skills/aidd-core/templates/workspace-agents.md` (копируется в `aidd/AGENTS.md` при init).
 
-## Repo contract
-- Runtime/plugin surface: `agents/`, `skills/`, `hooks/`, `.claude-plugin/`.
-- Workspace bootstrap templates: `templates/aidd/` for config/placeholders only.
-- User/workspace artifacts live under `aidd/**`.
-- Repo-only tooling lives under `tests/repo_tools/`.
-- Canonical runtime entrypoints stay at `skills/<stage>/runtime/*.py`.
-- Public slash commands, hook command names, and artifact names are compatibility surface and must stay stable unless explicitly versioned.
+## Репозиторий и структура
+- Runtime (плагин): `agents/`, `skills/`, `hooks/`, `.claude-plugin/`.
+- Workspace bootstrap‑шаблоны: `templates/aidd/` (config/placeholders only; копируются в `./aidd` через `/feature-dev-aidd:aidd-init`).
+- Тесты: `tests/`.
+- Repo tools: `tests/repo_tools/`.
+- Stage runtime entrypoints (canonical): `skills/<stage>/runtime/*.py` (Python-only canon с 2026-02-09).
+- Canonical Python runtime живёт в `skills/*/runtime/*`; shell entrypoints допустимы только для hooks/platform glue.
+- `tools/*.py` используется только для repo-only tooling/import stubs (если каталог присутствует).
+- Backlog: `docs/backlog.md`.
+- User‑артефакты: `aidd/**` (`docs/`, `reports/`, `config/`, `.cache/`).
+- Derived‑артефакты: `aidd/docs/index/`, `aidd/reports/events/`, `aidd/.cache/`.
+- Примеры: демо‑проекты и helper‑скрипты не поставляются — держите их вне плагина и документируйте в workspace.
 
-## Source of truth map
-- Skill/agent authoring policy: `docs/skill-authoring.md`.
-- Stage content templates: `skills/*/templates/*`.
-- Workspace bootstrap source: `templates/aidd/**`.
-- Hook wiring: `hooks/hooks.json`.
-- Prompt/version lint baseline: `docs/migrations/stage_skills_frontmatter.json`.
-- Release/public docs split: `docs/release-docs-manifest.yaml`.
-- User guide template copied into workspaces: `skills/aidd-core/templates/workspace-agents.md`.
+## Источник истины (dev vs user)
+- Stage content templates (`prd/plan/research/tasklist/spec/loop/context-pack`) — источник истины в `skills/*/templates/*`.
+- `templates/aidd/**` — bootstrap source только для config/placeholders/infra-директорий; не хранит stage content templates.
+- `aidd/**` появляется в workspace после `/feature-dev-aidd:aidd-init` и не хранится в repo (кроме шаблонов).
+- `AGENTS.md` (корень) — dev‑гайд для репозитория; `skills/aidd-core/templates/workspace-agents.md` — user‑гайд для проектов.
+- При изменении stage content: обновите `skills/*/templates/*` + `skills/aidd-init/runtime/init.py` seed map; `templates/aidd/**` меняйте только для bootstrap config/placeholders.
+- Workspace‑конфиги: `aidd/config/{gates.json,conventions.json,context_gc.json,allowed-deps.txt}` (источник — `templates/aidd/config/`).
+- Artifact truth policy lives in `aidd/config/gates.json -> artifact_truth`; default rollout is `soft`.
+- Hook wiring: `hooks/hooks.json` — обновляйте при добавлении/удалении хуков.
+- Permissions/cadence: `.claude/settings.json` в корне workspace (без `aidd/.claude`).
 
-## Lifecycle rules
-- Default bias: delete, archive, or collapse inactive repo surface unless there is a current runtime, CI, or release consumer.
-- Do not keep repo-only utilities in active surface without CI, release, or explicit operator ownership.
-- Archive historical RFCs, closure notes, and runbooks under `docs/archive/**`; keep active docs short and operational.
-- `aidd_runtime/**`, compatibility layers, and `legacy|compat|fallback|shadow` branches require explicit validation before deletion.
-- Generated outputs may stay in git only when CI or release tooling reads them directly.
+## Архитектура путей (plugin cache vs workspace)
+- Плагин копируется в cache Claude Code: записи в `${CLAUDE_PLUGIN_ROOT}` недопустимы.
+- Рабочий root всегда workspace (`./aidd`); только туда пишем `docs/`, `reports/`, `config/`.
+- `${CLAUDE_PLUGIN_ROOT}` используется только для чтения ресурсов плагина (hooks/tools/templates).
+- CWD хуков не гарантирован; корень проекта вычисляется из payload (cwd/workspace), без опоры на plugin root.
+- Wrapper output policy: stdout ≤ 200 lines или ≤ 50KB; stderr ≤ 50 lines; большие выводы пишем в `aidd/reports/**` с кратким summary в stdout.
 
-## Runtime and path rules
-- `aidd_runtime/` is the explicit Python package namespace. Do not rely on package `__path__` mutation to expose `skills/*/runtime`.
-- Reusable runtime/library code belongs in `aidd_runtime/**`.
-- `skills/*/runtime/*.py` should stay thin entrypoints or compatibility wrappers around explicit package modules.
-- Shell entrypoints are allowed only for hooks or platform glue.
-- Hooks and runtime code must resolve workspace/project root from payload or explicit args, not by writing into plugin cache.
+## Python-only canon (Wave 97)
+- Canonical runtime API: `python3 skills/*/runtime/*.py` (с `PYTHONPATH=$CLAUDE_PLUGIN_ROOT` when needed).
+- Runtime wrappers в `skills/*/scripts/*.sh` удалены; новые runtime-ссылки на них запрещены.
+- Rollback criteria: если migration ломает `tests/repo_tools/ci-lint.sh` или `tests/repo_tools/smoke-workflow.sh` в mainline, допускается временный возврат на wrapper-path для затронутого entrypoint с обязательным follow-up task.
 
-## Release checks
-- Required local gates:
-  - `tests/repo_tools/ci-lint.sh`
-  - `tests/repo_tools/smoke-workflow.sh`
-- Prompt/policy checks:
-  - `python3 tests/repo_tools/lint-prompts.py --root .`
-  - `python3 tests/repo_tools/build_e2e_prompts.py --check`
-- Release docs/checklist:
-  - `docs/runbooks/marketplace-release.md`
-  - `docs/release-docs-manifest.yaml`
+## SKILL authoring policy (cross-agent)
+- Source of truth: `docs/agent-skill-best-practices.md` + `docs/skill-language.md`.
+- Official Claude SoT for this policy wave:
+  - `https://docs.claude.com/en/docs/agents-and-tools/agent-skills/overview`
+  - `https://docs.claude.com/en/docs/agents-and-tools/agent-skills/best-practices`
+  - `https://docs.claude.com/en/docs/agents-and-tools/agent-skills/skill-format`
+  - `https://docs.claude.com/en/docs/agents-and-tools/agent-skills/subagents`
+- Policy target: compact `SKILL.md` + progressive disclosure via supporting files.
+- Для shared и user-invocable stage skills обязателен раздел `## Command contracts` с карточками critical commands (интерфейс, а не пересказ кода):
+  - `When to run`
+  - `Inputs`
+  - `Outputs`
+  - `Failure mode`
+  - `Next action`
+- `## Additional resources` должен объяснять навигацию к supporting files для shared и stage skills:
+  - `when:` когда открывать ресурс;
+  - `why:` какое решение/действие он разблокирует.
+- Для stage skills запрещены `context`/`agent` frontmatter в пользу явного `Run subagent` orchestration.
+- Детали реализации (`line-by-line`, внутренние ветвления, кодовые walkthrough) выносятся в `references/*`, `templates/*` или runtime-docstrings, но не дублируются в `SKILL.md`.
 
-## Minimal dependencies
-- Required: `python3`, `rg`, `git`
-- Extra repo-tool lint deps may be soft-skipped by CI helpers: `shellcheck`, `markdownlint`, `yamllint`
+## Быстрые проверки (repo‑only)
+- Полный линт + unit‑тесты: `tests/repo_tools/ci-lint.sh`.
+- E2E smoke: `tests/repo_tools/smoke-workflow.sh`.
+- CI policy: workflow `smoke-workflow` запускается всегда и выполняет auto-skip, если не менялись runtime-пути (`skills/**`, `hooks/**`, `agents/**`, `templates/aidd/**`, `.claude-plugin/**`).
+- Runtime module guard: `tests/repo_tools/runtime-module-guard.py` (`>600` lines = WARN, `>900` = ERROR), waivers — `tests/repo_tools/runtime-module-guard-waivers.txt`.
+- Required-check parity: `lint-and-test`, `smoke-workflow`, `dependency-review`; security checks `security-secret-scan` и `security-sast` идут staged rollout (advisory пока `AIDD_SECURITY_ENFORCE!=1`, required при `AIDD_SECURITY_ENFORCE=1`).
+- Дополнительно (если нужно): `python3 -m pytest -q tests`.
+- Диагностика окружения: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-observability/runtime/doctor.py`.
+- Bootstrap шаблонов (workspace): `/feature-dev-aidd:aidd-init`.
+
+## Минимальные зависимости
+- `python3`, `rg`, `git` обязательны.
+- Для `tests/repo_tools/ci-lint.sh`: `shellcheck`, `markdownlint`, `yamllint` (иначе warn/skip).
+
+## Локальный запуск entrypoints
+- Stage/shared runtime entrypoints (canonical): `CLAUDE_PLUGIN_ROOT=$PWD PYTHONPATH=$PWD python3 skills/<skill>/runtime/<command>.py ...`
+- Deferred-core freeze (wave-1) сохраняется как compatibility surface до завершения cutover.
+- Хуки: `CLAUDE_PLUGIN_ROOT=$PWD hooks/<hook>.sh ...`
+
+## Shared Ownership Map
+- `skills/aidd-core/runtime/*`: shared core runtime API (canonical).
+- `skills/aidd-docio/runtime/*`: shared DocIO runtime API (`md_*`, `actions_*`, `context_*`).
+- `skills/aidd-flow-state/runtime/*`: shared flow/state runtime API (`set-active-*`, `progress*`, `tasklist*`, `stage_result`, `status_summary`, `prd_check`, `tasks_derive`).
+- `skills/aidd-observability/runtime/*`: shared observability runtime API (`doctor`, `tools_inventory`, `tests_log`, `dag_export`, `identifiers`).
+- `skills/aidd-policy/SKILL.md` + `skills/aidd-policy/references/*`: shared policy contract (output/question/read/safety).
+- `skills/aidd-loop/runtime/*`: shared loop orchestration runtime API (canonical).
+- `skills/<stage>/runtime/*`: stage-local runtime API owned by one stage.
+- `tools/*.sh` отсутствуют в runtime API.
+
+## Как добавлять entrypoints (skill-first)
+1. Stage runtime entrypoint: `skills/<stage>/runtime/<command>.py` (canonical Python path).
+2. Shared runtime entrypoints: `skills/aidd-core/runtime/*`, `skills/aidd-docio/runtime/*`, `skills/aidd-flow-state/runtime/*`, `skills/aidd-observability/runtime/*` и `skills/aidd-loop/runtime/*`.
+3. Shell wrapper допускается только для hooks/platform-required glue.
+4. Не вводите новые `tools/*.sh` и не добавляйте runtime wrappers в `skills/*/scripts/*`.
+5. Документация/помпты: обновите `skills/<stage>/SKILL.md` и/или `agents/*.md`, включая `## Command contracts` и `## Additional resources` (with `when/why`). Архив historical команд хранится в каталоге командной документации.
+6. Хуки: если entrypoint участвует в workflow, добавьте вызов в `hooks/hooks.json`.
+7. Шаблоны: stage content размещайте в `skills/*/templates/*`; `templates/aidd/**` используйте только для bootstrap config/placeholders, затем проверьте `/feature-dev-aidd:aidd-init`.
+8. Тесты: unit в `tests/`, repo tooling/CI helpers — в `tests/repo_tools/`.
+9. Prompt‑версии: после правок в `skills/`/`agents/` обновите `prompt_version` и прогоните `tests/repo_tools/prompt-version` + `tests/repo_tools/lint-prompts.py`.
+10. Метаданные: при user‑facing изменениях обновите `CHANGELOG.md` и версии в `.claude-plugin/plugin.json` + `.claude-plugin/marketplace.json` (если требуется).
+
+Контракт исполнения:
+- Subagents (`agents/*.md`) не вызывают shell wrappers напрямую.
+- Runtime orchestration должна ссылаться на Python entrypoints (`skills/*/runtime/*.py`).
+- Stage orchestration owner: `skills/<stage>/SKILL.md` (через `Run subagent` + stage command routing) является единственным источником orchestration-правил.
+- В `agents/*.md` запрещены self-links вида `/feature-dev-aidd:<own-stage>` в `description` и body; агент описывает только роль/scope/handoff.
+- Cross-stage handoff ссылки в `agents/*.md` допустимы (например, на следующий stage), если это не self-link.
+
+## Workflow (кратко)
+Публичные стадии: `idea → research → plan → review-spec → tasklist → implement → review → qa`.
+`review-spec` — umbrella stage с внутренними подстадиями `review-plan` и `review-prd` (см. `skills/aidd-core/templates/stage-lexicon.md`).
+Loop policy: `OUT_OF_SCOPE|NO_BOUNDARIES_DEFINED` → WARN + handoff, `FORBIDDEN` → BLOCKED.
+
+Ключевые команды:
+- Идея: `/feature-dev-aidd:idea-new <ticket> [note...]` → PRD + `analyst` (`slug_hint` формируется внутри команды из note).
+- Research: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py --ticket <ticket> --auto` → `/feature-dev-aidd:researcher <ticket>` (RLM targets/manifest/worklist + pack).
+- План: `/feature-dev-aidd:plan-new <ticket>`.
+- Review‑spec (plan + PRD): `/feature-dev-aidd:review-spec <ticket>`.
+- Тасклист: `/feature-dev-aidd:tasks-new <ticket>`.
+- Реализация: `/feature-dev-aidd:implement <ticket>` (гейтит `gate-workflow`, auto `format-and-test`).
+- Ревью: `/feature-dev-aidd:review <ticket>`.
+- QA: `/feature-dev-aidd:qa <ticket>` → отчёт `aidd/reports/qa/<ticket>.json`.
+
+Agent‑first правило: сначала читаем артефакты (`aidd/docs/**`, `aidd/reports/**`), запускаем разрешённые команды (`rg`, `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/progress_cli.py`, тесты), затем задаём вопросы пользователю.
+
+## RLM в Research
+- Evidence: `aidd/reports/research/<ticket>-rlm.pack.json` и `rlm-slice` pack.
+- Pipeline: `rlm-targets.json` → `rlm-manifest.json` → `rlm.worklist.pack.json` → агент пишет `rlm.nodes.jsonl` + `rlm.links.jsonl` → `*-rlm.pack.json`.
+- On-demand: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_slice.py --ticket <ticket> --query "<token>"`.
+- Troubleshooting пустого контекста:
+  - Уточните `--paths`/`--keywords` (указывайте реальный код, не только `aidd/`).
+  - Если `rlm_status=pending` — выполните agent‑flow по worklist и пересоберите pack.
+
+## Migration policy (legacy -> RLM-only)
+- Legacy pre-RLM research context/targets artifacts не используются в runtime/gates и могут считаться историческими.
+- Для старого workspace состояния пересоберите research canonical командой:
+  `python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py --ticket <ticket> --auto`.
+- Если после research `rlm_status=pending`, handoff на shared owner:
+  `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_finalize.py --ticket <ticket>`.
+- Гейты стадий `plan/review/qa` требуют минимальный набор RLM evidence:
+  `rlm-targets`, `rlm-manifest`, `rlm.worklist.pack`, `rlm.nodes`, `rlm.links`, `rlm.pack`.
+
+## Evidence Read Policy (RLM-first)
+- Primary evidence: `aidd/reports/research/<ticket>-rlm.pack.json` (pack-first summary).
+- Slice on demand: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_slice.py --ticket <ticket> --query "<token>"`.
+- Use raw `rg` only for spot-checks.
+- JSONL‑streams (`*-rlm.nodes.jsonl`, `*-rlm.links.jsonl`) читаются фрагментами, не целиком.
+
+## Кастомизация (минимум)
+- `.claude/settings.json`: permissions и automation/tests cadence (`on_stop|checkpoint|manual`).
+- `aidd/config/gates.json`:
+  - `prd_review`, `plan_review`, `researcher`, `analyst`
+  - `tests_required` (`disabled|soft|hard`), `tests_gate`
+  - `deps_allowlist`
+  - `qa.debounce_minutes`
+  - `qa.tests.discover` (allow_paths/max_files/max_bytes)
+  - `tasklist_progress`
+- Важные env:
+  - `SKIP_AUTO_TESTS`, `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`
+- Stage-chain orchestration для loop stages обязательна (`preflight -> run -> postflight -> stage_result`), debug bypass не поддерживается.
+- `AIDD_TEST_PROFILE`, `AIDD_TEST_PROFILE_DEFAULT`, `AIDD_TEST_TASKS`, `AIDD_TEST_FILTERS`, `AIDD_TEST_FORCE`
+- `AIDD_TEST_LOG`, `AIDD_TEST_LOG_TAIL_LINES`, `AIDD_TEST_CHECKPOINT`
+- `AIDD_HOOKS_MODE` (`fast` по умолчанию, `strict` для полного набора стоп‑хуков)
+
+## Prompt versioning
+- Semver: `MAJOR.MINOR.PATCH`.
+- `source_version` always equals `prompt_version` for the canonical EN prompt corpus.
+- Skills/agents хранят версии в frontmatter; stage‑skills должны совпадать с baseline.
+- Preload matrix v2 (lint-enforced): `aidd-policy` для всех agents, `aidd-rlm` только для `analyst|planner|plan-reviewer|prd-reviewer|researcher|reviewer|tasklist-refiner|validator`, `aidd-stage-research` обязательно для `researcher`, `aidd-loop` только для `implementer|reviewer|qa`. Waivers — `AGENT_PRELOAD_WAIVERS` в `tests/repo_tools/lint-prompts.py`.
+- Инструменты:
+  - `python3 tests/repo_tools/prompt-version bump --root <workflow-root> --prompts <name> --kind agent|command --lang en --part <major|minor|patch>` (agents + historical commands)
+  - `python3 tests/repo_tools/lint-prompts.py --root <workflow-root>`
+
+## Reports format (MVP)
+- Naming:
+  - Context pack (rolling): `aidd/reports/context/<ticket>.pack.md`
+  - RLM targets: `aidd/reports/research/<ticket>-rlm-targets.json`
+  - RLM manifest: `aidd/reports/research/<ticket>-rlm-manifest.json`
+  - RLM nodes/links: `aidd/reports/research/<ticket>-rlm.nodes.jsonl`, `*-rlm.links.jsonl`
+  - RLM pack: `aidd/reports/research/<ticket>-rlm.pack.json`
+  - QA: `aidd/reports/qa/<ticket>.json` + pack
+  - PRD review gate artifact: `aidd/reports/prd/<ticket>.json` + pack
+  - Reviewer marker: `aidd/reports/reviewer/<ticket>/<scope_key>.json`
+  - Tests log: `aidd/reports/tests/<ticket>/<scope_key>.jsonl`
+- Pack‑only: читаем `*.pack.json` как источник; JSON хранится как raw‑артефакт и не используется для чтения.
+- Tasklist front‑matter uses `ExpectedReports:` only for planned downstream outputs; derived index field `reports` must list only реально существующие files in `aidd/reports/**`.
+- Для PRD readiness/recovery source-of-truth — структурный report payload (`status`/`recommended_status`), narrative вывод stage считается вспомогательным.
+- Header (минимум): `schema`, `pack_version`, `type`, `kind`, `ticket`, `slug|slug_hint`, `generated_at`, `status`, `summary` (если есть), `tests_summary` (QA), `source_path`.
+- Determinism: стабильная сериализация, stable‑truncation, стабильные `id`.
+- Columnar формат: `cols` + `rows`.
+- Budgets (пример):
+  - RLM pack: total <= 12000 chars, entrypoints<=20, hotspots<=20
+  - QA pack: findings<=20, tests_executed<=10
+  - PRD pack: findings<=20, action_items<=10
+- Патчи (опционально): RFC6902 в `aidd/reports/<type>/<ticket>.patch.json`.
+- Pack‑only/field filters: `AIDD_PACK_ONLY`, `AIDD_PACK_ALLOW_FIELDS`, `AIDD_PACK_STRIP_FIELDS`.
+- Pack‑env: `AIDD_PACK_LIMITS`, `AIDD_PACK_ENFORCE_BUDGET`.
+
+## Release checklist (сжато)
+- Обновить `README.md`/`README.en.md` и `AGENTS.md` при изменении поведения.
+- Закрыть задачи в `docs/backlog.md`, создать следующую волну при необходимости.
+- Прогнать `tests/repo_tools/ci-lint.sh` и `tests/repo_tools/smoke-workflow.sh`.
+- Для flow-stability релизов дополнительно прогнать matrix: `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py tests/repo_tools/test_e2e_quality_prompt_contract.py tests/repo_tools/test_aidd_audit_runner.py`.
+- Проверить prompt‑versioning и prompt‑lint (см. выше).
+- Убедиться, что dev‑only артефакты не попали в дистрибутив.
+- Обновить `CHANGELOG.md` (и release notes при необходимости).
+
+## ADR: Workspace в `aidd/`
+- Решение: рабочие артефакты живут в `./aidd`, плагин — в корне репозитория.
+- Init идемпотентен и не перезаписывает пользовательские файлы.
+- Smoke/pytest используют текущий git checkout.
+
+## Prompt templates
+Канон runtime/prompting: `skills/aidd-core/templates/workspace-agents.md` + shared-skill topology (`skills/aidd-core`, `skills/aidd-policy`, `skills/aidd-docio`, `skills/aidd-flow-state`, `skills/aidd-observability`, `skills/aidd-loop`, `skills/aidd-rlm`, `skills/aidd-stage-research`).
+
+### Agent template
+```md
+---
+name: {{NAME}}
+description: {{DESCRIPTION}}
+lang: {{LANG}}
+prompt_version: {{PROMPT_VERSION}}
+source_version: {{SOURCE_VERSION}}
+tools: {{TOOLS}}
+model: inherit
+---
+
+## Context
+Briefly describe the agent's role, goal, and key constraints. Reference documents in the form `@aidd/docs/...`. Emphasize the agent-first approach: what the agent must discover on its own and which commands it runs before asking the user anything.
+
+## Input Artifacts
+- `aidd/docs/prd/<ticket>.prd.md` is the baseline required input. State which files are mandatory and what to do when they are missing.
+- List the remaining artifacts (plan, tasklist, reports, `aidd/reports/*.json`) and mark the relevant conditions (READY/BLOCKED). Explain how the agent locates references, for example `rg <ticket> aidd/docs/**`, ADR lookup, or `slug_hint` from `aidd/docs/.active.json`.
+
+## Automation
+- List the gates (`gate-*`), hooks, and variables (`SKIP_AUTO_TESTS`, `TEST_SCOPE`) the agent must honor.
+- List the allowed CLI commands (`<test-runner> …`, `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/progress_cli.py …`, `rg …`) and how the agent should log outputs/paths. Explain how to react to `${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh` auto-runs and when manual commands are allowed.
+
+## Steps
+1. Describe the agent workflow (artifact reads, `rg`/`<test-runner>` commands, file updates, handoffs to other agents).
+2. Every step must produce a measurable result such as an updated file, a command log, or a report link.
+3. State that user questions are allowed only after listing the checked artifacts and must include the expected answer format.
+
+## Fail-fast and Questions
+- Describe when the agent must stop and ask for data (for example, missing PRD/plan). Before any question, list what has already been checked.
+- Question format:
+  ```
+  Question N (Blocker|Clarification): ...
+  Why: ...
+  Options: A) ... B) ...
+  Default: ...
+  ```
+
+## Response Format
+- Always start with `Checkbox updated: ...`.
+- Then include `Status: ...`, `Artifacts updated: ...`, `Next actions: ...`, and links to files/commands.
+- If the status is BLOCKED, list the concrete questions, the checked artifacts, and the next steps.
+```
+
+### Command template
+```md
+---
+description: {{DESCRIPTION}}
+argument-hint: {{ARGUMENT_HINT}}
+lang: {{LANG}}
+prompt_version: {{PROMPT_VERSION}}
+source_version: {{SOURCE_VERSION}}
+allowed-tools: {{ALLOWED_TOOLS}}
+model: inherit
+---
+
+## Context
+Describe the command purpose, how it relates to the agents, and the mandatory prerequisites (active ticket, ready artifacts, and so on). Clarify that the command follows agent-first principles: it gathers repository data and runs allowed CLI commands automatically, and asks the user only when information is unavailable.
+
+## Input Artifacts
+- List the files/reports (`aidd/docs/prd/<ticket>.prd.md`, `aidd/docs/research/<ticket>.md`, `aidd/reports/*.json`, `slug_hint` in `aidd/docs/.active.json`) and explain how the command discovers them, for example with `rg <ticket>`.
+- State what to do when inputs are missing (stop with BLOCKED, tell the user which command to run next) and which commands must run before asking the user for data.
+
+## When to Run
+- Describe the workflow stages where the command applies and who triggers it.
+- Clarify the restrictions, for example only after `/feature-dev-aidd:review-spec` or only when artifacts are READY.
+
+## Automatic Hooks and Variables
+- List the hooks/gates and commands that execute during the run (`python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_feature.py`, `python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py`, `${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh`, `<test-runner> <args>`, `rg`).
+- Describe the environment variables (`SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`) and the logging/output-link requirements.
+
+## Files Updated
+- State which files/directories the command is allowed to update, for example `aidd/docs/tasklist/<ticket>.md` or `src/**`, and which artifacts must be referenced in the response (diff, reports, command logs).
+- Add links to templates and structural requirements for the edits, including where commands and evidence should be stored.
+
+## Steps
+1. Describe the command workflow (subagent calls, scripts, artifact updates).
+2. Add readiness checks, for example `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/progress_cli.py --source ...`.
+3. Add manual-intervention branches only when they are truly required.
+
+## Command Contracts
+- For each critical command, add an interface card without retelling the implementation:
+  ```md
+  ### `<command>`
+  - When to run: ...
+  - Inputs: ...
+  - Outputs: ...
+  - Failure mode: ...
+  - Next action: ...
+  ```
+- Для deep details используйте supporting files и укажите в `Additional resources`, когда и зачем их читать.
+
+## Fail-fast and Questions
+- Describe when the command must stop (missing PRD, missing approved status, missing task list).
+- Question format:
+  ```
+  Question N (Blocker|Clarification): ...
+  Why: ...
+  Options: A) ... B) ...
+  Default: ...
+  ```
+
+## Expected Output
+- State which files/sections must be updated when the command finishes.
+- Define the final message contract: `Checkbox updated: ...`, then `Status: ...`, `Artifacts updated: ...`, `Next actions: ...`.
+
+## CLI Examples
+- Provide an example command invocation, for example `/feature-dev-aidd:implement ABC-123` or `!bash -lc 'python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/tasks_derive.py --source qa --ticket ABC-123'`.
+- Add hints for arguments and common failure modes.
+```
