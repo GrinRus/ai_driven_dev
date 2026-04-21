@@ -30,25 +30,9 @@ jobs:
 
       - name: Validate distribution bundle artifacts
         run: |
-          TMP_OUTPUT="$(mktemp "${RUNNER_TEMP}/aidd-entrypoints-bundle.XXXXXX")"
           python3 tests/repo_tools/entrypoints_bundle.py \
-            --root "${GITHUB_WORKSPACE}" \
-            --output "${TMP_OUTPUT}"
-          python3 - "${TMP_OUTPUT}" <<'PY'
-          from __future__ import annotations
-
-          import json
-          import sys
-          from pathlib import Path
-
-          path = Path(sys.argv[1])
-          payload = json.loads(path.read_text(encoding="utf-8"))
-          required = {"schema", "skills", "agents"}
-          missing = sorted(required - payload.keys())
-          if missing:
-              raise SystemExit(f"missing keys: {missing}")
-          PY
-          rm -f "${TMP_OUTPUT}"
+            --root "${GITHUB_WORKSPACE}"
+          git diff --exit-code -- tests/repo_tools/entrypoints-bundle.txt
           python3 tests/repo_tools/build_e2e_prompts.py --check
 
   lint-and-test:
@@ -112,6 +96,7 @@ jobs:
             runtime:
               - 'skills/**'
               - 'hooks/**'
+              - 'tools/**'
               - 'agents/**'
               - 'templates/aidd/**'
               - '.claude-plugin/**'

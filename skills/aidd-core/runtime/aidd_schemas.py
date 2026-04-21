@@ -1,15 +1,34 @@
 from __future__ import annotations
 
-import sys
+import json
 from pathlib import Path
+from typing import Any, Dict
 
-_REPO_ROOT = Path(__file__).resolve().parents[3]
-if str(_REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(_REPO_ROOT))
+SCHEMA_DIR = Path(__file__).resolve().parent / "schemas" / "aidd"
 
-from aidd_runtime.entrypoint import bootstrap_wrapper
 
-main = bootstrap_wrapper("aidd_runtime.aidd_schemas", globals())
+SCHEMA_FILES: Dict[str, str] = {
+    "aidd.actions.v0": "aidd.actions.v0.schema.json",
+    "aidd.actions.v1": "aidd.actions.v1.json",
+    "aidd.skill_contract.v1": "aidd.skill_contract.v1.json",
+    "aidd.readmap.v1": "aidd.readmap.v1.json",
+    "aidd.writemap.v1": "aidd.writemap.v1.json",
+    "aidd.stage_result.v1": "aidd.stage_result.v1.json",
+}
 
-if __name__ == "__main__":  # pragma: no cover
-    raise SystemExit(main())
+
+def schema_path(schema_name: str) -> Path:
+    filename = SCHEMA_FILES.get(schema_name)
+    if not filename:
+        raise KeyError(f"unknown schema: {schema_name}")
+    return SCHEMA_DIR / filename
+
+
+def load_schema(schema_name: str) -> Dict[str, Any]:
+    path = schema_path(schema_name)
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def supported_schema_versions(prefix: str) -> tuple[str, ...]:
+    values = [name for name in SCHEMA_FILES if name.startswith(prefix)]
+    return tuple(sorted(values))

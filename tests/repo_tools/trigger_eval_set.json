@@ -1,0 +1,168 @@
+{
+  "risky_skills": [
+    {
+      "skill": "review",
+      "undertrigger_risk": "Описание завязано на формулировку \"review stage\"; запросы про verdict/findings/handoff без слова review могут не матчиться.",
+      "overtrigger_risk": "Ключевое слово review пересекается с обычным code review вне AIDD-stage.",
+      "evidence": "skills/review/SKILL.md:3"
+    },
+    {
+      "skill": "review-spec",
+      "undertrigger_risk": "Пользовательские формулировки \"проверь спецификацию\" без явного mention plan+PRD могут увести в соседний stage.",
+      "overtrigger_risk": "Фраза \"Reviews plan and PRD\" может перехватывать частичные ревью-задачи, где нужен не review-spec stage.",
+      "evidence": "skills/review-spec/SKILL.md:3"
+    },
+    {
+      "skill": "status",
+      "undertrigger_risk": "Запросы про blockers/handoff readiness без слова status могут не активировать skill.",
+      "overtrigger_risk": "Слово status слишком общее (git status, CI status, test status) и легко вызывает ложные срабатывания.",
+      "evidence": "skills/status/SKILL.md:3"
+    }
+  ],
+  "cases": [
+    {
+      "id": "TE01",
+      "target_skill": "review-spec",
+      "should_trigger": true,
+      "query": "/feature-dev-aidd:review-spec ABC-123",
+      "expected_route_if_not": null
+    },
+    {
+      "id": "TE02",
+      "target_skill": "review-spec",
+      "should_trigger": true,
+      "query": "План и PRD готовы, сделай гейт готовности к implementation для ABC-123.",
+      "expected_route_if_not": null
+    },
+    {
+      "id": "TE03",
+      "target_skill": "review-spec",
+      "should_trigger": true,
+      "query": "Нужен review plan+PRD перед переходом в implement.",
+      "expected_route_if_not": null
+    },
+    {
+      "id": "TE04",
+      "target_skill": "review-spec",
+      "should_trigger": true,
+      "query": "Проверь spec readiness по тикету DEMO-77 (plan review + prd review).",
+      "expected_route_if_not": null
+    },
+    {
+      "id": "TE05",
+      "target_skill": "review",
+      "should_trigger": true,
+      "query": "/feature-dev-aidd:review DEMO-77",
+      "expected_route_if_not": null
+    },
+    {
+      "id": "TE06",
+      "target_skill": "review",
+      "should_trigger": true,
+      "query": "Запусти review-stage: нужны findings и handoff tasks по текущему scope.",
+      "expected_route_if_not": null
+    },
+    {
+      "id": "TE07",
+      "target_skill": "review",
+      "should_trigger": true,
+      "query": "Сделай verdict по изменениям после implement и выведи follow-up задачи.",
+      "expected_route_if_not": null
+    },
+    {
+      "id": "TE08",
+      "target_skill": "status",
+      "should_trigger": true,
+      "query": "/feature-dev-aidd:status ABC-123",
+      "expected_route_if_not": null
+    },
+    {
+      "id": "TE09",
+      "target_skill": "status",
+      "should_trigger": true,
+      "query": "Покажи текущий stage, blockers и готовность к handoff для ABC-123.",
+      "expected_route_if_not": null
+    },
+    {
+      "id": "TE10",
+      "target_skill": "status",
+      "should_trigger": true,
+      "query": "Собери сводку статуса тикета и ссылки на ключевые артефакты.",
+      "expected_route_if_not": null
+    },
+    {
+      "id": "TE11",
+      "target_skill": "review-spec",
+      "should_trigger": false,
+      "query": "Собери новый implementation plan из READY PRD.",
+      "expected_route_if_not": "plan-new"
+    },
+    {
+      "id": "TE12",
+      "target_skill": "review-spec",
+      "should_trigger": false,
+      "query": "Сформируй tasklist из PRD/plan/spec.",
+      "expected_route_if_not": "tasks-new"
+    },
+    {
+      "id": "TE13",
+      "target_skill": "review-spec",
+      "should_trigger": false,
+      "query": "Запусти implement loop и начни с первого work item.",
+      "expected_route_if_not": "implement"
+    },
+    {
+      "id": "TE14",
+      "target_skill": "review",
+      "should_trigger": false,
+      "query": "Нужно именно review-spec, а не review stage.",
+      "expected_route_if_not": "review-spec"
+    },
+    {
+      "id": "TE15",
+      "target_skill": "review",
+      "should_trigger": false,
+      "query": "Запусти QA stage и собери QA report.",
+      "expected_route_if_not": "qa"
+    },
+    {
+      "id": "TE16",
+      "target_skill": "review",
+      "should_trigger": false,
+      "query": "Проверь орфографию README и исправь опечатки.",
+      "expected_route_if_not": "none"
+    },
+    {
+      "id": "TE17",
+      "target_skill": "review",
+      "should_trigger": false,
+      "query": "Собери research stage артефакты и RLM evidence.",
+      "expected_route_if_not": "researcher"
+    },
+    {
+      "id": "TE18",
+      "target_skill": "status",
+      "should_trigger": false,
+      "query": "Покажи git status и незакоммиченные файлы.",
+      "expected_route_if_not": "none"
+    },
+    {
+      "id": "TE19",
+      "target_skill": "status",
+      "should_trigger": false,
+      "query": "Упали тесты, почини и перезапусти pytest.",
+      "expected_route_if_not": "implement"
+    },
+    {
+      "id": "TE20",
+      "target_skill": "status",
+      "should_trigger": false,
+      "query": "Инициализируй workspace через aidd-init.",
+      "expected_route_if_not": "aidd-init"
+    }
+  ],
+  "totals": {
+    "should_trigger": 10,
+    "should_not_trigger": 10
+  }
+}

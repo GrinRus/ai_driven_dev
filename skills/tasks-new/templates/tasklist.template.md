@@ -27,20 +27,54 @@ Stage: <idea|research|plan|review-spec|review-plan|review-prd|tasklist|implement
 Status: PENDING
 
 ### TL;DR
-- Goal: <1 line>
-- Current focus: <one item from AIDD:NEXT_3>
-- Risks: <low|medium|high> — <why>
+- Goal: <1–2 строки — что делаем>
+- Current focus (1 checkbox): <точное имя из AIDD:NEXT_3>
+- Done since last pack: <1–3 пункта, кратко>
+- Risk level: <low|medium|high> — <почему 1 строка>
 
-### Boundaries
-- Allowed paths:
+### Scope & boundaries
+- Allowed paths (patch boundaries):
   - <path1/>
-- Forbidden paths:
-  - <pathX/> — <why>
+  - <path2/>
+- Forbidden / out-of-scope:
+  - <pathX/> — <почему>
+- Integrations / dependencies:
+  - <api/service/db/topic> — <что важно>
+
+### Decisions & defaults (living)
+- Feature flag: <none|flag_name + default>
+- Contract/API: <1 строка или ссылка на PRD/plan section>
+- Data model changes: <none|schema changes needed: ...>
+- Observability: <logs/metrics/tracing expectations>
+
+### Test policy (iteration budget)
+- Cadence: <on_stop|checkpoint|manual>
+- Profile: <fast|targeted|full|none>
+- Tasks: <пример: :module:test или npm test ...> (если targeted/full)
+- Filters: <если применимо>
+- Budget minutes: <N>
+- Known flaky / failing: <none|link to aidd/reports/tests/...>
+
+### Commands quickstart (copy/paste)
+- Format: <hook does it|cmd>
+- Tests (manual): <cmd for targeted/full>
+- Run/Dev: <cmd / url / emulator / device steps> (optional)
+
+### Open questions / blockers
+- Q1: <...>
+- Q2: <...>
+
+### Blockers summary (handoff)
+- <handoff-id> — <1 строка, почему блокирует>
 
 ### References
-- PRD: `aidd/docs/prd/<ABC-123>.prd.md`
-- Research: `aidd/docs/research/<ABC-123>.md`
-- Plan: `aidd/docs/plan/<ABC-123>.md`
+- PRD: aidd/docs/prd/<ABC-123>.prd.md (ищи #AIDD:ACCEPTANCE, #AIDD:ROLL_OUT)
+- Research: aidd/docs/research/<ABC-123>.md (ищи #AIDD:INTEGRATION_POINTS)
+- Plan: aidd/docs/plan/<ABC-123>.md (ищи #AIDD:FILES_TOUCHED, #AIDD:ITERATIONS)
+- Expected reports (planned outputs):
+  - review_report: aidd/reports/reviewer/<ABC-123>/<scope_key>.json
+  - reviewer_marker: aidd/reports/reviewer/<ABC-123>/<scope_key>.tests.json
+  - qa: aidd/reports/qa/<ABC-123>.json
 
 ## AIDD:TEST_STRATEGY
 - Unit: <scope>
@@ -52,100 +86,234 @@ Status: PENDING
 ---
 
 ## AIDD:TEST_EXECUTION
+> Конкретные команды/фильтры запуска (execution‑уровень).
 - profile: <fast|targeted|full|none>
-- tasks:
-  - <command>
-- filters: []
+- tasks: <команды/таски>
+- filters: <фильтры>
 - when: <on_stop|checkpoint|manual>
-- reason: <why this profile>
+- reason: <почему такой профиль>
 
 ---
 
 ## AIDD:ITERATIONS_FULL
-- [ ] I1: <current bounded step> (iteration_id: I1)
-  - iteration_id: I1
-  - State: open
+> Полный список итераций реализации (от 1 до N). Должен быть **детальнее плана** и не оставлять пробелов.
+> Канонический формат итерации: `- [ ] I7: <title> (iteration_id: I7)`
+- [ ] I1: <краткое название> (iteration_id: I1)
   - parent_iteration_id: none
-  - Goal: <what changes now>
-  - Outputs: <artifacts>
-  - DoD: <done criteria>
-  - Boundaries: <paths/modules>
+  - Goal: <что именно делаем>
+  - Outputs: tasklist updated for implement handoff
+  - DoD: iteration description is implementation-ready
+  - Boundaries: docs/tasklist/<ABC-123>.md
   - Priority: medium
+  - Blocking: false
   - deps: []
+  - locks: []
   - Expected paths:
-    - <path>
+    - docs/tasklist/<ABC-123>.md
+  - Size budget:
+    - max_files: 3
+    - max_loc: 120
   - Commands:
-    - <command or doc ref>
+    - <doc/ref or command>
+  - Exit criteria:
+    - current iteration is scoped to one bounded implement step
+    - validator findings are triaged for the iteration
   - Steps:
-    - <step 1>
-    - <step 2>
+    - refine scope from plan/PRD
+    - confirm boundaries and DoD
+    - validate tasklist structure
   - Tests:
     - profile: none
     - tasks: []
     - filters: []
-  - Acceptance mapping: <PRD refs>
-- [ ] I2: <next bounded step> (iteration_id: I2)
-  - iteration_id: I2
-  - State: open
+  - Acceptance mapping: PRD:pending
+  - Risks & mitigations: low -> none
+  - Dependencies: none
+- [ ] I2: <...> (iteration_id: I2)
   - parent_iteration_id: I1
-  - Goal: <goal>
-  - Outputs: <artifacts>
-  - DoD: <done criteria>
-  - Boundaries: <paths/modules>
+  - Goal: <...>
+  - Outputs: tasklist updated for implement handoff
+  - DoD: iteration description is implementation-ready
+  - Boundaries: docs/tasklist/<ABC-123>.md
   - Priority: medium
+  - Blocking: false
   - deps: []
+  - locks: []
   - Expected paths:
-    - <path>
+    - docs/tasklist/<ABC-123>.md
+  - Size budget:
+    - max_files: 3
+    - max_loc: 120
   - Commands:
-    - <command or doc ref>
+    - <doc/ref or command>
+  - Exit criteria:
+    - current iteration is scoped to one bounded implement step
   - Steps:
-    - <step 1>
+    - refine scope from plan/PRD
+    - confirm boundaries and DoD
+    - validate tasklist structure
   - Tests:
     - profile: none
     - tasks: []
     - filters: []
-  - Acceptance mapping: <PRD refs>
+  - Acceptance mapping: PRD:pending
+  - Risks & mitigations: low -> none
+  - Dependencies: none
+- [ ] I3: <...> (iteration_id: I3)
+  - parent_iteration_id: I2
+  - Goal: <...>
+  - Outputs: tasklist updated for implement handoff
+  - DoD: iteration description is implementation-ready
+  - Boundaries: docs/tasklist/<ABC-123>.md
+  - Priority: medium
+  - Blocking: false
+  - deps: []
+  - locks: []
+  - Expected paths:
+    - docs/tasklist/<ABC-123>.md
+  - Size budget:
+    - max_files: 3
+    - max_loc: 120
+  - Commands:
+    - <doc/ref or command>
+  - Exit criteria:
+    - current iteration is scoped to one bounded implement step
+  - Steps:
+    - refine scope from plan/PRD
+    - confirm boundaries and DoD
+    - validate tasklist structure
+  - Tests:
+    - profile: none
+    - tasks: []
+    - filters: []
+  - Acceptance mapping: PRD:pending
+  - Risks & mitigations: low -> none
+  - Dependencies: none
+<!-- Добавьте I4..N по мере необходимости (формат как выше). -->
 
 ---
 
 ## AIDD:NEXT_3
-- [ ] I1: <current step> (ref: iteration_id=I1)
-- [ ] I2: <next step> (ref: iteration_id=I2)
+> 3 ближайших implement‑чекбокса. Pointer list: 1–2 строки и `ref:` на детализацию.
+- [ ] I1: <кратко о текущем шаге> (ref: iteration_id=I1)
+- [ ] I2: <следующий шаг> (ref: iteration_id=I2)
+- [ ] I3: <третий шаг> (ref: iteration_id=I3)
+
+---
+
+## AIDD:OUT_OF_SCOPE_BACKLOG
+> Побочные идеи/задачи, которые НЕ входят в текущий work_item (без расширения scope).
+- [ ] <идея/задача> (source: implement|review|qa|research|manual)
 
 ---
 
 ## AIDD:HANDOFF_INBOX
-> Canonical handoff format:
-> `- [ ] <title> (id: review:F6) (Priority: high) (Blocking: true)`
-> Short example for a closed handoff:
-> `- [x] <title> (id: review:F6) (Priority: high) (Blocking: true)`
-> - source: review
-> - Report: aidd/reports/<owner>/<ticket>/<scope_key>.json
-> - Status: done
-> - scope: iteration_id|n/a
-> - DoD: <verification target>
-> - Notes: <tradeoffs/risks>
+> Сюда падают задачи из Research/Review/QA (с source: aidd/reports/...).
+> Формат задачи (обязательно):
+> Канонический формат: `- [ ] <title> (id: review:F6) (Priority: high) (Blocking: true)`
+> Source blocks вставляются задачей derive (`<!-- handoff:<source> start --> ... <!-- end -->`).
+> Ручные задачи храните в `handoff:manual` — derive/normalize их не трогают.
+> Пример задачи (не активная):
+> - [ ] <title> (id: review:F6) (Priority: high) (Blocking: true)
+>   - source: review|qa|research|manual
+>   - Report: <aidd/reports/...>
+>   - Status: open|done|blocked
+>   - scope: iteration_id|n/a
+>   - DoD: <как проверить, что исправлено>
+>   - Boundaries:
+>     - must-touch: ["path1", "path2"]
+>     - must-not-touch: ["pathX"]
+>   - Tests:
+>     - profile: fast|targeted|full|none
+>     - tasks: ["..."]
+>     - filters: ["..."]
+>   - Notes: <tradeoffs/риски/почему важно>
 
 <!-- handoff:manual start -->
 <!-- handoff:manual end -->
 
+> Примеры (не активные):
+> - [ ] Critical null check in webhook handler (id: review:null-check) (Priority: high) (Blocking: true)
+>   - source: review
+>   - Review report: aidd/reports/reviewer/<ticket>/<scope_key>.json
+>   - Reviewer marker: aidd/reports/reviewer/<ticket>/<scope_key>.tests.json
+>   - Status: open
+>   - scope: I2
+>   - DoD: webhook rejects empty payload with 4xx + unit test updated
+>   - Boundaries:
+>     - must-touch: ["src/webhooks/", "tests/webhooks/"]
+>     - must-not-touch: ["infra/"]
+>   - Tests:
+>     - profile: targeted
+>     - tasks: ["pytest tests/webhooks/test_handler.py"]
+>     - filters: []
+>   - Notes: prevents silent 500 on missing payload
+> - [ ] AC-3 export fails on empty data (id: qa:export-empty) (Priority: high) (Blocking: true)
+>   - source: qa
+>   - Report: aidd/reports/qa/<ticket>.json
+>   - Status: open
+>   - scope: n/a
+>   - DoD: export returns empty CSV with headers + QA traceability updated
+>   - Boundaries:
+>     - must-touch: ["src/export/"]
+>     - must-not-touch: ["db/schema-changes/"]
+>   - Tests:
+>     - profile: fast
+>     - tasks: []
+>     - filters: []
+>   - Notes: blocks release for AC-3
+
 ---
 
 ## AIDD:QA_TRACEABILITY
-- AC-1 -> <check> -> <met|not-met|not-verified> -> <evidence/link>
-- AC-2 -> <check> -> <met|not-met|not-verified> -> <evidence/link>
+> AC → check → result → evidence.
+- AC-1 → <check> → <met|not-met|not-verified> → <evidence/link>
+- AC-2 → <check> → <met|not-met|not-verified> → <evidence/link>
 
 ---
 
 ## AIDD:CHECKLIST
+
+### AIDD:CHECKLIST_SPEC
+- [ ] PRD: Status READY (и нет незакрытых blocker вопросов)
+- [ ] Research: Status reviewed
+- [ ] Plan: существует и валиден
+- [ ] Review Spec: Plan Review READY + PRD Review READY
+
+### AIDD:CHECKLIST_IMPLEMENT
+- [ ] Реализован функционал для checkbox #1 из AIDD:NEXT_3
+- [ ] Добавлены/обновлены тесты по плану
+- [ ] Обновлён AIDD:CONTEXT_PACK (scope + test policy)
+- [ ] Обновлён AIDD:TEST_EXECUTION (если менялась тестовая тактика)
+- [ ] Прогресс отмечен (см. AIDD:PROGRESS_LOG)
+
+### AIDD:CHECKLIST_REVIEW
+- [ ] Reviewer: замечания добавлены в tasklist (handoff)
+- [ ] Требуемость тестов выставлена (если используете reviewer marker)
+- [ ] Изменения соответствуют plan/PRD (нет лишнего)
+
 ### AIDD:CHECKLIST_QA
-- [ ] QA: <critical acceptance check>
+- [ ] QA: AIDD:ACCEPTANCE проверены (traceability)
+- [ ] QA report сохранён (aidd/reports/qa/<ticket>.json)
+- [ ] Known issues задокументированы
+
+### AIDD:CHECKLIST_RELEASE
+- [ ] Release notes / changelog (если нужно)
+- [ ] Deploy на стенд (env + версия + время)
+- [ ] Smoke / e2e (если есть)
+- [ ] Мониторинг/алерты/дашборды проверены
+
+### AIDD:CHECKLIST_POST_RELEASE
+- [ ] Rollback plan проверен (если релевантно)
+- [ ] Метрики успеха/guardrails собраны
+- [ ] Техдолг/следующие шаги заведены
 
 ---
 
 ## AIDD:PROGRESS_LOG
+> Мини‑лог: фиксируй кратко, обновляй после каждой итерации.
 > Формат записи:
-> `- YYYY-MM-DD source=implement id=I1 kind=iteration hash=abc123 link=aidd/reports/tests/<ticket>/<scope_key>.jsonl msg=short-note`
+> `- YYYY-MM-DD source=implement id=I4 kind=iteration hash=abc123 link=aidd/reports/tests/<ticket>/<scope_key>.jsonl msg=short-note`
 > `- YYYY-MM-DD source=review id=review:F6 kind=handoff hash=def456 link=aidd/reports/reviewer/<ticket>/<scope_key>.json msg=blocked`
 - (empty)
 
@@ -153,6 +321,9 @@ Status: PENDING
 
 ## AIDD:HOW_TO_UPDATE
 - Правило итерации: **1 чекбокс** (или 2 тесно связанных) — затем Stop.
-- После каждого `[x]` обновляй `AIDD:NEXT_3` и добавляй запись в `AIDD:PROGRESS_LOG`.
-- Если меняется тестовый профиль/команды — обнови `AIDD:TEST_EXECUTION`.
-- Не вставляй raw logs в tasklist; оставляй ссылки на `aidd/reports/**`.
+- Отмечайте чекбоксы так:
+  - `- [x] I1: <title> (iteration_id: I1) (link: <commit/pr|report>)`
+  - `- [x] <handoff title> (id: review:F6) (link: <commit/pr|report>)`
+- После каждого [x] обновляй `AIDD:NEXT_3` (pointer list) и добавляй запись в `AIDD:PROGRESS_LOG`.
+- Если меняешь тестовый профиль/команды — обнови `AIDD:TEST_EXECUTION`.
+- Логи/stacktrace не вставлять в tasklist — только ссылки на `aidd/reports/**`.

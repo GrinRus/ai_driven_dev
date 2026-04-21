@@ -176,32 +176,6 @@ skills:
             root / "tests" / "test_runtime_ref.py",
             "RUNTIME = 'skills/review/runtime/review_run.py'\n",
         )
-        _write(
-            root / "archive" / "experimental" / "repo_tools" / "orphaned_tool.py",
-            "print('archived tool')\n",
-        )
-        oversized_lines = "".join(f"LINE_{idx} = {idx}\n" for idx in range(920))
-        _write(
-            root / "skills" / "aidd-core" / "runtime" / "oversized_runtime.py",
-            oversized_lines,
-        )
-        _write(root / "AGENTS.md", "".join(f"policy line {idx}\n" for idx in range(230)))
-        _write(
-            root / "tests" / "repo_tools" / "ci-lint.sh",
-            "#!/usr/bin/env bash\n" + "".join(f"echo line-{idx}\n" for idx in range(710)),
-        )
-        _write(
-            root / "tests" / "repo_tools" / "e2e_prompt" / "profile_full.md",
-            "".join(f"profile line {idx}\n" for idx in range(410)),
-        )
-        _write(
-            root / "tests" / "repo_tools" / "e2e_prompt" / "quality_profile_full.md",
-            "".join(f"quality line {idx}\n" for idx in range(430)),
-        )
-        _write(
-            root / "tests" / "repo_tools" / "e2e_prompt" / "includes" / "orphan.md",
-            "orphan include\n",
-        )
 
     def test_command_to_subagent_links_and_no_subagent_case(self) -> None:
         with tempfile.TemporaryDirectory(prefix="repo-topology-subagent-") as tmp:
@@ -242,11 +216,6 @@ skills:
             self.assertNotIn("docs/memory-v2-rfc.md", by_path)
             self.assertIn("docs/legacy-draft.md", by_path)
             self.assertEqual(by_path["docs/legacy-draft.md"].get("kind"), "draft_doc_missing_runtime_paths")
-            self.assertIn("tests/repo_tools/e2e_prompt/includes/orphan.md", by_path)
-            self.assertEqual(
-                by_path["tests/repo_tools/e2e_prompt/includes/orphan.md"].get("kind"),
-                "orphan_prompt_include",
-            )
 
     def test_parts_modules_not_marked_as_unused_candidates(self) -> None:
         with tempfile.TemporaryDirectory(prefix="repo-topology-parts-") as tmp:
@@ -277,28 +246,6 @@ skills:
             self.assertNotIn("Обязательные находки:", report)
             self.assertIn("docs/legacy-draft.md", report)
             self.assertNotIn("docs/memory-v2-rfc.md", report)
-
-    def test_topology_audit_does_not_emit_removed_cleanup_heuristics(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="repo-topology-heuristics-") as tmp:
-            root = Path(tmp)
-            self._build_fixture_repo(root)
-            payload = self.audit.build_revision_payload(root, generated_at="2026-02-24T00:00:00Z")
-            candidates = payload.get("unused", {}).get("candidates", [])
-            by_path = {item.get("path"): item for item in candidates}
-
-            self.assertEqual(
-                payload.get("cleanup_plan", {}).get("policy"),
-                "reachability_and_dangling_only",
-            )
-            self.assertNotIn("archive/experimental/repo_tools/orphaned_tool.py", by_path)
-            self.assertNotIn("skills/aidd-core/runtime/oversized_runtime.py", by_path)
-            self.assertNotIn("tests/repo_tools/e2e_prompt/profile_full.md", by_path)
-            self.assertNotIn("AGENTS.md", by_path)
-            self.assertNotIn("tests/repo_tools/ci-lint.sh", by_path)
-            self.assertEqual(
-                by_path["docs/legacy-draft.md"].get("kind"),
-                "draft_doc_missing_runtime_paths",
-            )
 
     def test_main_allows_output_paths_outside_repo_root(self) -> None:
         with tempfile.TemporaryDirectory(prefix="repo-topology-main-repo-") as repo_tmp:
@@ -332,35 +279,6 @@ skills:
                 self.assertIn(output_json.as_posix(), log)
                 self.assertIn(output_md.as_posix(), log)
                 self.assertIn(output_cleanup.as_posix(), log)
-
-    def test_main_accepts_root_alias(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="repo-topology-root-alias-repo-") as repo_tmp:
-            with tempfile.TemporaryDirectory(prefix="repo-topology-root-alias-out-") as out_tmp:
-                root = Path(repo_tmp)
-                out_root = Path(out_tmp)
-                self._build_fixture_repo(root)
-
-                output_json = out_root / "repo-revision.graph.json"
-                output_md = out_root / "repo-revision.md"
-                output_cleanup = out_root / "repo-cleanup-plan.json"
-                args = [
-                    "--root",
-                    str(root),
-                    "--output-json",
-                    str(output_json),
-                    "--output-md",
-                    str(output_md),
-                    "--output-cleanup",
-                    str(output_cleanup),
-                ]
-
-                stdout = io.StringIO()
-                with redirect_stdout(stdout):
-                    code = self.audit.main(args)
-                self.assertEqual(code, 0)
-                self.assertTrue(output_json.exists())
-                self.assertTrue(output_md.exists())
-                self.assertTrue(output_cleanup.exists())
 
 
 if __name__ == "__main__":

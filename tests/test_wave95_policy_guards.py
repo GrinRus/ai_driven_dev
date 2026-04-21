@@ -16,6 +16,7 @@ class Wave95PolicyGuards(unittest.TestCase):
         )
         self.assertIn("skills/**", text)
         self.assertIn("hooks/**", text)
+        self.assertIn("tools/**", text)
         self.assertIn("agents/**", text)
         self.assertIn("templates/aidd/**", text)
         self.assertIn("No runtime changes; skipping smoke", text)

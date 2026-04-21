@@ -27,9 +27,12 @@ runtime_contract_docs:
 internal_dev_docs:
   - AGENTS.md
   - docs/backlog.md
-  - docs/skill-authoring.md
+  - docs/agent-skill-best-practices.md
+  - docs/skill-language.md
+  - docs/skill-trigger-taxonomy.md
+  - docs/memory-v2-rfc.md
   - docs/runbooks/*.md
-  - docs/archive/**/*.md
+  - docs/revision/*.md
 """
 
 
@@ -97,11 +100,12 @@ def _seed_valid_fixture(root: Path) -> None:
     )
     _write(root / "AGENTS.md", f"# AGENTS\n{marker_block}")
     _write(root / "docs" / "backlog.md", f"# Backlog\n{marker_block}")
-    _write(root / "docs" / "skill-authoring.md", f"# Doc\n{marker_block}")
-    _write(root / "docs" / "archive" / "rfc" / "memory-v2.md", f"# Doc\n{marker_block}")
-    _write(root / "docs" / "archive" / "rfc" / "host-agnostic-flow.md", f"# Doc\n{marker_block}")
-    _write(root / "docs" / "archive" / "runbooks" / "legacy.md", f"# Doc\n{marker_block}")
+    _write(root / "docs" / "agent-skill-best-practices.md", f"# Doc\n{marker_block}")
+    _write(root / "docs" / "skill-language.md", f"# Doc\n{marker_block}")
+    _write(root / "docs" / "skill-trigger-taxonomy.md", f"# Doc\n{marker_block}")
+    _write(root / "docs" / "memory-v2-rfc.md", f"# Doc\n{marker_block}")
     _write(root / "docs" / "runbooks" / "tst001-audit-hardening.md", f"# Doc\n{marker_block}")
+    _write(root / "docs" / "revision" / "repo-revision.md", f"# Doc\n{marker_block}")
 
 
 class ReleaseDocsGuardTests(unittest.TestCase):
@@ -197,18 +201,6 @@ class ReleaseDocsGuardTests(unittest.TestCase):
             result = self._run(root)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("must not use H3 sections", result.stderr)
-
-    def test_fails_when_internal_doc_has_invalid_repo_relative_reference(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            _seed_valid_fixture(root)
-            _write(
-                root / "docs" / "skill-authoring.md",
-                "# Doc\n> INTERNAL/DEV-ONLY\n\nOwner: feature-dev-aidd\nLast reviewed: 2026-04-18\nStatus: active\n\nUse `docs/missing.md`.\n",
-            )
-            result = self._run(root)
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn("missing repo-relative path `docs/missing.md`", result.stderr)
 
 
 if __name__ == "__main__":

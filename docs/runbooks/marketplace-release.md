@@ -51,4 +51,4 @@ Before tagging `vX.Y.Z`, release owner must attach evidence that the stabilizati
 3. `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py tests/repo_tools/test_e2e_quality_prompt_contract.py tests/repo_tools/test_aidd_audit_runner.py`
 4. `python3 -m pytest -q tests/test_loop_run.py tests/test_loop_step.py tests/test_stage_actions_run.py tests/test_stage_result.py tests/test_research_check.py tests/test_research_command.py tests/test_tasklist_check.py tests/test_tasks_new_runtime.py tests/test_qa_agent.py tests/test_qa_exit_code.py`
 
-If any command fails, release is blocked and rollback decision follows `seed/loop/qa` incident severity from `docs/archive/runbooks/tst001-audit-hardening.md`.
+If any command fails, release is blocked and rollback decision follows `seed/loop/qa` incident severity from `docs/runbooks/tst001-audit-hardening.md`.

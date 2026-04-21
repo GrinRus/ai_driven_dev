@@ -1,15 +1,209 @@
 from __future__ import annotations
 
+import argparse
+import json
+import os
+import re
 import sys
 from pathlib import Path
 
-_REPO_ROOT = Path(__file__).resolve().parents[3]
-if str(_REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(_REPO_ROOT))
+_PLUGIN_ROOT = Path(__file__).resolve().parents[3]
+os.environ.setdefault("CLAUDE_PLUGIN_ROOT", str(_PLUGIN_ROOT))
+if str(_PLUGIN_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PLUGIN_ROOT))
 
-from aidd_runtime.entrypoint import bootstrap_wrapper
+from aidd_runtime import runtime
+from aidd_runtime import rlm_finalize
+from aidd_runtime.research_guard import (
+    ResearchCheckSummary,
+    ResearchValidationError,
+    load_settings,
+    validate_research,
+)
 
-main = bootstrap_wrapper("aidd_runtime.research_check", globals())
+_REASON_CODE_RE = re.compile(r"reason_code=([a-z0-9_:-]+)", re.IGNORECASE)
+
+
+def _extract_reason_code(message: str) -> str:
+    match = _REASON_CODE_RE.search(str(message or ""))
+    if not match:
+        return ""
+    return str(match.group(1) or "").strip().lower()
+
+
+def _is_plan_pending_soft_mode(expected_stage: str) -> bool:
+    return str(expected_stage or "").strip().lower() == "plan"
+
+
+def _soft_pending_summary() -> ResearchCheckSummary:
+    return ResearchCheckSummary(
+        status="pending",
+        warnings=["plan_research_pending_softened"],
+    )
+
+
+def _enforce_minimum_rlm_artifacts(target: Path, ticket: str) -> None:
+    required = [
+        target / "reports" / "research" / f"{ticket}-rlm-targets.json",
+        target / "reports" / "research" / f"{ticket}-rlm-manifest.json",
+        target / "reports" / "research" / f"{ticket}-rlm.worklist.pack.json",
+    ]
+    missing = [runtime.rel_path(path, target) for path in required if not path.exists()]
+    if missing:
+        raise RuntimeError(
+            "BLOCK: missing mandatory RLM artifacts for plan gate "
+            f"(reason_code=research_artifacts_missing): {', '.join(missing)}"
+        )
+    for path in required:
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            raise RuntimeError(
+                "BLOCK: invalid RLM artifact JSON "
+                f"(reason_code=research_artifacts_invalid): {runtime.rel_path(path, target)} ({exc})"
+            ) from exc
+        if not isinstance(payload, dict):
+            raise RuntimeError(
+                "BLOCK: invalid RLM artifact payload "
+                f"(reason_code=research_artifacts_invalid): {runtime.rel_path(path, target)} (expected object)"
+            )
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Validate the Researcher report status for the active feature.",
+    )
+    parser.add_argument(
+        "--ticket",
+        dest="ticket",
+        help="Ticket identifier to validate (defaults to docs/.active.json).",
+    )
+    parser.add_argument(
+        "--slug-hint",
+        dest="slug_hint",
+        help="Optional slug hint override for messaging (defaults to docs/.active.json if present).",
+    )
+    parser.add_argument(
+        "--branch",
+        help="Current Git branch used to evaluate config.gates researcher branch rules.",
+    )
+    parser.add_argument(
+        "--expected-stage",
+        choices=("research", "plan", "review", "qa", "implement"),
+        default="plan",
+        help="Stage context override for downstream research validation (default: plan).",
+    )
+    parser.add_argument(
+        "--docs-only",
+        action="store_true",
+        help="Enable docs-only rewrite mode for this invocation.",
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
+    _, target = runtime.require_workflow_root()
+    ticket, context = runtime.require_ticket(
+        target,
+        ticket=getattr(args, "ticket", None),
+        slug_hint=getattr(args, "slug_hint", None),
+    )
+    settings = load_settings(target)
+    docs_only_mode = runtime.docs_only_mode_requested(explicit=getattr(args, "docs_only", False))
+    plan_pending_soft_mode = _is_plan_pending_soft_mode(args.expected_stage)
+    try:
+        summary = validate_research(
+            target,
+            ticket,
+            settings=settings,
+            branch=args.branch,
+            expected_stage=args.expected_stage,
+            allow_scoped_links_empty_warn=args.expected_stage in {"plan", "review", "qa"},
+        )
+    except ResearchValidationError as exc:
+        reason_code = _extract_reason_code(str(exc))
+        if reason_code != "rlm_status_pending":
+            if docs_only_mode:
+                print(
+                    "[aidd] WARN: docs-only rewrite mode bypasses research gate blocker "
+                    f"(diagnostics={str(exc).strip() or 'validation_error'}).",
+                    file=sys.stderr,
+                )
+                return 0
+            raise RuntimeError(str(exc)) from exc
+        finalize_exit_code = rlm_finalize.main(["--ticket", ticket, "--emit-json"])
+        if finalize_exit_code != 0:
+            raise RuntimeError(
+                f"{exc}\n[aidd] ERROR: reason_code=rlm_status_pending_finalize_failed "
+                f"(exit_code={finalize_exit_code})"
+            ) from exc
+        else:
+            try:
+                summary = validate_research(
+                    target,
+                    ticket,
+                    settings=settings,
+                    branch=args.branch,
+                    expected_stage=args.expected_stage,
+                    allow_scoped_links_empty_warn=args.expected_stage in {"plan", "review", "qa"},
+                )
+            except ResearchValidationError as retry_exc:
+                retry_reason_code = _extract_reason_code(str(retry_exc))
+                if not (plan_pending_soft_mode and retry_reason_code == "rlm_status_pending"):
+                    if docs_only_mode:
+                        print(
+                            "[aidd] WARN: docs-only rewrite mode bypasses research finalize blocker "
+                            f"(diagnostics={str(retry_exc).strip() or 'validation_error'}).",
+                            file=sys.stderr,
+                        )
+                        return 0
+                    raise RuntimeError(
+                        f"{exc}\n[aidd] INFO: auto_recovery_attempted=1 "
+                        "(recovery_path=research_finalize_probe)\n"
+                        f"{retry_exc}"
+                    ) from retry_exc
+                print(
+                    "[aidd] WARN: plan-stage research gate softened after finalize probe "
+                    "(reason_code=rlm_status_pending, auto_recovery_attempted=1, policy=warn_continue).",
+                    file=sys.stderr,
+                )
+                summary = _soft_pending_summary()
+            else:
+                print(
+                    "[aidd] WARN: research gate auto-recovery applied "
+                    "(reason_code=rlm_status_pending, recovery_path=research_finalize_probe).",
+                    file=sys.stderr,
+                )
+
+    if summary.status is None:
+        if summary.skipped_reason:
+            print(f"[aidd] research gate skipped ({summary.skipped_reason}).")
+        else:
+            print("[aidd] research gate disabled; nothing to validate.")
+        return 0
+
+    try:
+        _enforce_minimum_rlm_artifacts(target, ticket)
+    except RuntimeError as exc:
+        if docs_only_mode:
+            print(
+                "[aidd] WARN: docs-only rewrite mode bypasses missing/invalid RLM artifact blocker "
+                f"(diagnostics={str(exc).strip()}).",
+                file=sys.stderr,
+            )
+            return 0
+        raise
+
+    label = runtime.format_ticket_label(context, fallback=ticket)
+    details = [f"status: {summary.status}"]
+    if summary.path_count is not None:
+        details.append(f"paths: {summary.path_count}")
+    if summary.age_days is not None:
+        details.append(f"age: {summary.age_days}d")
+    print(f"[aidd] research gate OK for `{label}` ({', '.join(details)}).")
+    return 0
+
 
 if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(main())

@@ -1,19 +1,58 @@
 from __future__ import annotations
 
+import argparse
+import os
 import sys
 from pathlib import Path
 
-_REPO_ROOT = Path(__file__).resolve().parents[3]
-if str(_REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(_REPO_ROOT))
+_PLUGIN_ROOT = Path(__file__).resolve().parents[3]
+os.environ.setdefault("CLAUDE_PLUGIN_ROOT", str(_PLUGIN_ROOT))
+if str(_PLUGIN_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PLUGIN_ROOT))
 
-from aidd_runtime import analyst_check as _impl
+from aidd_runtime import runtime
+from aidd_runtime.analyst_guard import AnalystValidationError, load_settings, validate_prd
 
-AnalystValidationError = _impl.AnalystValidationError
-load_settings = _impl.load_settings
-parse_args = _impl.parse_args
-runtime = _impl.runtime
-validate_prd = _impl.validate_prd
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Validate the analyst dialog (Вопрос/Ответ) for the active feature PRD.",
+    )
+    parser.add_argument(
+        "--ticket",
+        dest="ticket",
+        help="Ticket identifier to validate (defaults to docs/.active.json).",
+    )
+    parser.add_argument(
+        "--slug-hint",
+        dest="slug_hint",
+        help="Optional slug hint override for messaging (defaults to docs/.active.json if present).",
+    )
+    parser.add_argument(
+        "--branch",
+        help="Current Git branch used to evaluate config.gates analyst branch rules.",
+    )
+    parser.add_argument(
+        "--allow-blocked",
+        action="store_true",
+        help="Allow PRD with Status: blocked (skip blocking).",
+    )
+    parser.add_argument(
+        "--no-ready-required",
+        action="store_true",
+        help="Do not require PRD Status: READY.",
+    )
+    parser.add_argument(
+        "--min-questions",
+        type=int,
+        help="Override minimum number of analyst questions.",
+    )
+    parser.add_argument(
+        "--docs-only",
+        action="store_true",
+        help="Enable docs-only rewrite mode for this invocation.",
+    )
+    return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -39,7 +39,6 @@ STATUS_DRAFT_RE = re.compile(r"^(?:Status|Статус):\s*Draft\b", re.IGNORECA
 RUNTIME_PATH_MENTION_RE = re.compile(r"(skills/[A-Za-z0-9_.-]+/runtime/[A-Za-z0-9_.-]+\.py)")
 BACKLOG_TASK_RE = re.compile(r"^\s*-\s*\[([ xX])\]\s*(.*)$")
 DOC_PATH_RE = re.compile(r"(docs/[A-Za-z0-9_.\-/]+\.md)")
-PROMPT_INCLUDE_RE = re.compile(r"\{\{INCLUDE:([^}]+)\}\}")
 
 ROOT_DOC_FILES = {
     "README.md",
@@ -175,19 +174,6 @@ def _iter_text_files(root: Path) -> Iterable[Path]:
         yield path
 
 
-def _collect_prompt_include_refs(root: Path) -> Set[str]:
-    refs: Set[str] = set()
-    fragments_root = root / "tests" / "repo_tools" / "e2e_prompt"
-    if not fragments_root.is_dir():
-        return refs
-    for path in fragments_root.rglob("*.md"):
-        text = _read_text(path)
-        for raw in PROMPT_INCLUDE_RE.findall(text):
-            include_rel = _normalize_rel(raw)
-            refs.add(_normalize_rel((Path("tests/repo_tools/e2e_prompt") / include_rel).as_posix()))
-    return refs
-
-
 def _source_kind(rel_path: str) -> str:
     if rel_path.startswith("tests/"):
         return "test"
@@ -315,11 +301,7 @@ def _skill_name_to_node_id(skill_name: str, skill_infos: Mapping[str, Dict[str, 
 
 def _build_revision_payload(root: Path, *, generated_at: Optional[str] = None) -> Dict[str, Any]:
     plugin = _load_plugin_registry(root)
-    runtime_files = sorted(
-        path.relative_to(root).as_posix()
-        for path in root.glob("skills/*/runtime/**/*.py")
-        if not path.name.startswith("_")
-    )
+    runtime_files = sorted(path.relative_to(root).as_posix() for path in root.glob("skills/*/runtime/**/*.py"))
     runtime_set = set(runtime_files)
 
     nodes: Dict[str, Dict[str, Any]] = {}
@@ -553,7 +535,18 @@ def _build_revision_payload(root: Path, *, generated_at: Optional[str] = None) -
             }
         )
 
-    # Keep topology audit focused on reachability and dangling references only.
+    # Path mention index for conservative safe detection.
+    all_repo_files = sorted(path.relative_to(root).as_posix() for path in _iter_files(root))
+    mention_index: Dict[str, Set[str]] = {rel: set() for rel in all_repo_files}
+    for target_rel in all_repo_files:
+        for source_rel, text in file_text_cache.items():
+            if source_rel == target_rel:
+                continue
+            if target_rel in text:
+                mention_index.setdefault(target_rel, set()).add(source_rel)
+
+    # Unused triage: safe (conservative) + candidates.
+    safe_items: List[Dict[str, Any]] = []
     protected_paths: Set[str] = set(plugin["agents"])
     for entry in plugin["skills"]:
         rel = _normalize_rel(entry)
@@ -566,6 +559,33 @@ def _build_revision_payload(root: Path, *, generated_at: Optional[str] = None) -
     protected_paths.update(hook_scripts)
     protected_paths.update(path.relative_to(root).as_posix() for path in root.glob("skills/*/templates/*") if path.is_file())
     protected_paths.update(path.relative_to(root).as_posix() for path in root.glob("skills/*/CONTRACT.yaml"))
+    protected_paths.update(path.relative_to(root).as_posix() for path in root.glob("skills/aidd-core/runtime/schemas/**/*") if path.is_file())
+
+    for rel in sorted(all_repo_files):
+        if not (rel.startswith("docs/") or rel.startswith("dev/") or rel in ROOT_DOC_FILES):
+            continue
+        if rel in protected_paths:
+            continue
+        if rel.startswith("tests/"):
+            continue
+        incoming = incoming_by_path.get(rel, [])
+        mentions = sorted(mention_index.get(rel, set()))
+        if incoming or mentions:
+            continue
+        safe_items.append(
+            {
+                "path": rel,
+                "reason": "no inbound references in graph or textual mentions",
+                "confidence": "high",
+                "risk": "low",
+                "proposed_action": "delete",
+                "required_checks": [
+                    "tests/repo_tools/ci-lint.sh",
+                    "tests/repo_tools/smoke-workflow.sh",
+                ],
+            }
+        )
+
     candidates: List[Dict[str, Any]] = []
 
     # Candidate 1: detached agents (registry exists, not reachable from user command chain).
@@ -587,6 +607,11 @@ def _build_revision_payload(root: Path, *, generated_at: Optional[str] = None) -
                 "reason": "agent is present in plugin registry but unreachable from user-invocable stage chain",
                 "confidence": "high",
                 "risk": "medium",
+                "proposed_action": "archive",
+                "required_checks": [
+                    "python3 tests/repo_tools/lint-prompts.py --root .",
+                    "tests/repo_tools/ci-lint.sh",
+                ],
             }
         )
 
@@ -609,22 +634,12 @@ def _build_revision_payload(root: Path, *, generated_at: Optional[str] = None) -
                 "reason": "draft document contains runtime paths that do not exist in repository",
                 "confidence": "high",
                 "risk": "low",
+                "proposed_action": "archive",
+                "required_checks": [
+                    "confirm roadmap ownership and whether doc must remain discoverable",
+                    "tests/repo_tools/ci-lint.sh",
+                ],
                 "missing_runtime_paths": missing,
-            }
-        )
-
-    prompt_include_refs = _collect_prompt_include_refs(root)
-    for include_path in sorted(root.glob("tests/repo_tools/e2e_prompt/includes/*.md")):
-        rel = include_path.relative_to(root).as_posix()
-        if rel in prompt_include_refs:
-            continue
-        candidates.append(
-            {
-                "path": rel,
-                "kind": "orphan_prompt_include",
-                "reason": "prompt include fragment is not referenced by any rendered prompt source",
-                "confidence": "high",
-                "risk": "low",
             }
         )
 
@@ -636,12 +651,39 @@ def _build_revision_payload(root: Path, *, generated_at: Optional[str] = None) -
             dedup_candidates[key] = item
     candidates = [dedup_candidates[key] for key in sorted(dedup_candidates)]
 
+    actions: List[Dict[str, Any]] = []
+    order = 1
+    for item in safe_items:
+        actions.append(
+            {
+                "order": order,
+                "target": item["path"],
+                "proposed_action": item["proposed_action"],
+                "reason": item["reason"],
+                "risk": item["risk"],
+                "required_checks": item["required_checks"],
+            }
+        )
+        order += 1
+    for item in candidates:
+        actions.append(
+            {
+                "order": order,
+                "target": item["path"],
+                "proposed_action": item["proposed_action"],
+                "reason": item["reason"],
+                "risk": item["risk"],
+                "required_checks": item["required_checks"],
+            }
+        )
+        order += 1
+
     cleanup_plan = {
-        "policy": "reachability_and_dangling_only",
-        "summary": "No auto-delete recommendations. Review only reachability gaps and dangling references.",
-        "actions": [],
+        "policy": "conservative_no_autodelete",
+        "summary": "No immediate destructive cleanup; all entries require validation before merge.",
+        "actions": actions,
         "validation_commands": [
-            "python3 tests/repo_tools/repo_topology_audit.py --repo-root . --output-json /tmp/repo-revision.graph.json --output-md /tmp/repo-revision.md --output-cleanup /tmp/repo-cleanup-plan.json",
+            "python3 tests/repo_tools/repo_topology_audit.py --repo-root . --output-json docs/revision/repo-revision.graph.json --output-md docs/revision/repo-revision.md --output-cleanup docs/revision/repo-cleanup-plan.json",
             "tests/repo_tools/ci-lint.sh",
             "tests/repo_tools/smoke-workflow.sh",
         ],
@@ -696,7 +738,7 @@ def _build_revision_payload(root: Path, *, generated_at: Optional[str] = None) -
         ),
         "metrics": metrics,
         "unused": {
-            "safe": [],
+            "safe": sorted(safe_items, key=lambda item: str(item.get("path", ""))),
             "candidates": candidates,
         },
         "cleanup_plan": cleanup_plan,
@@ -795,7 +837,7 @@ def _render_markdown(payload: Mapping[str, Any]) -> str:
     lines: List[str] = []
     lines.append("# Repository Revision Report")
     lines.append("")
-    lines.append("> INTERNAL/DEV-ONLY: generated maintainer report for repository topology, reachability, and dangling references.")
+    lines.append("> INTERNAL/DEV-ONLY: generated maintainer report for repository topology and cleanup planning.")
     lines.append("")
     lines.append("Owner: feature-dev-aidd")
     generated_at = str(meta.get("generated_at", ""))
@@ -962,27 +1004,21 @@ def _format_output_path(path: Path, root: Path) -> str:
 
 
 def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Generate repository topology graph with reachability and dangling-reference findings.")
-    parser.add_argument(
-        "--repo-root",
-        "--root",
-        dest="repo_root",
-        default=".",
-        help="Repository root path.",
-    )
+    parser = argparse.ArgumentParser(description="Generate repository topology graph + unused triage + cleanup plan.")
+    parser.add_argument("--repo-root", default=".", help="Repository root path.")
     parser.add_argument(
         "--output-json",
-        default="/tmp/repo-revision.graph.json",
+        default="docs/revision/repo-revision.graph.json",
         help="Output JSON graph path.",
     )
     parser.add_argument(
         "--output-md",
-        default="/tmp/repo-revision.md",
+        default="docs/revision/repo-revision.md",
         help="Output markdown report path.",
     )
     parser.add_argument(
         "--output-cleanup",
-        default="/tmp/repo-cleanup-plan.json",
+        default="docs/revision/repo-cleanup-plan.json",
         help="Output cleanup-plan JSON path.",
     )
     return parser.parse_args(argv)

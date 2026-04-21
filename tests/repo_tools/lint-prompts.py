@@ -289,9 +289,9 @@ INDEX_REQUIRED_FIELDS = [
     "checks",
 ]
 
-POLICY_DOC = Path("docs/skill-authoring.md")
-BASELINE_JSON_PRIMARY = Path("aidd/reports/migrations/stage_skills_frontmatter.json")
-BASELINE_JSON_FALLBACK = Path("docs/migrations/stage_skills_frontmatter.json")
+POLICY_DOC = Path("docs/skill-language.md")
+BASELINE_JSON_PRIMARY = Path("aidd/reports/migrations/commands_to_skills_frontmatter.json")
+BASELINE_JSON_FALLBACK = Path("docs/migrations/commands_to_skills_frontmatter.json")
 LEGACY_BASH_POLICY_ENV = "AIDD_BASH_LEGACY_POLICY"
 LEGACY_BASH_POLICIES = {"allow", "warn", "error"}
 
