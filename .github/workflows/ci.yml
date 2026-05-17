@@ -245,17 +245,17 @@ jobs:
 
       - name: Initialize CodeQL
         uses: >-
-          github/codeql-action/init@0d579ffd059c29b07949a3cce3983f0780820c98
+          github/codeql-action/init@9e0d7b8d25671d64c341c19c0152d693099fb5ba
         with:
           languages: python
 
       - name: Autobuild
         uses: >-
-          github/codeql-action/autobuild@0d579ffd059c29b07949a3cce3983f0780820c98
+          github/codeql-action/autobuild@9e0d7b8d25671d64c341c19c0152d693099fb5ba
 
       - name: Analyze
         uses: >-
-          github/codeql-action/analyze@0d579ffd059c29b07949a3cce3983f0780820c98
+          github/codeql-action/analyze@9e0d7b8d25671d64c341c19c0152d693099fb5ba
 
       - name: Security rollout notice
         if: ${{ env.AIDD_SECURITY_ENFORCE != '1' }}
