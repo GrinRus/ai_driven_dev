@@ -255,7 +255,7 @@ jobs:
 
       - name: Analyze
         uses: >-
-          github/codeql-action/analyze@0d579ffd059c29b07949a3cce3983f0780820c98
+          github/codeql-action/analyze@54f647b7e1bb85c95cddabcd46b0c578ec92bc1a
 
       - name: Security rollout notice
         if: ${{ env.AIDD_SECURITY_ENFORCE != '1' }}
