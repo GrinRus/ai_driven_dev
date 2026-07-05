@@ -251,7 +251,7 @@ jobs:
 
       - name: Autobuild
         uses: >-
-          github/codeql-action/autobuild@0d579ffd059c29b07949a3cce3983f0780820c98
+          github/codeql-action/autobuild@54f647b7e1bb85c95cddabcd46b0c578ec92bc1a
 
       - name: Analyze
         uses: >-
