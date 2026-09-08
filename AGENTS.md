@@ -29,6 +29,7 @@ User‑гайд для workspace находится в `skills/aidd-core/templat
 - `AGENTS.md` (корень) — dev‑гайд для репозитория; `skills/aidd-core/templates/workspace-agents.md` — user‑гайд для проектов.
 - При изменении stage content: обновите `skills/*/templates/*` + `skills/aidd-init/runtime/init.py` seed map; `templates/aidd/**` меняйте только для bootstrap config/placeholders.
 - Workspace‑конфиги: `aidd/config/{gates.json,conventions.json,context_gc.json,allowed-deps.txt}` (источник — `templates/aidd/config/`).
+- Default context-GC limit: `256000` tokens (`hooks/hooklib.py` fallback and `templates/aidd/config/context_gc.json`). Idempotent init preserves an existing `aidd/config/context_gc.json`; workspaces created before this default change must set `context_limits.max_context_tokens` to `256000` explicitly.
 - Artifact truth policy lives in `aidd/config/gates.json -> artifact_truth`; default rollout is `soft`.
 - Hook wiring: `hooks/hooks.json` — обновляйте при добавлении/удалении хуков.
 - Permissions/cadence: `.claude/settings.json` в корне workspace (без `aidd/.claude`).
