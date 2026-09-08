@@ -52,9 +52,10 @@ Optional for loop mode:
 
 ## Update
 ```text
+/plugin marketplace update aidd-local
 /plugin update feature-dev-aidd@aidd-local
 ```
-Restart the Claude Code session after update.
+For an already configured marketplace, refresh its cache first, then update the plugin. Restart the Claude Code session after update.
 
 ## Troubleshooting
 ### New slash commands are missing after update

@@ -3,6 +3,11 @@
 ## Unreleased
 - No user-facing changes yet.
 
+## 0.1.2 - 2026-09-08
+- Raised the default context-GC limit from `128000` to `256000` tokens in the runtime fallback and workspace bootstrap template.
+- Existing workspaces with an explicit `aidd/config/context_gc.json` keep their configured value; set `context_limits.max_context_tokens` to `256000` to adopt the new default there.
+- Clarified the marketplace refresh step in the installation/update instructions so existing installations do not remain on a stale release.
+
 ## 0.1.1 - 2026-04-17
 - Runtime and audit stabilization closure for waves `120`, `121`, `136` (core contracts, prompt/audit determinism, release-gate alignment).
 - Wave 148 artifact truthfulness hardening for non-research surfaces:
