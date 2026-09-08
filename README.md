@@ -52,9 +52,10 @@ Self-hosted канал обновляется только через immutable 
 
 ## Обновление
 ```text
+/plugin marketplace update aidd-local
 /plugin update feature-dev-aidd@aidd-local
 ```
-После обновления перезапустите сессию Claude Code.
+Для уже зарегистрированного marketplace сначала обновите его cache, затем обновите plugin. После обновления перезапустите сессию Claude Code.
 
 ## Диагностика
 ### После обновления не видны новые слэш-команды

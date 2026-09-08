@@ -11,7 +11,7 @@
   },
   "context_limits": {
     "mode": "tokens",
-    "max_context_tokens": 128000,
+    "max_context_tokens": 256000,
     "autocompact_buffer_tokens": 16000,
     "reserve_next_turn_tokens": 8000,
     "warn_pct_of_usable": 80,

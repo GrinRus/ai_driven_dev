@@ -28,7 +28,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     },
     "context_limits": {
         "mode": "tokens",
-        "max_context_tokens": 128_000,
+        "max_context_tokens": 256_000,
         "autocompact_buffer_tokens": 16_000,
         "reserve_next_turn_tokens": 8_000,
         "warn_pct_of_usable": 80,
